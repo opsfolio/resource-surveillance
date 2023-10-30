@@ -1,5 +1,3 @@
-use hostname;
-
 pub struct Device {
     name: String,
 }

@@ -53,7 +53,7 @@ impl FileSysResourceSupplier {
 impl ResourceSupplier<Resource<Vec<u8>>> for FileSysResourceSupplier {
     fn resource(&self, uri: &str) -> ResourceSupplied<Resource<Vec<u8>>> {
         let path = Path::new(uri);
-        let metadata = match fs::metadata(&path) {
+        let metadata = match fs::metadata(path) {
             Ok(metadata) => metadata,
             Err(_) => return ResourceSupplied::NotFound(uri.to_string()),
         };
@@ -62,7 +62,7 @@ impl ResourceSupplier<Resource<Vec<u8>>> for FileSysResourceSupplier {
             return ResourceSupplied::NotFile(uri.to_string());
         }
 
-        let file = match fs::File::open(&path) {
+        let file = match fs::File::open(path) {
             Ok(file) => file,
             Err(_) => return ResourceSupplied::Error(Box::new(IoError::last_os_error())),
         };
@@ -81,11 +81,11 @@ impl ResourceSupplier<Resource<Vec<u8>>> for FileSysResourceSupplier {
         let created_at = metadata
             .created()
             .ok()
-            .map(|systime| DateTime::<Utc>::from(systime));
+            .map(DateTime::<Utc>::from);
         let last_modified_at = metadata
             .modified()
             .ok()
-            .map(|systime| DateTime::<Utc>::from(systime));
+            .map(DateTime::<Utc>::from);
         let content_provider: Option<
             Box<dyn Fn() -> Result<Box<dyn ResourceContent<Vec<u8>>>, Box<dyn Error>>>,
         >;
@@ -222,7 +222,7 @@ impl FileSysResourcesWalker {
                         // Create a uniform resource for each valid resource.
                         match self.uniform_resource_supplier.uniform_resource(resource) {
                             Ok(uniform_resource) => encounter_resource(*uniform_resource),
-                            Err(e) => return Err(e.into()), // Handle error according to your policy
+                            Err(e) => return Err(e), // Handle error according to your policy
                         }
                     }
                     ResourceSupplied::Error(e) => return Err(e),
