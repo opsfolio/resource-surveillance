@@ -89,7 +89,7 @@ impl ContentResourceSupplier<ContentResource> for FileSysResourceSupplier {
             .map(|s| s.to_string())
             .unwrap_or_default();
 
-        if (self.is_resource_ignored)(&path, &nature, &file) {
+        if (self.is_resource_ignored)(path, &nature, &file) {
             return ContentResourceSupplied::Ignored(uri.to_string());
         }
 
@@ -103,7 +103,7 @@ impl ContentResourceSupplier<ContentResource> for FileSysResourceSupplier {
             Box<dyn Fn() -> Result<Box<dyn TextContent>, Box<dyn Error>>>,
         >;
 
-        if (self.is_content_available)(&path, &nature, &file) {
+        if (self.is_content_available)(path, &nature, &file) {
             let uri_clone_cbs = uri.to_string(); // Clone for the first closure
             content_binary_supplier = Some(Box::new(
                 move || -> Result<Box<dyn BinaryContent>, Box<dyn Error>> {
@@ -166,28 +166,28 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
             match nature.as_str() {
                 // Match different file extensions
                 "html" => {
-                    let html = HTML {
+                    let html = HtmlResource {
                         resource,
                         head_meta: HashMap::new(),
                     };
                     Ok(Box::new(UniformResource::HTML(html)))
                 }
                 "json" => {
-                    let json = JSON {
+                    let json = JsonResource {
                         resource,
                         content: None,
                     };
                     Ok(Box::new(UniformResource::JSON(json)))
                 }
                 "md" | "mdx" => {
-                    let markdown = Markdown {
+                    let markdown = MarkdownResource {
                         resource,
                         frontmatter: None,
                     };
                     Ok(Box::new(UniformResource::Markdown(markdown)))
                 }
                 "png" | "gif" | "tiff" | "jpg" | "jpeg" => {
-                    let image = Image {
+                    let image = ImageResource {
                         resource,
                         image_meta: HashMap::new(),
                     };
