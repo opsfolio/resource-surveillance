@@ -5,20 +5,20 @@ use std::io::{Error as IoError, Read};
 use std::path::Path;
 
 use chrono::{DateTime, Utc};
-// use regex::RegexSet;
+use regex::RegexSet;
 use sha1::{Digest, Sha1};
 use walkdir::WalkDir;
 
 use crate::resource::*;
 use crate::uniform::*;
 
-pub struct BinaryContent {
+pub struct Content {
     hash: String,
     binary: Vec<u8>,
     text: String,
 }
 
-impl ResourceContent<Vec<u8>> for BinaryContent {
+impl ResourceContent<Vec<u8>> for Content {
     fn content_digest_hash(&self, _target: Vec<u8>) -> &str {
         &self.hash
     }
@@ -32,16 +32,18 @@ impl ResourceContent<Vec<u8>> for BinaryContent {
     }
 }
 
+pub type FileSysResourceQualifier = Box<dyn Fn(&Path, &str, &fs::File) -> bool>;
+
 // Implementing the main logic
 pub struct FileSysResourceSupplier {
-    is_resource_ignored: Box<dyn Fn(&fs::File, &str, &fs::Metadata) -> bool>,
-    is_content_available: Box<dyn Fn(&fs::File, &str, &fs::Metadata) -> bool>,
+    is_resource_ignored: FileSysResourceQualifier,
+    is_content_available: FileSysResourceQualifier,
 }
 
 impl FileSysResourceSupplier {
     pub fn new(
-        is_resource_ignored: Box<dyn Fn(&fs::File, &str, &fs::Metadata) -> bool>,
-        is_content_available: Box<dyn Fn(&fs::File, &str, &fs::Metadata) -> bool>,
+        is_resource_ignored: FileSysResourceQualifier,
+        is_content_available: FileSysResourceQualifier,
     ) -> Self {
         Self {
             is_resource_ignored,
@@ -73,24 +75,18 @@ impl ResourceSupplier<Resource<Vec<u8>>> for FileSysResourceSupplier {
             .map(|s| s.to_string())
             .unwrap_or_default();
 
-        if (self.is_resource_ignored)(&file, &nature, &metadata) {
+        if (self.is_resource_ignored)(&path, &nature, &file) {
             return ResourceSupplied::Ignored;
         }
 
         let file_size = metadata.len();
-        let created_at = metadata
-            .created()
-            .ok()
-            .map(DateTime::<Utc>::from);
-        let last_modified_at = metadata
-            .modified()
-            .ok()
-            .map(DateTime::<Utc>::from);
+        let created_at = metadata.created().ok().map(DateTime::<Utc>::from);
+        let last_modified_at = metadata.modified().ok().map(DateTime::<Utc>::from);
         let content_provider: Option<
             Box<dyn Fn() -> Result<Box<dyn ResourceContent<Vec<u8>>>, Box<dyn Error>>>,
         >;
 
-        if (self.is_content_available)(&file, &nature, &metadata) {
+        if (self.is_content_available)(&path, &nature, &file) {
             let uri_clone = uri.to_string(); // Clone for the closure
             content_provider = Some(Box::new(
                 move || -> Result<Box<dyn ResourceContent<Vec<u8>>>, Box<dyn Error>> {
@@ -106,7 +102,7 @@ impl ResourceSupplier<Resource<Vec<u8>>> for FileSysResourceSupplier {
 
                     let text = String::from_utf8_lossy(&content).into_owned();
 
-                    Ok(Box::new(BinaryContent {
+                    Ok(Box::new(Content {
                         hash,
                         binary: content,
                         text,
@@ -177,8 +173,6 @@ impl UniformResourceSupplier<Resource<Vec<u8>>> for FileSysUniformResourceSuppli
 
 pub struct FileSysResourcesWalker {
     root_paths: Vec<String>,
-    // ignore_paths: RegexSet,    // Now a RegexSet
-    // inspect_content: RegexSet, // Now a RegexSet
     resource_supplier: FileSysResourceSupplier,
     uniform_resource_supplier: FileSysUniformResourceSupplier,
 }
@@ -186,22 +180,25 @@ pub struct FileSysResourcesWalker {
 impl FileSysResourcesWalker {
     pub fn new(
         root_paths: &Vec<String>,
-        _ignore_paths: &Vec<regex::Regex>, // Accept Vec<Regex>, but we'll convert it inside
-        _inspect_content: &Vec<regex::Regex>, // Accept Vec<Regex>, but we'll convert it inside
+        ignore_paths_regexs: &Vec<regex::Regex>, // Accept Vec<Regex>, but we'll convert it inside
+        inspect_content_regexs: &Vec<regex::Regex>, // Accept Vec<Regex>, but we'll convert it inside
     ) -> Result<Self, regex::Error> {
         // Constructor can fail due to RegexSet::new
-        // let ignore_set = RegexSet::new(ignore_paths.iter().map(|r| r.as_str()))?;
-        // let inspect_set = RegexSet::new(inspect_content.iter().map(|r| r.as_str()))?;
+        let ignore_paths = RegexSet::new(ignore_paths_regexs.iter().map(|r| r.as_str()))?;
+        let inspect_content_paths =
+            RegexSet::new(inspect_content_regexs.iter().map(|r| r.as_str()))?;
+
         let resource_supplier = FileSysResourceSupplier::new(
-            Box::new(|_file, _nature, _metadata| false), // TODO: use ignore_paths
-            Box::new(|_file, _nature, _metadata| false), // TODO: use inspect_content
+            Box::new(move |path, _nature, _file| ignore_paths.is_match(path.to_str().unwrap())),
+            Box::new(move |path, _nature, _file| {
+                inspect_content_paths.is_match(path.to_str().unwrap())
+            }),
         );
+
         let uniform_resource_supplier = FileSysUniformResourceSupplier {};
 
         Ok(Self {
             root_paths: root_paths.clone(),
-            // ignore_paths: ignore_set,
-            // inspect_content: inspect_set,
             resource_supplier,
             uniform_resource_supplier,
         })
