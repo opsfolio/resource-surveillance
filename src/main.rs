@@ -145,10 +145,10 @@ fn main() {
                 Ok(walker) => {
                     let _ = walker.walk_resources(|resource: UniformResource<ContentResource>| {
                         match resource {
-                            UniformResource::HTML(html) => {
+                            UniformResource::Html(html) => {
                                 println!("HTML: {:?} {:?}", html.resource.uri, html.resource.nature)
                             }
-                            UniformResource::JSON(json) => {
+                            UniformResource::Json(json) => {
                                 println!("JSON: {:?} {:?}", json.resource.uri, json.resource.nature)
                             }
                             UniformResource::Image(img) => {

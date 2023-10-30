@@ -170,14 +170,14 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
                         resource,
                         head_meta: HashMap::new(),
                     };
-                    Ok(Box::new(UniformResource::HTML(html)))
+                    Ok(Box::new(UniformResource::Html(html)))
                 }
                 "json" => {
                     let json = JsonResource {
                         resource,
                         content: None,
                     };
-                    Ok(Box::new(UniformResource::JSON(json)))
+                    Ok(Box::new(UniformResource::Json(json)))
                 }
                 "md" | "mdx" => {
                     let markdown = MarkdownResource {

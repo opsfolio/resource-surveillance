@@ -62,8 +62,8 @@ pub enum UniformResource<Resource> {
     Unknown(Resource),
     Image(ImageResource<Resource>),
     Markdown(MarkdownResource<Resource>),
-    JSON(JsonResource<Resource>),
-    HTML(HtmlResource<Resource>),
+    Json(JsonResource<Resource>),
+    Html(HtmlResource<Resource>),
 }
 
 pub trait UniformResourceSupplier<Resource> {
