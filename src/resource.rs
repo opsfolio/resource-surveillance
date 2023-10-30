@@ -2,23 +2,30 @@ use std::error::Error;
 
 use chrono::{DateTime, Utc};
 
-pub trait ResourceContent<T> {
-    fn content_digest_hash(&self, target: T) -> &str;
-    fn content_binary(&self, target: T) -> &Vec<u8>;
-    fn content_text(&self, target: T) -> &str;
+pub trait ResourceBinaryContent {
+    fn content_digest_hash(&self) -> &str;
+    fn content_binary(&self) -> &Vec<u8>;
 }
 
-pub struct Resource<T> {
+pub trait ResourceTextContent {
+    fn content_digest_hash(&self) -> &str;
+    fn content_text(&self) -> &str;
+}
+
+pub struct Resource {
     pub uri: String,
     pub nature: Option<String>,
     pub size: Option<u64>,
     pub created_at: Option<DateTime<Utc>>,
     pub last_modified_at: Option<DateTime<Utc>>,
-    pub content: Option<Box<dyn Fn() -> Result<Box<dyn ResourceContent<T>>, Box<dyn Error>>>>,
+    pub content_binary_supplier:
+        Option<Box<dyn Fn() -> Result<Box<dyn ResourceBinaryContent>, Box<dyn Error>>>>,
+    pub content_text_supplier:
+        Option<Box<dyn Fn() -> Result<Box<dyn ResourceTextContent>, Box<dyn Error>>>>,
 }
 
 pub enum ResourceSupplied<T> {
-    Ignored,
+    Ignored(String),
     NotFound(String),
     NotFile(String),
     Resource(T),

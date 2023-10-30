@@ -12,22 +12,32 @@ use walkdir::WalkDir;
 use crate::resource::*;
 use crate::uniform::*;
 
-pub struct Content {
+pub struct FileBinaryContent {
     hash: String,
     binary: Vec<u8>,
-    text: String,
 }
 
-impl ResourceContent<Vec<u8>> for Content {
-    fn content_digest_hash(&self, _target: Vec<u8>) -> &str {
+impl ResourceBinaryContent for FileBinaryContent {
+    fn content_digest_hash(&self) -> &str {
         &self.hash
     }
 
-    fn content_binary(&self, _target: Vec<u8>) -> &Vec<u8> {
+    fn content_binary(&self) -> &Vec<u8> {
         &self.binary
     }
+}
 
-    fn content_text(&self, _target: Vec<u8>) -> &str {
+pub struct FileTextContent {
+    hash: String,
+    text: String,
+}
+
+impl ResourceTextContent for FileTextContent {
+    fn content_digest_hash(&self) -> &str {
+        &self.hash
+    }
+
+    fn content_text(&self) -> &str {
         &self.text
     }
 }
@@ -52,9 +62,14 @@ impl FileSysResourceSupplier {
     }
 }
 
-impl ResourceSupplier<Resource<Vec<u8>>> for FileSysResourceSupplier {
-    fn resource(&self, uri: &str) -> ResourceSupplied<Resource<Vec<u8>>> {
-        let path = Path::new(uri);
+impl ResourceSupplier<Resource> for FileSysResourceSupplier {
+    fn resource(&self, uri: &str) -> ResourceSupplied<Resource> {
+        let path = match std::fs::canonicalize(uri) {
+            Ok(p) => p,
+            Err(_) => return ResourceSupplied::NotFound(uri.to_string()),
+        };
+        let path = &path;
+
         let metadata = match fs::metadata(path) {
             Ok(metadata) => metadata,
             Err(_) => return ResourceSupplied::NotFound(uri.to_string()),
@@ -76,61 +91,78 @@ impl ResourceSupplier<Resource<Vec<u8>>> for FileSysResourceSupplier {
             .unwrap_or_default();
 
         if (self.is_resource_ignored)(&path, &nature, &file) {
-            return ResourceSupplied::Ignored;
+            return ResourceSupplied::Ignored(uri.to_string());
         }
 
         let file_size = metadata.len();
         let created_at = metadata.created().ok().map(DateTime::<Utc>::from);
         let last_modified_at = metadata.modified().ok().map(DateTime::<Utc>::from);
-        let content_provider: Option<
-            Box<dyn Fn() -> Result<Box<dyn ResourceContent<Vec<u8>>>, Box<dyn Error>>>,
+        let content_binary_supplier: Option<
+            Box<dyn Fn() -> Result<Box<dyn ResourceBinaryContent>, Box<dyn Error>>>,
+        >;
+        let content_text_supplier: Option<
+            Box<dyn Fn() -> Result<Box<dyn ResourceTextContent>, Box<dyn Error>>>,
         >;
 
         if (self.is_content_available)(&path, &nature, &file) {
-            let uri_clone = uri.to_string(); // Clone for the closure
-            content_provider = Some(Box::new(
-                move || -> Result<Box<dyn ResourceContent<Vec<u8>>>, Box<dyn Error>> {
-                    let mut content = Vec::new();
-                    let mut file = fs::File::open(&uri_clone)?;
-                    file.read_to_end(&mut content)?;
+            let uri_clone_cbs = uri.to_string(); // Clone for the first closure
+            content_binary_supplier = Some(Box::new(
+                move || -> Result<Box<dyn ResourceBinaryContent>, Box<dyn Error>> {
+                    let mut binary = Vec::new();
+                    let mut file = fs::File::open(&uri_clone_cbs)?;
+                    file.read_to_end(&mut binary)?;
 
                     let hash = {
                         let mut hasher = Sha1::new();
-                        hasher.update(&content);
+                        hasher.update(&binary);
                         format!("{:x}", hasher.finalize())
                     };
 
-                    let text = String::from_utf8_lossy(&content).into_owned();
+                    Ok(Box::new(FileBinaryContent { hash, binary })
+                        as Box<dyn ResourceBinaryContent>)
+                },
+            ));
 
-                    Ok(Box::new(Content {
-                        hash,
-                        binary: content,
-                        text,
-                    }) as Box<dyn ResourceContent<Vec<u8>>>)
+            let uri_clone_cts = uri.to_string(); // Clone for the second closure
+            content_text_supplier = Some(Box::new(
+                move || -> Result<Box<dyn ResourceTextContent>, Box<dyn Error>> {
+                    let mut text = String::new();
+                    let mut file = fs::File::open(&uri_clone_cts)?;
+                    file.read_to_string(&mut text)?;
+
+                    let hash = {
+                        let mut hasher = Sha1::new();
+                        hasher.update(&text);
+                        format!("{:x}", hasher.finalize())
+                    };
+
+                    Ok(Box::new(FileTextContent { hash, text }) as Box<dyn ResourceTextContent>)
                 },
             ));
         } else {
-            content_provider = None;
+            content_binary_supplier = None;
+            content_text_supplier = None;
         }
 
         ResourceSupplied::Resource(Resource {
-            uri: uri.to_string(),
+            uri: String::from(path.to_str().unwrap()),
             nature: Some(nature),
             size: Some(file_size),
             created_at,
             last_modified_at,
-            content: content_provider,
+            content_binary_supplier,
+            content_text_supplier,
         })
     }
 }
 
 pub struct FileSysUniformResourceSupplier;
 
-impl UniformResourceSupplier<Resource<Vec<u8>>> for FileSysUniformResourceSupplier {
+impl UniformResourceSupplier<Resource> for FileSysUniformResourceSupplier {
     fn uniform_resource(
         &self,
-        resource: Resource<Vec<u8>>,
-    ) -> Result<Box<UniformResource<Resource<Vec<u8>>>>, Box<dyn Error>> {
+        resource: Resource,
+    ) -> Result<Box<UniformResource<Resource>>, Box<dyn Error>> {
         // Based on the nature of the resource, we determine the type of UniformResource
         if let Some(nature) = &resource.nature {
             match nature.as_str() {
@@ -206,7 +238,7 @@ impl FileSysResourcesWalker {
 
     pub fn walk_resources<F>(&self, mut encounter_resource: F) -> Result<(), Box<dyn Error>>
     where
-        F: FnMut(UniformResource<Resource<Vec<u8>>>) + 'static,
+        F: FnMut(UniformResource<Resource>) + 'static,
     {
         for root in &self.root_paths {
             // Walk through each entry in the directory.
@@ -223,7 +255,7 @@ impl FileSysResourcesWalker {
                         }
                     }
                     ResourceSupplied::Error(e) => return Err(e),
-                    ResourceSupplied::Ignored => {}
+                    ResourceSupplied::Ignored(_) => {}
                     ResourceSupplied::NotFile(_) => {}
                     ResourceSupplied::NotFound(_) => {} // TODO: should this be an error?
                 }
@@ -259,8 +291,12 @@ mod tests {
 
         match result {
             ResourceSupplied::Resource(res) => {
-                let content = (res.content.unwrap())().expect("Error obtaining content");
-                assert_eq!(content.content_text(Vec::new()), "Hello, world!");
+                let cbin =
+                    (res.content_binary_supplier.unwrap())().expect("Error obtaining content");
+                assert_eq!(cbin.content_binary(), b"Hello, world!");
+                let ctext =
+                    (res.content_text_supplier.unwrap())().expect("Error obtaining content");
+                assert_eq!(ctext.content_text(), "Hello, world!");
             }
             _ => panic!("Unexpected result from resource()"),
         }

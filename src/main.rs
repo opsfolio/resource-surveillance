@@ -146,8 +146,8 @@ fn main() {
             match walker {
                 Ok(walker) => {
                     let _ =
-                        walker.walk_resources(|resource: UniformResource<Resource<Vec<u8>>>| {
-                            match resource {
+                        walker.walk_resources(
+                            |resource: UniformResource<Resource>| match resource {
                                 UniformResource::HTML(html) => {
                                     println!(
                                         "HTML: {:?} {:?}",
@@ -175,8 +175,8 @@ fn main() {
                                 UniformResource::Unknown(unknown) => {
                                     println!("Unknown: {:?} {:?}", unknown.uri, unknown.nature)
                                 }
-                            }
-                        });
+                            },
+                        );
                 }
                 Err(_) => {
                     print!("Error preparing walker")
