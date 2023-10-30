@@ -96,12 +96,8 @@ impl ContentResourceSupplier<ContentResource> for FileSysResourceSupplier {
         let file_size = metadata.len();
         let created_at = metadata.created().ok().map(DateTime::<Utc>::from);
         let last_modified_at = metadata.modified().ok().map(DateTime::<Utc>::from);
-        let content_binary_supplier: Option<
-            Box<dyn Fn() -> Result<Box<dyn BinaryContent>, Box<dyn Error>>>,
-        >;
-        let content_text_supplier: Option<
-            Box<dyn Fn() -> Result<Box<dyn TextContent>, Box<dyn Error>>>,
-        >;
+        let content_binary_supplier: Option<BinaryContentSupplier>;
+        let content_text_supplier: Option<TextContentSupplier>;
 
         if (self.is_content_available)(path, &nature, &file) {
             let uri_clone_cbs = uri.to_string(); // Clone for the first closure

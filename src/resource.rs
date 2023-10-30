@@ -14,16 +14,17 @@ pub trait TextContent {
     fn content_text(&self) -> &str;
 }
 
+pub type BinaryContentSupplier = Box<dyn Fn() -> Result<Box<dyn BinaryContent>, Box<dyn Error>>>;
+pub type TextContentSupplier = Box<dyn Fn() -> Result<Box<dyn TextContent>, Box<dyn Error>>>;
+
 pub struct ContentResource {
     pub uri: String,
     pub nature: Option<String>,
     pub size: Option<u64>,
     pub created_at: Option<DateTime<Utc>>,
     pub last_modified_at: Option<DateTime<Utc>>,
-    pub content_binary_supplier:
-        Option<Box<dyn Fn() -> Result<Box<dyn BinaryContent>, Box<dyn Error>>>>,
-    pub content_text_supplier:
-        Option<Box<dyn Fn() -> Result<Box<dyn TextContent>, Box<dyn Error>>>>,
+    pub content_binary_supplier: Option<BinaryContentSupplier>,
+    pub content_text_supplier: Option<TextContentSupplier>,
 }
 
 pub enum ContentResourceSupplied<T> {
