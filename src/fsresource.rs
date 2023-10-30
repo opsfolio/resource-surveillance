@@ -10,14 +10,13 @@ use sha1::{Digest, Sha1};
 use walkdir::WalkDir;
 
 use crate::resource::*;
-use crate::uniform::*;
 
 pub struct FileBinaryContent {
     hash: String,
     binary: Vec<u8>,
 }
 
-impl ResourceBinaryContent for FileBinaryContent {
+impl BinaryContent for FileBinaryContent {
     fn content_digest_hash(&self) -> &str {
         &self.hash
     }
@@ -32,7 +31,7 @@ pub struct FileTextContent {
     text: String,
 }
 
-impl ResourceTextContent for FileTextContent {
+impl TextContent for FileTextContent {
     fn content_digest_hash(&self) -> &str {
         &self.hash
     }
@@ -62,26 +61,26 @@ impl FileSysResourceSupplier {
     }
 }
 
-impl ResourceSupplier<Resource> for FileSysResourceSupplier {
-    fn resource(&self, uri: &str) -> ResourceSupplied<Resource> {
+impl ContentResourceSupplier<ContentResource> for FileSysResourceSupplier {
+    fn content_resource(&self, uri: &str) -> ContentResourceSupplied<ContentResource> {
         let path = match std::fs::canonicalize(uri) {
             Ok(p) => p,
-            Err(_) => return ResourceSupplied::NotFound(uri.to_string()),
+            Err(_) => return ContentResourceSupplied::NotFound(uri.to_string()),
         };
         let path = &path;
 
         let metadata = match fs::metadata(path) {
             Ok(metadata) => metadata,
-            Err(_) => return ResourceSupplied::NotFound(uri.to_string()),
+            Err(_) => return ContentResourceSupplied::NotFound(uri.to_string()),
         };
 
         if !metadata.is_file() {
-            return ResourceSupplied::NotFile(uri.to_string());
+            return ContentResourceSupplied::NotFile(uri.to_string());
         }
 
         let file = match fs::File::open(path) {
             Ok(file) => file,
-            Err(_) => return ResourceSupplied::Error(Box::new(IoError::last_os_error())),
+            Err(_) => return ContentResourceSupplied::Error(Box::new(IoError::last_os_error())),
         };
 
         let nature = path
@@ -91,23 +90,23 @@ impl ResourceSupplier<Resource> for FileSysResourceSupplier {
             .unwrap_or_default();
 
         if (self.is_resource_ignored)(&path, &nature, &file) {
-            return ResourceSupplied::Ignored(uri.to_string());
+            return ContentResourceSupplied::Ignored(uri.to_string());
         }
 
         let file_size = metadata.len();
         let created_at = metadata.created().ok().map(DateTime::<Utc>::from);
         let last_modified_at = metadata.modified().ok().map(DateTime::<Utc>::from);
         let content_binary_supplier: Option<
-            Box<dyn Fn() -> Result<Box<dyn ResourceBinaryContent>, Box<dyn Error>>>,
+            Box<dyn Fn() -> Result<Box<dyn BinaryContent>, Box<dyn Error>>>,
         >;
         let content_text_supplier: Option<
-            Box<dyn Fn() -> Result<Box<dyn ResourceTextContent>, Box<dyn Error>>>,
+            Box<dyn Fn() -> Result<Box<dyn TextContent>, Box<dyn Error>>>,
         >;
 
         if (self.is_content_available)(&path, &nature, &file) {
             let uri_clone_cbs = uri.to_string(); // Clone for the first closure
             content_binary_supplier = Some(Box::new(
-                move || -> Result<Box<dyn ResourceBinaryContent>, Box<dyn Error>> {
+                move || -> Result<Box<dyn BinaryContent>, Box<dyn Error>> {
                     let mut binary = Vec::new();
                     let mut file = fs::File::open(&uri_clone_cbs)?;
                     file.read_to_end(&mut binary)?;
@@ -118,14 +117,13 @@ impl ResourceSupplier<Resource> for FileSysResourceSupplier {
                         format!("{:x}", hasher.finalize())
                     };
 
-                    Ok(Box::new(FileBinaryContent { hash, binary })
-                        as Box<dyn ResourceBinaryContent>)
+                    Ok(Box::new(FileBinaryContent { hash, binary }) as Box<dyn BinaryContent>)
                 },
             ));
 
             let uri_clone_cts = uri.to_string(); // Clone for the second closure
             content_text_supplier = Some(Box::new(
-                move || -> Result<Box<dyn ResourceTextContent>, Box<dyn Error>> {
+                move || -> Result<Box<dyn TextContent>, Box<dyn Error>> {
                     let mut text = String::new();
                     let mut file = fs::File::open(&uri_clone_cts)?;
                     file.read_to_string(&mut text)?;
@@ -136,7 +134,7 @@ impl ResourceSupplier<Resource> for FileSysResourceSupplier {
                         format!("{:x}", hasher.finalize())
                     };
 
-                    Ok(Box::new(FileTextContent { hash, text }) as Box<dyn ResourceTextContent>)
+                    Ok(Box::new(FileTextContent { hash, text }) as Box<dyn TextContent>)
                 },
             ));
         } else {
@@ -144,7 +142,7 @@ impl ResourceSupplier<Resource> for FileSysResourceSupplier {
             content_text_supplier = None;
         }
 
-        ResourceSupplied::Resource(Resource {
+        ContentResourceSupplied::Resource(ContentResource {
             uri: String::from(path.to_str().unwrap()),
             nature: Some(nature),
             size: Some(file_size),
@@ -158,11 +156,11 @@ impl ResourceSupplier<Resource> for FileSysResourceSupplier {
 
 pub struct FileSysUniformResourceSupplier;
 
-impl UniformResourceSupplier<Resource> for FileSysUniformResourceSupplier {
+impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier {
     fn uniform_resource(
         &self,
-        resource: Resource,
-    ) -> Result<Box<UniformResource<Resource>>, Box<dyn Error>> {
+        resource: ContentResource,
+    ) -> Result<Box<UniformResource<ContentResource>>, Box<dyn Error>> {
         // Based on the nature of the resource, we determine the type of UniformResource
         if let Some(nature) = &resource.nature {
             match nature.as_str() {
@@ -238,7 +236,7 @@ impl FileSysResourcesWalker {
 
     pub fn walk_resources<F>(&self, mut encounter_resource: F) -> Result<(), Box<dyn Error>>
     where
-        F: FnMut(UniformResource<Resource>) + 'static,
+        F: FnMut(UniformResource<ContentResource>) + 'static,
     {
         for root in &self.root_paths {
             // Walk through each entry in the directory.
@@ -246,18 +244,18 @@ impl FileSysResourcesWalker {
                 let uri = entry.path().to_string_lossy().into_owned();
 
                 // Use the ResourceSupplier to create a resource from the file.
-                match self.resource_supplier.resource(&uri) {
-                    ResourceSupplied::Resource(resource) => {
+                match self.resource_supplier.content_resource(&uri) {
+                    ContentResourceSupplied::Resource(resource) => {
                         // Create a uniform resource for each valid resource.
                         match self.uniform_resource_supplier.uniform_resource(resource) {
                             Ok(uniform_resource) => encounter_resource(*uniform_resource),
                             Err(e) => return Err(e), // Handle error according to your policy
                         }
                     }
-                    ResourceSupplied::Error(e) => return Err(e),
-                    ResourceSupplied::Ignored(_) => {}
-                    ResourceSupplied::NotFile(_) => {}
-                    ResourceSupplied::NotFound(_) => {} // TODO: should this be an error?
+                    ContentResourceSupplied::Error(e) => return Err(e),
+                    ContentResourceSupplied::Ignored(_) => {}
+                    ContentResourceSupplied::NotFile(_) => {}
+                    ContentResourceSupplied::NotFound(_) => {} // TODO: should this be an error?
                 }
             }
         }
@@ -287,10 +285,10 @@ mod tests {
         fs::write(test_file_path, test_data).expect("Unable to write test file");
 
         // Use the supplier to get a resource
-        let result = supplier.resource(test_file_path);
+        let result = supplier.content_resource(test_file_path);
 
         match result {
-            ResourceSupplied::Resource(res) => {
+            ContentResourceSupplied::Resource(res) => {
                 let cbin =
                     (res.content_binary_supplier.unwrap())().expect("Error obtaining content");
                 assert_eq!(cbin.content_binary(), b"Hello, world!");

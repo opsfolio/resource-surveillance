@@ -14,11 +14,9 @@ lazy_static! {
 
 mod fsresource;
 mod resource;
-mod uniform;
 
 use fsresource::*;
 use resource::*;
-use uniform::*;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -145,38 +143,25 @@ fn main() {
             let walker = FileSysResourcesWalker::new(root_path, ignore_entry, surveil_content);
             match walker {
                 Ok(walker) => {
-                    let _ =
-                        walker.walk_resources(
-                            |resource: UniformResource<Resource>| match resource {
-                                UniformResource::HTML(html) => {
-                                    println!(
-                                        "HTML: {:?} {:?}",
-                                        html.resource.uri, html.resource.nature
-                                    )
-                                }
-                                UniformResource::JSON(json) => {
-                                    println!(
-                                        "JSON: {:?} {:?}",
-                                        json.resource.uri, json.resource.nature
-                                    )
-                                }
-                                UniformResource::Image(img) => {
-                                    println!(
-                                        "Image: {:?} {:?}",
-                                        img.resource.uri, img.resource.nature
-                                    )
-                                }
-                                UniformResource::Markdown(md) => {
-                                    println!(
-                                        "Markdown: {:?} {:?}",
-                                        md.resource.uri, md.resource.nature
-                                    )
-                                }
-                                UniformResource::Unknown(unknown) => {
-                                    println!("Unknown: {:?} {:?}", unknown.uri, unknown.nature)
-                                }
-                            },
-                        );
+                    let _ = walker.walk_resources(|resource: UniformResource<ContentResource>| {
+                        match resource {
+                            UniformResource::HTML(html) => {
+                                println!("HTML: {:?} {:?}", html.resource.uri, html.resource.nature)
+                            }
+                            UniformResource::JSON(json) => {
+                                println!("JSON: {:?} {:?}", json.resource.uri, json.resource.nature)
+                            }
+                            UniformResource::Image(img) => {
+                                println!("Image: {:?} {:?}", img.resource.uri, img.resource.nature)
+                            }
+                            UniformResource::Markdown(md) => {
+                                println!("Markdown: {:?} {:?}", md.resource.uri, md.resource.nature)
+                            }
+                            UniformResource::Unknown(unknown) => {
+                                println!("Unknown: {:?} {:?}", unknown.uri, unknown.nature)
+                            }
+                        }
+                    });
                 }
                 Err(_) => {
                     print!("Error preparing walker")
