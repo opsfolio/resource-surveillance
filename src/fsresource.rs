@@ -205,9 +205,9 @@ pub struct FileSysResourcesWalker {
 
 impl FileSysResourcesWalker {
     pub fn new(
-        root_paths: &Vec<String>,
-        ignore_paths_regexs: &Vec<regex::Regex>, // Accept Vec<Regex>, but we'll convert it inside
-        inspect_content_regexs: &Vec<regex::Regex>, // Accept Vec<Regex>, but we'll convert it inside
+        root_paths: &[String],
+        ignore_paths_regexs: &[regex::Regex],
+        inspect_content_regexs: &[regex::Regex],
     ) -> Result<Self, regex::Error> {
         // Constructor can fail due to RegexSet::new
         let ignore_paths = RegexSet::new(ignore_paths_regexs.iter().map(|r| r.as_str()))?;
@@ -224,7 +224,7 @@ impl FileSysResourcesWalker {
         let uniform_resource_supplier = FileSysUniformResourceSupplier {};
 
         Ok(Self {
-            root_paths: root_paths.clone(),
+            root_paths: root_paths.to_owned(),
             resource_supplier,
             uniform_resource_supplier,
         })
