@@ -6,6 +6,8 @@
     "yzhang.markdown-all-in-one",
     "shd101wyy.markdown-preview-enhanced",
     "denoland.vscode-deno",
-    "alexcvzz.vscode-sqlite"
+    "alexcvzz.vscode-sqlite",
+    "tamasfe.even-better-toml",
+    "gruntfuggly.todo-tree"
   ]
 }
