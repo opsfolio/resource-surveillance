@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 use regex::Regex;
-// TODO: use regex::RegexSet;
+use sqlx::{migrate::MigrateDatabase, Executor, Sqlite, SqlitePool};
 
 #[macro_use]
 extern crate lazy_static;
@@ -67,12 +67,17 @@ enum Commands {
         surveil_content: Vec<Regex>,
 
         /// reg-exes to use to load frontmatter for entry in addition to content
-        #[arg(long, default_value = "\\.(md|mdx)$", default_missing_value = "always")]
-        surveil_frontmatter: Vec<Regex>,
+        #[arg(
+            long,
+            default_value = "sqlite://device-surveillance.sqlite.db",
+            default_missing_value = "always"
+        )]
+        surveil_db_url: Option<String>,
     },
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let cli = Cli::parse();
 
     // You can check the value provided by positional arguments, or option arguments
@@ -100,9 +105,30 @@ fn main() {
             root_path,
             ignore_entry,
             surveil_content,
-            surveil_frontmatter,
+            surveil_db_url,
             compute_digests,
         }) => {
+            if let Some(db_url) = surveil_db_url.as_deref() {
+                println!("Surveillance DB URL: {db_url}");
+
+                if !Sqlite::database_exists(db_url).await.unwrap_or(false) {
+                    println!("Creating database {}", db_url);
+                    match Sqlite::create_database(db_url).await {
+                        Ok(_) => println!("Create db success"),
+                        Err(error) => panic!("error: {}", error),
+                    }
+                } else {
+                    println!("{} database already exists", db_url);
+                }
+
+                // bootstrap.sql is created by $PROJECT_HOME/support/sql-aide/sqlactl.ts
+                // use [include_dir](https://crates.io/crates/include_dir) for full dirs
+                let bootstrap_sql = include_str!("bootstrap.sql");
+                let db = SqlitePool::connect(db_url).await.unwrap();
+                let _bootstrap_result = db.execute(bootstrap_sql).await;
+                println!("bootstrap.sql executed in {}", db_url);
+            }
+
             println!("Root paths: {}", root_path.join(", "));
             println!(
                 "Ignore entries reg exes: {}",
@@ -125,15 +151,6 @@ fn main() {
             println!(
                 "Content surveillance entries reg exes: {}",
                 surveil_content
-                    .iter()
-                    .map(|r| r.as_str())
-                    .collect::<Vec<&str>>()
-                    .join(", ")
-            );
-
-            println!(
-                "Content frontmatter surveillance entries reg exes: {}",
-                surveil_frontmatter
                     .iter()
                     .map(|r| r.as_str())
                     .collect::<Vec<&str>>()

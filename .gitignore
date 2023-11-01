@@ -1,1 +1,5 @@
+# surveilr testing
+device-surveillance.sqlite.db*
+
+# rust-specific
 /target

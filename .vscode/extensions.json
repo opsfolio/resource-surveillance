@@ -1,9 +1,11 @@
 {
-    "recommendations": [
-        "usernamehw.errorlens",
-        "serayuzgur.crates",
-        "rust-lang.rust-analyzer",
-        "yzhang.markdown-all-in-one",
-        "shd101wyy.markdown-preview-enhanced"
-    ]
+  "recommendations": [
+    "usernamehw.errorlens",
+    "serayuzgur.crates",
+    "rust-lang.rust-analyzer",
+    "yzhang.markdown-all-in-one",
+    "shd101wyy.markdown-preview-enhanced",
+    "denoland.vscode-deno",
+    "alexcvzz.vscode-sqlite"
+  ]
 }
