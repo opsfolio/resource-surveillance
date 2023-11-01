@@ -90,7 +90,7 @@ export const notIdempotent = <Notebook>(
 
 /**
  * Decorate a function with `@dontStoreInDB` if the particular query should
- * not be stored in the stored_notebook_cell table in the database.
+ * not be stored in the code_notebook_cell table in the database.
  */
 export const dontStoreInDB = <Notebook>(
   cells: Set<chainNB.NotebookCellID<Notebook>>,
@@ -141,7 +141,7 @@ export class ServiceContentHelpers<
 > {
   constructor(
     readonly models: ReturnType<typeof m.serviceModels<EmitContext>>,
-  ) {}
+  ) { }
 
   activeDevice(boundary?: string) {
     return {
@@ -183,10 +183,10 @@ export class SqlNotebookHelpers<
   readonly stsOptions: SQLa.SqlTextSupplierOptions<EmitContext>;
   readonly modelsGovn: ReturnType<
     typeof m.serviceModels<EmitContext>
-  >["storedNbModels"]["modelsGovn"];
+  >["codeNbModels"]["modelsGovn"];
   readonly templateState: ReturnType<
     typeof m.serviceModels<EmitContext>
-  >["storedNbModels"]["modelsGovn"]["templateState"];
+  >["codeNbModels"]["modelsGovn"]["templateState"];
 
   constructor(
     readonly options?: {
@@ -199,7 +199,7 @@ export class SqlNotebookHelpers<
   ) {
     super();
     this.models = options?.models ?? m.serviceModels<EmitContext>();
-    this.modelsGovn = this.models.storedNbModels.modelsGovn;
+    this.modelsGovn = this.models.codeNbModels.modelsGovn;
     this.emitCtx = this.modelsGovn.sqlEmitContext();
     this.sch = new ServiceContentHelpers(this.models);
     this.templateState = this.modelsGovn.templateState;
@@ -243,6 +243,11 @@ export class SqlNotebookHelpers<
 
   get onConflictDoNothing(): SQLa.SqlTextSupplier<EmitContext> {
     return { SQL: () => `ON CONFLICT DO NOTHING` };
+  }
+
+  // ULID generator when the value is needed by the SQLite engine runtime
+  get sqlEngineNow(): SQLa.SqlTextSupplier<EmitContext> {
+    return { SQL: () => `CURRENT_TIMESTAMP` };
   }
 
   // See [SQLite Pragma Cheatsheet for Performance and Consistency](https://cj.rs/blog/sqlite-pragma-cheatsheet-for-performance-and-consistency/)
@@ -371,7 +376,7 @@ export class ConstructionSqlNotebook<
   constructor(
     readonly nbh: SqlNotebookHelpers<EmitContext>,
     readonly storedNotebookStateTransitions: ReturnType<
-      typeof nbh.models.storedNbModels.storedNotebookState.select
+      typeof nbh.models.codeNbModels.codeNotebookState.select
     >["filterable"][],
   ) {
     super();
@@ -379,13 +384,33 @@ export class ConstructionSqlNotebook<
 
   @notIdempotent(ConstructionSqlNotebook.notIdempodentCells)
   bootstrapDDL() {
-    const { nbh, nbh: { models } } = this;
+    const { nbh, nbh: { models: { codeNbModels } } } = this;
     // deno-fmt-ignore
     return nbh.SQL`
-      ${models.storedNbModels.informationSchema.tables}
+      ${codeNbModels.informationSchema.tables}
 
-      ${models.storedNbModels.informationSchema.tableIndexes}
+      ${codeNbModels.informationSchema.tableIndexes}
       `;
+  }
+
+  bootstrapSeedDML() {
+    const { nbh, nbh: { models: { codeNbModels: { codeNotebookKernel: kernel } } } } = this;
+    const created_at = nbh.sqlEngineNow;
+    const sql = kernel.insertDML({
+      code_notebook_kernel_id: "SQL",
+      kernel_name: "Dialect-independent ANSI SQL",
+      mime_type: "application/sql",
+      file_extn: ".sql",
+      created_at
+    });
+    const puml = kernel.insertDML({
+      code_notebook_kernel_id: "PlantUML",
+      kernel_name: "PlantUML ER Diagram",
+      mime_type: "text/vnd.plantuml",
+      file_extn: ".puml",
+      created_at
+    });
+    return [sql, puml];
   }
 
   @notIdempotent(ConstructionSqlNotebook.notIdempodentCells)
@@ -518,17 +543,17 @@ export class MutationSqlNotebook<
                json_each(resource.value, '$.types') AS file_extns;
 
       ${models.mimeType.insertDML({
-          mime_type_id: nbh.sqlEngineNewUlid,
-          name: "application/typescript",
-          file_extn: ".ts",
-          description: "Typescript source",
-        }, { onConflict: nbh.onConflictDoNothing })};`;
+      mime_type_id: nbh.sqlEngineNewUlid,
+      name: "application/typescript",
+      file_extn: ".ts",
+      description: "Typescript source",
+    }, { onConflict: nbh.onConflictDoNothing })};`;
   }
 }
 
 /**
  * Encapsulates SQL DQL and stateless table queries that can operate all within
- * SQLite (means they are "storable" in stored_notebook_cell table).
+ * SQLite (means they are "storable" in code_notebook_cell table).
  */
 export class QuerySqlNotebook<
   EmitContext extends SQLa.SqlEmitContext = SQLa.SqlEmitContext,
@@ -619,6 +644,8 @@ export class QuerySqlNotebook<
    * the tables, columns, indexes, and views in the database. This should really
    * be a view instead of a query but SQLite does not support use of pragma_* in
    * views for security reasons.
+   * TODO: check out https://github.com/k1LoW/tbls and make this query equivalent
+   *       to that utility's output including generating PlantUML through SQL.
    */
   infoSchemaMarkdown() {
     return this.nbh.SQL`
@@ -787,21 +814,21 @@ export class PolyglotSqlNotebook<
         stdIn: this.nbh.pipeInSpawnedRows<
           { fs_content_id: string; content: string }
         > // deno-lint-ignore require-await
-        (async (rows, emitStdIn, nbh) => {
-          const { quotedLiteral } = nbh.emitCtx.sqlTextEmitOptions;
-          rows.forEach((row) => {
-            if (fm.test(row.content)) {
-              const parsedFM = fm.extract(row.content);
-              // each write() call adds content into the SQLite stdin
-              // stream that will be sent to Deno.Command
-              // deno-fmt-ignore
-              emitStdIn(`UPDATE fs_content SET
+          (async (rows, emitStdIn, nbh) => {
+            const { quotedLiteral } = nbh.emitCtx.sqlTextEmitOptions;
+            rows.forEach((row) => {
+              if (fm.test(row.content)) {
+                const parsedFM = fm.extract(row.content);
+                // each write() call adds content into the SQLite stdin
+                // stream that will be sent to Deno.Command
+                // deno-fmt-ignore
+                emitStdIn(`UPDATE fs_content SET
                          frontmatter = ${quotedLiteral(JSON.stringify(parsedFM.attrs))[1]},
                          content_fm_body_attrs = ${quotedLiteral(JSON.stringify(parsedFM))[1]}
                        WHERE fs_content_id = '${row.fs_content_id}';\n`);
-            }
-          });
-        }),
+              }
+            });
+          }),
       });
   }
 }
@@ -877,29 +904,29 @@ export class SQLPageNotebook<
   }
 
   "notebooks.sql"() {
-    const { storedNbModels: { storedNotebook: snb } } = this.nbh.models;
-    const { symbol: snbc } = snb.columnNames(this.nbh.emitCtx);
+    const { codeNbModels: { codeNotebookCell: cnbc } } = this.nbh.models;
+    const { symbol: scnbc } = cnbc.columnNames(this.nbh.emitCtx);
 
     return this.nbh.SQL`
       SELECT 'table' as component, 'Cell' as markdown, 1 as search, 1 as sort;
-      SELECT ${snbc.notebook_name},
-             '[' || ${snbc.cell_name} || '](notebook-cell.sql?notebook=' ||  ${snbc.notebook_name} || '&cell=' || ${snbc.cell_name} || ')' as Cell
-        FROM ${snb.tableName};`;
+      SELECT ${scnbc.notebook_name},
+             '[' || ${scnbc.cell_name} || '](notebook-cell.sql?notebook=' ||  ${scnbc.notebook_name} || '&cell=' || ${scnbc.cell_name} || ')' as Cell
+        FROM ${cnbc.tableName};`;
   }
 
   "notebook-cell.sql"() {
-    const { storedNbModels: { storedNotebook: snb } } = this.nbh.models;
-    const { symbol: snbc } = snb.columnNames(this.nbh.emitCtx);
+    const { codeNbModels: { codeNotebookCell: cnbc } } = this.nbh.models;
+    const { symbol: scnbc } = cnbc.columnNames(this.nbh.emitCtx);
 
     return this.nbh.SQL`
       SELECT 'text' as component,
              $notebook || '.' || $cell as title,
              '\`\`\`sql
-      ' || ${snbc.interpretable_code} || '
+      ' || ${scnbc.interpretable_code} || '
       \`\`\`' as contents_md
-       FROM ${snb.tableName}
-      WHERE ${snbc.notebook_name} = $notebook
-        AND ${snbc.cell_name} = $cell;`;
+       FROM ${cnbc.tableName}
+      WHERE ${scnbc.notebook_name} = $notebook
+        AND ${scnbc.cell_name} = $cell;`;
   }
 
   "info-schema.sql"() {
@@ -952,11 +979,11 @@ export class SQLPageNotebook<
               path: cell, // the class's method name is the "cell"
               // deno-fmt-ignore
               contents: SQLa.isSqlTextSupplier<EmitContext>(state.execResult)
-                  ? state.execResult.SQL(ctx)
-                  : `select 'alert' as component,
+                ? state.execResult.SQL(ctx)
+                : `select 'alert' as component,
                             'MutationSqlNotebook.SQLPageSeedDML() issue' as title,
                             'SQLPageNotebook cell "${cell}" did not return SQL (found: ${typeof state.execResult})' as description;`,
-              last_modified: { SQL: () => `CURRENT_TIMESTAMP` },
+              last_modified: nbh.sqlEngineNow,
             }, {
               onConflict: {
                 SQL: () =>
@@ -1093,29 +1120,22 @@ export class SqlNotebooksOrchestrator<
 
   async infoSchemaDiagramDML() {
     const { nbh: { models } } = this;
-    const { storedNbModels: { storedNotebook } } = models;
+    const { codeNbModels: { codeNotebookCell } } = models;
     const interpretable_code = this.infoSchemaDiagram();
-    return storedNotebook.insertDML({
-      stored_notebook_cell_id: this.nbh.newUlid(),
+    return codeNotebookCell.insertDML({
+      code_notebook_cell_id: this.nbh.newUlid(),
+      notebook_kernel_id: "PlantUML",
       notebook_name: SqlNotebooksOrchestrator.prototype.constructor.name,
       cell_name: "infoSchemaDiagram",
-      code_interpreter: "PlantUML",
       interpretable_code,
       interpretable_code_hash: await gitLikeHash(interpretable_code),
-      interpretable_code_mime_type: "text/vnd.plantuml",
-      interpretable_code_file_extn: ".puml",
     }, {
-      onConflict: {
-        SQL: (ctx) =>
-          this.nbh
-            .SQL`ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
-            interpretable_code = EXCLUDED.interpretable_code,
-            code_interpreter = EXCLUDED.code_interpreter,
-            interpretable_code_mime_type = EXCLUDED.interpretable_code_mime_type,
-            interpretable_code_file_extn = EXCLUDED.interpretable_code_file_extn,
-            updated_at = CURRENT_TIMESTAMP,
-            activity_log = ${storedNotebook.activityLogDmlPartial()}`.SQL(ctx),
-      },
+      onConflict: this.nbh
+        .SQL`ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+        interpretable_code = EXCLUDED.interpretable_code,
+        notebook_kernel_id = EXCLUDED.notebook_kernel_id,
+        updated_at = CURRENT_TIMESTAMP,
+        activity_log = ${codeNotebookCell.activityLogDmlPartial()}`,
     });
   }
 
@@ -1143,7 +1163,7 @@ export class SqlNotebooksOrchestrator<
   }
 
   async storeNotebookCellsDML() {
-    const { storedNbModels: { storedNotebook } } = this.nbh.models;
+    const { codeNbModels: { codeNotebookCell } } = this.nbh.models;
     const ctx = this.nbh.modelsGovn.sqlEmitContext<EmitContext>();
     const sqlDML: SQLa.SqlTextSupplier<EmitContext>[] = [];
 
@@ -1163,31 +1183,20 @@ export class SqlNotebooksOrchestrator<
               ? state.execResult.SQL(ctx)
               : `storeNotebookCellsDML "${cell}" did not return SQL (found: ${typeof state
                 .execResult})`;
-          sqlDML.push(storedNotebook.insertDML({
-            stored_notebook_cell_id: this.nbh.newUlid(),
+          sqlDML.push(codeNotebookCell.insertDML({
+            code_notebook_cell_id: this.nbh.newUlid(),
+            notebook_kernel_id: "SQL",
             notebook_name: notebookName,
             cell_name: cell, // the class's method name is the "cell"
-            // deno-fmt-ignore
             interpretable_code,
             interpretable_code_hash: await gitLikeHash(interpretable_code),
-            code_interpreter: "SQL",
-            interpretable_code_file_extn: ".sql",
-            interpretable_code_mime_type: "application/sql",
           }, {
-            onConflict: {
-              // TODO: use pattern/typical/typical.ts::activityLogDmlPartial to add history of changes to the activity_log field
-              SQL: (ctx) =>
-                this.nbh
-                  .SQL`ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
-                  interpretable_code = EXCLUDED.interpretable_code,
-                  code_interpreter = EXCLUDED.code_interpreter,
-                  interpretable_code_file_extn = EXCLUDED.interpretable_code_file_extn,
-                  interpretable_code_mime_type = EXCLUDED.interpretable_code_mime_type,
-                  updated_at = CURRENT_TIMESTAMP,
-                  activity_log = ${storedNotebook.activityLogDmlPartial()}`.SQL(
-                  ctx,
-                ),
-            },
+            onConflict: this.nbh
+              .SQL`ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+            interpretable_code = EXCLUDED.interpretable_code,
+            notebook_kernel_id = EXCLUDED.notebook_kernel_id,
+            updated_at = CURRENT_TIMESTAMP,
+            activity_log = ${codeNotebookCell.activityLogDmlPartial()}`,
           }));
         }
       };
@@ -1213,6 +1222,8 @@ export class SqlNotebooksOrchestrator<
 
     // NOTE: PolyglotSqlNotebook is not stored since its cells cannot be
     //       executed without orchestration externally
+    // NOTE: SQLPageNotebook is not stored since its cells are stored in special
+    //       sqlpage_files table
 
     return this.nbh.SQL`
       ${sqlDML};

@@ -34,11 +34,30 @@ export function modelsGovernance<EmitContext extends SQLa.SqlEmitContext>() {
  * this particular service. TODO: consider extracting this into its own pattern.
  * @returns
  */
-export function storedNotebookModels<
+export function codeNotebooksModels<
   EmitContext extends SQLa.SqlEmitContext,
 >() {
   const modelsGovn = modelsGovernance<EmitContext>();
   const { keys: gk, domains: gd, model: gm } = modelsGovn;
+
+  const codeNotebookKernel = gm.textPkTable("code_notebook_kernel", {
+    code_notebook_kernel_id: gk.textPrimaryKey(), // the kernel identifier for PK/FK purposes
+    kernel_name: gd.text(), // the kernel name for human/display use cases
+    description: gd.textNullable(), // any further description of the kernel for human/display use cases
+    mime_type: gd.textNullable(), // MIME type of this kernel's code in case it will be served
+    file_extn: gd.textNullable(), // the typical file extension for these kernel's codebases, can be used for syntax highlighting, etc.
+    elaboration: gd.jsonTextNullable(), // kernel-specific attributes/properties
+    governance: gd.jsonTextNullable(), // kernel-specific governance data
+    ...gm.housekeeping.columns, // activity_log should store previous versions in JSON format (for history tracking)
+  }, {
+    isIdempotent: true,
+    constraints: (props, tableName) => {
+      const c = SQLa.tableConstraints(tableName, props);
+      return [
+        c.unique("kernel_name"),
+      ];
+    },
+  });
 
   // Stores all notebook cells in the database so that once the database is
   // created, all SQL is part of the database and may be executed like this
@@ -46,8 +65,10 @@ export function storedNotebookModels<
   //    sqlite3 xyz.db "select sql from sql_notebook_cell where sql_notebook_cell_id = 'infoSchemaMarkdown'" | sqlite3 xyz.db
   // You can pass in arguments using .parameter or `sql_parameters` table, like:
   //    echo ".parameter set X Y; $(sqlite3 xyz.db \"SELECT sql FROM sql_notebook_cell where sql_notebook_cell_id = 'init'\")" | sqlite3 xyz.db
-  const storedNotebook = gm.textPkTable("stored_notebook_cell", {
-    stored_notebook_cell_id: gk.textPrimaryKey(),
+  const codeNotebookCell = gm.textPkTable("code_notebook_cell", {
+    code_notebook_cell_id: gk.textPrimaryKey(),
+    // TODO: should we create a code_notebook_kernel table?
+    notebook_kernel_id: codeNotebookKernel.references.code_notebook_kernel_id(),
     notebook_name: gd.text(),
     cell_name: gd.text(),
     // TODO: how should we track dependencies so that we only run cells when a condition is met or skip if not?
@@ -55,11 +76,8 @@ export function storedNotebookModels<
     //       if_sql: gd.textNullable(), // only run this cell if the given `if_sql` returns a non-zero result (e.g. check state, look at information_schema, etc.)
     //       unless_sql: gd.textNullable(), // only run this cell unless the given `unless_sql` returns a non-zero result
     cell_governance: gd.jsonTextNullable(), // any idempotency, versioning, hash, branch, tag or other "governance" data (dependent on the cell)
-    code_interpreter: gd.textNullable(), // SQL by default, shebang-style for others
     interpretable_code: gd.text(),
     interpretable_code_hash: gd.text(),
-    interpretable_code_mime_type: gd.textNullable(), // MIME type of the code in case it will be served
-    interpretable_code_file_extn: gd.textNullable(), // the typical file extension, can be used for syntax highlighting, etc.
     description: gd.textNullable(),
     arguments: gd.jsonTextNullable(),
     ...gm.housekeeping.columns, // activity_log should store previous versions in JSON format (for history tracking)
@@ -73,10 +91,10 @@ export function storedNotebookModels<
     },
   });
 
-  const storedNotebookState = gm.textPkTable("stored_notebook_state", {
-    stored_notebook_state_id: gk.textPrimaryKey(),
-    stored_notebook_cell_id: storedNotebook.references
-      .stored_notebook_cell_id(),
+  const codeNotebookState = gm.textPkTable("code_notebook_state", {
+    code_notebook_state_id: gk.textPrimaryKey(),
+    code_notebook_cell_id: codeNotebookCell.references
+      .code_notebook_cell_id(),
     from_state: gd.text(), // the previous state (set to "INITIAL" when it's the first transition)
     to_state: gd.text(), // the current state; if no rows exist it means no state transition occurred
     transition_reason: gd.textNullable(), // short text or code explaining why the transition occurred
@@ -88,30 +106,32 @@ export function storedNotebookModels<
     constraints: (props, tableName) => {
       const c = SQLa.tableConstraints(tableName, props);
       return [
-        c.unique("stored_notebook_cell_id", "from_state", "to_state"),
+        c.unique("code_notebook_cell_id", "from_state", "to_state"),
       ];
     },
   });
 
   const informationSchema = {
-    tables: [storedNotebook, storedNotebookState],
+    tables: [codeNotebookKernel, codeNotebookCell, codeNotebookState],
     tableIndexes: [
-      ...storedNotebook.indexes,
-      ...storedNotebookState.indexes,
+      ...codeNotebookKernel.indexes,
+      ...codeNotebookCell.indexes,
+      ...codeNotebookState.indexes,
     ],
   };
 
   return {
     modelsGovn,
-    storedNotebook,
-    storedNotebookState,
+    codeNotebookKernel,
+    codeNotebookCell,
+    codeNotebookState,
     informationSchema,
   };
 }
 
 export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
-  const storedNbModels = storedNotebookModels<EmitContext>();
-  const { keys: gk, domains: gd, model: gm } = storedNbModels.modelsGovn;
+  const codeNbModels = codeNotebooksModels<EmitContext>();
+  const { keys: gk, domains: gd, model: gm } = codeNbModels.modelsGovn;
 
   /**
    * Immutable Devices table represents different machines, servers, or workstations.
@@ -357,7 +377,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   };
 
   return {
-    storedNbModels,
+    codeNbModels,
     mimeType,
     device,
     fsContentWalkSession,
