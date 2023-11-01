@@ -21,6 +21,10 @@ use resource::*;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
+    /// Generate a Markdown file of all CLI commands and options
+    #[arg(long)]
+    help_markdown: bool,
+
     /// How to identify this device
     #[arg(long, num_args = 0..=1, default_value = DEVICE.name(), default_missing_value = "always")]
     device_name: Option<String>,
@@ -80,6 +84,11 @@ enum Commands {
 async fn main() {
     let cli = Cli::parse();
 
+    if cli.help_markdown {
+        clap_markdown::print_help_markdown::<Cli>();
+        return;
+    }
+
     // You can check the value provided by positional arguments, or option arguments
     if let Some(name) = cli.device_name.as_deref() {
         println!("Device: {name}");
@@ -124,8 +133,9 @@ async fn main() {
                 // bootstrap.sql is created by $PROJECT_HOME/support/sql-aide/sqlactl.ts
                 // use [include_dir](https://crates.io/crates/include_dir) for full dirs
                 let bootstrap_sql = include_str!("bootstrap.sql");
-                let db = SqlitePool::connect(db_url).await.unwrap();
-                let _bootstrap_result = db.execute(bootstrap_sql).await;
+                let pool = SqlitePool::connect(db_url).await.unwrap();
+                let _bootstrap_result = pool.execute(bootstrap_sql).await;
+                pool.close().await;
                 println!("bootstrap.sql executed in {}", db_url);
             }
 
