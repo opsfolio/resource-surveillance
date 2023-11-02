@@ -8,6 +8,7 @@
     "denoland.vscode-deno",
     "alexcvzz.vscode-sqlite",
     "tamasfe.even-better-toml",
-    "gruntfuggly.todo-tree"
+    "gruntfuggly.todo-tree",
+    "kokakiwi.vscode-just"
   ]
 }
