@@ -14,9 +14,13 @@ lazy_static! {
 
 mod fsresource;
 mod resource;
+mod sea_orm_entities_auto;
 
 use fsresource::*;
 use resource::*;
+use sea_orm::*;
+use sea_orm_entities_auto::prelude::*;
+// use sea_orm_entities_auto::{prelude::*, *};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -120,6 +124,8 @@ async fn main() {
             if let Some(db_url) = surveil_db_url.as_deref() {
                 println!("Surveillance DB URL: {db_url}");
 
+                // start by preparing our database without using SeaORM so that
+                // we have no dependency on SeaORM for DDL (only DQL and DML)
                 if !Sqlite::database_exists(db_url).await.unwrap_or(false) {
                     println!("Creating database {}", db_url);
                     match Sqlite::create_database(db_url).await {
@@ -137,6 +143,14 @@ async fn main() {
                 let _bootstrap_result = pool.execute(bootstrap_sql).await;
                 pool.close().await;
                 println!("bootstrap.sql executed in {}", db_url);
+
+                let db = Database::connect(db_url).await.unwrap();
+
+                let cnb_cells = CodeNotebookCell::find().all(&db).await;
+                cnb_cells
+                    .unwrap()
+                    .iter()
+                    .for_each(|c| println!("{}", c.cell_name))
             }
 
             println!("Root paths: {}", root_path.join(", "));

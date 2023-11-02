@@ -1,6 +1,7 @@
 set dotenv-load
 set positional-arguments
 
+# List available recipes and their arguments
 default: list
 
 # List available recipes and their arguments
@@ -15,9 +16,9 @@ ensure-sea-orm-cli:
 ensure-cargo-watch:
     @cargo install -q cargo-watch
 
-# Generate entity files of database `device-surveillance.sqlite.db` to `src/entities.auto`
-orm-sync: ensure-sea-orm-cli
-    @sea-orm-cli generate entity -u "sqlite://./device-surveillance.sqlite.db" -o "src/entities.auto"
+# Generate entity files of database `device-surveillance.sqlite.db` (_auto indicates auto-generated)
+sea-orm-sync: ensure-sea-orm-cli
+    @sea-orm-cli generate entity -u "sqlite://./device-surveillance.sqlite.db" -o "src/sea_orm_entities_auto"
 
 # Hot reload (with `cargo watch`) on all the source files in this project
 dev: ensure-cargo-watch    

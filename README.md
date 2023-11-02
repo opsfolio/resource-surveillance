@@ -21,6 +21,8 @@ Development prerequisites:
 Regular use:
 
 ```bash
+$ just --completions fish | source            # setup completions to reduce typing
+
 $ just run                                    # get CLI help
 $ cargo run -- --help                         # get CLI help, same as above
 
@@ -33,8 +35,8 @@ $ just run fs-walk -r /other -r /other2       # walk some other director(ies)
 $ just run fs-walk -i .git/                   # walk CWD, ignore .git/ paths
 $ just run fs-walk -i .git/ -i target/        # walk CWD, ignore .git/ and target/ paths
 
-$ just orm-sync                               # Generate entity files of database `device-surveillance.sqlite.db` to
-                                              # `src/entities.auto` (.auto indicates auto-generated)
+$ just sea-orm-sync                           # Generate SeaORM entity files in `src/entities.auto`
+                                              # (.auto indicates auto-generated)
                                               
 $ just dev                                    # turn on auto-compile, auto-run during development
                                               # using cargo-watch command
