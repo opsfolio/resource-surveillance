@@ -11,8 +11,8 @@ execute_sql_batch!(bootstrap_ddl, include_str!("bootstrap.sql"));
 query_sql_single!(
     select_notebook_cell_code,
     "SELECT code_notebook_cell_id, interpretable_code FROM code_notebook_cell WHERE notebook_name = ?1 AND cell_name = ?2",
-    notebook_name: String,
-    cell_name: String;
+    notebook_name: &str,
+    cell_name: &str;
     code_notebook_cell_id: String,
     interpretable_code: String
 );
@@ -24,10 +24,10 @@ query_sql_single!(
        WHERE code_notebook_cell_id = (SELECT code_notebook_cell_id FROM code_notebook_cell WHERE notebook_name = ?1 AND cell_name = ?2)
          AND from_state = ?3 AND to_state = ?4
        LIMIT 1",
-    notebook_name: String,
-    cell_name: String,
-    from_state: String,
-    to_state: String;
+    notebook_name: &str,
+    cell_name: &str,
+    from_state: &str,
+    to_state: &str;
     code_notebook_cell_id: String
 );
 
@@ -35,12 +35,12 @@ execute_sql!(
     insert_notebook_cell_state,
     r"INSERT INTO code_notebook_state (code_notebook_state_id, code_notebook_cell_id, from_state, to_state, transition_reason)
                                VALUES (?3, (SELECT code_notebook_cell_id FROM code_notebook_cell WHERE notebook_name = ?1 AND cell_name = ?2), ?4, ?5, ?6)",
-    notebook_name: String,
-    cell_name: String,
-    code_notebook_cell_id: String,
-    from_state: String,
-    to_state: String,
-    transition_reason: String
+    notebook_name: &str,
+    cell_name: &str,
+    code_notebook_cell_id: &str,
+    from_state: &str,
+    to_state: &str,
+    transition_reason: &str
 );
 
 query_sql_rows_no_args!(
@@ -57,13 +57,13 @@ execute_sql!(
     r"INSERT INTO device (device_id, name, boundary) VALUES (?, ?, ?)
       ON CONFLICT(name, boundary) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
       RETURNING device_id",
-    device_id: String,
-    name: String,
-    boundary: String
+    device_id: &str,
+    name: &str,
+    boundary: &str
 );
 
-// // TODO: create infra to be able to validate all SQL in an in-memory SQLite database
-// //       by looping through all ExecutableCode blocks and running `prepare`.
+// TODO: create infra to be able to validate all SQL in an in-memory SQLite database
+//       by looping through all ExecutableCode blocks and running `prepare`.
 lazy_static! {
     pub static ref INIT_DDL_EC: ExecutableCode = ExecutableCode::NotebookCell {
         notebook_name: String::from("ConstructionSqlNotebook"),
@@ -106,13 +106,10 @@ impl<'conn> ExecutableCode {
             ExecutableCode::NotebookCell {
                 notebook_name,
                 cell_name,
-            } => {
-                match select_notebook_cell_code(ctx.conn, notebook_name.clone(), cell_name.clone())
-                {
-                    Ok((_id, code)) => Ok(code),
-                    Err(err) => Err(err),
-                }
-            }
+            } => match select_notebook_cell_code(ctx.conn, notebook_name, cell_name) {
+                Ok((_id, code)) => Ok(code),
+                Err(err) => Err(err),
+            },
             ExecutableCode::AnonymousSql { sql } | ExecutableCode::Sql { sql, .. } => {
                 Ok(sql.clone())
             }
@@ -144,15 +141,12 @@ pub struct RusqliteContext<'conn> {
 
 impl<'conn> RusqliteContext<'conn> {
     pub fn new(conn: &'conn rusqlite::Connection) -> RusqliteResult<Self> {
-        // TODO: add openDB pragmas
-        //       https://cj.rs/blog/sqlite-pragma-cheatsheet-for-performance-and-consistency/
+        // TODO: add openDB pragmas https://cj.rs/blog/sqlite-pragma-cheatsheet-for-performance-and-consistency/
+        // TODO: use https://www.sqlite.org/pragma.html#pragma_user_version to indicate bootstrap_ddl version/run
         let bootstrap_result = bootstrap_ddl(conn);
         Ok(RusqliteContext {
             conn,
             bootstrap_result,
-            // select_notebook_cell_code: select_notebook_cell_code?,
-            // is_notebook_cell_state: is_notebook_cell_state?,
-            // insert_notebook_cell_state: insert_notebook_cell_state?,
         })
     }
 
@@ -184,23 +178,23 @@ impl<'conn> RusqliteContext<'conn> {
             } => {
                 match is_notebook_cell_state(
                     self.conn,
-                    notebook_name.clone(), // TODO: see if we can rewrite to pointer so clone not required
-                    cell_name.clone(), // TODO: see if we can rewrite to pointer so clone not required
-                    from_state.to_string(), // TODO: see if we can rewrite to &str
-                    to_state.to_string(), // TODO: see if we can rewrite to &str
+                    notebook_name,
+                    cell_name,
+                    from_state,
+                    to_state,
                 ) {
                     Ok(_) => None,
                     Err(rusqlite::Error::QueryReturnedNoRows) => match self.execute_batch(ec) {
                         Ok(_) => {
-                            let ulid: Ulid = Ulid::new();
+                            let ulid = Ulid::new().to_string();
                             match insert_notebook_cell_state(
                                 self.conn,
-                                notebook_name.clone(), // TODO: see if we can rewrite to pointer so clone not required
-                                cell_name.clone(), // TODO: see if we can rewrite to pointer so clone not required
-                                ulid.to_string(),
-                                from_state.to_string(), // TODO: see if we can rewrite to &str
-                                to_state.to_string(),   // TODO: see if we can rewrite to &str
-                                transition_reason.to_string(), // TODO: see if we can rewrite to &str
+                                notebook_name,
+                                cell_name,
+                                &ulid,
+                                from_state,
+                                to_state,
+                                transition_reason,
                             ) {
                                 Ok(_) => Some(Ok(())),
                                 Err(err) => Some(Err(err)),
@@ -226,15 +220,15 @@ impl<'conn> RusqliteContext<'conn> {
     }
 
     pub fn upserted_device(&mut self, device: &Device) -> RusqliteResult<usize> {
-        let ulid: Ulid = Ulid::new();
+        let ulid = Ulid::new().to_string();
         upsert_device(
             self.conn,
-            ulid.to_string(),
-            device.name.clone(),
+            &ulid,
+            &device.name,
             if let Some(boundary) = &device.boundary {
-                boundary.clone()
+                boundary
             } else {
-                "UNKNOWN".to_string()
+                "UNKNOWN"
             },
         )
     }

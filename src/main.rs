@@ -128,8 +128,8 @@ fn main() {
                     if let Ok(mut ctx) = RusqliteContext::new(&conn) {
                         match select_notebook_cell_code(
                             &conn,
-                            String::from("ConstructionSqlNotebook"),
-                            String::from("initialDDL"),
+                            "ConstructionSqlNotebook",
+                            "initialDDL",
                         ) {
                             Ok((id, _code)) => {
                                 println!("select_notebook_cell_code {}", id)
