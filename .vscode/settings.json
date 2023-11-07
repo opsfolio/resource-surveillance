@@ -1,10 +1,14 @@
 {
-    "editor.formatOnSave": true,
-    "git.autofetch": true,
-    "deno.enable": true,
-    "deno.lint": true,
-    "deno.unstable": true,
-    "todo-tree.regex.regex": "(//|#|<!--|;|/\\*|^|^[ \\t]*(-|\\d+.))\\s*($TAGS)|todo!",
-    "rust-analyzer.check.command": "clippy",
-    "terminal.integrated.fontFamily": "CascadianCode NF",
+  "editor.formatOnSave": true,
+  "git.autofetch": true,
+  "deno.enable": true,
+  "deno.lint": true,
+  "deno.unstable": true,
+  "todo-tree.regex.regex": "(//|#|<!--|;|/\\*|^|^[ \\t]*(-|\\d+.))\\s*($TAGS)|todo!",
+  "rust-analyzer.check.command": "clippy",
+  "terminal.integrated.fontFamily": "CascadianCode NF",
+  "rust-analyzer.linkedProjects": [
+    "./Cargo.toml",
+    "./Cargo.toml"
+  ]
 }

@@ -141,7 +141,7 @@ export class ServiceContentHelpers<
 > {
   constructor(
     readonly models: ReturnType<typeof m.serviceModels<EmitContext>>,
-  ) { }
+  ) {}
 
   activeDevice(boundary?: string) {
     return {
@@ -394,22 +394,31 @@ export class ConstructionSqlNotebook<
   }
 
   bootstrapSeedDML() {
-    const { nbh, nbh: { models: { codeNbModels: { codeNotebookKernel: kernel } } } } = this;
+    const {
+      nbh,
+      nbh: { models: { codeNbModels: { codeNotebookKernel: kernel } } },
+    } = this;
     const created_at = nbh.sqlEngineNow;
+    const options = {
+      onConflict: {
+        SQL: () =>
+          `ON CONFLICT(kernel_name) DO UPDATE SET mime_type = EXCLUDED.mime_type, file_extn = EXCLUDED.file_extn`,
+      },
+    };
     const sql = kernel.insertDML({
       code_notebook_kernel_id: "SQL",
       kernel_name: "Dialect-independent ANSI SQL",
       mime_type: "application/sql",
       file_extn: ".sql",
-      created_at
-    });
+      created_at,
+    }, options);
     const puml = kernel.insertDML({
       code_notebook_kernel_id: "PlantUML",
       kernel_name: "PlantUML ER Diagram",
       mime_type: "text/vnd.plantuml",
       file_extn: ".puml",
-      created_at
-    });
+      created_at,
+    }, options);
     return [sql, puml];
   }
 
@@ -814,21 +823,21 @@ export class PolyglotSqlNotebook<
         stdIn: this.nbh.pipeInSpawnedRows<
           { fs_content_id: string; content: string }
         > // deno-lint-ignore require-await
-          (async (rows, emitStdIn, nbh) => {
-            const { quotedLiteral } = nbh.emitCtx.sqlTextEmitOptions;
-            rows.forEach((row) => {
-              if (fm.test(row.content)) {
-                const parsedFM = fm.extract(row.content);
-                // each write() call adds content into the SQLite stdin
-                // stream that will be sent to Deno.Command
-                // deno-fmt-ignore
-                emitStdIn(`UPDATE fs_content SET
+        (async (rows, emitStdIn, nbh) => {
+          const { quotedLiteral } = nbh.emitCtx.sqlTextEmitOptions;
+          rows.forEach((row) => {
+            if (fm.test(row.content)) {
+              const parsedFM = fm.extract(row.content);
+              // each write() call adds content into the SQLite stdin
+              // stream that will be sent to Deno.Command
+              // deno-fmt-ignore
+              emitStdIn(`UPDATE fs_content SET
                          frontmatter = ${quotedLiteral(JSON.stringify(parsedFM.attrs))[1]},
                          content_fm_body_attrs = ${quotedLiteral(JSON.stringify(parsedFM))[1]}
                        WHERE fs_content_id = '${row.fs_content_id}';\n`);
-              }
-            });
-          }),
+            }
+          });
+        }),
       });
   }
 }

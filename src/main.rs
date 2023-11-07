@@ -2,25 +2,27 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 use regex::Regex;
-use sqlx::{migrate::MigrateDatabase, Executor, Sqlite, SqlitePool};
+use rusqlite::Connection;
 
 #[macro_use]
 extern crate lazy_static;
 
 mod device;
 lazy_static! {
-    static ref DEVICE: device::Device = device::Device::new();
+    static ref DEVICE: device::Device = device::Device::new(None);
 }
+
+#[macro_use]
+mod helpers;
+
+mod persist;
 
 mod fsresource;
 mod resource;
-mod sea_orm_entities_auto;
 
 use fsresource::*;
+use persist::*;
 use resource::*;
-use sea_orm::*;
-use sea_orm_entities_auto::prelude::*;
-// use sea_orm_entities_auto::{prelude::*, *};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -77,15 +79,14 @@ enum Commands {
         /// reg-exes to use to load frontmatter for entry in addition to content
         #[arg(
             long,
-            default_value = "sqlite://device-surveillance.sqlite.db",
+            default_value = "./device-surveillance.sqlite.db",
             default_missing_value = "always"
         )]
-        surveil_db_url: Option<String>,
+        surveil_db_fs_path: Option<String>,
     },
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let cli = Cli::parse();
 
     if cli.help_markdown {
@@ -111,46 +112,59 @@ async fn main() {
         _ => println!("Don't be crazy"),
     }
 
-    // You can check for the existence of subcommands, and if found use their
-    // matches just as you would the top level cmd
     match &cli.command {
         Some(Commands::FsWalk {
             root_path,
             ignore_entry,
             surveil_content,
-            surveil_db_url,
+            surveil_db_fs_path,
             compute_digests,
         }) => {
-            if let Some(db_url) = surveil_db_url.as_deref() {
-                println!("Surveillance DB URL: {db_url}");
+            if let Some(db_fs_path) = surveil_db_fs_path.as_deref() {
+                println!("Surveillance DB URL: {db_fs_path}");
 
-                // start by preparing our database without using SeaORM so that
-                // we have no dependency on SeaORM for DDL (only DQL and DML)
-                if !Sqlite::database_exists(db_url).await.unwrap_or(false) {
-                    println!("Creating database {}", db_url);
-                    match Sqlite::create_database(db_url).await {
-                        Ok(_) => println!("Create db success"),
-                        Err(error) => panic!("error: {}", error),
+                if let Ok(conn) = Connection::open(db_fs_path) {
+                    println!("RusqliteContext preparing {}", db_fs_path);
+                    if let Ok(mut ctx) = RusqliteContext::new(&conn) {
+                        match select_notebook_cell_code(
+                            &conn,
+                            String::from("ConstructionSqlNotebook"),
+                            String::from("initialDDL"),
+                        ) {
+                            Ok((id, _code)) => {
+                                println!("select_notebook_cell_code {}", id)
+                            }
+                            Err(err) => println!("select_notebook_cell_code Error {}", err),
+                        }
+                        notebook_cells(&conn, |index, id, nb, cell| {
+                            println!("{} {} {} {}", index, id, nb, cell);
+                            Ok(())
+                        })
+                        .unwrap();
+                        match ctx.execute_batch_stateful(
+                            &INIT_DDL_EC,
+                            "NONE",
+                            "EXECUTED",
+                            "initialDDL schema migration",
+                        ) {
+                            Some(result) => match result {
+                                Ok(_) => {
+                                    println!("RusqliteContext initDDL executed and state recorded")
+                                }
+                                Err(err) => println!("RusqliteContext initDDL Error {}", err),
+                            },
+                            None => println!(
+                                "RusqliteContext initDDL already executed, not re-executed"
+                            ),
+                        };
+                        let _ = ctx.upserted_device(&DEVICE);
+                        // let _ = ctx.conn.execute_batch("BEGIN TRANSACTION;");
+                        // let _ = ctx.conn.execute_batch("COMMIT TRANSACTION;");
                     }
+                    println!("RusqliteContext Prepared {}", db_fs_path);
                 } else {
-                    println!("{} database already exists", db_url);
-                }
-
-                // bootstrap.sql is created by $PROJECT_HOME/support/sql-aide/sqlactl.ts
-                // use [include_dir](https://crates.io/crates/include_dir) for full dirs
-                let bootstrap_sql = include_str!("bootstrap.sql");
-                let pool = SqlitePool::connect(db_url).await.unwrap();
-                let _bootstrap_result = pool.execute(bootstrap_sql).await;
-                pool.close().await;
-                println!("bootstrap.sql executed in {}", db_url);
-
-                let db = Database::connect(db_url).await.unwrap();
-
-                let cnb_cells = CodeNotebookCell::find().all(&db).await;
-                cnb_cells
-                    .unwrap()
-                    .iter()
-                    .for_each(|c| println!("{}", c.cell_name))
+                    println!("RusqliteContext Could not open or create: {}", db_fs_path);
+                };
             }
 
             println!("Root paths: {}", root_path.join(", "));

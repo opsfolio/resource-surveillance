@@ -8,21 +8,28 @@ default: list
 list:
     @just --list
 
-# Install sea-orm-cli if it's not already available
-ensure-sea-orm-cli:
-    @cargo install -q sea-orm-cli
-
 # Install cargo watch if it's not already available
 ensure-cargo-watch:
     @cargo install -q cargo-watch
 
-# Generate entity files of database `device-surveillance.sqlite.db` (_auto indicates auto-generated)
-sea-orm-sync: ensure-sea-orm-cli
-    @sea-orm-cli generate entity -u "sqlite://./device-surveillance.sqlite.db" -o "src/sea_orm_entities_auto"
+# Install cargo watch if it's not already available
+ensure-cargo-nextest:
+    @cargo install -q cargo-nextest
+
+# Use SQLa to generate bootstrap and code notebook SQL
+sqla-sync:
+    @./support/sql-aide/sqlactl.ts
+    @rm -f ./bootstrap.sqlite.db
+    @cat src/bootstrap.sql | sqlite3 ./bootstrap.sqlite.db && rm -f ./bootstrap.sqlite.db
+    @# if there are any errors, ./bootstrap.sqlite.db should still be available
 
 # Hot reload (with `cargo watch`) on all the source files in this project
 dev: ensure-cargo-watch    
     @cargo watch -q -c -w src/ -x 'run -q'
+
+# Run unit tests using cargo-nextest
+test: ensure-cargo-nextest
+    @cargo nextest run
 
 # Generate CLI markdown help and save in CLI-help.md
 help-markdown:

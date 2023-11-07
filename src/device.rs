@@ -1,9 +1,10 @@
 pub struct Device {
-    name: String,
+    pub name: String,
+    pub boundary: Option<String>,
 }
 
 impl Device {
-    pub fn new() -> Device {
+    pub fn new(boundary: Option<String>) -> Device {
         let name = hostname::get()
             .map(|os_str| {
                 os_str
@@ -12,7 +13,7 @@ impl Device {
             })
             .unwrap_or_else(|_| "unknown".to_owned());
 
-        Device { name }
+        Device { name, boundary }
     }
 
     pub fn name(&self) -> &str {

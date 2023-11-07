@@ -2,6 +2,9 @@
 # but we should just copy/paste it into README.md so we ignore it
 CLI-help.md
 
+# ORM-related tempory files
+bootstrap.sqlite.db
+
 # surveilr testing
 device-surveillance.sqlite.db*
 

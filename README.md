@@ -8,7 +8,8 @@ computing environment that supports SQLite.
 **IMPORTANT**: Use SQLa to generate all SQL so it's portable but use SeaORM to
 make working with database entities more ergonomic. Remember to only use an ORM
 to help improve developer productivity, always assume SQLite database will be
-used across polyglot programming environments so SQL code should be transparent.
+used across polyglot programming environments so SQL code should be transparent
+and portable.
 
 ## Usage
 
@@ -23,6 +24,8 @@ Regular use:
 ```bash
 $ just --completions fish | source            # setup completions to reduce typing
 
+$ just test                                   # run unit tests with cargo nextest
+
 $ just run                                    # get CLI help
 $ cargo run -- --help                         # get CLI help, same as above
 
@@ -35,8 +38,9 @@ $ just run fs-walk -r /other -r /other2       # walk some other director(ies)
 $ just run fs-walk -i .git/                   # walk CWD, ignore .git/ paths
 $ just run fs-walk -i .git/ -i target/        # walk CWD, ignore .git/ and target/ paths
 
+$ just sqla-sync                              # generate SQLa bootstrap and other SQL
 $ just sea-orm-sync                           # Generate SeaORM entity files in `src/entities.auto`
-                                              # (.auto indicates auto-generated)
+                                              # using what sqla-sync prepares (.auto indicates auto-generated)
                                               
 $ just dev                                    # turn on auto-compile, auto-run during development
                                               # using cargo-watch command
