@@ -18,11 +18,11 @@ type Any = any;
 // TODO: move this to README.md:
 // ServiceContentHelpers creates "insertable" type-safe content objects needed by the other notebooks
 // SqlNotebookHelpers encapsulates instances of SQLa objects needed to creation of SQL text in the other notebooks
-// ConstructionSqlNotebook encapsulates DDL and table/view/entity construction
+// BootstrapSqlNotebook encapsulates DDL and table/view/entity for starting a database from scratch
+// ConstructionSqlNotebook encapsulates DDL and table/view/entity construction (what are called stateful "migrations" in other systems, should be assumed to be non-idempotent)
 // MutationSqlNotebook encapsulates DML and stateful table data insert/update/delete
 // QuerySqlNotebook encapsulates DQL and stateless table queries that can operate all within SQLite
 // AssuranceSqlNotebook encapsulates DQL and stateless TAP-formatted test cases
-// PolyglotSqlNotebook encapsulates SQL needed as part of multi-language (e.g. SQLite + Deno) orchestration because SQLite could not operate on its own
 // SQLPageNotebook encapsulates [SQLPage](https://sql.ophir.dev/) content
 // SqlNotebooksOrchestrator encapsulates instances of all the other notebooks and provides performs all the work
 
@@ -359,30 +359,18 @@ export class SqlNotebookHelpers<
 }
 
 /**
- * Encapsulates SQL DDL and table/view/entity construction SQLa objects. The
- * actual models are not managed by this class but it does include all the
- * migration scripts which assemble the other SQL into a migration steps.
- *
- * TODO: add ISML-like migration capabilities so that database evoluation is
- * managed automatically. `existingMigrations` in the constructor is the list
- * of migrations already performed so this system needs to be smart enough to
- * generate SQL only for migrations that have not yet been performed.
+ * Encapsulates SQL DDL and table/view/entity construction SQLa objects for
+ * "bootstrapping" (creating a SQLite database from scratch). The actual models
+ * are not managed by this class but it does include all the migration scripts
+ * which assemble the other SQL into a migration steps.
  */
-export class ConstructionSqlNotebook<
+export class BootstrapSqlNotebook<
   EmitContext extends SQLa.SqlEmitContext = SQLa.SqlEmitContext,
 > extends SQLa.SqlNotebook<EmitContext> {
-  static readonly notIdempodentCells = new Set<keyof ConstructionSqlNotebook>();
-
-  constructor(
-    readonly nbh: SqlNotebookHelpers<EmitContext>,
-    readonly storedNotebookStateTransitions: ReturnType<
-      typeof nbh.models.codeNbModels.codeNotebookState.select
-    >["filterable"][],
-  ) {
+  constructor(readonly nbh: SqlNotebookHelpers<EmitContext>) {
     super();
   }
 
-  @notIdempotent(ConstructionSqlNotebook.notIdempodentCells)
   bootstrapDDL() {
     const { nbh, nbh: { models: { codeNbModels } } } = this;
     // deno-fmt-ignore
@@ -421,9 +409,34 @@ export class ConstructionSqlNotebook<
     }, options);
     return [sql, puml];
   }
+}
 
-  @notIdempotent(ConstructionSqlNotebook.notIdempodentCells)
-  initialDDL() {
+/**
+ * Encapsulates SQL DDL and table/view/entity construction SQLa objects. The
+ * actual models are not managed by this class but it does include all the
+ * migration scripts which assemble the other SQL into a migration steps.
+ *
+ * Cell name format: {version}_{pragma}_{abitrary}
+ * - {version} is used for sorting on `select`
+ * - {pragma} may be:
+ *   - `once_` to only run the script if its contents have not been run before
+ *     (see https://www.chezmoi.io/reference/source-state-attributes/ for ideas)
+ * - {arbitrary} may be anything else
+ */
+export class ConstructionSqlNotebook<
+  EmitContext extends SQLa.SqlEmitContext = SQLa.SqlEmitContext,
+> extends SQLa.SqlNotebook<EmitContext> {
+  constructor(
+    readonly nbh: SqlNotebookHelpers<EmitContext>,
+    readonly storedNotebookStateTransitions: ReturnType<
+      typeof nbh.models.codeNbModels.codeNotebookState.select
+    >["filterable"][],
+  ) {
+    super();
+  }
+
+  // note `once_` pragma means it must only be run once in the database
+  v001_once_initialDDL() {
     const { nbh, nbh: { models } } = this;
     // deno-fmt-ignore
     return nbh.SQL`
@@ -433,7 +446,8 @@ export class ConstructionSqlNotebook<
       `;
   }
 
-  fsContentWalkSessionStatsViewDDL() {
+  // note since `once_` pragma is not present, it will be run each time
+  v002_fsContentWalkSessionStatsViewDDL() {
     // deno-fmt-ignore
     return this.nbh.viewDefn("fs_content_walk_session_stats")/* sql */`
       WITH Summary AS (
@@ -779,70 +793,6 @@ export class QuerySqlNotebook<
 }
 
 /**
- * Encapsulates SQL needed as part of multi-language (e.g. SQLite + Deno)
- * orchestration because SQLite could not operate on its own.
- */
-export class PolyglotSqlNotebook<
-  EmitContext extends SQLa.SqlEmitContext = SQLa.SqlEmitContext,
-> extends SQLa.SqlNotebook<EmitContext> {
-  constructor(readonly nbh: SqlNotebookHelpers<EmitContext>) {
-    super();
-  }
-
-  /**
-   * Factory method to construct Command instances that will find all
-   * frontmatter candidates and update their fs_content table rows with
-   * parsed frontmatter.
-   *
-   * - First sqlite3 command finds all frontmatter candidates in DB, returning
-   *   SQL result as JSON rows array to STDOUT without any DB side effects.
-   * - Second sqlite3 command generates `UPDATE` SQL DML for all frontmatter
-   *   candidates and then executes the DML from Pass 2 which mutates the
-   *   database.
-   *
-   * If you want to capture any SQL or spawn logs, use Command loggers.
-   *
-   * @param sqliteDb the SQLite database to operate on
-   * @returns Command pattern instances which have promises that need to be resolved
-   */
-  frontmatterMutationCommands(sqliteDb: string) {
-    return cmdNB.sqlite3({ filename: sqliteDb })
-      .SQL(`SELECT fs_content_id, content
-            FROM fs_content
-           WHERE (file_extn = '.md' OR file_extn = '.mdx')
-             AND content IS NOT NULL
-             AND content_fm_body_attrs IS NULL
-             AND frontmatter IS NULL;`)
-      .outputJSON() // adds "--json" arg to SQLite pass 2
-      .pipe(cmdNB.sqlite3({ filename: sqliteDb }), {
-        // stdIn will be called with STDOUT from previous SQL statement;
-        // we will take result of `SELECT fs_content_id, content...` and
-        // convert it JSON then loop through each row to prepare SQL
-        // DML (`UPDATE`) to set the frontmatter. The function prepares the
-        // SQL and hands it to a SQLite shell for execution.
-        stdIn: this.nbh.pipeInSpawnedRows<
-          { fs_content_id: string; content: string }
-        > // deno-lint-ignore require-await
-        (async (rows, emitStdIn, nbh) => {
-          const { quotedLiteral } = nbh.emitCtx.sqlTextEmitOptions;
-          rows.forEach((row) => {
-            if (fm.test(row.content)) {
-              const parsedFM = fm.extract(row.content);
-              // each write() call adds content into the SQLite stdin
-              // stream that will be sent to Deno.Command
-              // deno-fmt-ignore
-              emitStdIn(`UPDATE fs_content SET
-                         frontmatter = ${quotedLiteral(JSON.stringify(parsedFM.attrs))[1]},
-                         content_fm_body_attrs = ${quotedLiteral(JSON.stringify(parsedFM))[1]}
-                       WHERE fs_content_id = '${row.fs_content_id}';\n`);
-            }
-          });
-        }),
-      });
-  }
-}
-
-/**
  * Encapsulates [SQLPage](https://sql.ophir.dev/) content. SqlPageNotebook has
  * methods with the name of each [SQLPage](https://sql.ophir.dev/) content that
  * we want in the database. The MutationSqlNotebook sqlPageSeedDML method
@@ -1039,10 +989,10 @@ export class AssuranceSqlNotebook<
 }
 
 export const orchestrableSqlNotebooksNames = [
+  "bootstrap",
   "construction",
   "mutation",
   "query",
-  "polyglot",
   "assurance",
 ] as const;
 
@@ -1050,13 +1000,16 @@ export type OrchestrableSqlNotebookName =
   typeof orchestrableSqlNotebooksNames[number];
 
 /**
- * Encapsulates instances of all the other notebooks and provides performs all
- * the work of creating other notebook kernel factories and actually performing
+ * Encapsulates instances of all the other notebooks and performs all the work
+ * of creating other notebook kernel factories and actually performing
  * operations with those notebooks' cells.
  */
 export class SqlNotebooksOrchestrator<
   EmitContext extends SQLa.SqlEmitContext = SQLa.SqlEmitContext,
 > {
+  readonly bootstrapNBF: ReturnType<
+    typeof SQLa.sqlNotebookFactory<BootstrapSqlNotebook, EmitContext>
+  >;
   readonly constructionNBF: ReturnType<
     typeof SQLa.sqlNotebookFactory<ConstructionSqlNotebook, EmitContext>
   >;
@@ -1066,19 +1019,21 @@ export class SqlNotebooksOrchestrator<
   readonly queryNBF: ReturnType<
     typeof SQLa.sqlNotebookFactory<QuerySqlNotebook, EmitContext>
   >;
-  readonly polyglotNBF: ReturnType<
-    typeof SQLa.sqlNotebookFactory<PolyglotSqlNotebook, EmitContext>
-  >;
   readonly assuranceNBF: ReturnType<
     typeof SQLa.sqlNotebookFactory<AssuranceSqlNotebook, EmitContext>
   >;
+
+  readonly bootstrapNB: BootstrapSqlNotebook;
   readonly constructionNB: ConstructionSqlNotebook;
   readonly mutationNB: MutationSqlNotebook;
   readonly queryNB: QuerySqlNotebook;
-  readonly polyglotNB: PolyglotSqlNotebook;
   readonly assuranceNB: AssuranceSqlNotebook;
 
   constructor(readonly nbh: SqlNotebookHelpers<EmitContext>) {
+    this.bootstrapNBF = SQLa.sqlNotebookFactory(
+      BootstrapSqlNotebook.prototype,
+      () => new BootstrapSqlNotebook<EmitContext>(nbh),
+    );
     this.constructionNBF = SQLa.sqlNotebookFactory(
       ConstructionSqlNotebook.prototype,
       () => new ConstructionSqlNotebook<EmitContext>(nbh, []),
@@ -1091,19 +1046,15 @@ export class SqlNotebooksOrchestrator<
       QuerySqlNotebook.prototype,
       () => new QuerySqlNotebook<EmitContext>(nbh),
     );
-    this.polyglotNBF = SQLa.sqlNotebookFactory(
-      PolyglotSqlNotebook.prototype,
-      () => new PolyglotSqlNotebook<EmitContext>(nbh),
-    );
     this.assuranceNBF = SQLa.sqlNotebookFactory(
       AssuranceSqlNotebook.prototype,
       () => new AssuranceSqlNotebook<EmitContext>(nbh),
     );
 
+    this.bootstrapNB = this.bootstrapNBF.instance();
     this.constructionNB = this.constructionNBF.instance();
     this.mutationNB = this.mutationNBF.instance();
     this.queryNB = this.queryNBF.instance();
-    this.polyglotNB = this.polyglotNBF.instance();
     this.assuranceNB = this.assuranceNBF.instance();
   }
 
@@ -1153,6 +1104,9 @@ export class SqlNotebooksOrchestrator<
       readonly notebook: OrchestrableSqlNotebookName;
       readonly cell: string;
     }[] = [];
+    this.bootstrapNBF.kernel.introspectedNB.cells.forEach((cell) => {
+      cells.push({ notebook: "bootstrap", cell: cell.nbCellID });
+    });
     this.constructionNBF.kernel.introspectedNB.cells.forEach((cell) => {
       cells.push({ notebook: "construction", cell: cell.nbCellID });
     });
@@ -1161,9 +1115,6 @@ export class SqlNotebooksOrchestrator<
     });
     this.queryNBF.kernel.introspectedNB.cells.forEach((cell) => {
       cells.push({ notebook: "query", cell: cell.nbCellID });
-    });
-    this.polyglotNBF.kernel.introspectedNB.cells.forEach((cell) => {
-      cells.push({ notebook: "polyglot", cell: cell.nbCellID });
     });
     this.assuranceNBF.kernel.introspectedNB.cells.forEach((cell) => {
       cells.push({ notebook: "assurance", cell: cell.nbCellID });
@@ -1213,6 +1164,10 @@ export class SqlNotebooksOrchestrator<
     };
 
     await kernelDML(
+      this.bootstrapNBF as Any,
+      BootstrapSqlNotebook.prototype.constructor.name,
+    );
+    await kernelDML(
       this.constructionNBF as Any,
       ConstructionSqlNotebook.prototype.constructor.name,
     );
@@ -1229,10 +1184,8 @@ export class SqlNotebooksOrchestrator<
       AssuranceSqlNotebook.prototype.constructor.name,
     );
 
-    // NOTE: PolyglotSqlNotebook is not stored since its cells cannot be
-    //       executed without orchestration externally
     // NOTE: SQLPageNotebook is not stored since its cells are stored in special
-    //       sqlpage_files table
+    //       `sqlpage_files` table so we don't put them into regular notebooks.
 
     return this.nbh.SQL`
       ${sqlDML};

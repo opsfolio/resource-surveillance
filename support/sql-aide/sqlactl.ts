@@ -34,9 +34,9 @@ async function CLI() {
 
       const sqlPageNB = nbooks.SQLPageNotebook.create(sno.nbh);
       const initSQL = nbh.SQL`
-        ${sno.constructionNB.bootstrapDDL()}
+        ${sno.bootstrapNB.bootstrapDDL()}
         
-        ${sno.constructionNB.bootstrapSeedDML()}
+        ${sno.bootstrapNB.bootstrapSeedDML()}
 
         -- store all SQL that is potentially reusable in the database
         ${await sno.storeNotebookCellsDML()}

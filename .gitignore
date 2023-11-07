@@ -6,7 +6,7 @@ CLI-help.md
 bootstrap.sqlite.db
 
 # surveilr testing
-device-surveillance.sqlite.db*
+resource-surveillance.sqlite.db*
 
 # rust-specific
 /target

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 use regex::Regex;
-use rusqlite::Connection;
+use rusqlite::{Connection, OpenFlags};
 
 #[macro_use]
 extern crate lazy_static;
@@ -15,11 +15,12 @@ lazy_static! {
 #[macro_use]
 mod helpers;
 
-mod persist;
-
+mod format;
 mod fsresource;
+mod persist;
 mod resource;
 
+use format::*;
 use fsresource::*;
 use persist::*;
 use resource::*;
@@ -49,6 +50,22 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Database maintenance utilities
+    DbMaint {
+        /// target SQLite database
+        #[arg(
+            short,
+            long,
+            default_value = "./resource-surveillance.sqlite.db",
+            default_missing_value = "always"
+        )]
+        db_fs_path: Option<String>,
+
+        /// list notebooks and cells
+        #[arg(long, short)]
+        ls_notebooks: bool,
+    },
+
     /// Walks the device file system
     FsWalk {
         /// one or more root paths to walk
@@ -76,10 +93,10 @@ enum Commands {
         )]
         surveil_content: Vec<Regex>,
 
-        /// reg-exes to use to load frontmatter for entry in addition to content
+        /// target SQLite database
         #[arg(
             long,
-            default_value = "./device-surveillance.sqlite.db",
+            default_value = "./resource-surveillance.sqlite.db",
             default_missing_value = "always"
         )]
         surveil_db_fs_path: Option<String>,
@@ -106,13 +123,41 @@ fn main() {
     // You can see how many times a particular flag or argument occurred
     // Note, only flags can have multiple occurrences
     match cli.debug {
-        0 => println!("Debug mode is off"),
+        0 => {}
         1 => println!("Debug mode is kind of on"),
         2 => println!("Debug mode is on"),
         _ => println!("Don't be crazy"),
     }
 
     match &cli.command {
+        Some(Commands::DbMaint {
+            db_fs_path,
+            ls_notebooks,
+        }) => {
+            if let Some(db_fs_path) = db_fs_path.as_deref() {
+                if let Ok(conn) =
+                    Connection::open_with_flags(db_fs_path, OpenFlags::SQLITE_OPEN_READ_WRITE)
+                {
+                    if *ls_notebooks {
+                        let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
+                        notebook_cells(&conn, |_index, kernel, nb, cell, id| {
+                            rows.push(vec![nb, kernel, cell, id]);
+                            Ok(())
+                        })
+                        .unwrap();
+                        println!(
+                            "{}",
+                            format_table(&["Notebook", "Kernel", "Cell", "ID"], &rows)
+                        );
+                    }
+                } else {
+                    println!(
+                        "DB Maintenance system could not open or create: {}",
+                        db_fs_path
+                    );
+                };
+            }
+        }
         Some(Commands::FsWalk {
             root_path,
             ignore_entry,
@@ -124,44 +169,15 @@ fn main() {
                 println!("Surveillance DB URL: {db_fs_path}");
 
                 if let Ok(conn) = Connection::open(db_fs_path) {
-                    println!("RusqliteContext preparing {}", db_fs_path);
                     if let Ok(mut ctx) = RusqliteContext::new(&conn) {
-                        match select_notebook_cell_code(
-                            &conn,
-                            "ConstructionSqlNotebook",
-                            "initialDDL",
-                        ) {
-                            Ok((id, _code)) => {
-                                println!("select_notebook_cell_code {}", id)
+                        match ctx.execute_migrations() {
+                            Ok(_) => {}
+                            Err(err) => {
+                                println!("execute_migrations Error {}", err);
                             }
-                            Err(err) => println!("select_notebook_cell_code Error {}", err),
-                        }
-                        notebook_cells(&conn, |index, id, nb, cell| {
-                            println!("{} {} {} {}", index, id, nb, cell);
-                            Ok(())
-                        })
-                        .unwrap();
-                        match ctx.execute_batch_stateful(
-                            &INIT_DDL_EC,
-                            "NONE",
-                            "EXECUTED",
-                            "initialDDL schema migration",
-                        ) {
-                            Some(result) => match result {
-                                Ok(_) => {
-                                    println!("RusqliteContext initDDL executed and state recorded")
-                                }
-                                Err(err) => println!("RusqliteContext initDDL Error {}", err),
-                            },
-                            None => println!(
-                                "RusqliteContext initDDL already executed, not re-executed"
-                            ),
                         };
                         let _ = ctx.upserted_device(&DEVICE);
-                        // let _ = ctx.conn.execute_batch("BEGIN TRANSACTION;");
-                        // let _ = ctx.conn.execute_batch("COMMIT TRANSACTION;");
                     }
-                    println!("RusqliteContext Prepared {}", db_fs_path);
                 } else {
                     println!("RusqliteContext Could not open or create: {}", db_fs_path);
                 };

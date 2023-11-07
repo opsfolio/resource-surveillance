@@ -44,12 +44,25 @@ execute_sql!(
 );
 
 query_sql_rows_no_args!(
-    notebook_cells,
-    r"SELECT code_notebook_cell_id, notebook_name, cell_name
-        FROM code_notebook_cell";
-    code_notebook_cell_id: String,
+    construction_notebook_cells,
+    r"  SELECT notebook_name, cell_name, interpretable_code, code_notebook_cell_id
+          FROM code_notebook_cell
+         WHERE notebook_name = 'ConstructionSqlNotebook'
+      ORDER BY cell_name";
     notebook_name: String,
-    cell_name: String
+    cell_name: String,
+    interpretable_code: String,
+    code_notebook_cell_id: String
+);
+
+query_sql_rows_no_args!(
+    notebook_cells,
+    r"SELECT notebook_kernel_id, notebook_name, cell_name, code_notebook_cell_id
+        FROM code_notebook_cell";
+    notebook_kernel_id: String,
+    notebook_name: String,
+    cell_name: String,
+    code_notebook_cell_id: String
 );
 
 execute_sql!(
@@ -62,14 +75,14 @@ execute_sql!(
     boundary: &str
 );
 
-// TODO: create infra to be able to validate all SQL in an in-memory SQLite database
-//       by looping through all ExecutableCode blocks and running `prepare`.
-lazy_static! {
-    pub static ref INIT_DDL_EC: ExecutableCode = ExecutableCode::NotebookCell {
-        notebook_name: String::from("ConstructionSqlNotebook"),
-        cell_name: String::from("initialDDL")
-    };
-}
+// // TODO: create infra to be able to validate all SQL in an in-memory SQLite database
+// //       by looping through all ExecutableCode blocks and running `prepare`.
+// lazy_static! {
+//     pub static ref INIT_DDL_EC: ExecutableCode = ExecutableCode::NotebookCell {
+//         notebook_name: String::from("ConstructionSqlNotebook"),
+//         cell_name: String::from("initialDDL")
+//     };
+// }
 
 /**
  * IMPORTANT TODO: ensure all high performance loops are wrapped in prepare
@@ -147,6 +160,44 @@ impl<'conn> RusqliteContext<'conn> {
         Ok(RusqliteContext {
             conn,
             bootstrap_result,
+        })
+    }
+
+    pub fn execute_migrations(&mut self) -> RusqliteResult<()> {
+        // TODO: should we put these into BEGIN/END TRANSCTION?
+        construction_notebook_cells(self.conn, |_index, notebook_name, cell_name, sql, _id| {
+            if cell_name.contains("_once_") {
+                match self.execute_batch_stateful(
+                    &ExecutableCode::NotebookCell {
+                        notebook_name: notebook_name.clone(),
+                        cell_name: cell_name.clone(),
+                    },
+                    "NONE",
+                    "EXECUTED",
+                    "execute_migrations",
+                ) {
+                    None => {
+                        println!(
+                            "[TODO: move this to Otel] {} {} migration not required",
+                            notebook_name, cell_name
+                        );
+                        Ok(())
+                    }
+                    Some(_) => {
+                        println!(
+                            "[TODO: move this to Otel] {} {} migrated",
+                            notebook_name, cell_name
+                        );
+                        Ok(())
+                    }
+                }
+            } else {
+                println!(
+                    "[TODO: move this to Otel] {} {} migrated",
+                    notebook_name, cell_name
+                );
+                self.conn.execute_batch(&sql)
+            }
         })
     }
 

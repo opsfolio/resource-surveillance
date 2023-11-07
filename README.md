@@ -103,4 +103,4 @@ Walks the device file system
 - `--surveil-db-url <SURVEIL_DB_URL>` — reg-exes to use to load frontmatter for
   entry in addition to content
 
-  Default value: `sqlite://device-surveillance.sqlite.db`
+  Default value: `sqlite://resource-surveillance.sqlite.db`
