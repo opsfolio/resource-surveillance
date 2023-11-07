@@ -65,6 +65,28 @@ query_sql_rows_no_args!(
     code_notebook_cell_id: String
 );
 
+query_sql_rows_no_args!(
+    notebook_cell_states,
+    r"SELECT cns.code_notebook_state_id,
+             cnc.notebook_name,
+             cnc.cell_name,
+             cnc.notebook_kernel_id,
+             cns.from_state,
+             cns.to_state,
+             cns.transition_reason,
+             cns.transitioned_at
+        FROM code_notebook_state cns
+        JOIN code_notebook_cell cnc ON cns.code_notebook_cell_id = cnc.code_notebook_cell_id";
+    code_notebook_state_id: String,
+    notebook_name: String,
+    cell_name: String,
+    notebook_kernel_id: String,
+    from_state: String,
+    to_state: String,
+    transition_reason: String,
+    transitioned_at: String
+);
+
 execute_sql!(
     upsert_device,
     r"INSERT INTO device (device_id, name, boundary) VALUES (?, ?, ?)

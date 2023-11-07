@@ -149,6 +149,39 @@ fn main() {
                             "{}",
                             format_table(&["Notebook", "Kernel", "Cell", "ID"], &rows)
                         );
+
+                        rows = Vec::new(); // Declare the rows as a vector of vectors of strings
+                        notebook_cell_states(
+                            &conn,
+                            |_index,
+                             _code_notebook_state_id,
+                             notebook_name,
+                             cell_name,
+                             notebook_kernel_id,
+                             from_state,
+                             to_state,
+                             transition_reason,
+                             transitioned_at| {
+                                rows.push(vec![
+                                    notebook_name,
+                                    notebook_kernel_id,
+                                    cell_name,
+                                    from_state,
+                                    to_state,
+                                    transition_reason,
+                                    transitioned_at,
+                                ]);
+                                Ok(())
+                            },
+                        )
+                        .unwrap();
+                        println!(
+                            "{}",
+                            format_table(
+                                &["Notebook", "Kernel", "Cell", "From", "To", "Remarks", "When"],
+                                &rows
+                            )
+                        );
                     }
                 } else {
                     println!(

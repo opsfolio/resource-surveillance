@@ -528,50 +528,6 @@ export class MutationSqlNotebook<
   constructor(readonly nbh: SqlNotebookHelpers<EmitContext>) {
     super();
   }
-
-  mimeTypesSeedDML() {
-    const { nbh, nbh: { models } } = this;
-    // deno-fmt-ignore
-    return nbh.SQL`
-      ${nbh.loadExtnSQL("asg017/ulid/ulid0")}
-      ${nbh.loadExtnSQL("asg017/http/http0")}
-
-      -- This source: 'https://raw.githubusercontent.com/patrickmccallum/mimetype-io/master/src/mimeData.json'
-      -- has the given JSON structure:
-      -- [
-      --   {
-      --     "name": <MimeTypeName>,
-      --     "description": <Description>,
-      --     "types": [<Extension1>, <Extension2>, ...],
-      --     "alternatives": [<Alternative1>, <Alternative2>, ...]
-      --   },
-      --   ...
-      -- ]
-      -- The goal of the SQL query is to flatten this structure into rows where each row will
-      -- represent a single MIME type and one of its associated file extensions (from the 'types' array).
-      -- The output will look like:
-      -- | name             | description  | type         | alternatives        |
-      -- |------------------|--------------|--------------|---------------------|
-      -- | <MimeTypeName>   | <Description>| <Extension1> | <AlternativesArray> |
-      -- | <MimeTypeName>   | <Description>| <Extension2> | <AlternativesArray> |
-      -- ... and so on for all MIME types and all extensions.
-      --
-      -- we take all those JSON array entries and insert them into our MIME Types table
-      INSERT or IGNORE INTO mime_type (mime_type_id, name, description, file_extn)
-        SELECT ulid(),
-               resource.value ->> '$.name' as name,
-               resource.value ->> '$.description' as description,
-               file_extns.value as file_extn
-          FROM json_each(http_get_body('https://raw.githubusercontent.com/patrickmccallum/mimetype-io/master/src/mimeData.json')) as resource,
-               json_each(resource.value, '$.types') AS file_extns;
-
-      ${models.mimeType.insertDML({
-      mime_type_id: nbh.sqlEngineNewUlid,
-      name: "application/typescript",
-      file_extn: ".ts",
-      description: "Typescript source",
-    }, { onConflict: nbh.onConflictDoNothing })};`;
-  }
 }
 
 /**

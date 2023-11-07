@@ -131,39 +131,7 @@ export function codeNotebooksModels<
 
 export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   const codeNbModels = codeNotebooksModels<EmitContext>();
-  const { keys: gk, domains: gd, model: gm } = codeNbModels.modelsGovn;
-
-  /**
-   * Immutable Devices table represents different machines, servers, or workstations.
-   * Every device has a unique identifier (ULID) and contains fields for its name,
-   * operating system, os_info (possibly Unix name info, like output of uname -a),
-   * and a JSON-structured field for additional details about the device.
-   *
-   * Always append new records. NEVER delete or update existing records.
-   */
-  const mimeType = gm.textPkTable(
-    "mime_type",
-    {
-      mime_type_id: gk.ulidPrimaryKey(), // TODO: allow setting default to `ulid()` type like autoIncPK execpt autoUlidPK or something
-      name: gd.text(),
-      description: gd.text(),
-      file_extn: gd.text(),
-      ...gm.housekeeping.columns,
-    },
-    {
-      isIdempotent: true,
-      constraints: (props, tableName) => {
-        const c = SQLa.tableConstraints(tableName, props);
-        return [
-          c.unique("name", "file_extn"),
-        ];
-      },
-      indexes: (props, tableName) => {
-        const tif = SQLa.tableIndexesFactory(tableName, props);
-        return [tif.index({ isIdempotent: true }, "file_extn")];
-      },
-    },
-  );
+  const { domains: gd, model: gm } = codeNbModels.modelsGovn;
 
   /**
    * Immutable Devices table represents different machines, servers, or workstations.
@@ -359,7 +327,6 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
 
   const informationSchema = {
     tables: [
-      mimeType,
       device,
       fsContentWalkSession,
       fsContentWalkPath,
@@ -367,7 +334,6 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       fsContentWalkPathEntry,
     ],
     tableIndexes: [
-      ...mimeType.indexes,
       ...device.indexes,
       ...fsContentWalkSession.indexes,
       ...fsContentWalkPath.indexes,
@@ -378,7 +344,6 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
 
   return {
     codeNbModels,
-    mimeType,
     device,
     fsContentWalkSession,
     fsContentWalkPath,
