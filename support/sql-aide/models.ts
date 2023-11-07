@@ -180,7 +180,6 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       device_id: device.references.device_id(),
       walk_started_at: gd.dateTime(),
       walk_finished_at: gd.dateTimeNullable(),
-      max_fileio_read_bytes: gd.integer(),
       ignore_paths_regex: gd.textNullable(),
       blobs_regex: gd.textNullable(),
       digests_regex: gd.textNullable(),

@@ -50,8 +50,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Database maintenance utilities
-    DbMaint {
+    /// Notebooks' cells emit utilities
+    CatCells {
         /// target SQLite database
         #[arg(
             short,
@@ -61,9 +61,25 @@ enum Commands {
         )]
         db_fs_path: Option<String>,
 
-        /// list notebooks and cells
-        #[arg(long, short)]
-        ls_notebooks: bool,
+        // search for these notebooks (include % for LIKE otherwise =)
+        #[arg(short, long)]
+        notebook: Vec<String>,
+
+        // search for these cells (include % for LIKE otherwise =)
+        #[arg(short, long)]
+        cell: Vec<String>,
+    },
+
+    /// Notebooks maintenance utilities
+    Notebooks {
+        /// target SQLite database
+        #[arg(
+            short,
+            long,
+            default_value = "./resource-surveillance.sqlite.db",
+            default_missing_value = "always"
+        )]
+        db_fs_path: Option<String>,
     },
 
     /// Walks the device file system
@@ -111,17 +127,7 @@ fn main() {
         return;
     }
 
-    // You can check the value provided by positional arguments, or option arguments
-    if let Some(name) = cli.device_name.as_deref() {
-        println!("Device: {name}");
-    }
-
-    if let Some(config_path) = cli.config.as_deref() {
-        println!("config: {}", config_path.display());
-    }
-
-    // You can see how many times a particular flag or argument occurred
-    // Note, only flags can have multiple occurrences
+    // --debug can be passed more than once to increase level
     match cli.debug {
         0 => {}
         1 => println!("Debug mode is kind of on"),
@@ -129,65 +135,95 @@ fn main() {
         _ => println!("Don't be crazy"),
     }
 
+    if cli.debug == 1 {
+        // You can check the value provided by positional arguments, or option arguments
+        if let Some(name) = cli.device_name.as_deref() {
+            println!("Device: {name}");
+        }
+
+        if let Some(config_path) = cli.config.as_deref() {
+            println!("config: {}", config_path.display());
+        }
+    }
+
     match &cli.command {
-        Some(Commands::DbMaint {
+        Some(Commands::CatCells {
             db_fs_path,
-            ls_notebooks,
+            notebook: notebooks,
+            cell: cells,
         }) => {
             if let Some(db_fs_path) = db_fs_path.as_deref() {
                 if let Ok(conn) =
                     Connection::open_with_flags(db_fs_path, OpenFlags::SQLITE_OPEN_READ_WRITE)
                 {
-                    if *ls_notebooks {
-                        let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
-                        notebook_cells(&conn, |_index, kernel, nb, cell, id| {
-                            rows.push(vec![nb, kernel, cell, id]);
-                            Ok(())
-                        })
-                        .unwrap();
-                        println!(
-                            "{}",
-                            format_table(&["Notebook", "Kernel", "Cell", "ID"], &rows)
-                        );
-
-                        rows = Vec::new(); // Declare the rows as a vector of vectors of strings
-                        notebook_cell_states(
-                            &conn,
-                            |_index,
-                             _code_notebook_state_id,
-                             notebook_name,
-                             cell_name,
-                             notebook_kernel_id,
-                             from_state,
-                             to_state,
-                             transition_reason,
-                             transitioned_at| {
-                                rows.push(vec![
-                                    notebook_name,
-                                    notebook_kernel_id,
-                                    cell_name,
-                                    from_state,
-                                    to_state,
-                                    transition_reason,
-                                    transitioned_at,
-                                ]);
-                                Ok(())
-                            },
-                        )
-                        .unwrap();
-                        println!(
-                            "{}",
-                            format_table(
-                                &["Notebook", "Kernel", "Cell", "From", "To", "Remarks", "When"],
-                                &rows
-                            )
-                        );
+                    match select_notebooks_and_cells(&conn, notebooks, cells) {
+                        Ok(matched) => {
+                            for row in matched {
+                                let (notebook, kernel, cell, sql) = row;
+                                println!("-- {notebook}::{cell} ({kernel})");
+                                println!("{sql}");
+                            }
+                        }
+                        Err(err) => println!("Notebooks cells command error: {}", err),
                     }
                 } else {
                     println!(
-                        "DB Maintenance system could not open or create: {}",
+                        "Notebooks cells command requires a database: {}",
                         db_fs_path
                     );
+                }
+            };
+        }
+        Some(Commands::Notebooks { db_fs_path }) => {
+            if let Some(db_fs_path) = db_fs_path.as_deref() {
+                if let Ok(conn) =
+                    Connection::open_with_flags(db_fs_path, OpenFlags::SQLITE_OPEN_READ_WRITE)
+                {
+                    let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
+                    notebook_cells(&conn, |_index, kernel, nb, cell, id| {
+                        rows.push(vec![nb, kernel, cell, id]);
+                        Ok(())
+                    })
+                    .unwrap();
+                    println!(
+                        "{}",
+                        format_table(&["Notebook", "Kernel", "Cell", "ID"], &rows)
+                    );
+
+                    rows = Vec::new(); // Declare the rows as a vector of vectors of strings
+                    notebook_cell_states(
+                        &conn,
+                        |_index,
+                         _code_notebook_state_id,
+                         notebook_name,
+                         cell_name,
+                         notebook_kernel_id,
+                         from_state,
+                         to_state,
+                         transition_reason,
+                         transitioned_at| {
+                            rows.push(vec![
+                                notebook_name,
+                                notebook_kernel_id,
+                                cell_name,
+                                from_state,
+                                to_state,
+                                transition_reason,
+                                transitioned_at,
+                            ]);
+                            Ok(())
+                        },
+                    )
+                    .unwrap();
+                    println!(
+                        "{}",
+                        format_table(
+                            &["Notebook", "Kernel", "Cell", "From", "To", "Remarks", "When"],
+                            &rows
+                        )
+                    );
+                } else {
+                    println!("Notebooks command requires a database: {}", db_fs_path);
                 };
             }
         }
@@ -199,7 +235,9 @@ fn main() {
             compute_digests,
         }) => {
             if let Some(db_fs_path) = surveil_db_fs_path.as_deref() {
-                println!("Surveillance DB URL: {db_fs_path}");
+                if cli.debug == 1 {
+                    println!("Surveillance DB: {db_fs_path}");
+                }
 
                 if let Ok(conn) = Connection::open(db_fs_path) {
                     if let Ok(mut ctx) = RusqliteContext::new(&conn) {
@@ -209,40 +247,53 @@ fn main() {
                                 println!("execute_migrations Error {}", err);
                             }
                         };
-                        let _ = ctx.upserted_device(&DEVICE);
+                        // TODO: put this entire block in a transaction for performance and safety
+                        match ctx.upserted_device(&DEVICE) {
+                            Ok((device_id, device_name)) => {
+                                if cli.debug == 1 { println!("Device: {device_name} ({device_id})"); }
+
+                                // TODO: figure out why so many .clone() are necessary instead of pointers
+                                let walk_session_id = ulid::Ulid::new().to_string();
+                                if cli.debug == 1 { println!("Walk Session: {walk_session_id}"); }
+                                match conn.execute(r"
+                                    INSERT INTO fs_content_walk_session (fs_content_walk_session_id, device_id, ignore_paths_regex, blobs_regex, digests_regex, walk_started_at) 
+                                                                 VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)", [
+                                                                    walk_session_id.clone(), device_id, 
+                                                                    ignore_entry.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", "), 
+                                                                    compute_digests.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", "), 
+                                                                    surveil_content.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", ")]) {
+                                    Ok(_) => {
+                                        for rp in root_path {
+                                            let walk_path_id = ulid::Ulid::new().to_string();
+                                            if cli.debug == 1 { println!("  Walk Session Path: {rp} ({walk_path_id})"); }
+                                            match conn.execute(r"
+                                                INSERT INTO fs_content_walk_path (fs_content_walk_path_id, walk_session_id, root_path)
+                                                                          VALUES (?, ?, ?)", [walk_path_id.clone(), walk_session_id.clone(), rp.clone()]) {
+                                                Ok(_) => {
+                                                    
+                                                }
+                                                Err(err) => {
+                                                    println!("fs_content_walk_path Error {}", err);
+                                                }
+                                            };    
+                                        }
+
+                                        let _ = conn.execute("UPDATE fs_content_walk_session SET walk_finished_at = CURRENT_TIMESTAMP WHERE fs_content_walk_session_id = ?", [walk_session_id.clone()]);
+                                    }
+                                    Err(err) => {
+                                        println!("fs_content_walk_session Error {}", err);
+                                    }
+                                };
+                            }
+                            Err(err) => {
+                                println!("Unable to upsert device: {}", err);
+                            }
+                        };
                     }
                 } else {
                     println!("RusqliteContext Could not open or create: {}", db_fs_path);
                 };
             }
-
-            println!("Root paths: {}", root_path.join(", "));
-            println!(
-                "Ignore entries reg exes: {}",
-                ignore_entry
-                    .iter()
-                    .map(|r| r.as_str())
-                    .collect::<Vec<&str>>()
-                    .join(", ")
-            );
-
-            println!(
-                "Compute digests reg exes: {}",
-                compute_digests
-                    .iter()
-                    .map(|r| r.as_str())
-                    .collect::<Vec<&str>>()
-                    .join(", ")
-            );
-
-            println!(
-                "Content surveillance entries reg exes: {}",
-                surveil_content
-                    .iter()
-                    .map(|r| r.as_str())
-                    .collect::<Vec<&str>>()
-                    .join(", ")
-            );
 
             let walker = FileSysResourcesWalker::new(root_path, ignore_entry, surveil_content);
             match walker {

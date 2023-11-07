@@ -1,7 +1,5 @@
 import {
   chainNB,
-  cmdNB,
-  frontmatter as fm,
   SQLa,
   SQLa_tp as typical,
   sysinfo as si,
@@ -250,26 +248,6 @@ export class SqlNotebookHelpers<
     return { SQL: () => `CURRENT_TIMESTAMP` };
   }
 
-  // See [SQLite Pragma Cheatsheet for Performance and Consistency](https://cj.rs/blog/sqlite-pragma-cheatsheet-for-performance-and-consistency/)
-  get optimalOpenDB() {
-    return this.sqlBehavior(this.SQL`
-      -- make sure all pragmas are silent in case SQL will be piped
-      .output /dev/null
-      PRAGMA journal_mode = wal; -- different implementation of the atomicity properties
-      PRAGMA synchronous = normal; -- synchronise less often to the filesystem
-      PRAGMA foreign_keys = on; -- check foreign key reference, slightly worst performance
-      .output stdout`);
-  }
-
-  get optimalCloseDB() {
-    return this.sqlBehavior(this.SQL`
-      -- make sure all pragmas are silent in case SQL will be piped
-      .output /dev/null
-      PRAGMA analysis_limit=400; -- make sure pragma optimize does not take too long
-      PRAGMA optimize; -- gather statistics to improve query optimization
-      -- we do not need .output stdout since it's the last statement of the stream`);
-  }
-
   /**
    * Setup the SQL bind parameters; object property values will be available as
    * :key1, :key2, etc.
@@ -327,34 +305,6 @@ export class SqlNotebookHelpers<
       embeddedStsOptions: this.templateState.ddlOptions,
       before: (viewName) => SQLa.dropView(viewName),
     });
-  }
-
-  /**
-   * Handler which can be passed into Command Notebook pipe options.stdIn to
-   * automatically wrap the spawn results into database rows for convenient
-   * access to strongly typed data from previous command's execution result.
-   * @param handler function which accepts spawned content and writes to STDIN for next command
-   * @returns a handler function to pass into pipe options.stdIn
-   */
-  pipeInSpawnedRows<Row>(
-    handler: (
-      rows: Row[],
-      write: (text: string | SQLa.SqlTextSupplier<EmitContext>) => void,
-      nbh: SqlNotebookHelpers<EmitContext>,
-    ) => Promise<void>,
-  ): cmdNB.SpawnedResultPipeInWriter {
-    const te = new TextEncoder();
-    const td = new TextDecoder();
-    return async (sr, rawWriter) => {
-      const writer = (text: string | SQLa.SqlTextSupplier<EmitContext>) => {
-        if (typeof text === "string") {
-          rawWriter.write(te.encode(text));
-        } else {
-          rawWriter.write(te.encode(text.SQL(this.emitCtx)));
-        }
-      };
-      await handler(JSON.parse(td.decode(sr.stdout)) as Row[], writer, this);
-    };
   }
 }
 
