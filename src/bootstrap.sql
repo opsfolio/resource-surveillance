@@ -61,7 +61,7 @@ INSERT INTO "code_notebook_kernel" ("code_notebook_kernel_id", "kernel_name", "d
 INSERT INTO "code_notebook_kernel" ("code_notebook_kernel_id", "kernel_name", "description", "mime_type", "file_extn", "elaboration", "governance", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('PlantUML', 'PlantUML ER Diagram', NULL, 'text/vnd.plantuml', '.puml', NULL, NULL, (CURRENT_TIMESTAMP), NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(kernel_name) DO UPDATE SET mime_type = EXCLUDED.mime_type, file_extn = EXCLUDED.file_extn;
 
 -- store all SQL that is potentially reusable in the database
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HENSKBE8F1499B32V73TYWJ8', 'SQL', 'BootstrapSqlNotebook', 'bootstrapDDL', NULL, 'CREATE TABLE IF NOT EXISTS "code_notebook_kernel" (
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HEPEQS22KBYMA6QFZ2N2EVH2', 'SQL', 'BootstrapSqlNotebook', 'bootstrapDDL', NULL, 'CREATE TABLE IF NOT EXISTS "code_notebook_kernel" (
     "code_notebook_kernel_id" TEXT PRIMARY KEY NOT NULL,
     "kernel_name" TEXT NOT NULL,
     "description" TEXT,
@@ -123,12 +123,12 @@ CREATE TABLE IF NOT EXISTS "code_notebook_state" (
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HENSKBEAGWM08AHW1TK2P0D9', 'SQL', 'BootstrapSqlNotebook', 'bootstrapSeedDML', NULL, 'storeNotebookCellsDML "bootstrapSeedDML" did not return SQL (found: object)', 'd5bcdf4a75be14925b1008a47362707c00cb8990', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HEPEQS22HMKJRM6W2PEE19E6', 'SQL', 'BootstrapSqlNotebook', 'bootstrapSeedDML', NULL, 'storeNotebookCellsDML "bootstrapSeedDML" did not return SQL (found: object)', 'd5bcdf4a75be14925b1008a47362707c00cb8990', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HENSKBEB41D3XJXWY9HQGRCP', 'SQL', 'ConstructionSqlNotebook', 'v001_once_initialDDL', NULL, 'CREATE TABLE IF NOT EXISTS "device" (
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HEPEQS2381090NC8VFQ0X8GB', 'SQL', 'ConstructionSqlNotebook', 'v001_once_initialDDL', NULL, 'CREATE TABLE IF NOT EXISTS "device" (
     "device_id" ULID PRIMARY KEY NOT NULL,
     "name" TEXT NOT NULL,
     "boundary" TEXT NOT NULL,
@@ -142,8 +142,8 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     "activity_log" TEXT,
     UNIQUE("name", "boundary")
 );
-CREATE TABLE IF NOT EXISTS "fs_content_walk_session" (
-    "fs_content_walk_session_id" ULID PRIMARY KEY NOT NULL,
+CREATE TABLE IF NOT EXISTS "ur_walk_session" (
+    "ur_walk_session_id" ULID PRIMARY KEY NOT NULL,
     "device_id" ULID NOT NULL,
     "walk_started_at" TIMESTAMP NOT NULL,
     "walk_finished_at" TIMESTAMP,
@@ -161,8 +161,8 @@ CREATE TABLE IF NOT EXISTS "fs_content_walk_session" (
     FOREIGN KEY("device_id") REFERENCES "device"("device_id"),
     UNIQUE("device_id", "created_at")
 );
-CREATE TABLE IF NOT EXISTS "fs_content_walk_path" (
-    "fs_content_walk_path_id" ULID PRIMARY KEY NOT NULL,
+CREATE TABLE IF NOT EXISTS "ur_walk_session_path" (
+    "ur_walk_session_path_id" ULID PRIMARY KEY NOT NULL,
     "walk_session_id" ULID NOT NULL,
     "root_path" TEXT NOT NULL,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
@@ -173,21 +173,19 @@ CREATE TABLE IF NOT EXISTS "fs_content_walk_path" (
     "deleted_at" TIMESTAMP,
     "deleted_by" TEXT,
     "activity_log" TEXT,
-    FOREIGN KEY("walk_session_id") REFERENCES "fs_content_walk_session"("fs_content_walk_session_id"),
+    FOREIGN KEY("walk_session_id") REFERENCES "ur_walk_session"("ur_walk_session_id"),
     UNIQUE("walk_session_id", "root_path", "created_at")
 );
-CREATE TABLE IF NOT EXISTS "fs_content" (
-    "fs_content_id" ULID PRIMARY KEY NOT NULL,
+CREATE TABLE IF NOT EXISTS "uniform_resource" (
+    "uniform_resource_id" ULID PRIMARY KEY NOT NULL,
     "walk_session_id" ULID NOT NULL,
     "walk_path_id" ULID NOT NULL,
-    "file_path" TEXT NOT NULL,
+    "uri" TEXT NOT NULL,
     "content_digest" TEXT NOT NULL,
     "content" BLOB,
-    "file_bytes" INTEGER,
-    "file_extn" TEXT,
-    "file_mode" INTEGER,
-    "file_mode_human" TEXT,
-    "file_mtime" INTEGER,
+    "nature" TEXT,
+    "size_bytes" INTEGER,
+    "last_modified_at" INTEGER,
     "content_fm_body_attrs" TEXT CHECK(json_valid(content_fm_body_attrs) OR content_fm_body_attrs IS NULL),
     "frontmatter" TEXT CHECK(json_valid(frontmatter) OR frontmatter IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
@@ -198,15 +196,15 @@ CREATE TABLE IF NOT EXISTS "fs_content" (
     "deleted_at" TIMESTAMP,
     "deleted_by" TEXT,
     "activity_log" TEXT,
-    FOREIGN KEY("walk_session_id") REFERENCES "fs_content_walk_session"("fs_content_walk_session_id"),
-    FOREIGN KEY("walk_path_id") REFERENCES "fs_content_walk_path"("fs_content_walk_path_id"),
-    UNIQUE("content_digest", "file_path", "file_bytes", "file_mtime")
+    FOREIGN KEY("walk_session_id") REFERENCES "ur_walk_session"("ur_walk_session_id"),
+    FOREIGN KEY("walk_path_id") REFERENCES "ur_walk_session_path"("ur_walk_session_path_id"),
+    UNIQUE("content_digest", "uri", "size_bytes", "last_modified_at")
 );
-CREATE TABLE IF NOT EXISTS "fs_content_walk_path_entry" (
-    "fs_content_walk_path_entry_id" ULID PRIMARY KEY NOT NULL,
+CREATE TABLE IF NOT EXISTS "ur_walk_session_path_fs_entry" (
+    "ur_walk_session_path_fs_entry_id" ULID PRIMARY KEY NOT NULL,
     "walk_session_id" ULID NOT NULL,
     "walk_path_id" ULID NOT NULL,
-    "fs_content_id" ULID,
+    "uniform_resource_id" ULID,
     "file_path_abs" TEXT NOT NULL,
     "file_path_rel_parent" TEXT NOT NULL,
     "file_path_rel" TEXT NOT NULL,
@@ -220,21 +218,21 @@ CREATE TABLE IF NOT EXISTS "fs_content_walk_path_entry" (
     "deleted_at" TIMESTAMP,
     "deleted_by" TEXT,
     "activity_log" TEXT,
-    FOREIGN KEY("walk_session_id") REFERENCES "fs_content_walk_session"("fs_content_walk_session_id"),
-    FOREIGN KEY("walk_path_id") REFERENCES "fs_content_walk_path"("fs_content_walk_path_id"),
-    FOREIGN KEY("fs_content_id") REFERENCES "fs_content"("fs_content_id")
+    FOREIGN KEY("walk_session_id") REFERENCES "ur_walk_session"("ur_walk_session_id"),
+    FOREIGN KEY("walk_path_id") REFERENCES "ur_walk_session_path"("ur_walk_session_path_id"),
+    FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
 );
 
 CREATE INDEX IF NOT EXISTS "idx_device__name" ON "device"("name");
-CREATE INDEX IF NOT EXISTS "idx_fs_content_walk_path__walk_session_id__root_path" ON "fs_content_walk_path"("walk_session_id", "root_path");
-CREATE INDEX IF NOT EXISTS "idx_fs_content__walk_session_id__file_path" ON "fs_content"("walk_session_id", "file_path");
-CREATE INDEX IF NOT EXISTS "idx_fs_content_walk_path_entry__walk_session_id__file_path_abs" ON "fs_content_walk_path_entry"("walk_session_id", "file_path_abs");
-', '27cc03778e971a197f575a258b6f5c495b14a0ce', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path__walk_session_id__root_path" ON "ur_walk_session_path"("walk_session_id", "root_path");
+CREATE INDEX IF NOT EXISTS "idx_uniform_resource__walk_session_id__uri" ON "uniform_resource"("walk_session_id", "uri");
+CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path_fs_entry__walk_session_id__file_path_abs" ON "ur_walk_session_path_fs_entry"("walk_session_id", "file_path_abs");
+', '8a57b6c52a08c72f85af3b79202a0f2f0790ee33', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HENSKBEC13KP8DGCSAXXR8J1', 'SQL', 'ConstructionSqlNotebook', 'v002_fsContentWalkSessionStatsViewDDL', NULL, 'DROP VIEW IF EXISTS "fs_content_walk_session_stats";
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HEPEQS242YQAVRY0KPEEAYSV', 'SQL', 'ConstructionSqlNotebook', 'v002_fsContentWalkSessionStatsViewDDL', NULL, 'DROP VIEW IF EXISTS "fs_content_walk_session_stats";
 CREATE VIEW IF NOT EXISTS "fs_content_walk_session_stats" AS
     WITH Summary AS (
         SELECT
@@ -242,20 +240,20 @@ CREATE VIEW IF NOT EXISTS "fs_content_walk_session_stats" AS
             strftime(''%f'', fcws.walk_finished_at - fcws.walk_started_at) AS walk_duration,
             COALESCE(fcwpe.file_extn, '''') AS file_extn,
             fcwp.root_path AS root_path,
-            COUNT(fcwpe.fs_content_id) AS total_count,
+            COUNT(fcwpe.uniform_resource_id) AS total_count,
             SUM(CASE WHEN fsc.content IS NOT NULL THEN 1 ELSE 0 END) AS with_content,
             SUM(CASE WHEN fsc.frontmatter IS NOT NULL THEN 1 ELSE 0 END) AS with_frontmatter,
-            AVG(fsc.file_bytes) AS average_size,
-            strftime(''%Y-%m-%d %H:%M:%S'', datetime(MIN(fsc.file_mtime), ''unixepoch'')) AS oldest,
-            strftime(''%Y-%m-%d %H:%M:%S'', datetime(MAX(fsc.file_mtime), ''unixepoch'')) AS youngest
+            AVG(fsc.size_bytes) AS average_size,
+            strftime(''%Y-%m-%d %H:%M:%S'', datetime(MIN(fsc.last_modified_at), ''unixepoch'')) AS oldest,
+            strftime(''%Y-%m-%d %H:%M:%S'', datetime(MAX(fsc.last_modified_at), ''unixepoch'')) AS youngest
         FROM
-            fs_content_walk_session AS fcws
+            ur_walk_session AS fcws
         LEFT JOIN
-            fs_content_walk_path AS fcwp ON fcws.fs_content_walk_session_id = fcwp.walk_session_id
+            ur_walk_session_path AS fcwp ON fcws.ur_walk_session_id = fcwp.walk_session_id
         LEFT JOIN
-            fs_content_walk_path_entry AS fcwpe ON fcwp.fs_content_walk_path_id = fcwpe.walk_path_id
+            ur_walk_session_path_fs_entry AS fcwpe ON fcwp.ur_walk_session_path_id = fcwpe.walk_path_id
         LEFT JOIN
-            fs_content AS fsc ON fcwpe.fs_content_id = fsc.fs_content_id
+            uniform_resource AS fsc ON fcwpe.uniform_resource_id = fsc.uniform_resource_id
         GROUP BY
             fcws.walk_started_at,
             fcws.walk_finished_at,
@@ -267,20 +265,20 @@ CREATE VIEW IF NOT EXISTS "fs_content_walk_session_stats" AS
             strftime(''%f'', fcws.walk_finished_at - fcws.walk_started_at) AS walk_duration,
             ''ALL'' AS file_extn,
             fcwp.root_path AS root_path,
-            COUNT(fcwpe.fs_content_id) AS total_count,
+            COUNT(fcwpe.uniform_resource_id) AS total_count,
             SUM(CASE WHEN fsc.content IS NOT NULL THEN 1 ELSE 0 END) AS with_content,
             SUM(CASE WHEN fsc.frontmatter IS NOT NULL THEN 1 ELSE 0 END) AS with_frontmatter,
-            AVG(fsc.file_bytes) AS average_size,
-            strftime(''%Y-%m-%d %H:%M:%S'', datetime(MIN(fsc.file_mtime), ''unixepoch'')) AS oldest,
-            strftime(''%Y-%m-%d %H:%M:%S'', datetime(MAX(fsc.file_mtime), ''unixepoch'')) AS youngest
+            AVG(fsc.size_bytes) AS average_size,
+            strftime(''%Y-%m-%d %H:%M:%S'', datetime(MIN(fsc.last_modified_at), ''unixepoch'')) AS oldest,
+            strftime(''%Y-%m-%d %H:%M:%S'', datetime(MAX(fsc.last_modified_at), ''unixepoch'')) AS youngest
         FROM
-            fs_content_walk_session AS fcws
+            ur_walk_session AS fcws
         LEFT JOIN
-            fs_content_walk_path AS fcwp ON fcws.fs_content_walk_session_id = fcwp.walk_session_id
+            ur_walk_session_path AS fcwp ON fcws.ur_walk_session_id = fcwp.walk_session_id
         LEFT JOIN
-            fs_content_walk_path_entry AS fcwpe ON fcwp.fs_content_walk_path_id = fcwpe.walk_path_id
+            ur_walk_session_path_fs_entry AS fcwpe ON fcwp.ur_walk_session_path_id = fcwpe.walk_path_id
         LEFT JOIN
-            fs_content AS fsc ON fcwpe.fs_content_id = fsc.fs_content_id
+            uniform_resource AS fsc ON fcwpe.uniform_resource_id = fsc.uniform_resource_id
         GROUP BY
             fcws.walk_started_at,
             fcws.walk_finished_at,
@@ -301,12 +299,12 @@ CREATE VIEW IF NOT EXISTS "fs_content_walk_session_stats" AS
         Summary
     ORDER BY
         walk_datetime,
-        file_extn', '72f2d34facaa062f44d1645b0a148f379d890cb3', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+        file_extn', '32b6cc53b151d4210336c40d5186df6f6d85038b', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HENSKBECP6GH90KPK8ZHH3PP', 'SQL', 'QuerySqlNotebook', 'infoSchema', NULL, 'SELECT tbl_name AS table_name,
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HEPEQS24NK0S31Q3YD0GGP6A', 'SQL', 'QuerySqlNotebook', 'infoSchema', NULL, 'SELECT tbl_name AS table_name,
        c.cid AS column_id,
        c.name AS column_name,
        c."type" AS "type",
@@ -320,7 +318,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HENSKBECSB306VQC8RCRYXBA', 'SQL', 'QuerySqlNotebook', 'infoSchemaOsQueryATCs', NULL, 'WITH table_columns AS (
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HEPEQS24BDR6WFD4EX2CQQPR', 'SQL', 'QuerySqlNotebook', 'infoSchemaOsQueryATCs', NULL, 'WITH table_columns AS (
     SELECT m.tbl_name AS table_name,
            group_concat(c.name) AS column_names_for_select,
            json_group_array(c.name) AS column_names_for_atc_json
@@ -354,7 +352,7 @@ SELECT json_object(''auto_table_construction'',
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HENSKBEDH04P9TMSCCSVSJHF', 'SQL', 'QuerySqlNotebook', 'infoSchemaMarkdown', NULL, '-- TODO: https://github.com/lovasoa/SQLpage/discussions/109#discussioncomment-7359513
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HEPEQS25TTJJEC1HBYH1MQ5N', 'SQL', 'QuerySqlNotebook', 'infoSchemaMarkdown', NULL, '-- TODO: https://github.com/lovasoa/SQLpage/discussions/109#discussioncomment-7359513
 --       see the above for how to fix for SQLPage but figure out to use the same SQL
 --       in and out of SQLPage (maybe do what Ophir said in discussion and create
 --       custom output for SQLPage using componetns?)
@@ -429,14 +427,14 @@ FROM
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HENSKBED946TTW8PZVF60Y0E', 'SQL', 'QuerySqlNotebook', 'htmlAnchors', NULL, '-- loadExtnSQL not provided to load ''asg017/html/html0''
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HEPEQS2585MQBW9GK32WKDCT', 'SQL', 'QuerySqlNotebook', 'htmlAnchors', NULL, '-- loadExtnSQL not provided to load ''asg017/html/html0''
 
--- find all HTML files in the fs_content table and return
+-- find all HTML files in the uniform_resource table and return
 -- each file and the anchors'' labels and hrefs in that file
--- TODO: create a table called fs_content_html_anchor to store this data after inserting it into fs_content
+-- TODO: create a table called fs_content_html_anchor to store this data after inserting it into uniform_resource
 --       so that simple HTML lookups do not require the html0 extension to be loaded
 WITH html_content AS (
-  SELECT fs_content_id, content, content_digest, file_path, file_extn FROM fs_content WHERE file_extn = ''.html''
+  SELECT uniform_resource_id, content, content_digest, file_path, file_extn FROM uniform_resource WHERE nature = ''html''
 ),
 html AS (
   SELECT file_path,
@@ -445,19 +443,19 @@ html AS (
     FROM html_content, html_each(html_content.content, ''a'')
 )
 SELECT * FROM html;
-      ', '084f0754470f247d4a518fedebea35a90b498996', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', '7d9cdf2286d82fae97cb3652e6b17744ebf7c817', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HENSKBEDJSM3SWFD614AEA7R', 'SQL', 'QuerySqlNotebook', 'htmlHeadMeta', NULL, '-- loadExtnSQL not provided to load ''asg017/html/html0''
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HEPEQS25M2X49QHGV4R9S0CZ', 'SQL', 'QuerySqlNotebook', 'htmlHeadMeta', NULL, '-- loadExtnSQL not provided to load ''asg017/html/html0''
 
--- find all HTML files in the fs_content table and return
+-- find all HTML files in the uniform_resource table and return
 -- each file and the <head><meta name="key" content="value"> pair
--- TODO: create a table called fs_content_html_head_meta to store this data after inserting it into fs_content
+-- TODO: create a table called resource_html_head_meta to store this data after inserting it into uniform_resource
 --       so that simple HTML lookups do not require the html0 extension to be loaded
 WITH html_content AS (
-  SELECT fs_content_id, content, content_digest, file_path, file_extn FROM fs_content WHERE file_extn = ''.html''
+  SELECT uniform_resource_id, content, content_digest, file_path, file_extn FROM uniform_resource WHERE nature = ''html''
 ),
 html AS (
   SELECT file_path,
@@ -468,12 +466,12 @@ html AS (
    WHERE key IS NOT NULL
 )
 SELECT * FROM html;
-      ', '01d8897883e0ce27be0f5cb65ecc033b5129f2a4', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', '70d990a17e2ce8d0ee2cf6dd368390c8b1db7645', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HENSKBEEN6MAPK4TPZBFM5PQ', 'SQL', 'AssuranceSqlNotebook', 'test1', NULL, 'WITH test_plan AS (
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HEPEQS25YGKK58NCV8DS8CH2', 'SQL', 'AssuranceSqlNotebook', 'test1', NULL, 'WITH test_plan AS (
     SELECT ''1..1'' AS tap_output
 ),
 test1 AS (  -- Check if the ''fileio'' extension is loaded by calling the ''readfile'' function
@@ -492,7 +490,7 @@ SELECT tap_output FROM test1;', '083111d6c0f2b4b0670eee784f113ddd8619187d', NULL
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));;
 
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HENSKBEGHB744DJCAPCWGSR0', 'PlantUML', 'SqlNotebooksOrchestrator', 'infoSchemaDiagram', NULL, '@startuml IE
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('01HEPEQS277EXNXZMY18JM378A', 'PlantUML', 'SqlNotebooksOrchestrator', 'infoSchemaDiagram', NULL, '@startuml IE
   hide circle
   skinparam linetype ortho
   skinparam roundcorner 20
@@ -519,8 +517,8 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       activity_log: TEXT
   }
 
-  entity "fs_content_walk_session" as fs_content_walk_session {
-    * **fs_content_walk_session_id**: ULID
+  entity "ur_walk_session" as ur_walk_session {
+    * **ur_walk_session_id**: ULID
     --
     * device_id: ULID
     * walk_started_at: TIMESTAMP
@@ -538,8 +536,8 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       activity_log: TEXT
   }
 
-  entity "fs_content_walk_path" as fs_content_walk_path {
-    * **fs_content_walk_path_id**: ULID
+  entity "ur_walk_session_path" as ur_walk_session_path {
+    * **ur_walk_session_path_id**: ULID
     --
     * walk_session_id: ULID
     * root_path: TEXT
@@ -553,19 +551,17 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       activity_log: TEXT
   }
 
-  entity "fs_content" as fs_content {
-    * **fs_content_id**: ULID
+  entity "uniform_resource" as uniform_resource {
+    * **uniform_resource_id**: ULID
     --
     * walk_session_id: ULID
     * walk_path_id: ULID
-    * file_path: TEXT
+    * uri: TEXT
     * content_digest: TEXT
       content: BLOB
-      file_bytes: INTEGER
-      file_extn: TEXT
-      file_mode: INTEGER
-      file_mode_human: TEXT
-      file_mtime: INTEGER
+      nature: TEXT
+      size_bytes: INTEGER
+      last_modified_at: INTEGER
       content_fm_body_attrs: TEXT
       frontmatter: TEXT
       elaboration: TEXT
@@ -578,12 +574,12 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       activity_log: TEXT
   }
 
-  entity "fs_content_walk_path_entry" as fs_content_walk_path_entry {
-    * **fs_content_walk_path_entry_id**: ULID
+  entity "ur_walk_session_path_fs_entry" as ur_walk_session_path_fs_entry {
+    * **ur_walk_session_path_fs_entry_id**: ULID
     --
     * walk_session_id: ULID
     * walk_path_id: ULID
-      fs_content_id: ULID
+      uniform_resource_id: ULID
     * file_path_abs: TEXT
     * file_path_rel_parent: TEXT
     * file_path_rel: TEXT
@@ -599,14 +595,14 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       activity_log: TEXT
   }
 
-  device |o..o{ fs_content_walk_session
-  fs_content_walk_session |o..o{ fs_content_walk_path
-  fs_content_walk_session |o..o{ fs_content
-  fs_content_walk_path |o..o{ fs_content
-  fs_content_walk_session |o..o{ fs_content_walk_path_entry
-  fs_content_walk_path |o..o{ fs_content_walk_path_entry
-  fs_content |o..o{ fs_content_walk_path_entry
-@enduml', '5dd8e57fc3048e2b338a3357dbf6686fd69442ac', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+  device |o..o{ ur_walk_session
+  ur_walk_session |o..o{ ur_walk_session_path
+  ur_walk_session |o..o{ uniform_resource
+  ur_walk_session_path |o..o{ uniform_resource
+  ur_walk_session |o..o{ ur_walk_session_path_fs_entry
+  ur_walk_session_path |o..o{ ur_walk_session_path_fs_entry
+  uniform_resource |o..o{ ur_walk_session_path_fs_entry
+@enduml', '4ebedb842b2e9f19b27dfbd65f3bc52d75c6139e', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
         interpretable_code = EXCLUDED.interpretable_code,
         notebook_kernel_id = EXCLUDED.notebook_kernel_id,
         updated_at = CURRENT_TIMESTAMP,

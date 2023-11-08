@@ -258,76 +258,117 @@ fn main() {
                             let walk_session_id = ulid::Ulid::new().to_string();
                             if cli.debug == 1 { println!("Walk Session: {walk_session_id}"); }
                             match tx.execute(r"
-                                INSERT INTO fs_content_walk_session (fs_content_walk_session_id, device_id, ignore_paths_regex, blobs_regex, digests_regex, walk_started_at) 
-                                                                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)", [
-                                                                walk_session_id.clone(), device_id, 
-                                                                ignore_entries.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", "), 
-                                                                compute_digests.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", "), 
-                                                                surveil_content.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", ")]) {
+                                INSERT INTO ur_walk_session (ur_walk_session_id, device_id, ignore_paths_regex, blobs_regex, digests_regex, walk_started_at) 
+                                                     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)", [
+                                    walk_session_id.clone(), device_id, 
+                                    ignore_entries.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", "), 
+                                    compute_digests.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", "), 
+                                    surveil_content.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", ")]) {
                                 Ok(_) => {
                                     // TODO: don't unwrap, handle errors properly
-                                    let mut fscwp_stmt = tx.prepare("INSERT INTO fs_content_walk_path (fs_content_walk_path_id, walk_session_id, root_path) VALUES (?, ?, ?)").unwrap();
-                                    let mut fsc_stmt = tx.prepare("INSERT INTO fs_content (fs_content_id, walk_session_id, walk_path_id, file_path, content_digest, file_bytes, file_mtime) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (content_digest, file_path, file_bytes, file_mtime) DO NOTHING").unwrap();
+                                    let mut ur_wsp_stmt = tx.prepare("INSERT INTO ur_walk_session_path (ur_walk_session_path_id, walk_session_id, root_path) VALUES (?, ?, ?)").unwrap();
+                                    let mut ur_no_content_stmt = tx.prepare("INSERT INTO uniform_resource (uniform_resource_id, walk_session_id, walk_path_id, uri, nature, content_digest, size_bytes, last_modified_at) VALUES (?, ?, ?, ?, ?, '-', ?, ?) ON CONFLICT (content_digest, uri, size_bytes, last_modified_at) DO NOTHING").unwrap();
+                                    let mut ur_with_content_stmt = tx.prepare("INSERT INTO uniform_resource (uniform_resource_id, walk_session_id, walk_path_id, uri, nature, content, content_digest, size_bytes, last_modified_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (content_digest, uri, size_bytes, last_modified_at) DO NOTHING").unwrap();
+                                    let mut ur_fs_entry_stmt = tx.prepare("INSERT INTO ur_walk_session_path_fs_entry (ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").unwrap();
                                     for root_path in root_paths {
                                         match std::fs::canonicalize(std::path::Path::new(root_path)) {
                                             Ok(canonical_path_buf) => {
                                                 let canonical_path = canonical_path_buf.into_os_string().into_string().unwrap();
                                                 let walk_path_id = ulid::Ulid::new().to_string();
                                                 if cli.debug == 1 { println!("  Walk Session Path: {root_path} ({walk_path_id})"); }                                                    
-                                                match fscwp_stmt.execute([walk_path_id.clone(), walk_session_id.clone(), canonical_path.clone()]) {
+                                                match ur_wsp_stmt.execute([walk_path_id.clone(), walk_session_id.clone(), canonical_path.clone()]) {
                                                     Ok(_) => {
-                                                        let rp: Vec<String> = vec![canonical_path];
+                                                        let rp: Vec<String> = vec![canonical_path.clone()];
                                                         let walker = FileSysResourcesWalker::new(&rp, ignore_entries, surveil_content);
                                                         match walker {
                                                             Ok(walker) => {
                                                                 for resource_result in walker.walk_resources_iter() {
                                                                     match resource_result {
                                                                         Ok(resource) => {
-                                                                            let fs_content_id = ulid::Ulid::new().to_string();
+                                                                            let uniform_resource_id = ulid::Ulid::new().to_string();
+                                                                            let uri: String;
                                                                             match resource {
-                                                                                UniformResource::Html(_html) => {
+                                                                                UniformResource::Html(html) => {
+                                                                                    uri = html.resource.uri.to_string();
                                                                                     // println!("HTML: {:?} {:?}", html.resource.uri, html.resource.nature)
                                                                                 }
-                                                                                UniformResource::Json(_json) => {
-                                                                                    // println!("JSON: {:?} {:?}", json.resource.uri, json.resource.nature)
+                                                                                UniformResource::Json(json) => {
+                                                                                    uri = json.resource.uri.to_string();
+                                                                                    let content_supplier = json.resource.content_text_supplier.unwrap()().unwrap();
+                                                                                    let _execute = ur_with_content_stmt.execute([
+                                                                                        uniform_resource_id.clone(), walk_session_id.clone(), walk_path_id.clone(), 
+                                                                                        json.resource.uri, json.resource.nature.unwrap(), 
+                                                                                        content_supplier.content_text().to_string(),
+                                                                                        content_supplier.content_digest_hash().to_string(),
+                                                                                        json.resource.size.unwrap().to_string(), 
+                                                                                        json.resource.last_modified_at.unwrap().to_string()]);
                                                                                 }
-                                                                                UniformResource::Image(_img) => {
-                                                                                    // println!("Image: {:?} {:?}", img.resource.uri, img.resource.nature)
+                                                                                UniformResource::Image(img) => {
+                                                                                    uri = img.resource.uri.to_string();
+                                                                                    println!("TODO UniformResource::Image: {:?} {:?}", img.resource.uri, img.resource.nature)
                                                                                 }
-                                                                                UniformResource::Markdown(_md) => {
-                                                                                    // println!("Markdown: {:?} {:?}", md.resource.uri, md.resource.nature)
+                                                                                UniformResource::Markdown(md) => {
+                                                                                    uri = md.resource.uri.to_string();
+                                                                                    let content_supplier = md.resource.content_text_supplier.unwrap()().unwrap();
+                                                                                    let _execute = ur_with_content_stmt.execute([
+                                                                                        uniform_resource_id.clone(), walk_session_id.clone(), walk_path_id.clone(), 
+                                                                                        md.resource.uri, md.resource.nature.unwrap(), 
+                                                                                        content_supplier.content_text().to_string(),
+                                                                                        content_supplier.content_digest_hash().to_string(),
+                                                                                        md.resource.size.unwrap().to_string(), 
+                                                                                        md.resource.last_modified_at.unwrap().to_string()]);
+                                                                                    // TODO: add frontmatter
                                                                                 }
                                                                                 UniformResource::Unknown(unknown) => {
-                                                                                    let _execute = fsc_stmt.execute([
-                                                                                        fs_content_id, walk_session_id.clone(), walk_path_id.clone(), 
-                                                                                        unknown.uri, String::from('-'), unknown.size.unwrap().to_string(), 
+                                                                                    uri = unknown.uri.to_string();
+                                                                                    let _execute = ur_no_content_stmt.execute([
+                                                                                        uniform_resource_id.clone(), walk_session_id.clone(), walk_path_id.clone(), 
+                                                                                        unknown.uri, unknown.nature.unwrap(), unknown.size.unwrap().to_string(), 
                                                                                         unknown.last_modified_at.unwrap().to_string()]);
-                                                                                    // println!("Unknown: {:?} {:?}", unknown.uri, unknown.nature)
                                                                                 }
-                                                                            }                                                                            },
-                                                                        Err(e) => {
-                                                                            // Handle errors here
-                                                                            eprintln!("Error processing a resource: {}", e);
+                                                                            }
+                                                                            let cp_clone = canonical_path.clone();
+                                                                            match extract_path_info(std::path::Path::new(&cp_clone), std::path::Path::new(&uri)) {
+                                                                                Some((
+                                                                                    file_path_abs,
+                                                                                    file_path_rel_parent,
+                                                                                    file_path_rel,
+                                                                                    file_basename,
+                                                                                    file_extn,
+                                                                                )) => {
+                                                                                    let ur_walk_session_path_fs_entry_id = ulid::Ulid::new().to_string();
+                                                                                    match ur_fs_entry_stmt.execute([
+                                                                                        ur_walk_session_path_fs_entry_id, walk_session_id.clone(), walk_path_id.clone(), uniform_resource_id,
+                                                                                        file_path_abs.into_os_string().into_string().unwrap(), 
+                                                                                        file_path_rel_parent.into_os_string().into_string().unwrap(), 
+                                                                                        file_path_rel.into_os_string().into_string().unwrap(), file_basename, 
+                                                                                        if let Some(file_extn) = file_extn { file_extn } else { String::from("") }
+                                                                                        ]) {
+                                                                                        Ok(_) => {},
+                                                                                        Err(err) => { eprintln!("Error inserting UR walk session path file system entry for {}: {}", &uri, err); }
+                                                                                    }
+                                                                                },
+                                                                                None => { eprintln!("Error extracting path info for {}", cp_clone); }
+                                                                            }
                                                                         },
+                                                                        Err(e) => { eprintln!("Error processing a resource: {}", e); },
                                                                     }
-                                                                }                                                                                                                                    
+                                                                }
                                                             }
                                                             Err(err) => { print!("Error preparing walker: {err}");}
                                                         }     
                                                     }
-                                                    Err(err) => {
-                                                        println!("fs_content_walk_path Error {}", err);
-                                                    }
+                                                    Err(err) => { println!("ur_walk_session_path Error {}", err); }
                                             };
                                         }
                                         Err(err) => { print!("Error canonicalizing path {root_path}: {err}");}
                                         }
                                     }
 
-                                    let _ = tx.execute("UPDATE fs_content_walk_session SET walk_finished_at = CURRENT_TIMESTAMP WHERE fs_content_walk_session_id = ?", [walk_session_id.clone()]);
+                                    let _ = tx.execute("UPDATE ur_walk_session SET walk_finished_at = CURRENT_TIMESTAMP WHERE ur_walk_session_id = ?", [walk_session_id.clone()]);
                                 }
                                 Err(err) => {
-                                    println!("fs_content_walk_session Error {}", err);
+                                    println!("ur_walk_session Error {}", err);
                                 }
                             };
                         }

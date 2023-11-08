@@ -173,10 +173,10 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
    *
    * Always append new records. NEVER delete or update existing records.
    */
-  const fsContentWalkSession = gm.textPkTable(
-    "fs_content_walk_session",
+  const urWalkSession = gm.textPkTable(
+    "ur_walk_session",
     {
-      fs_content_walk_session_id: gm.keys.ulidPrimaryKey(),
+      ur_walk_session_id: gm.keys.ulidPrimaryKey(),
       device_id: device.references.device_id(),
       walk_started_at: gd.dateTime(),
       walk_finished_at: gd.dateTimeNullable(),
@@ -205,12 +205,12 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
    *
    * Always append new records. NEVER delete or update existing records.
    */
-  const fsContentWalkPath = gm.textPkTable(
-    "fs_content_walk_path",
+  const urWalkSessionPath = gm.textPkTable(
+    "ur_walk_session_path",
     {
-      fs_content_walk_path_id: gm.keys.ulidPrimaryKey(),
-      walk_session_id: fsContentWalkSession.references
-        .fs_content_walk_session_id(),
+      ur_walk_session_path_id: gm.keys.ulidPrimaryKey(),
+      walk_session_id: urWalkSession.references
+        .ur_walk_session_id(),
       root_path: gd.text(),
       elaboration: gd.jsonTextNullable(),
       ...gm.housekeeping.columns,
@@ -243,21 +243,19 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
    *
    * Always append new records. NEVER delete or update existing records.
    */
-  const fsContent = gm.textPkTable(
-    "fs_content",
+  const uniformResource = gm.textPkTable(
+    "uniform_resource",
     {
-      fs_content_id: gm.keys.ulidPrimaryKey(),
-      walk_session_id: fsContentWalkSession.references
-        .fs_content_walk_session_id(),
-      walk_path_id: fsContentWalkPath.references.fs_content_walk_path_id(),
-      file_path: gd.text(),
+      uniform_resource_id: gm.keys.ulidPrimaryKey(),
+      walk_session_id: urWalkSession.references
+        .ur_walk_session_id(),
+      walk_path_id: urWalkSessionPath.references.ur_walk_session_path_id(),
+      uri: gd.text(),
       content_digest: gd.text(), // '-' when no hash was computed (not NULL); content_digest for symlinks will be the same as their target
       content: gd.blobTextNullable(),
-      file_bytes: gd.integerNullable(), // file_bytes for symlinks will be different than their target
-      file_extn: gd.textNullable(),
-      file_mode: gd.integerNullable(),
-      file_mode_human: gd.textNullable(),
-      file_mtime: gd.integerNullable(),
+      nature: gd.textNullable(), // file extension or MIME
+      size_bytes: gd.integerNullable(), // file_bytes for symlinks will be different than their target
+      last_modified_at: gd.integerNullable(),
       content_fm_body_attrs: gd.jsonTextNullable(), // each component of frontmatter-based content ({ frontMatter: '', body: '', attrs: {...} })
       frontmatter: gd.jsonTextNullable(), // meta data or other "frontmatter" in JSON format
       elaboration: gd.jsonTextNullable(), // anything that doesn't fit above
@@ -272,16 +270,16 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
         return [
           c.unique(
             "content_digest", // use something like `-` when hash is no computed
-            "file_path",
-            "file_bytes",
-            "file_mtime",
+            "uri",
+            "size_bytes",
+            "last_modified_at",
           ),
         ];
       },
       indexes: (props, tableName) => {
         const tif = SQLa.tableIndexesFactory(tableName, props);
         return [
-          tif.index({ isIdempotent: true }, "walk_session_id", "file_path"),
+          tif.index({ isIdempotent: true }, "walk_session_id", "uri"),
         ];
       },
     },
@@ -289,22 +287,24 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
 
   /**
    * Immutable File Content walk path entry table represents an entry that was
-   * traversed during path walking. This table contains references to the device
-   * where the file resides, and references to the file content, digest hash, etc.
+   * traversed during path walking of a physical file system (`fs`). This table
+   * contains references to the device where the file resides, and references
+   * to the file content, digest hash, etc.
    *
    * If you want to see which files did not change between sessions, just "diff"
    * the rows in SQL.
    *
    * Always append new records. NEVER delete or update existing records.
    */
-  const fsContentWalkPathEntry = gm.textPkTable(
-    "fs_content_walk_path_entry",
+  const urWalkSessionPathFsEntry = gm.textPkTable(
+    "ur_walk_session_path_fs_entry",
     {
-      fs_content_walk_path_entry_id: gm.keys.ulidPrimaryKey(),
-      walk_session_id: fsContentWalkSession.references
-        .fs_content_walk_session_id(),
-      walk_path_id: fsContentWalkPath.references.fs_content_walk_path_id(),
-      fs_content_id: fsContent.references.fs_content_id().optional(),
+      ur_walk_session_path_fs_entry_id: gm.keys.ulidPrimaryKey(),
+      walk_session_id: urWalkSession.references
+        .ur_walk_session_id(),
+      walk_path_id: urWalkSessionPath.references.ur_walk_session_path_id(),
+      uniform_resource_id: uniformResource.references.uniform_resource_id()
+        .optional(),
       file_path_abs: gd.text(),
       file_path_rel_parent: gd.text(),
       file_path_rel: gd.text(),
@@ -327,27 +327,27 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   const informationSchema = {
     tables: [
       device,
-      fsContentWalkSession,
-      fsContentWalkPath,
-      fsContent,
-      fsContentWalkPathEntry,
+      urWalkSession,
+      urWalkSessionPath,
+      uniformResource,
+      urWalkSessionPathFsEntry,
     ],
     tableIndexes: [
       ...device.indexes,
-      ...fsContentWalkSession.indexes,
-      ...fsContentWalkPath.indexes,
-      ...fsContent.indexes,
-      ...fsContentWalkPathEntry.indexes,
+      ...urWalkSession.indexes,
+      ...urWalkSessionPath.indexes,
+      ...uniformResource.indexes,
+      ...urWalkSessionPathFsEntry.indexes,
     ],
   };
 
   return {
     codeNbModels,
     device,
-    fsContentWalkSession,
-    fsContentWalkPath,
-    fsContent,
-    fsContentWalkPathEntry,
+    urWalkSession,
+    urWalkSessionPath,
+    uniformResource,
+    urWalkSessionPathFsEntry,
     informationSchema,
   };
 }

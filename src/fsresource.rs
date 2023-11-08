@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::io::{Error as IoError, Read};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use regex::RegexSet;
@@ -10,6 +10,47 @@ use sha1::{Digest, Sha1};
 use walkdir::WalkDir;
 
 use crate::resource::*;
+
+/// Extracts various path-related information from the given root path and entry.
+///
+/// # Parameters
+///
+/// * `root_path` - The root directory path as a reference to a `Path`.
+/// * `root_path_entry` - The file or directory entry path as a reference to a `Path`.
+///
+/// # Returns
+///
+/// A tuple containing:
+/// - `file_path_abs`: Absolute path of `root_path_entry`.
+/// - `file_path_rel_parent`: The parent directory of `root_path_entry`.
+/// - `file_path_rel`: Path of `root_path_entry` relative to `root_path`.
+/// - `file_basename`: The basename of `root_path_entry` (with extension).
+/// - `file_extn`: The file extension of `root_path_entry` (without `.`).
+///
+/// # Errors
+///
+/// Returns `None` if any of the path conversions fail.
+pub fn extract_path_info(
+    root_path: &Path,
+    root_path_entry: &Path,
+) -> Option<(PathBuf, PathBuf, PathBuf, String, Option<String>)> {
+    let file_path_abs = root_path_entry.canonicalize().ok()?;
+    let file_path_rel_parent = root_path_entry.parent()?.to_path_buf();
+    let file_path_rel = root_path_entry.strip_prefix(root_path).ok()?.to_path_buf();
+    let file_basename = root_path_entry.file_name()?.to_str()?.to_string();
+    let file_extn = root_path_entry
+        .extension()
+        .and_then(|s| s.to_str())
+        .map(String::from);
+
+    Some((
+        file_path_abs,
+        file_path_rel_parent,
+        file_path_rel,
+        file_basename,
+        file_extn,
+    ))
+}
 
 pub struct FileBinaryContent {
     hash: String,

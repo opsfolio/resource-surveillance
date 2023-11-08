@@ -406,20 +406,20 @@ export class ConstructionSqlNotebook<
               strftime('%f', fcws.walk_finished_at - fcws.walk_started_at) AS walk_duration,
               COALESCE(fcwpe.file_extn, '') AS file_extn,
               fcwp.root_path AS root_path,
-              COUNT(fcwpe.fs_content_id) AS total_count,
+              COUNT(fcwpe.uniform_resource_id) AS total_count,
               SUM(CASE WHEN fsc.content IS NOT NULL THEN 1 ELSE 0 END) AS with_content,
               SUM(CASE WHEN fsc.frontmatter IS NOT NULL THEN 1 ELSE 0 END) AS with_frontmatter,
-              AVG(fsc.file_bytes) AS average_size,
-              strftime('%Y-%m-%d %H:%M:%S', datetime(MIN(fsc.file_mtime), 'unixepoch')) AS oldest,
-              strftime('%Y-%m-%d %H:%M:%S', datetime(MAX(fsc.file_mtime), 'unixepoch')) AS youngest
+              AVG(fsc.size_bytes) AS average_size,
+              strftime('%Y-%m-%d %H:%M:%S', datetime(MIN(fsc.last_modified_at), 'unixepoch')) AS oldest,
+              strftime('%Y-%m-%d %H:%M:%S', datetime(MAX(fsc.last_modified_at), 'unixepoch')) AS youngest
           FROM
-              fs_content_walk_session AS fcws
+              ur_walk_session AS fcws
           LEFT JOIN
-              fs_content_walk_path AS fcwp ON fcws.fs_content_walk_session_id = fcwp.walk_session_id
+              ur_walk_session_path AS fcwp ON fcws.ur_walk_session_id = fcwp.walk_session_id
           LEFT JOIN
-              fs_content_walk_path_entry AS fcwpe ON fcwp.fs_content_walk_path_id = fcwpe.walk_path_id
+              ur_walk_session_path_fs_entry AS fcwpe ON fcwp.ur_walk_session_path_id = fcwpe.walk_path_id
           LEFT JOIN
-              fs_content AS fsc ON fcwpe.fs_content_id = fsc.fs_content_id
+              uniform_resource AS fsc ON fcwpe.uniform_resource_id = fsc.uniform_resource_id
           GROUP BY
               fcws.walk_started_at,
               fcws.walk_finished_at,
@@ -431,20 +431,20 @@ export class ConstructionSqlNotebook<
               strftime('%f', fcws.walk_finished_at - fcws.walk_started_at) AS walk_duration,
               'ALL' AS file_extn,
               fcwp.root_path AS root_path,
-              COUNT(fcwpe.fs_content_id) AS total_count,
+              COUNT(fcwpe.uniform_resource_id) AS total_count,
               SUM(CASE WHEN fsc.content IS NOT NULL THEN 1 ELSE 0 END) AS with_content,
               SUM(CASE WHEN fsc.frontmatter IS NOT NULL THEN 1 ELSE 0 END) AS with_frontmatter,
-              AVG(fsc.file_bytes) AS average_size,
-              strftime('%Y-%m-%d %H:%M:%S', datetime(MIN(fsc.file_mtime), 'unixepoch')) AS oldest,
-              strftime('%Y-%m-%d %H:%M:%S', datetime(MAX(fsc.file_mtime), 'unixepoch')) AS youngest
+              AVG(fsc.size_bytes) AS average_size,
+              strftime('%Y-%m-%d %H:%M:%S', datetime(MIN(fsc.last_modified_at), 'unixepoch')) AS oldest,
+              strftime('%Y-%m-%d %H:%M:%S', datetime(MAX(fsc.last_modified_at), 'unixepoch')) AS youngest
           FROM
-              fs_content_walk_session AS fcws
+              ur_walk_session AS fcws
           LEFT JOIN
-              fs_content_walk_path AS fcwp ON fcws.fs_content_walk_session_id = fcwp.walk_session_id
+              ur_walk_session_path AS fcwp ON fcws.ur_walk_session_id = fcwp.walk_session_id
           LEFT JOIN
-              fs_content_walk_path_entry AS fcwpe ON fcwp.fs_content_walk_path_id = fcwpe.walk_path_id
+              ur_walk_session_path_fs_entry AS fcwpe ON fcwp.ur_walk_session_path_id = fcwpe.walk_path_id
           LEFT JOIN
-              fs_content AS fsc ON fcwpe.fs_content_id = fsc.fs_content_id
+              uniform_resource AS fsc ON fcwpe.uniform_resource_id = fsc.uniform_resource_id
           GROUP BY
               fcws.walk_started_at,
               fcws.walk_finished_at,
@@ -656,12 +656,12 @@ export class QuerySqlNotebook<
     return this.nbh.SQL`
         ${this.nbh.loadExtnSQL("asg017/html/html0")}
 
-        -- find all HTML files in the fs_content table and return
+        -- find all HTML files in the uniform_resource table and return
         -- each file and the anchors' labels and hrefs in that file
-        -- TODO: create a table called fs_content_html_anchor to store this data after inserting it into fs_content
+        -- TODO: create a table called fs_content_html_anchor to store this data after inserting it into uniform_resource
         --       so that simple HTML lookups do not require the html0 extension to be loaded
         WITH html_content AS (
-          SELECT fs_content_id, content, content_digest, file_path, file_extn FROM fs_content WHERE file_extn = '.html'
+          SELECT uniform_resource_id, content, content_digest, file_path, file_extn FROM uniform_resource WHERE nature = 'html'
         ),
         html AS (
           SELECT file_path,
@@ -678,12 +678,12 @@ export class QuerySqlNotebook<
     return this.nbh.SQL`
         ${this.nbh.loadExtnSQL("asg017/html/html0")}
 
-        -- find all HTML files in the fs_content table and return
+        -- find all HTML files in the uniform_resource table and return
         -- each file and the <head><meta name="key" content="value"> pair
-        -- TODO: create a table called fs_content_html_head_meta to store this data after inserting it into fs_content
+        -- TODO: create a table called resource_html_head_meta to store this data after inserting it into uniform_resource
         --       so that simple HTML lookups do not require the html0 extension to be loaded
         WITH html_content AS (
-          SELECT fs_content_id, content, content_digest, file_path, file_extn FROM fs_content WHERE file_extn = '.html'
+          SELECT uniform_resource_id, content, content_digest, file_path, file_extn FROM uniform_resource WHERE nature = 'html'
         ),
         html AS (
           SELECT file_path,
