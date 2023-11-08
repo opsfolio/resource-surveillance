@@ -230,7 +230,7 @@ impl FileSysResourcesWalker {
         })
     }
 
-    pub fn walk_resources<F>(&self, mut encounter_resource: F) -> Result<(), Box<dyn Error>>
+    pub fn _walk_resources<F>(&self, mut encounter_resource: F) -> Result<(), Box<dyn Error>>
     where
         F: FnMut(UniformResource<ContentResource>) + 'static,
     {
@@ -259,7 +259,30 @@ impl FileSysResourcesWalker {
         Ok(())
     }
 
-    // ... rest of your implementation
+    pub fn walk_resources_iter(
+        &self,
+    ) -> impl Iterator<Item = Result<UniformResource<ContentResource>, Box<dyn Error>>> + '_ {
+        self.root_paths.iter().flat_map(move |root| {
+            WalkDir::new(root)
+                .into_iter()
+                .filter_map(|entry| entry.ok())
+                .filter_map(move |entry| {
+                    let uri = entry.path().to_string_lossy().into_owned();
+                    match self.resource_supplier.content_resource(&uri) {
+                        ContentResourceSupplied::Resource(resource) => {
+                            match self.uniform_resource_supplier.uniform_resource(resource) {
+                                Ok(uniform_resource) => Some(Ok(*uniform_resource)),
+                                Err(e) => Some(Err(e)),
+                            }
+                        }
+                        ContentResourceSupplied::Error(e) => Some(Err(e)),
+                        ContentResourceSupplied::Ignored(_)
+                        | ContentResourceSupplied::NotFile(_)
+                        | ContentResourceSupplied::NotFound(_) => None,
+                    }
+                })
+        })
+    }
 }
 
 // For the unit test, we use the built-in testing framework

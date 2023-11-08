@@ -228,8 +228,8 @@ fn main() {
             }
         }
         Some(Commands::FsWalk {
-            root_path,
-            ignore_entry,
+            root_path: root_paths,
+            ignore_entry: ignore_entries,
             surveil_content,
             surveil_db_fs_path,
             compute_digests,
@@ -239,88 +239,108 @@ fn main() {
                     println!("Surveillance DB: {db_fs_path}");
                 }
 
-                if let Ok(conn) = Connection::open(db_fs_path) {
-                    if let Ok(mut ctx) = RusqliteContext::new(&conn) {
-                        match ctx.execute_migrations() {
-                            Ok(_) => {}
-                            Err(err) => {
-                                println!("execute_migrations Error {}", err);
-                            }
-                        };
-                        // TODO: put this entire block in a transaction for performance and safety
-                        match ctx.upserted_device(&DEVICE) {
-                            Ok((device_id, device_name)) => {
-                                if cli.debug == 1 { println!("Device: {device_name} ({device_id})"); }
+                if let Ok(mut conn) = Connection::open(db_fs_path) {
+                    // putting everything inside a transaction improves performance significantly
+                    let tx = conn.transaction().unwrap();
 
-                                // TODO: figure out why so many .clone() are necessary instead of pointers
-                                let walk_session_id = ulid::Ulid::new().to_string();
-                                if cli.debug == 1 { println!("Walk Session: {walk_session_id}"); }
-                                match conn.execute(r"
-                                    INSERT INTO fs_content_walk_session (fs_content_walk_session_id, device_id, ignore_paths_regex, blobs_regex, digests_regex, walk_started_at) 
-                                                                 VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)", [
-                                                                    walk_session_id.clone(), device_id, 
-                                                                    ignore_entry.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", "), 
-                                                                    compute_digests.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", "), 
-                                                                    surveil_content.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", ")]) {
-                                    Ok(_) => {
-                                        for rp in root_path {
-                                            let walk_path_id = ulid::Ulid::new().to_string();
-                                            if cli.debug == 1 { println!("  Walk Session Path: {rp} ({walk_path_id})"); }
-                                            match conn.execute(r"
-                                                INSERT INTO fs_content_walk_path (fs_content_walk_path_id, walk_session_id, root_path)
-                                                                          VALUES (?, ?, ?)", [walk_path_id.clone(), walk_session_id.clone(), rp.clone()]) {
-                                                Ok(_) => {
-                                                    
-                                                }
-                                                Err(err) => {
-                                                    println!("fs_content_walk_path Error {}", err);
-                                                }
-                                            };    
+                    match execute_migrations(&tx) {
+                        Ok(_) => {}
+                        Err(err) => {
+                            println!("execute_migrations Error {}", err);
+                        }
+                    };
+
+                    match upserted_device(&tx,&DEVICE) {
+                        Ok((device_id, device_name)) => {
+                            if cli.debug == 1 { println!("Device: {device_name} ({device_id})"); }
+
+                            // TODO: figure out why so many .clone() are necessary instead of pointers
+                            let walk_session_id = ulid::Ulid::new().to_string();
+                            if cli.debug == 1 { println!("Walk Session: {walk_session_id}"); }
+                            match tx.execute(r"
+                                INSERT INTO fs_content_walk_session (fs_content_walk_session_id, device_id, ignore_paths_regex, blobs_regex, digests_regex, walk_started_at) 
+                                                                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)", [
+                                                                walk_session_id.clone(), device_id, 
+                                                                ignore_entries.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", "), 
+                                                                compute_digests.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", "), 
+                                                                surveil_content.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", ")]) {
+                                Ok(_) => {
+                                    // TODO: don't unwrap, handle errors properly
+                                    let mut fscwp_stmt = tx.prepare("INSERT INTO fs_content_walk_path (fs_content_walk_path_id, walk_session_id, root_path) VALUES (?, ?, ?)").unwrap();
+                                    let mut fsc_stmt = tx.prepare("INSERT INTO fs_content (fs_content_id, walk_session_id, walk_path_id, file_path, content_digest, file_bytes, file_mtime) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (content_digest, file_path, file_bytes, file_mtime) DO NOTHING").unwrap();
+                                    for root_path in root_paths {
+                                        match std::fs::canonicalize(std::path::Path::new(root_path)) {
+                                            Ok(canonical_path_buf) => {
+                                                let canonical_path = canonical_path_buf.into_os_string().into_string().unwrap();
+                                                let walk_path_id = ulid::Ulid::new().to_string();
+                                                if cli.debug == 1 { println!("  Walk Session Path: {root_path} ({walk_path_id})"); }                                                    
+                                                match fscwp_stmt.execute([walk_path_id.clone(), walk_session_id.clone(), canonical_path.clone()]) {
+                                                    Ok(_) => {
+                                                        let rp: Vec<String> = vec![canonical_path];
+                                                        let walker = FileSysResourcesWalker::new(&rp, ignore_entries, surveil_content);
+                                                        match walker {
+                                                            Ok(walker) => {
+                                                                for resource_result in walker.walk_resources_iter() {
+                                                                    match resource_result {
+                                                                        Ok(resource) => {
+                                                                            let fs_content_id = ulid::Ulid::new().to_string();
+                                                                            match resource {
+                                                                                UniformResource::Html(_html) => {
+                                                                                    // println!("HTML: {:?} {:?}", html.resource.uri, html.resource.nature)
+                                                                                }
+                                                                                UniformResource::Json(_json) => {
+                                                                                    // println!("JSON: {:?} {:?}", json.resource.uri, json.resource.nature)
+                                                                                }
+                                                                                UniformResource::Image(_img) => {
+                                                                                    // println!("Image: {:?} {:?}", img.resource.uri, img.resource.nature)
+                                                                                }
+                                                                                UniformResource::Markdown(_md) => {
+                                                                                    // println!("Markdown: {:?} {:?}", md.resource.uri, md.resource.nature)
+                                                                                }
+                                                                                UniformResource::Unknown(unknown) => {
+                                                                                    let _execute = fsc_stmt.execute([
+                                                                                        fs_content_id, walk_session_id.clone(), walk_path_id.clone(), 
+                                                                                        unknown.uri, String::from('-'), unknown.size.unwrap().to_string(), 
+                                                                                        unknown.last_modified_at.unwrap().to_string()]);
+                                                                                    // println!("Unknown: {:?} {:?}", unknown.uri, unknown.nature)
+                                                                                }
+                                                                            }                                                                            },
+                                                                        Err(e) => {
+                                                                            // Handle errors here
+                                                                            eprintln!("Error processing a resource: {}", e);
+                                                                        },
+                                                                    }
+                                                                }                                                                                                                                    
+                                                            }
+                                                            Err(err) => { print!("Error preparing walker: {err}");}
+                                                        }     
+                                                    }
+                                                    Err(err) => {
+                                                        println!("fs_content_walk_path Error {}", err);
+                                                    }
+                                            };
                                         }
+                                        Err(err) => { print!("Error canonicalizing path {root_path}: {err}");}
+                                        }
+                                    }
 
-                                        let _ = conn.execute("UPDATE fs_content_walk_session SET walk_finished_at = CURRENT_TIMESTAMP WHERE fs_content_walk_session_id = ?", [walk_session_id.clone()]);
-                                    }
-                                    Err(err) => {
-                                        println!("fs_content_walk_session Error {}", err);
-                                    }
-                                };
-                            }
-                            Err(err) => {
-                                println!("Unable to upsert device: {}", err);
-                            }
-                        };
-                    }
+                                    let _ = tx.execute("UPDATE fs_content_walk_session SET walk_finished_at = CURRENT_TIMESTAMP WHERE fs_content_walk_session_id = ?", [walk_session_id.clone()]);
+                                }
+                                Err(err) => {
+                                    println!("fs_content_walk_session Error {}", err);
+                                }
+                            };
+                        }
+                        Err(err) => {
+                            println!("Unable to upsert device: {}", err);
+                        }
+                    };
+
+                    // putting everything inside a transaction improves performance significantly
+                    let _ = tx.commit();
                 } else {
                     println!("RusqliteContext Could not open or create: {}", db_fs_path);
                 };
-            }
-
-            let walker = FileSysResourcesWalker::new(root_path, ignore_entry, surveil_content);
-            match walker {
-                Ok(walker) => {
-                    let _ = walker.walk_resources(|resource: UniformResource<ContentResource>| {
-                        match resource {
-                            UniformResource::Html(html) => {
-                                println!("HTML: {:?} {:?}", html.resource.uri, html.resource.nature)
-                            }
-                            UniformResource::Json(json) => {
-                                println!("JSON: {:?} {:?}", json.resource.uri, json.resource.nature)
-                            }
-                            UniformResource::Image(img) => {
-                                println!("Image: {:?} {:?}", img.resource.uri, img.resource.nature)
-                            }
-                            UniformResource::Markdown(md) => {
-                                println!("Markdown: {:?} {:?}", md.resource.uri, md.resource.nature)
-                            }
-                            UniformResource::Unknown(unknown) => {
-                                println!("Unknown: {:?} {:?}", unknown.uri, unknown.nature)
-                            }
-                        }
-                    });
-                }
-                Err(_) => {
-                    print!("Error preparing walker")
-                }
             }
         }
         None => {}

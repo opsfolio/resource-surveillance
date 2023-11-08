@@ -33,7 +33,7 @@ $ just run help-markdown                      # get CLI in Markdown and update t
 $ cargo run -- --help-markdown > CLI-help.md  # get CLI in Markdown, same as above
 
 $ just run fs-walk --help                     # get CLI help for fs-walk subcommand
-$ just run fs-walk                            # walk the current working directory (CWD)
+$ just run --debug fs-walk                    # walk the current working directory (CWD) with debug messages
 $ just run fs-walk -r /other -r /other2       # walk some other director(ies)
 $ just run fs-walk -i .git/                   # walk CWD, ignore .git/ paths
 $ just run fs-walk -i .git/ -i target/        # walk CWD, ignore .git/ and target/ paths

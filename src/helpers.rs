@@ -18,7 +18,7 @@ macro_rules! execute_sql {
 }
 
 // Macro for executing a non-query SQL command (like INSERT, UPDATE, DELETE) without bind parameters
-macro_rules! execute_sql_no_args {
+macro_rules! _execute_sql_no_args {
     ($func_name:ident, $sql:expr) => {
         pub fn $func_name(conn: &Connection) -> RusqliteResult<usize> {
             let mut stmt = conn.prepare_cached($sql)?;
@@ -73,7 +73,7 @@ macro_rules! query_sql_single {
 }
 
 // Macro for executing a query SQL command that returns a single row without bind parameters
-macro_rules! query_sql_single_no_args {
+macro_rules! _query_sql_single_no_args {
     // Match when there's only one output column
     ($func_name:ident, $sql:expr; $out_name:ident : $out_type:ty) => {
         pub fn $func_name(conn: &Connection) -> RusqliteResult<$out_type> {
@@ -105,7 +105,7 @@ macro_rules! query_sql_single_no_args {
 }
 
 // Macro for executing a query SQL command that calls a closure for each row with type-safe bind parameters
-macro_rules! query_sql_rows {
+macro_rules! _query_sql_rows {
     // Match when there's only one output column
     ($func_name:ident, $sql:expr, $($param_name:ident : $param_type:ty),*; $out_name:ident : $out_type:ty) => {
         pub fn $func_name<F>(conn: &Connection, mut callback: F $(, $param_name: $param_type)*) -> RusqliteResult<()>

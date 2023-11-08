@@ -1,7 +1,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-use rusqlite::{CachedStatement, Connection, Result as RusqliteResult, ToSql};
+use rusqlite::{Connection, Result as RusqliteResult, ToSql};
 use ulid::Ulid;
 
 use super::device::Device;
@@ -223,35 +223,35 @@ pub enum ExecutableCode {
         notebook_name: String,
         cell_name: String,
     },
-    AnonymousSql {
+    _AnonymousSql {
         sql: String,
     },
-    Sql {
+    _Sql {
         identifier: String,
         sql: String,
     },
 }
 
-impl<'conn> ExecutableCode {
-    pub fn executable_code(&self, ctx: &mut RusqliteContext<'conn>) -> RusqliteResult<String> {
+impl ExecutableCode {
+    pub fn executable_code(&self, conn: &Connection) -> RusqliteResult<String> {
         match self {
             ExecutableCode::NotebookCell {
                 notebook_name,
                 cell_name,
-            } => match select_notebook_cell_code(ctx.conn, notebook_name, cell_name) {
+            } => match select_notebook_cell_code(conn, notebook_name, cell_name) {
                 Ok((_id, code)) => Ok(code),
                 Err(err) => Err(err),
             },
-            ExecutableCode::AnonymousSql { sql } | ExecutableCode::Sql { sql, .. } => {
+            ExecutableCode::_AnonymousSql { sql } | ExecutableCode::_Sql { sql, .. } => {
                 Ok(sql.clone())
             }
         }
     }
 
-    pub fn hash_key(&self) -> String {
+    pub fn _hash_key(&self) -> String {
         match self {
-            ExecutableCode::Sql { identifier, .. } => identifier.clone(),
-            ExecutableCode::AnonymousSql { sql } => {
+            ExecutableCode::_Sql { identifier, .. } => identifier.clone(),
+            ExecutableCode::_AnonymousSql { sql } => {
                 let mut hasher = DefaultHasher::new();
                 sql.hash(&mut hasher);
                 format!("{:x}", hasher.finish())
@@ -266,140 +266,105 @@ impl<'conn> ExecutableCode {
     }
 }
 
-pub struct RusqliteContext<'conn> {
-    pub conn: &'conn Connection,
-    pub bootstrap_result: RusqliteResult<()>,
+pub fn execute_migrations(conn: &Connection) -> RusqliteResult<()> {
+    // bootstrap_ddl is idempotent and should be called at start of every session
+    // because it contains notebook entries, SQL used in migrations, etc.
+    let _ = bootstrap_ddl(conn);
+    construction_notebook_cells(conn, |_index, notebook_name, cell_name, sql, _id| {
+        if cell_name.contains("_once_") {
+            match execute_batch_stateful(
+                conn,
+                &ExecutableCode::NotebookCell {
+                    notebook_name: notebook_name.clone(),
+                    cell_name: cell_name.clone(),
+                },
+                "NONE",
+                "EXECUTED",
+                "execute_migrations",
+            ) {
+                None => {
+                    println!(
+                        "[TODO: move this to Otel] {} {} migration not required",
+                        notebook_name, cell_name
+                    );
+                    Ok(())
+                }
+                Some(_) => {
+                    println!(
+                        "[TODO: move this to Otel] {} {} migrated",
+                        notebook_name, cell_name
+                    );
+                    Ok(())
+                }
+            }
+        } else {
+            println!(
+                "[TODO: move this to Otel] {} {} migrated",
+                notebook_name, cell_name
+            );
+            conn.execute_batch(&sql)
+        }
+    })
 }
 
-impl<'conn> RusqliteContext<'conn> {
-    pub fn new(conn: &'conn rusqlite::Connection) -> RusqliteResult<Self> {
-        // TODO: add openDB pragmas https://cj.rs/blog/sqlite-pragma-cheatsheet-for-performance-and-consistency/
-        // TODO: use https://www.sqlite.org/pragma.html#pragma_user_version to indicate bootstrap_ddl version/run
-        let bootstrap_result = bootstrap_ddl(conn);
-        Ok(RusqliteContext {
-            conn,
-            bootstrap_result,
-        })
+pub fn execute_batch(conn: &Connection, ec: &ExecutableCode) -> RusqliteResult<()> {
+    match ec.executable_code(conn) {
+        Ok(sql) => conn.execute_batch(&sql),
+        Err(err) => Err(err),
     }
+}
 
-    pub fn execute_migrations(&mut self) -> RusqliteResult<()> {
-        // TODO: should we put these into BEGIN/END TRANSCTION?
-        construction_notebook_cells(self.conn, |_index, notebook_name, cell_name, sql, _id| {
-            if cell_name.contains("_once_") {
-                match self.execute_batch_stateful(
-                    &ExecutableCode::NotebookCell {
-                        notebook_name: notebook_name.clone(),
-                        cell_name: cell_name.clone(),
-                    },
-                    "NONE",
-                    "EXECUTED",
-                    "execute_migrations",
-                ) {
-                    None => {
-                        println!(
-                            "[TODO: move this to Otel] {} {} migration not required",
-                            notebook_name, cell_name
-                        );
-                        Ok(())
-                    }
-                    Some(_) => {
-                        println!(
-                            "[TODO: move this to Otel] {} {} migrated",
-                            notebook_name, cell_name
-                        );
-                        Ok(())
-                    }
-                }
-            } else {
-                println!(
-                    "[TODO: move this to Otel] {} {} migrated",
-                    notebook_name, cell_name
-                );
-                self.conn.execute_batch(&sql)
-            }
-        })
-    }
-
-    pub fn prepare(&mut self, ec: &ExecutableCode) -> RusqliteResult<CachedStatement<'conn>> {
-        match ec.executable_code(self) {
-            Ok(sql) => self.conn.prepare_cached(&sql),
-            Err(err) => Err(err),
-        }
-    }
-
-    pub fn execute_batch(&mut self, ec: &ExecutableCode) -> RusqliteResult<()> {
-        match ec.executable_code(self) {
-            Ok(sql) => self.conn.execute_batch(&sql),
-            Err(err) => Err(err),
-        }
-    }
-
-    pub fn execute_batch_stateful(
-        &mut self,
-        ec: &ExecutableCode,
-        from_state: &str,
-        to_state: &str,
-        transition_reason: &str,
-    ) -> Option<RusqliteResult<()>> {
-        match ec {
-            ExecutableCode::NotebookCell {
-                notebook_name,
-                cell_name,
-            } => {
-                match is_notebook_cell_state(
-                    self.conn,
-                    notebook_name,
-                    cell_name,
-                    from_state,
-                    to_state,
-                ) {
-                    Ok(_) => None,
-                    Err(rusqlite::Error::QueryReturnedNoRows) => match self.execute_batch(ec) {
-                        Ok(_) => {
-                            let ulid = Ulid::new().to_string();
-                            match insert_notebook_cell_state(
-                                self.conn,
-                                notebook_name,
-                                cell_name,
-                                &ulid,
-                                from_state,
-                                to_state,
-                                transition_reason,
-                            ) {
-                                Ok(_) => Some(Ok(())),
-                                Err(err) => Some(Err(err)),
-                            }
-                        }
+pub fn execute_batch_stateful(
+    conn: &Connection,
+    ec: &ExecutableCode,
+    from_state: &str,
+    to_state: &str,
+    transition_reason: &str,
+) -> Option<RusqliteResult<()>> {
+    match ec {
+        ExecutableCode::NotebookCell {
+            notebook_name,
+            cell_name,
+        } => match is_notebook_cell_state(conn, notebook_name, cell_name, from_state, to_state) {
+            Ok(_) => None,
+            Err(rusqlite::Error::QueryReturnedNoRows) => match execute_batch(conn, ec) {
+                Ok(_) => {
+                    let ulid = Ulid::new().to_string();
+                    match insert_notebook_cell_state(
+                        conn,
+                        notebook_name,
+                        cell_name,
+                        &ulid,
+                        from_state,
+                        to_state,
+                        transition_reason,
+                    ) {
+                        Ok(_) => Some(Ok(())),
                         Err(err) => Some(Err(err)),
-                    },
-                    Err(err) => Some(Err(err)),
+                    }
                 }
-            }
-            // TODO: instead of always executing, insert the SQL to code_notebook_cell
-            //       in a notebook called `execute_batch_stateful` with ec.hash_key as
-            //       the cell name, then recursively call execute_batch_stateful with
-            //       that new cell; this way we can track it and only run once
-            _ => Some(self.execute_batch(ec)),
-        }
-    }
-
-    pub fn close(&mut self) -> Result<(), rusqlite::Error> {
-        // TODO: add closeDB pragmas
-        //       https://cj.rs/blog/sqlite-pragma-cheatsheet-for-performance-and-consistency/
-        todo!()
-    }
-
-    pub fn upserted_device(&mut self, device: &Device) -> RusqliteResult<(String, String)> {
-        let ulid = Ulid::new().to_string();
-        upsert_device(
-            self.conn,
-            &ulid,
-            &device.name,
-            if let Some(boundary) = &device.boundary {
-                boundary
-            } else {
-                "UNKNOWN"
+                Err(err) => Some(Err(err)),
             },
-        )
+            Err(err) => Some(Err(err)),
+        },
+        // TODO: instead of always executing, insert the SQL to code_notebook_cell
+        //       in a notebook called `execute_batch_stateful` with ec.hash_key as
+        //       the cell name, then recursively call execute_batch_stateful with
+        //       that new cell; this way we can track it and only run once
+        _ => Some(execute_batch(conn, ec)),
     }
+}
+
+pub fn upserted_device(conn: &Connection, device: &Device) -> RusqliteResult<(String, String)> {
+    let ulid = Ulid::new().to_string();
+    upsert_device(
+        conn,
+        &ulid,
+        &device.name,
+        if let Some(boundary) = &device.boundary {
+            boundary
+        } else {
+            "UNKNOWN"
+        },
+    )
 }
