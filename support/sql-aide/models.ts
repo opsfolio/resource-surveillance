@@ -247,9 +247,9 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     "uniform_resource",
     {
       uniform_resource_id: gm.keys.ulidPrimaryKey(),
-      walk_session_id: urWalkSession.references
-        .ur_walk_session_id(),
-      walk_path_id: urWalkSessionPath.references.ur_walk_session_path_id(),
+      device_id: device.references.device_id(), // present in this device
+      walk_session_id: urWalkSession.references.ur_walk_session_id(), // introduced in this session
+      walk_path_id: urWalkSessionPath.references.ur_walk_session_path_id(), // introduced in this walk path
       uri: gd.text(),
       content_digest: gd.text(), // '-' when no hash was computed (not NULL); content_digest for symlinks will be the same as their target
       content: gd.blobTextNullable(),
@@ -269,6 +269,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
         //       figure out whether we need anything special in the UNIQUE index
         return [
           c.unique(
+            "device_id",
             "content_digest", // use something like `-` when hash is no computed
             "uri",
             "size_bytes",
@@ -279,7 +280,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       indexes: (props, tableName) => {
         const tif = SQLa.tableIndexesFactory(tableName, props);
         return [
-          tif.index({ isIdempotent: true }, "walk_session_id", "uri"),
+          tif.index({ isIdempotent: true }, "device_id", "uri"),
         ];
       },
     },

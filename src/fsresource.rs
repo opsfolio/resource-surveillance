@@ -9,6 +9,7 @@ use regex::RegexSet;
 use sha1::{Digest, Sha1};
 use walkdir::WalkDir;
 
+use crate::frontmatter::frontmatter;
 use crate::resource::*;
 
 /// Extracts various path-related information from the given root path and entry.
@@ -79,6 +80,10 @@ impl TextContent for FileTextContent {
 
     fn content_text(&self) -> &str {
         &self.text
+    }
+
+    fn frontmatter(&self) -> FrontmatterComponents {
+        frontmatter(&self.text)
     }
 }
 
@@ -205,6 +210,11 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
                 "html" => {
                     let html = HtmlResource {
                         resource,
+                        // TODO parse using
+                        //      - https://github.com/y21/tl (performant but not spec compliant)
+                        //      - https://github.com/cloudflare/lol-html (more performant, spec compliant)
+                        //      - https://github.com/causal-agent/scraper or https://github.com/servo/html5ever directly
+                        // create HTML parser presets which can go through all stored HTML, running selectors and putting them into tables?
                         head_meta: HashMap::new(),
                     };
                     Ok(Box::new(UniformResource::Html(html)))
@@ -212,14 +222,14 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
                 "json" => {
                     let json = JsonResource {
                         resource,
-                        content: None,
+                        content: None, // TODO parse using serde
                     };
                     Ok(Box::new(UniformResource::Json(json)))
                 }
                 "md" | "mdx" => {
                     let markdown = MarkdownResource {
                         resource,
-                        frontmatter: None,
+                        // TODO: frontmatter,
                     };
                     Ok(Box::new(UniformResource::Markdown(markdown)))
                 }

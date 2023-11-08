@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 use regex::Regex;
-use rusqlite::{Connection, OpenFlags};
+use rusqlite::{params, Connection, OpenFlags};
 
 #[macro_use]
 extern crate lazy_static;
@@ -16,6 +16,7 @@ lazy_static! {
 mod helpers;
 
 mod format;
+mod frontmatter;
 mod fsresource;
 mod persist;
 mod resource;
@@ -239,6 +240,8 @@ fn main() {
                     println!("Surveillance DB: {db_fs_path}");
                 }
 
+                // TODO: put all errors into an error log table inside the database
+                //       associated with each session (e.g. ur_walk_session_telemetry)
                 if let Ok(mut conn) = Connection::open(db_fs_path) {
                     // putting everything inside a transaction improves performance significantly
                     let tx = conn.transaction().unwrap();
@@ -254,21 +257,20 @@ fn main() {
                         Ok((device_id, device_name)) => {
                             if cli.debug == 1 { println!("Device: {device_name} ({device_id})"); }
 
-                            // TODO: figure out why so many .clone() are necessary instead of pointers
                             let walk_session_id = ulid::Ulid::new().to_string();
                             if cli.debug == 1 { println!("Walk Session: {walk_session_id}"); }
                             match tx.execute(r"
                                 INSERT INTO ur_walk_session (ur_walk_session_id, device_id, ignore_paths_regex, blobs_regex, digests_regex, walk_started_at) 
-                                                     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)", [
-                                    walk_session_id.clone(), device_id, 
+                                                     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)", params![
+                                    walk_session_id, device_id, 
                                     ignore_entries.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", "), 
                                     compute_digests.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", "), 
                                     surveil_content.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", ")]) {
                                 Ok(_) => {
                                     // TODO: don't unwrap, handle errors properly
                                     let mut ur_wsp_stmt = tx.prepare("INSERT INTO ur_walk_session_path (ur_walk_session_path_id, walk_session_id, root_path) VALUES (?, ?, ?)").unwrap();
-                                    let mut ur_no_content_stmt = tx.prepare("INSERT INTO uniform_resource (uniform_resource_id, walk_session_id, walk_path_id, uri, nature, content_digest, size_bytes, last_modified_at) VALUES (?, ?, ?, ?, ?, '-', ?, ?) ON CONFLICT (content_digest, uri, size_bytes, last_modified_at) DO NOTHING").unwrap();
-                                    let mut ur_with_content_stmt = tx.prepare("INSERT INTO uniform_resource (uniform_resource_id, walk_session_id, walk_path_id, uri, nature, content, content_digest, size_bytes, last_modified_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (content_digest, uri, size_bytes, last_modified_at) DO NOTHING").unwrap();
+                                    let mut ur_no_content_stmt = tx.prepare("INSERT INTO uniform_resource (uniform_resource_id, device_id, walk_session_id, walk_path_id, uri, nature, content_digest, size_bytes, last_modified_at) VALUES (?, ?, ?, ?, ?, ?, '-', ?, ?) ON CONFLICT (device_id, content_digest, uri, size_bytes, last_modified_at) DO NOTHING").unwrap();
+                                    let mut ur_with_content_stmt = tx.prepare("INSERT INTO uniform_resource (uniform_resource_id, device_id, walk_session_id, walk_path_id, uri, nature, content, content_digest, size_bytes, last_modified_at, content_fm_body_attrs, frontmatter) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (device_id, content_digest, uri, size_bytes, last_modified_at) DO NOTHING").unwrap();
                                     let mut ur_fs_entry_stmt = tx.prepare("INSERT INTO ur_walk_session_path_fs_entry (ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").unwrap();
                                     for root_path in root_paths {
                                         match std::fs::canonicalize(std::path::Path::new(root_path)) {
@@ -276,8 +278,9 @@ fn main() {
                                                 let canonical_path = canonical_path_buf.into_os_string().into_string().unwrap();
                                                 let walk_path_id = ulid::Ulid::new().to_string();
                                                 if cli.debug == 1 { println!("  Walk Session Path: {root_path} ({walk_path_id})"); }                                                    
-                                                match ur_wsp_stmt.execute([walk_path_id.clone(), walk_session_id.clone(), canonical_path.clone()]) {
+                                                match ur_wsp_stmt.execute(params![walk_path_id, walk_session_id, canonical_path]) {
                                                     Ok(_) => {
+                                                        // TODO: why is this clone required?
                                                         let rp: Vec<String> = vec![canonical_path.clone()];
                                                         let walker = FileSysResourcesWalker::new(&rp, ignore_entries, surveil_content);
                                                         match walker {
@@ -295,13 +298,15 @@ fn main() {
                                                                                 UniformResource::Json(json) => {
                                                                                     uri = json.resource.uri.to_string();
                                                                                     let content_supplier = json.resource.content_text_supplier.unwrap()().unwrap();
-                                                                                    let _execute = ur_with_content_stmt.execute([
-                                                                                        uniform_resource_id.clone(), walk_session_id.clone(), walk_path_id.clone(), 
-                                                                                        json.resource.uri, json.resource.nature.unwrap(), 
-                                                                                        content_supplier.content_text().to_string(),
-                                                                                        content_supplier.content_digest_hash().to_string(),
-                                                                                        json.resource.size.unwrap().to_string(), 
-                                                                                        json.resource.last_modified_at.unwrap().to_string()]);
+                                                                                    let execute = ur_with_content_stmt.execute(params![
+                                                                                        uniform_resource_id, device_id, walk_session_id, walk_path_id, 
+                                                                                        json.resource.uri, json.resource.nature, 
+                                                                                        content_supplier.content_text(),
+                                                                                        content_supplier.content_digest_hash(),
+                                                                                        json.resource.size, 
+                                                                                        json.resource.last_modified_at.unwrap().to_string(),
+                                                                                        &None::<String>, &None::<String>]);
+                                                                                    if execute.is_err() { eprintln!("Error inserting UniformResource::Json for {}: {:?}", &uri, execute.err()); }
                                                                                 }
                                                                                 UniformResource::Image(img) => {
                                                                                     uri = img.resource.uri.to_string();
@@ -310,23 +315,38 @@ fn main() {
                                                                                 UniformResource::Markdown(md) => {
                                                                                     uri = md.resource.uri.to_string();
                                                                                     let content_supplier = md.resource.content_text_supplier.unwrap()().unwrap();
-                                                                                    let _execute = ur_with_content_stmt.execute([
-                                                                                        uniform_resource_id.clone(), walk_session_id.clone(), walk_path_id.clone(), 
-                                                                                        md.resource.uri, md.resource.nature.unwrap(), 
-                                                                                        content_supplier.content_text().to_string(),
-                                                                                        content_supplier.content_digest_hash().to_string(),
-                                                                                        md.resource.size.unwrap().to_string(), 
-                                                                                        md.resource.last_modified_at.unwrap().to_string()]);
-                                                                                    // TODO: add frontmatter
+                                                                                    let mut fm_attrs = None::<String>;
+                                                                                    let mut fm_json: Option<String> = None::<String>;
+                                                                                    let (_, fm_raw, fm_json_value, fm_body) = content_supplier.frontmatter();
+                                                                                    if fm_json_value.is_ok()  {
+                                                                                        fm_json = Some(serde_json::to_string_pretty(&fm_json_value.ok()).unwrap());
+                                                                                        let fm_attrs_value = serde_json::json!({
+                                                                                            "frontMatter": fm_raw.unwrap(),
+                                                                                            "body": fm_body, 
+                                                                                            "attrs": fm_json.clone().unwrap()
+                                                                                        });
+                                                                                        fm_attrs = Some(serde_json::to_string_pretty(&fm_attrs_value).unwrap());
+                                                                                    }
+                                                                                    let execute = ur_with_content_stmt.execute(params![
+                                                                                        uniform_resource_id, device_id, walk_session_id, walk_path_id, 
+                                                                                        md.resource.uri, md.resource.nature, 
+                                                                                        content_supplier.content_text(),
+                                                                                        content_supplier.content_digest_hash(),
+                                                                                        md.resource.size, 
+                                                                                        md.resource.last_modified_at.unwrap().to_string(),
+                                                                                        fm_attrs, fm_json]);
+                                                                                    if execute.is_err() { eprintln!("Error inserting UniformResource::Markdown for {}: {:?}", &uri, execute.err()); }
                                                                                 }
                                                                                 UniformResource::Unknown(unknown) => {
                                                                                     uri = unknown.uri.to_string();
-                                                                                    let _execute = ur_no_content_stmt.execute([
-                                                                                        uniform_resource_id.clone(), walk_session_id.clone(), walk_path_id.clone(), 
-                                                                                        unknown.uri, unknown.nature.unwrap(), unknown.size.unwrap().to_string(), 
+                                                                                    let execute = ur_no_content_stmt.execute(params![
+                                                                                        uniform_resource_id, device_id, walk_session_id, walk_path_id, 
+                                                                                        unknown.uri, unknown.nature, unknown.size, 
                                                                                         unknown.last_modified_at.unwrap().to_string()]);
+                                                                                    if execute.is_err() { eprintln!("Error inserting UniformResource::Unknown for {}: {:?}", &uri, execute.err()); }
                                                                                 }
                                                                             }
+                                                                            // TODO: why is this clone required?
                                                                             let cp_clone = canonical_path.clone();
                                                                             match extract_path_info(std::path::Path::new(&cp_clone), std::path::Path::new(&uri)) {
                                                                                 Some((
@@ -337,13 +357,13 @@ fn main() {
                                                                                     file_extn,
                                                                                 )) => {
                                                                                     let ur_walk_session_path_fs_entry_id = ulid::Ulid::new().to_string();
-                                                                                    match ur_fs_entry_stmt.execute([
-                                                                                        ur_walk_session_path_fs_entry_id, walk_session_id.clone(), walk_path_id.clone(), uniform_resource_id,
-                                                                                        file_path_abs.into_os_string().into_string().unwrap(), 
-                                                                                        file_path_rel_parent.into_os_string().into_string().unwrap(), 
-                                                                                        file_path_rel.into_os_string().into_string().unwrap(), file_basename, 
-                                                                                        if let Some(file_extn) = file_extn { file_extn } else { String::from("") }
-                                                                                        ]) {
+                                                                                    match ur_fs_entry_stmt.execute(params![
+                                                                                            ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id,
+                                                                                            file_path_abs.into_os_string().into_string().unwrap(), 
+                                                                                            file_path_rel_parent.into_os_string().into_string().unwrap(), 
+                                                                                            file_path_rel.into_os_string().into_string().unwrap(), file_basename, 
+                                                                                            if let Some(file_extn) = file_extn { file_extn } else { String::from("") }
+                                                                                            ]) {
                                                                                         Ok(_) => {},
                                                                                         Err(err) => { eprintln!("Error inserting UR walk session path file system entry for {}: {}", &uri, err); }
                                                                                     }
@@ -365,7 +385,7 @@ fn main() {
                                         }
                                     }
 
-                                    let _ = tx.execute("UPDATE ur_walk_session SET walk_finished_at = CURRENT_TIMESTAMP WHERE ur_walk_session_id = ?", [walk_session_id.clone()]);
+                                    let _ = tx.execute("UPDATE ur_walk_session SET walk_finished_at = CURRENT_TIMESTAMP WHERE ur_walk_session_id = ?", params![walk_session_id]);
                                 }
                                 Err(err) => {
                                     println!("ur_walk_session Error {}", err);

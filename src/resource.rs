@@ -9,13 +9,22 @@ pub trait BinaryContent {
     fn content_binary(&self) -> &Vec<u8>;
 }
 
+pub type FrontmatterComponents = (
+    crate::frontmatter::FrontmatterNature,
+    Option<String>,
+    Result<JsonValue, Box<dyn Error>>,
+    String,
+);
+
 pub trait TextContent {
     fn content_digest_hash(&self) -> &str;
     fn content_text(&self) -> &str;
+    fn frontmatter(&self) -> FrontmatterComponents;
 }
 
 pub type BinaryContentSupplier = Box<dyn Fn() -> Result<Box<dyn BinaryContent>, Box<dyn Error>>>;
 pub type TextContentSupplier = Box<dyn Fn() -> Result<Box<dyn TextContent>, Box<dyn Error>>>;
+pub type JsonValueSupplier = Box<dyn Fn() -> Result<Box<JsonValue>, Box<dyn Error>>>;
 
 pub struct ContentResource {
     pub uri: String,
@@ -51,12 +60,14 @@ pub struct ImageResource<Resource> {
 
 pub struct JsonResource<Resource> {
     pub resource: Resource,
-    pub content: Option<JsonValue>, // The actual JSON content
+    pub content: Option<JsonValueSupplier>, // The actual JSON content
 }
 
 pub struct MarkdownResource<Resource> {
     pub resource: Resource,
-    pub frontmatter: Option<JsonValue>,
+    // TODO: frontmatter is available in resource.content_text_supplier, should
+    // we convert it to JsonValue using serde?
+    // pub frontmatter: Option<JsonValueSupplier>, // The actual JSON content
 }
 
 pub enum UniformResource<Resource> {
