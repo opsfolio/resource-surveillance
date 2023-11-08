@@ -49,6 +49,11 @@ struct Cli {
     command: Option<Commands>,
 }
 
+// TODO: separate commands
+// - surveilr nb emit
+// - surveilr nb cat
+// - surveilr nb ls
+
 #[derive(Subcommand)]
 enum Commands {
     /// Notebooks' cells emit utilities
@@ -105,7 +110,7 @@ enum Commands {
         /// reg-exes to use to load content for entry instead of just walking
         #[arg(
             long,
-            default_value = "\\.(md|mdx|html|json)$",
+            default_value = "\\.(md|mdx|html|json|jsonc)$",
             default_missing_value = "always"
         )]
         surveil_content: Vec<Regex>,
@@ -269,8 +274,8 @@ fn main() {
                                 Ok(_) => {
                                     // TODO: don't unwrap, handle errors properly
                                     let mut ur_wsp_stmt = tx.prepare("INSERT INTO ur_walk_session_path (ur_walk_session_path_id, walk_session_id, root_path) VALUES (?, ?, ?)").unwrap();
-                                    let mut ur_no_content_stmt = tx.prepare("INSERT INTO uniform_resource (uniform_resource_id, device_id, walk_session_id, walk_path_id, uri, nature, content_digest, size_bytes, last_modified_at) VALUES (?, ?, ?, ?, ?, ?, '-', ?, ?) ON CONFLICT (device_id, content_digest, uri, size_bytes, last_modified_at) DO NOTHING").unwrap();
-                                    let mut ur_with_content_stmt = tx.prepare("INSERT INTO uniform_resource (uniform_resource_id, device_id, walk_session_id, walk_path_id, uri, nature, content, content_digest, size_bytes, last_modified_at, content_fm_body_attrs, frontmatter) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (device_id, content_digest, uri, size_bytes, last_modified_at) DO NOTHING").unwrap();
+                                    let mut ur_no_content_stmt = tx.prepare("INSERT INTO uniform_resource (uniform_resource_id, device_id, walk_session_id, walk_path_id, uri, nature, content_digest, size_bytes, last_modified_at) VALUES (?, ?, ?, ?, ?, ?, '-', ?, ?) ON CONFLICT (device_id, content_digest, uri, size_bytes, last_modified_at) DO NOTHING RETURNING uniform_resource_id").unwrap();
+                                    let mut ur_with_content_stmt = tx.prepare("INSERT INTO uniform_resource (uniform_resource_id, device_id, walk_session_id, walk_path_id, uri, nature, content, content_digest, size_bytes, last_modified_at, content_fm_body_attrs, frontmatter) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (device_id, content_digest, uri, size_bytes, last_modified_at) DO NOTHING RETURNING uniform_resource_id").unwrap();
                                     let mut ur_fs_entry_stmt = tx.prepare("INSERT INTO ur_walk_session_path_fs_entry (ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").unwrap();
                                     for root_path in root_paths {
                                         match std::fs::canonicalize(std::path::Path::new(root_path)) {
@@ -288,25 +293,31 @@ fn main() {
                                                                 for resource_result in walker.walk_resources_iter() {
                                                                     match resource_result {
                                                                         Ok(resource) => {
-                                                                            let uniform_resource_id = ulid::Ulid::new().to_string();
+                                                                            // compute a new Ulid in case case a new row is added, it will be
+                                                                            // replaced by the value of the RETURNING clause, though, in case
+                                                                            // the content is already in the database.
+                                                                            let mut uniform_resource_id = ulid::Ulid::new().to_string();
                                                                             let uri: String;
                                                                             match resource {
                                                                                 UniformResource::Html(html) => {
                                                                                     uri = html.resource.uri.to_string();
                                                                                     // println!("HTML: {:?} {:?}", html.resource.uri, html.resource.nature)
+                                                                                    // TODO: parse HTML and store HTML <head><meta> as frontmatter
                                                                                 }
                                                                                 UniformResource::Json(json) => {
                                                                                     uri = json.resource.uri.to_string();
                                                                                     let content_supplier = json.resource.content_text_supplier.unwrap()().unwrap();
-                                                                                    let execute = ur_with_content_stmt.execute(params![
-                                                                                        uniform_resource_id, device_id, walk_session_id, walk_path_id, 
-                                                                                        json.resource.uri, json.resource.nature, 
-                                                                                        content_supplier.content_text(),
-                                                                                        content_supplier.content_digest_hash(),
-                                                                                        json.resource.size, 
-                                                                                        json.resource.last_modified_at.unwrap().to_string(),
-                                                                                        &None::<String>, &None::<String>]);
-                                                                                    if execute.is_err() { eprintln!("Error inserting UniformResource::Json for {}: {:?}", &uri, execute.err()); }
+                                                                                    match ur_with_content_stmt.query_row(params![
+                                                                                            uniform_resource_id, device_id, walk_session_id, walk_path_id, 
+                                                                                            json.resource.uri, json.resource.nature, 
+                                                                                            content_supplier.content_text(),
+                                                                                            content_supplier.content_digest_hash(),
+                                                                                            json.resource.size, 
+                                                                                            json.resource.last_modified_at.unwrap().to_string(),
+                                                                                            &None::<String>, &None::<String>], |row| row.get(0)) {
+                                                                                        Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING
+                                                                                        Err(err) => { eprintln!("Error inserting UniformResource::Json for {}: {:?}", &uri, err); }
+                                                                                    }
                                                                                 }
                                                                                 UniformResource::Image(img) => {
                                                                                     uri = img.resource.uri.to_string();
@@ -327,23 +338,27 @@ fn main() {
                                                                                         });
                                                                                         fm_attrs = Some(serde_json::to_string_pretty(&fm_attrs_value).unwrap());
                                                                                     }
-                                                                                    let execute = ur_with_content_stmt.execute(params![
-                                                                                        uniform_resource_id, device_id, walk_session_id, walk_path_id, 
-                                                                                        md.resource.uri, md.resource.nature, 
-                                                                                        content_supplier.content_text(),
-                                                                                        content_supplier.content_digest_hash(),
-                                                                                        md.resource.size, 
-                                                                                        md.resource.last_modified_at.unwrap().to_string(),
-                                                                                        fm_attrs, fm_json]);
-                                                                                    if execute.is_err() { eprintln!("Error inserting UniformResource::Markdown for {}: {:?}", &uri, execute.err()); }
+                                                                                    match ur_with_content_stmt.query_row(params![
+                                                                                            uniform_resource_id, device_id, walk_session_id, walk_path_id, 
+                                                                                            md.resource.uri, md.resource.nature, 
+                                                                                            content_supplier.content_text(),
+                                                                                            content_supplier.content_digest_hash(),
+                                                                                            md.resource.size, 
+                                                                                            md.resource.last_modified_at.unwrap().to_string(),
+                                                                                            fm_attrs, fm_json], |row| row.get(0)) {
+                                                                                        Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING
+                                                                                        Err(err) => { eprintln!("Error inserting UniformResource::Markdown for {}: {:?}", &uri, err); }
+                                                                                    }
                                                                                 }
                                                                                 UniformResource::Unknown(unknown) => {
                                                                                     uri = unknown.uri.to_string();
-                                                                                    let execute = ur_no_content_stmt.execute(params![
-                                                                                        uniform_resource_id, device_id, walk_session_id, walk_path_id, 
-                                                                                        unknown.uri, unknown.nature, unknown.size, 
-                                                                                        unknown.last_modified_at.unwrap().to_string()]);
-                                                                                    if execute.is_err() { eprintln!("Error inserting UniformResource::Unknown for {}: {:?}", &uri, execute.err()); }
+                                                                                    match ur_no_content_stmt.query_row(params![
+                                                                                            uniform_resource_id, device_id, walk_session_id, walk_path_id, 
+                                                                                            unknown.uri, unknown.nature, unknown.size, 
+                                                                                            unknown.last_modified_at.unwrap().to_string()], |row| row.get(0)) {
+                                                                                        Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING
+                                                                                        Err(err) => { eprintln!("Error inserting UniformResource::Unknown for {}: {:?}", &uri, err); }
+                                                                                    }
                                                                                 }
                                                                             }
                                                                             // TODO: why is this clone required?

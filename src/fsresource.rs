@@ -219,7 +219,7 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
                     };
                     Ok(Box::new(UniformResource::Html(html)))
                 }
-                "json" => {
+                "json" | "jsonc" => {
                     let json = JsonResource {
                         resource,
                         content: None, // TODO parse using serde
@@ -227,10 +227,7 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
                     Ok(Box::new(UniformResource::Json(json)))
                 }
                 "md" | "mdx" => {
-                    let markdown = MarkdownResource {
-                        resource,
-                        // TODO: frontmatter,
-                    };
+                    let markdown = MarkdownResource { resource };
                     Ok(Box::new(UniformResource::Markdown(markdown)))
                 }
                 "png" | "gif" | "tiff" | "jpg" | "jpeg" => {
