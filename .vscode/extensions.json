@@ -9,6 +9,7 @@
     "tamasfe.even-better-toml",
     "gruntfuggly.todo-tree",
     "kokakiwi.vscode-just",
-    "yy0931.vscode-sqlite3-editor"
+    "yy0931.vscode-sqlite3-editor",
+    "hediet.vscode-drawio"
   ]
 }
