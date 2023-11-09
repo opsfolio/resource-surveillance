@@ -273,17 +273,17 @@ fn main() {
                                     surveil_content.iter().map(|r| r.as_str()).collect::<Vec<&str>>().join(", ")]) {
                                 Ok(_) => {
                                     // TODO: don't unwrap, handle errors properly
-                                    let mut ur_wsp_stmt = tx.prepare("INSERT INTO ur_walk_session_path (ur_walk_session_path_id, walk_session_id, root_path) VALUES (?, ?, ?)").unwrap();
-                                    let mut ur_no_content_stmt = tx.prepare("INSERT INTO uniform_resource (uniform_resource_id, device_id, walk_session_id, walk_path_id, uri, nature, content_digest, size_bytes, last_modified_at) VALUES (?, ?, ?, ?, ?, ?, '-', ?, ?) ON CONFLICT (device_id, content_digest, uri, size_bytes, last_modified_at) DO NOTHING RETURNING uniform_resource_id").unwrap();
-                                    let mut ur_with_content_stmt = tx.prepare("INSERT INTO uniform_resource (uniform_resource_id, device_id, walk_session_id, walk_path_id, uri, nature, content, content_digest, size_bytes, last_modified_at, content_fm_body_attrs, frontmatter) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (device_id, content_digest, uri, size_bytes, last_modified_at) DO NOTHING RETURNING uniform_resource_id").unwrap();
-                                    let mut ur_fs_entry_stmt = tx.prepare("INSERT INTO ur_walk_session_path_fs_entry (ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").unwrap();
+                                    let mut ins_ur_wsp_stmt = tx.prepare("INSERT INTO ur_walk_session_path (ur_walk_session_path_id, walk_session_id, root_path) VALUES (?, ?, ?)").unwrap();
+                                    // in ins_ur_stmt the `DO UPDATE SET size_bytes = EXCLUDED.size_bytes` is a workaround to force uniform_resource_id when the row already exists
+                                    let mut ins_ur_stmt = tx.prepare("INSERT INTO uniform_resource (uniform_resource_id, device_id, walk_session_id, walk_path_id, uri, nature, content, content_digest, size_bytes, last_modified_at, content_fm_body_attrs, frontmatter) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (device_id, content_digest, uri, size_bytes, last_modified_at) DO UPDATE SET size_bytes = EXCLUDED.size_bytes RETURNING uniform_resource_id").unwrap();
+                                    let mut ins_ur_fs_entry_stmt = tx.prepare("INSERT INTO ur_walk_session_path_fs_entry (ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").unwrap();
                                     for root_path in root_paths {
                                         match std::fs::canonicalize(std::path::Path::new(root_path)) {
                                             Ok(canonical_path_buf) => {
                                                 let canonical_path = canonical_path_buf.into_os_string().into_string().unwrap();
                                                 let walk_path_id = ulid::Ulid::new().to_string();
                                                 if cli.debug == 1 { println!("  Walk Session Path: {root_path} ({walk_path_id})"); }                                                    
-                                                match ur_wsp_stmt.execute(params![walk_path_id, walk_session_id, canonical_path]) {
+                                                match ins_ur_wsp_stmt.execute(params![walk_path_id, walk_session_id, canonical_path]) {
                                                     Ok(_) => {
                                                         // TODO: why is this clone required?
                                                         let rp: Vec<String> = vec![canonical_path.clone()];
@@ -301,13 +301,25 @@ fn main() {
                                                                             match resource {
                                                                                 UniformResource::Html(html) => {
                                                                                     uri = html.resource.uri.to_string();
-                                                                                    // println!("HTML: {:?} {:?}", html.resource.uri, html.resource.nature)
+                                                                                    let content_supplier = html.resource.content_text_supplier.unwrap()().unwrap();
+                                                                                    match ins_ur_stmt.query_row(params![
+                                                                                            uniform_resource_id, device_id, walk_session_id, walk_path_id, 
+                                                                                            html.resource.uri, html.resource.nature, 
+                                                                                            content_supplier.content_text(),
+                                                                                            content_supplier.content_digest_hash(),
+                                                                                            html.resource.size, 
+                                                                                            html.resource.last_modified_at.unwrap().to_string(),
+                                                                                            &None::<String>, &None::<String>], |row| row.get(0)) {
+                                                                                        Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING for existing row
+                                                                                        Err(rusqlite::Error::QueryReturnedNoRows) => {}, // this happens with a new row
+                                                                                        Err(err) => { eprintln!("Error inserting UniformResource::Html for {}: {:?}", &uri, err); }
+                                                                                    }
                                                                                     // TODO: parse HTML and store HTML <head><meta> as frontmatter
                                                                                 }
                                                                                 UniformResource::Json(json) => {
                                                                                     uri = json.resource.uri.to_string();
                                                                                     let content_supplier = json.resource.content_text_supplier.unwrap()().unwrap();
-                                                                                    match ur_with_content_stmt.query_row(params![
+                                                                                    match ins_ur_stmt.query_row(params![
                                                                                             uniform_resource_id, device_id, walk_session_id, walk_path_id, 
                                                                                             json.resource.uri, json.resource.nature, 
                                                                                             content_supplier.content_text(),
@@ -315,7 +327,8 @@ fn main() {
                                                                                             json.resource.size, 
                                                                                             json.resource.last_modified_at.unwrap().to_string(),
                                                                                             &None::<String>, &None::<String>], |row| row.get(0)) {
-                                                                                        Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING
+                                                                                        Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING for existing row
+                                                                                        Err(rusqlite::Error::QueryReturnedNoRows) => {}, // this happens with a new row
                                                                                         Err(err) => { eprintln!("Error inserting UniformResource::Json for {}: {:?}", &uri, err); }
                                                                                     }
                                                                                 }
@@ -338,7 +351,7 @@ fn main() {
                                                                                         });
                                                                                         fm_attrs = Some(serde_json::to_string_pretty(&fm_attrs_value).unwrap());
                                                                                     }
-                                                                                    match ur_with_content_stmt.query_row(params![
+                                                                                    match ins_ur_stmt.query_row(params![
                                                                                             uniform_resource_id, device_id, walk_session_id, walk_path_id, 
                                                                                             md.resource.uri, md.resource.nature, 
                                                                                             content_supplier.content_text(),
@@ -346,17 +359,22 @@ fn main() {
                                                                                             md.resource.size, 
                                                                                             md.resource.last_modified_at.unwrap().to_string(),
                                                                                             fm_attrs, fm_json], |row| row.get(0)) {
-                                                                                        Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING
+                                                                                        Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING for existing row
+                                                                                        Err(rusqlite::Error::QueryReturnedNoRows) => {}, // this happens with a new row
                                                                                         Err(err) => { eprintln!("Error inserting UniformResource::Markdown for {}: {:?}", &uri, err); }
                                                                                     }
                                                                                 }
                                                                                 UniformResource::Unknown(unknown) => {
                                                                                     uri = unknown.uri.to_string();
-                                                                                    match ur_no_content_stmt.query_row(params![
+                                                                                    match ins_ur_stmt.query_row(params![
                                                                                             uniform_resource_id, device_id, walk_session_id, walk_path_id, 
-                                                                                            unknown.uri, unknown.nature, unknown.size, 
-                                                                                            unknown.last_modified_at.unwrap().to_string()], |row| row.get(0)) {
-                                                                                        Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING
+                                                                                            unknown.uri, unknown.nature, 
+                                                                                            &None::<String>, String::from("-"),
+                                                                                            unknown.size, 
+                                                                                            unknown.last_modified_at.unwrap().to_string(),
+                                                                                            &None::<String>, &None::<String>], |row| row.get(0)) {
+                                                                                        Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING for existing row
+                                                                                        Err(rusqlite::Error::QueryReturnedNoRows) => {}, // this happens with a new row
                                                                                         Err(err) => { eprintln!("Error inserting UniformResource::Unknown for {}: {:?}", &uri, err); }
                                                                                     }
                                                                                 }
@@ -372,7 +390,7 @@ fn main() {
                                                                                     file_extn,
                                                                                 )) => {
                                                                                     let ur_walk_session_path_fs_entry_id = ulid::Ulid::new().to_string();
-                                                                                    match ur_fs_entry_stmt.execute(params![
+                                                                                    match ins_ur_fs_entry_stmt.execute(params![
                                                                                             ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id,
                                                                                             file_path_abs.into_os_string().into_string().unwrap(), 
                                                                                             file_path_rel_parent.into_os_string().into_string().unwrap(), 
