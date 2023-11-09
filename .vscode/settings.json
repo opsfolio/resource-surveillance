@@ -7,9 +7,6 @@
   "todo-tree.regex.regex": "(//|#|<!--|;|/\\*|^|^[ \\t]*(-|\\d+.))\\s*($TAGS)|todo!",
   "rust-analyzer.check.command": "clippy",
   "terminal.integrated.fontFamily": "CascadianCode NF",
-  "rust-analyzer.linkedProjects": [
-    "./Cargo.toml",
-    "./Cargo.toml"
-  ],
+  "rust-analyzer.linkedProjects": ["./Cargo.toml"],
   "hediet.vscode-drawio.theme": "atlas"
 }
