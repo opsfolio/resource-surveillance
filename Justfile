@@ -31,9 +31,17 @@ dev: ensure-cargo-watch
 test: ensure-cargo-nextest
     @cargo nextest run
 
+# Lint all the code
+lint:
+    @cargo clippy
+
+# Create the release build and prepare for tagging
+release:
+    @cargo build --release
+
 # Generate CLI markdown help and save in CLI-help.md
 help-markdown:
-    @cargo run -- --help-markdown > CLI-help.md
+    @cargo run -- admin cli-help-md > CLI-help.md
 
 # Pass all arguments to `cargo run --` to execute the CLI
 run *args='--help':
