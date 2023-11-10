@@ -1,6 +1,6 @@
-# `surveilr` Resource Surveillance
+# Opsfolio Resource Surveillance
 
-This Rust-based project is an extendable file system inspector for performing
+`surveilr` is an extendable file system inspector for performing
 surveillance of machine resources. It is used to walk resources like file
 systems and generate an SQLite database which can then be consumed by any
 computing environment that supports SQLite.
@@ -39,6 +39,19 @@ $ ./surveilr notebooks cat --cell infoSchemaOsQueryATCs       # export the infor
 $ ./surveilr notebooks cat --cell notebooksInfoSchemaDiagram  # show the notebooks admin PlanUML ERD stored in the database
 $ ./surveilr notebooks cat --cell surveilrInfoSchemaDiagram   # show the surveilr PlanUML ERD stored in the database
 $ ./surveilr --completions fish | source                      # setup completions to reduce typing
+```
+
+In order to ensure that the Resource Surveillance agent is extensible, we leverage SQLite heavily for both storage of data but also storing the SQL it needs to bootstrap itself, perform migrations, and conduct regular administrative and query operations.
+
+The key to that extensibility is the `code_notebook_cell` table which stores SQL (called _SQL notebook cells_) or other interpretable code in the database so that once the database is created, all SQL and related code is part of the database and may be executed like this from the CLI using any environment that supports SQLite shell or SQLite drivers:
+
+```bash
+$ sqlite3 xyz.db "select sql from code_notebook_cell where code_notebook_cell_id = 'infoSchemaMarkdown'" | sqlite3 xyz.db
+```
+
+You can pass in arguments using .parameter or `sql_parameters` table, like:
+```bash
+$ echo ".parameter set X Y; $(sqlite3 xyz.db \"SELECT sql FROM code_notebook_cell where code_notebook_cell_id = 'init'\")" | sqlite3 xyz.db
 ```
 
 Anywhere you see `./surveilr notebooks cat` those can be run directly through SQLite, the following two commands do the same thing:
