@@ -28,10 +28,6 @@ async function CLI() {
       },
     )
     .action(async ({ sqlHome }) => {
-      // TODO: figure out how to check whether migrations are done already
-      // and pass in the migrations table to the first SQL chains so that
-      // they do not perform tasks that have already been performed.
-
       const sqlPageNB = nbooks.SQLPageNotebook.create(sno.nbh);
       const initSQL = nbh.SQL`
         ${sno.bootstrapNB.bootstrapDDL()}

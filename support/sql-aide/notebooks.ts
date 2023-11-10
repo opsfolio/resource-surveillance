@@ -10,10 +10,10 @@ import * as m from "./models.ts";
 // deno-lint-ignore no-explicit-any
 type Any = any;
 
-// TODO: Integrate SQLa Quality System functionality so that documentation is not just in code but
-// makes its way into the database.
+// TODO: https://github.com/opsfolio/resource-surveillance/issues/17
+//       Integrate SQLa Quality System functionality so that documentation
+//       is not just in code but makes its way into the database.
 
-// TODO: move this to README.md:
 // ServiceContentHelpers creates "insertable" type-safe content objects needed by the other notebooks
 // SqlNotebookHelpers encapsulates instances of SQLa objects needed to creation of SQL text in the other notebooks
 // BootstrapSqlNotebook encapsulates DDL and table/view/entity for starting a database from scratch
@@ -139,7 +139,7 @@ export class ServiceContentHelpers<
 > {
   constructor(
     readonly models: ReturnType<typeof m.serviceModels<EmitContext>>,
-  ) {}
+  ) { }
 
   activeDevice(boundary?: string) {
     return {
@@ -988,14 +988,14 @@ export class SqlNotebooksOrchestrator<
         // don't put housekeeping columns in the diagram
         includeEntityAttr: (ea) =>
           [
-              "created_at",
-              "created_by",
-              "updated_at",
-              "updated_by",
-              "deleted_at",
-              "deleted_by",
-              "activity_log",
-            ].find((c) => c == ea.attr.identity)
+            "created_at",
+            "created_by",
+            "updated_at",
+            "updated_by",
+            "deleted_at",
+            "deleted_by",
+            "activity_log",
+          ].find((c) => c == ea.attr.identity)
             ? false
             : true,
       }),

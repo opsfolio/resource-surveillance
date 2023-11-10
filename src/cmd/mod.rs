@@ -75,12 +75,6 @@ pub struct NotebooksArgs {
     pub command: NotebooksCommands,
 }
 
-// TODO: separate commands
-// - surveilr nb emit
-// - surveilr nb cat
-// - surveilr nb ls
-// - surveilr nb run --table (--json is default)
-
 #[derive(Subcommand)]
 pub enum NotebooksCommands {
     /// Notebooks' cells emit utilities

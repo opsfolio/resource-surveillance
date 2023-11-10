@@ -62,19 +62,14 @@ export function codeNotebooksModels<
   // Stores all notebook cells in the database so that once the database is
   // created, all SQL is part of the database and may be executed like this
   // from the CLI:
-  //    sqlite3 xyz.db "select sql from sql_notebook_cell where sql_notebook_cell_id = 'infoSchemaMarkdown'" | sqlite3 xyz.db
+  //    sqlite3 xyz.db "select sql from code_notebook_cell where code_notebook_cell_id = 'infoSchemaMarkdown'" | sqlite3 xyz.db
   // You can pass in arguments using .parameter or `sql_parameters` table, like:
-  //    echo ".parameter set X Y; $(sqlite3 xyz.db \"SELECT sql FROM sql_notebook_cell where sql_notebook_cell_id = 'init'\")" | sqlite3 xyz.db
+  //    echo ".parameter set X Y; $(sqlite3 xyz.db \"SELECT sql FROM code_notebook_cell where code_notebook_cell_id = 'init'\")" | sqlite3 xyz.db
   const codeNotebookCell = gm.textPkTable("code_notebook_cell", {
     code_notebook_cell_id: gk.textPrimaryKey(),
-    // TODO: should we create a code_notebook_kernel table?
     notebook_kernel_id: codeNotebookKernel.references.code_notebook_kernel_id(),
     notebook_name: gd.text(),
     cell_name: gd.text(),
-    // TODO: how should we track dependencies so that we only run cells when a condition is met or skip if not?
-    // e.g., if a state transition has already occurred, should the script not be run? could we generate `just` or similar task runner?
-    //       if_sql: gd.textNullable(), // only run this cell if the given `if_sql` returns a non-zero result (e.g. check state, look at information_schema, etc.)
-    //       unless_sql: gd.textNullable(), // only run this cell unless the given `unless_sql` returns a non-zero result
     cell_governance: gd.jsonTextNullable(), // any idempotency, versioning, hash, branch, tag or other "governance" data (dependent on the cell)
     interpretable_code: gd.text(),
     interpretable_code_hash: gd.text(),
@@ -144,7 +139,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   const device = gm.textPkTable(
     "device",
     {
-      device_id: gm.keys.ulidPrimaryKey(), // TODO: allow setting default to `ulid()` type like autoIncPK execpt autoUlidPK or something
+      device_id: gm.keys.ulidPrimaryKey(),
       name: gd.text(),
       boundary: gd.text(), // can be IP address, VLAN, or any other device name differentiator
       device_elaboration: gd.jsonTextNullable(),

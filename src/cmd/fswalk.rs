@@ -6,8 +6,6 @@ use crate::fsresource::*;
 use crate::persist::*;
 use crate::resource::*;
 
-// TODO: add option in FsWalkArgs to ignore the surveil_db_fs_path database and related files (WAL, etc.)
-
 pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> anyhow::Result<()> {
     let db_fs_path = &args.surveil_db_fs_path;
 
@@ -91,7 +89,8 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> anyhow::Result<()>
         )
     })?;
 
-    // TODO: from this point on, since we have a walk session put all errors
+    // TODO: https://github.com/opsfolio/resource-surveillance/issues/16
+    //       from this point on, since we have a walk session put all errors
     //       into an error log table inside the database associated with each
     //       session (e.g. ur_walk_session_telemetry) and only report to CLI if
     //       writing the log into the database fails.
@@ -342,10 +341,8 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> anyhow::Result<()>
                             }
                         }
 
-                        // TODO: why is this clone required?
-                        let cp_clone = canonical_path.clone();
                         match extract_path_info(
-                            std::path::Path::new(&cp_clone),
+                            std::path::Path::new(&canonical_path),
                             std::path::Path::new(&uri),
                         ) {
                             Some((
@@ -384,7 +381,7 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> anyhow::Result<()>
                             None => {
                                 eprintln!(
                                     "[fs_walk] error extracting path info for {} in {}",
-                                    cp_clone, db_fs_path
+                                    canonical_path, db_fs_path
                                 )
                             }
                         }

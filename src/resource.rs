@@ -65,9 +65,6 @@ pub struct JsonResource<Resource> {
 
 pub struct MarkdownResource<Resource> {
     pub resource: Resource,
-    // TODO: frontmatter is available in resource.content_text_supplier, should
-    // we convert it to JsonValue using serde?
-    // pub frontmatter: Option<JsonValueSupplier>, // The actual JSON content
 }
 
 pub enum UniformResource<Resource> {
