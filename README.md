@@ -35,9 +35,17 @@ Other use cases:
 
 ```bash
 $ ./surveilr notebooks ls                                     # list all notebooks and cells available, with migrations status
+$ ./surveilr notebooks cat --cell infoSchemaOsQueryATCs       # export the information schema as osQuery ATC
 $ ./surveilr notebooks cat --cell notebooksInfoSchemaDiagram  # show the notebooks admin PlanUML ERD stored in the database
 $ ./surveilr notebooks cat --cell surveilrInfoSchemaDiagram   # show the surveilr PlanUML ERD stored in the database
 $ ./surveilr --completions fish | source                      # setup completions to reduce typing
+```
+
+Anywhere you see `./surveilr notebooks cat` those can be run directly through SQLite, the following two commands do the same thing:
+
+```bash
+$ ./surveilr notebooks cat --cell infoSchemaOsQueryATCs | sqlite3 resource-surveillance.sqlite.db
+$ sqlite3 resource-surveillance.sqlite.db "select interpretable_code from stored_notebook_cell where cell_name = 'infoSchemaOsQueryATCs'" | sqlite3 device-content.sqlite.db
 ```
 
 See [CLI Help](CLI-help.md) for details.
