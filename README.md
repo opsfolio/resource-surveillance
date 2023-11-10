@@ -26,29 +26,38 @@ $ eget opsfolio/resource-surveillance --asset tar.gz
 
 ```bash
 $ ./surveilr --help                         # get CLI help
-$ ./surveilr fs-walk                        # walk the current working directory (CWD) with debug messages
+$ ./surveilr fs-walk                        # walk the current working directory (CWD)
 $ ./surveilr fs-walk -r /other -r /other2   # walk some other director(ies)
+$ ./surveilr fs-walk --stats                # walk the current working directory (CWD) show stats afterwards
 ```
 
 Other use cases:
 
 ```bash
-$ ./surveilr notebooks cat --cell infoSchemaDiagram  # show the PlanUML ERD stored in the database
-$ ./surveilr --completions fish | source             # setup completions to reduce typing
+$ ./surveilr notebooks ls                                     # list all notebooks and cells available, with migrations status
+$ ./surveilr notebooks cat --cell notebooksInfoSchemaDiagram  # show the notebooks admin PlanUML ERD stored in the database
+$ ./surveilr notebooks cat --cell surveilrInfoSchemaDiagram   # show the surveilr PlanUML ERD stored in the database
+$ ./surveilr --completions fish | source                      # setup completions to reduce typing
 ```
 
 See [CLI Help](CLI-help.md) for details.
 
-## SQLite Database
+## Architecture
+
+![Architecture](architecture.drawio.svg)
 
 Device Uniform Resource ER Diagram (generated from
-`./surveilr notebooks cat --cell infoSchemaDiagram`):
+`./surveilr notebooks cat --cell surveilrInfoSchemaDiagram`) without
+housekeeping columns:
 
 ![Uniform Resource ER Diagram](device-ur-er-diagram.png)
 
-## Development
+Administrative Code Notebooks ER Diagram (generated from
+`./surveilr notebooks cat --cell notebooksInfoSchemaDiagram`):
 
-![Architecture](architecture.drawio.svg)
+![Notebooks ER Diagram](notebooks-er-diagram.png)
+
+## Development
 
 **IMPORTANT**: Use SQLa to generate all SQL so it's portable but use Rusqlite to
 make working with SQLite more ergonomic. Remember to only use libraries to help

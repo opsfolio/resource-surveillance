@@ -9,7 +9,11 @@ use crate::persist::*;
 impl NotebooksCommands {
     pub fn execute(&self, _cli: &super::Cli, args: &super::NotebooksArgs) -> anyhow::Result<()> {
         match self {
-            NotebooksCommands::Cat { notebook, cell } => self.cat(args, notebook, cell),
+            NotebooksCommands::Cat {
+                notebook,
+                cell,
+                seps,
+            } => self.cat(args, notebook, cell, *seps),
             NotebooksCommands::Ls => self.ls(args),
         }
     }
@@ -19,6 +23,7 @@ impl NotebooksCommands {
         args: &super::NotebooksArgs,
         notebooks: &Vec<String>,
         cells: &Vec<String>,
+        seps: bool,
     ) -> anyhow::Result<()> {
         if let Some(db_fs_path) = args.surveil_db_fs_path.as_deref() {
             if let Ok(conn) =
@@ -28,7 +33,9 @@ impl NotebooksCommands {
                     Ok(matched) => {
                         for row in matched {
                             let (notebook, kernel, cell, sql) = row;
-                            println!("-- {notebook}::{cell} ({kernel})");
+                            if seps {
+                                println!("-- {notebook}::{cell} ({kernel})");
+                            }
                             println!("{sql}");
                         }
                     }

@@ -162,6 +162,7 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> anyhow::Result<()>
                         match resource {
                             UniformResource::Html(html) => {
                                 uri = html.resource.uri.to_string();
+                                // TODO: this will panic if content not available, so test for proper existence not unwrap()!
                                 let content_supplier =
                                     html.resource.content_text_supplier.unwrap()().unwrap();
                                 match ins_ur_stmt.query_row(
@@ -194,6 +195,7 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> anyhow::Result<()>
                             }
                             UniformResource::Json(json) => {
                                 uri = json.resource.uri.to_string();
+                                // TODO: this will panic if content not available, so test for proper existence not unwrap()!
                                 let content_supplier =
                                     json.resource.content_text_supplier.unwrap()().unwrap();
                                 match ins_ur_stmt.query_row(
@@ -225,13 +227,44 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> anyhow::Result<()>
                             }
                             UniformResource::Image(img) => {
                                 uri = img.resource.uri.to_string();
-                                println!(
-                                    "TODO UniformResource::Image: {:?} {:?}",
-                                    img.resource.uri, img.resource.nature
-                                )
+                                let mut digest_hash: String = String::from("-");
+                                if let Some(binary_supplier) = img.resource.content_binary_supplier
+                                {
+                                    if let Ok(binary_supplier) = binary_supplier() {
+                                        digest_hash =
+                                            binary_supplier.content_digest_hash().to_string();
+                                    }
+                                }
+                                match ins_ur_stmt.query_row(
+                                    params![
+                                        uniform_resource_id,
+                                        device_id,
+                                        walk_session_id,
+                                        walk_path_id,
+                                        img.resource.uri,
+                                        img.resource.nature,
+                                        &None::<String>, // TODO: should we store the binaries?
+                                        digest_hash,
+                                        img.resource.size,
+                                        img.resource.last_modified_at.unwrap().to_string(),
+                                        &None::<String>,
+                                        &None::<String>
+                                    ],
+                                    |row| row.get(0),
+                                ) {
+                                    Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING for existing row
+                                    Err(rusqlite::Error::QueryReturnedNoRows) => {} // this happens with a new row
+                                    Err(err) => {
+                                        eprintln!(
+                                            "Error inserting UniformResource::Image for {}: {:?}",
+                                            &uri, err
+                                        );
+                                    }
+                                }
                             }
                             UniformResource::Markdown(md) => {
                                 uri = md.resource.uri.to_string();
+                                // TODO: this will panic if content not available, so test for proper existence not unwrap()!
                                 let content_supplier =
                                     md.resource.content_text_supplier.unwrap()().unwrap();
                                 let mut fm_attrs = None::<String>;
@@ -311,47 +344,50 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> anyhow::Result<()>
 
                         // TODO: why is this clone required?
                         let cp_clone = canonical_path.clone();
-                        let (
-                            file_path_abs,
-                            file_path_rel_parent,
-                            file_path_rel,
-                            file_basename,
-                            file_extn,
-                        ) = extract_path_info(
+                        match extract_path_info(
                             std::path::Path::new(&cp_clone),
                             std::path::Path::new(&uri),
-                        )
-                        .with_context(|| {
-                            format!(
-                                "[fs_walk] error extracting path info for {} in {}",
-                                cp_clone,
-                                db_fs_path //"Error extracting path info for {}", cp_clone
-                            )
-                        })?;
-                        let ur_walk_session_path_fs_entry_id = ulid::Ulid::new().to_string();
-                        ins_ur_fs_entry_stmt
-                            .execute(params![
-                                ur_walk_session_path_fs_entry_id,
-                                walk_session_id,
-                                walk_path_id,
-                                uniform_resource_id,
-                                file_path_abs.into_os_string().into_string().unwrap(),
-                                file_path_rel_parent.into_os_string().into_string().unwrap(),
-                                file_path_rel.into_os_string().into_string().unwrap(),
+                        ) {
+                            Some((
+                                file_path_abs,
+                                file_path_rel_parent,
+                                file_path_rel,
                                 file_basename,
-                                if let Some(file_extn) = file_extn {
-                                    file_extn
-                                } else {
-                                    String::from("")
+                                file_extn,
+                            )) => {
+                                let ur_walk_session_path_fs_entry_id =
+                                    ulid::Ulid::new().to_string();
+
+                                match ins_ur_fs_entry_stmt.execute(params![
+                                    ur_walk_session_path_fs_entry_id,
+                                    walk_session_id,
+                                    walk_path_id,
+                                    uniform_resource_id,
+                                    file_path_abs.into_os_string().into_string().unwrap(),
+                                    file_path_rel_parent.into_os_string().into_string().unwrap(),
+                                    file_path_rel.into_os_string().into_string().unwrap(),
+                                    file_basename,
+                                    if let Some(file_extn) = file_extn {
+                                        file_extn
+                                    } else {
+                                        String::from("")
+                                    }
+                                ]) {
+                                    Ok(_) => {}
+                                    Err(err) => {
+                                        eprintln!( "[fs_walk] unable to insert UR walk session path file system entry for {} in {}: {} ({})",
+                                            &uri, db_fs_path, err, INS_UR_FS_ENTRY_SQL
+                                        )
+                                    }
                                 }
-                            ])
-                            .with_context(|| {
-                                format!(
-                                    "[fs_walk] unable to insert UR walk session path file system entry for {} in {}",
-                                    &uri,
-                                    db_fs_path
+                            }
+                            None => {
+                                eprintln!(
+                                    "[fs_walk] error extracting path info for {} in {}",
+                                    cp_clone, db_fs_path
                                 )
-                            })?;
+                            }
+                        }
                     }
                     Err(e) => {
                         eprintln!("Error processing a resource: {}", e);

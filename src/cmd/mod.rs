@@ -60,11 +60,7 @@ pub struct FsWalkArgs {
     pub surveil_content: Vec<Regex>,
 
     /// target SQLite database
-    #[arg(
-            long,
-            default_value = DEFAULT_DB,
-            default_missing_value = "always"
-        )]
+    #[arg(short='d', long, default_value = DEFAULT_DB, default_missing_value = "always")]
     pub surveil_db_fs_path: String,
 }
 
@@ -72,11 +68,7 @@ pub struct FsWalkArgs {
 #[derive(Args)]
 pub struct NotebooksArgs {
     /// target SQLite database
-    #[arg(
-            long,
-            default_value = DEFAULT_DB,
-            default_missing_value = "always"
-        )]
+    #[arg(short='d', long, default_value = DEFAULT_DB, default_missing_value = "always")]
     pub surveil_db_fs_path: Option<String>,
 
     #[command(subcommand)]
@@ -93,13 +85,17 @@ pub struct NotebooksArgs {
 pub enum NotebooksCommands {
     /// Notebooks' cells emit utilities
     Cat {
-        // search for these notebooks (include % for LIKE otherwise =)
+        /// search for these notebooks (include % for LIKE otherwise =)
         #[arg(short, long)]
         notebook: Vec<String>,
 
-        // search for these cells (include % for LIKE otherwise =)
+        /// search for these cells (include % for LIKE otherwise =)
         #[arg(short, long)]
         cell: Vec<String>,
+
+        /// add separators before each cell
+        #[arg(short, long)]
+        seps: bool,
     },
 
     /// list all notebooks
@@ -113,14 +109,19 @@ pub struct AdminArgs {
     pub command: AdminCommands,
 }
 
-// TODO: separate commands
-// - surveilr nb emit
-// - surveilr nb cat
-// - surveilr nb ls
-// - surveilr nb run --table (--json is default)
-
 #[derive(Subcommand)]
 pub enum AdminCommands {
+    /// initialize an empty database with bootstrap.sql
+    Init {
+        /// target SQLite database
+        #[arg(short='d', long, default_value = DEFAULT_DB, default_missing_value = "always")]
+        surveil_db_fs_path: String,
+
+        /// remove the existing database first
+        #[arg(short, long)]
+        remove_existing_first: bool,
+    },
+
     /// generate CLI help markdown
     CliHelpMd,
 }

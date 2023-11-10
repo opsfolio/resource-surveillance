@@ -972,37 +972,83 @@ export class SqlNotebooksOrchestrator<
     };
   }
 
-  infoSchemaDiagram() {
+  surveilrInfoSchemaDiagram() {
     const { nbh: { modelsGovn, models } } = this;
     const ctx = modelsGovn.sqlEmitContext();
-    return typical.diaPUML.plantUmlIE(ctx, function* () {
-      for (const table of models.informationSchema.tables) {
-        if (SQLa.isGraphEntityDefinitionSupplier(table)) {
-          yield table.graphEntityDefn() as Any; // TODO: why is "Any" required here???
+    return typical.diaPUML.plantUmlIE(
+      ctx,
+      function* () {
+        for (const table of models.informationSchema.tables) {
+          if (SQLa.isGraphEntityDefinitionSupplier(table)) {
+            yield table.graphEntityDefn() as Any; // TODO: why is "Any" required here???
+          }
         }
-      }
-    }, typical.diaPUML.typicalPlantUmlIeOptions()).content;
+      },
+      typical.diaPUML.typicalPlantUmlIeOptions({
+        // don't put housekeeping columns in the diagram
+        includeEntityAttr: (ea) =>
+          [
+              "created_at",
+              "created_by",
+              "updated_at",
+              "updated_by",
+              "deleted_at",
+              "deleted_by",
+              "activity_log",
+            ].find((c) => c == ea.attr.identity)
+            ? false
+            : true,
+      }),
+    ).content;
+  }
+
+  notebooksInfoSchemaDiagram() {
+    const { nbh: { modelsGovn, models: { codeNbModels } } } = this;
+    const ctx = modelsGovn.sqlEmitContext();
+    return typical.diaPUML.plantUmlIE(
+      ctx,
+      function* () {
+        for (const table of codeNbModels.informationSchema.tables) {
+          if (SQLa.isGraphEntityDefinitionSupplier(table)) {
+            yield table.graphEntityDefn() as Any; // TODO: why is "Any" required here???
+          }
+        }
+      },
+      typical.diaPUML.typicalPlantUmlIeOptions(),
+    ).content;
   }
 
   async infoSchemaDiagramDML() {
     const { nbh: { models } } = this;
     const { codeNbModels: { codeNotebookCell } } = models;
-    const interpretable_code = this.infoSchemaDiagram();
-    return codeNotebookCell.insertDML({
-      code_notebook_cell_id: this.nbh.newUlid(),
-      notebook_kernel_id: "PlantUML",
-      notebook_name: SqlNotebooksOrchestrator.prototype.constructor.name,
-      cell_name: "infoSchemaDiagram",
-      interpretable_code,
-      interpretable_code_hash: await gitLikeHash(interpretable_code),
-    }, {
+    const surveilrInfoSchemaDiagram = this.surveilrInfoSchemaDiagram();
+    const notebooksInfoSchemaDiagram = this.notebooksInfoSchemaDiagram();
+    const options = {
       onConflict: this.nbh
         .SQL`ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
-        interpretable_code = EXCLUDED.interpretable_code,
-        notebook_kernel_id = EXCLUDED.notebook_kernel_id,
-        updated_at = CURRENT_TIMESTAMP,
-        activity_log = ${codeNotebookCell.activityLogDmlPartial()}`,
-    });
+             interpretable_code = EXCLUDED.interpretable_code,
+             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
+             updated_at = CURRENT_TIMESTAMP,
+             activity_log = ${codeNotebookCell.activityLogDmlPartial()}`,
+    };
+    return [
+      codeNotebookCell.insertDML({
+        code_notebook_cell_id: this.nbh.newUlid(),
+        notebook_kernel_id: "PlantUML",
+        notebook_name: SqlNotebooksOrchestrator.prototype.constructor.name,
+        cell_name: "surveilrInfoSchemaDiagram",
+        interpretable_code: surveilrInfoSchemaDiagram,
+        interpretable_code_hash: await gitLikeHash(surveilrInfoSchemaDiagram),
+      }, options),
+      codeNotebookCell.insertDML({
+        code_notebook_cell_id: this.nbh.newUlid(),
+        notebook_kernel_id: "PlantUML",
+        notebook_name: SqlNotebooksOrchestrator.prototype.constructor.name,
+        cell_name: "notebooksInfoSchemaDiagram",
+        interpretable_code: notebooksInfoSchemaDiagram,
+        interpretable_code_hash: await gitLikeHash(notebooksInfoSchemaDiagram),
+      }, options),
+    ];
   }
 
   introspectedCells() {

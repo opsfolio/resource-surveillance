@@ -61,7 +61,7 @@ async function CLI() {
           "Output destination, STDOUT if not supplied",
         )
         .action((options) => {
-          const diagram = sno.infoSchemaDiagram();
+          const diagram = sno.surveilrInfoSchemaDiagram();
           if (options.dest) {
             Deno.writeTextFileSync(options.dest, diagram);
           } else {
