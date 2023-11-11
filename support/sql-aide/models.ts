@@ -141,9 +141,10 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     {
       device_id: gm.keys.ulidPrimaryKey(),
       name: gd.text(),
+      state: gd.jsonText(), // should be "SINGLETON" if only one state is allowed, or other tags if multiple states are allowed
       boundary: gd.text(), // can be IP address, VLAN, or any other device name differentiator
       segmentation: gd.jsonTextNullable(), // zero trust or other network segmentation
-      state: gd.jsonTextNullable(), // any sysinfo or other state data that is specific to this device (mutable)
+      state_sysinfo: gd.jsonTextNullable(), // any sysinfo or other state data that is specific to this device (mutable)
       elaboration: gd.jsonTextNullable(), // any elaboration needed for the device (mutable)
       ...gm.housekeeping.columns,
     },
@@ -152,12 +153,12 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       constraints: (props, tableName) => {
         const c = SQLa.tableConstraints(tableName, props);
         return [
-          c.unique("name", "boundary"),
+          c.unique("name", "state", "boundary"),
         ];
       },
       indexes: (props, tableName) => {
         const tif = SQLa.tableIndexesFactory(tableName, props);
-        return [tif.index({ isIdempotent: true }, "name")];
+        return [tif.index({ isIdempotent: true }, "name", "state")];
       },
     },
   );

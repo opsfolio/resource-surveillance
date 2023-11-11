@@ -157,12 +157,14 @@ query_sql_rows_no_args!(
 
 query_sql_single!(
     upsert_device,
-    r"INSERT INTO device (device_id, name, boundary) VALUES (?, ?, ?)
-      ON CONFLICT(name, boundary) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+    r"INSERT INTO device (device_id, name, boundary, state, state_sysinfo) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(name, state, boundary) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
       RETURNING device_id, name",
     device_id: &str,
     name: &str,
-    boundary: &str;
+    boundary: &str,
+    state: &str,
+    state_sysinfo: &str;
     device_id: String,
     name: String
 );
@@ -454,5 +456,7 @@ pub fn upserted_device(conn: &Connection, device: &Device) -> RusqliteResult<(St
         } else {
             "UNKNOWN"
         },
+        &device.state_json(),
+        &device.state_sysinfo_json(),
     )
 }
