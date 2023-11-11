@@ -167,6 +167,23 @@ query_sql_single!(
     name: String
 );
 
+query_sql_rows!(
+    fs_walk_session_stats,
+    r"SELECT walk_session_root_path,
+             file_extension,
+             total_file_count AS file_count,
+             file_count_with_content AS with_content_count,
+             file_count_with_frontmatter AS with_frontmatter_count
+        FROM fs_content_walk_session_stats_latest
+       WHERE walk_session_id = ?",
+    walk_session_id: String;
+    walk_session_root_path: String,
+    file_extension: String,
+    file_count: usize,
+    with_content_count: usize,
+    with_frontmatter_count: usize
+);
+
 /// Executes a query to select notebook and cell information from the `code_notebook_cell` table.
 /// The query is built dynamically based on the provided notebook and cell names.
 /// It uses `LIKE` for pattern matching when a '%' is present in the filter text, otherwise it uses exact matching.
