@@ -65,9 +65,13 @@ pub struct FsWalkArgs {
     #[arg(short='d', long, default_value = DEFAULT_DB, default_missing_value = "always")]
     pub surveil_db_fs_path: String,
 
+    /// include the surveil database in the walk
+    #[arg(long)]
+    pub include_surveil_db_in_walk: bool,
+
     /// show stats after completion
     #[arg(short, long)]
-    stats: bool,
+    pub stats: bool,
 }
 
 /// Notebooks maintenance utilities

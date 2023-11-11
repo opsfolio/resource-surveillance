@@ -42,6 +42,20 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
         println!("Walk Session: {walk_session_id}");
     }
 
+    let mut ignore_db_fs_path: Vec<String> = Vec::new();
+    if !args.include_surveil_db_in_walk {
+        let canonical_db_fs_path = std::fs::canonicalize(std::path::Path::new(&db_fs_path))
+            .with_context(|| format!("[fs_walk] unable to canonicalize in {}", db_fs_path))?;
+        let canonical_db_fs_path = canonical_db_fs_path.to_string_lossy().to_string();
+        let mut wal_path = std::path::PathBuf::from(&canonical_db_fs_path);
+        let mut db_journal_path = std::path::PathBuf::from(&canonical_db_fs_path);
+        wal_path.set_extension("wal");
+        db_journal_path.set_extension("db-journal");
+        ignore_db_fs_path.push(canonical_db_fs_path);
+        ignore_db_fs_path.push(wal_path.to_string_lossy().to_string());
+        ignore_db_fs_path.push(db_journal_path.to_string_lossy().to_string());
+    }
+
     // separate the SQL from the execute so we can use it in logging, errors, etc.
     const INS_UR_WALK_SESSION_SQL: &str = indoc! {"
         INSERT INTO ur_walk_session (ur_walk_session_id, device_id, ignore_paths_regex, blobs_regex, digests_regex, walk_started_at) 
@@ -316,6 +330,14 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                             }
                             UniformResource::Unknown(unknown) => {
                                 uri = unknown.uri.to_string();
+
+                                // don't store the database we're creating in the walk unless requested
+                                if !args.include_surveil_db_in_walk
+                                    && ignore_db_fs_path.iter().any(|s| s == &uri)
+                                {
+                                    continue;
+                                }
+
                                 match ins_ur_stmt.query_row(
                                     params![
                                         uniform_resource_id,
