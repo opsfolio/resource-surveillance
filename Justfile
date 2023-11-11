@@ -19,9 +19,9 @@ ensure-cargo-nextest:
 # Use SQLa to generate bootstrap and code notebook SQL
 sqla-sync:
     @./support/sql-aide/sqlactl.ts
-    @rm -f ./bootstrap.sqlite.db
-    @cat src/bootstrap.sql | sqlite3 ./bootstrap.sqlite.db && rm -f ./bootstrap.sqlite.db
-    @# if there are any errors, ./bootstrap.sqlite.db should still be available
+    @rm -f ./sqla-sync-state.sqlite.db
+    @cat src/bootstrap.sql | sqlite3 ./sqla-sync-state.sqlite.db && rm -f ./sqla-sync-state.sqlite.db
+    @# if there are any errors, ./sqla-sync-state.sqlite.db should still be available
 
 # Hot reload (with `cargo watch`) on all the source files in this project
 dev: ensure-cargo-watch    
@@ -30,6 +30,10 @@ dev: ensure-cargo-watch
 # Run unit tests using cargo-nextest
 test: ensure-cargo-nextest
     @cargo nextest run
+
+# Run end-to-end tests
+test-e2e: 
+    rm -f ./e2e-test-state.sqlite.db && just sqla-sync && just run --debug fs-walk -d ./e2e-test-state.sqlite.db
 
 # Lint all the code
 lint:

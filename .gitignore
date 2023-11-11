@@ -1,7 +1,8 @@
-# ORM-related tempory files
-bootstrap.sqlite.db
+# unit testing and end-to-end testing tempory files
+sqla-sync-state.sqlite.db
+e2e-test-state.sqlite.db
 
-# surveilr testing
+# surveilr CLI testing
 resource-surveillance.sqlite.db*
 
 # rust-specific
