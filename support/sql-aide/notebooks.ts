@@ -130,39 +130,6 @@ async function gitLikeHash(content: string) {
   return hashHex;
 }
 
-/**
- * Creates "insertable" type-safe content objects needed by the other notebooks
- * (especially for DML/mutation SQL).
- */
-export class ServiceContentHelpers<
-  EmitContext extends SQLa.SqlEmitContext = SQLa.SqlEmitContext,
-> {
-  constructor(
-    readonly models: ReturnType<typeof m.serviceModels<EmitContext>>,
-  ) { }
-
-  activeDevice(boundary?: string) {
-    return {
-      name: Deno.hostname(),
-      boundary: boundary ?? "??",
-    };
-  }
-
-  async activeDeviceInsertable(deviceId = { SQL: () => "ulid()" }) {
-    const ad = this.activeDevice();
-    return this.models.device.prepareInsertable({
-      deviceId,
-      name: ad.name,
-      boundary: ad.boundary,
-      deviceElaboration: JSON.stringify({
-        hostname: Deno.hostname(),
-        networkInterfaces: Deno.networkInterfaces(),
-        osPlatformName: si.osPlatformName(),
-        osArchitecture: await si.osArchitecture(),
-      }),
-    });
-  }
-}
 
 /**
  * Encapsulates instances of SQLa objects needed to creation of SQL text in the
@@ -173,7 +140,6 @@ export class SqlNotebookHelpers<
   EmitContext extends SQLa.SqlEmitContext = SQLa.SqlEmitContext,
 > extends SQLa.SqlNotebook<EmitContext> {
   readonly emitCtx: EmitContext;
-  readonly sch: ServiceContentHelpers<EmitContext>;
   readonly models: ReturnType<typeof m.serviceModels<EmitContext>>;
   readonly loadExtnSQL: (
     extn: string,
@@ -199,7 +165,6 @@ export class SqlNotebookHelpers<
     this.models = options?.models ?? m.serviceModels<EmitContext>();
     this.modelsGovn = this.models.codeNbModels.modelsGovn;
     this.emitCtx = this.modelsGovn.sqlEmitContext();
-    this.sch = new ServiceContentHelpers(this.models);
     this.templateState = this.modelsGovn.templateState;
     this.loadExtnSQL = options?.loadExtnSQL ?? noSqliteExtnLoader;
     this.stsOptions = options?.stsOptions ??
