@@ -21,7 +21,7 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> anyhow::Result<()>
         .transaction()
         .with_context(|| format!("[fs_walk] SQLite transaction in {}", db_fs_path))?;
 
-    execute_migrations(&tx)
+    execute_migrations(&tx, "fs_walk")
         .with_context(|| format!("[fs_walk] execute_migrations in {}", db_fs_path))?;
 
     // insert the device or, if it exists, get its current ID and name
