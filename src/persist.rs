@@ -9,14 +9,17 @@ use super::device::Device;
 execute_sql_batch!(bootstrap_ddl, include_str!("bootstrap.sql"));
 
 query_sql_single!(
-    select_notebook_cell_code,
-    "SELECT code_notebook_cell_id, interpretable_code FROM code_notebook_cell WHERE notebook_name = ?1 AND cell_name = ?2",
+    select_notebook_cell_code_latest,
+    "SELECT code_notebook_cell_id, interpretable_code FROM code_notebook_cell WHERE notebook_name = ?1 AND cell_name = ?2 ORDER BY created_at desc LIMIT 1",
     notebook_name: &str,
     cell_name: &str;
     code_notebook_cell_id: String,
     interpretable_code: String
 );
 
+// Executes a query to select the cells that are not in a particular state.
+// Note that notebooks can have multiple versions of cells with different code
+// but code_notebook_state is unique for cell_name's `from_state` to `to_state`.
 query_sql_single!(
     is_notebook_cell_state,
     r"SELECT code_notebook_state_id
@@ -43,25 +46,88 @@ execute_sql!(
     transition_reason: &str
 );
 
+// Executes a query to select the most recently inserted cells for each all
+// rows in ConstructionSqlNotebook. Code notebook cells are unique for
+// notebook_name, cell_name and interpretable_code_hash which means there may
+// be "duplicate" cells when interpretable_code has been edited.
 query_sql_rows_no_args!(
-    construction_notebook_cells,
-    r"  SELECT notebook_name, cell_name, interpretable_code, code_notebook_cell_id
-          FROM code_notebook_cell
-         WHERE notebook_name = 'ConstructionSqlNotebook'
-      ORDER BY cell_name";
+    migratable_notebook_cells_all_with_versions,
+    r#"   SELECT c.code_notebook_cell_id,
+                 c.notebook_name,
+                 c.cell_name,
+                 c.interpretable_code,
+                 c.interpretable_code_hash
+           FROM code_notebook_cell c
+          WHERE c.notebook_name = 'ConstructionSqlNotebook'
+       ORDER BY c.cell_name"#;
     notebook_name: String,
     cell_name: String,
     interpretable_code: String,
+    interpretable_code_hash: String,
+    code_notebook_cell_id: String
+);
+
+// Executes a query to select the most recently inserted cells for each unique
+// cell_name within the specified notebook. Code notebook cells are unique for
+// notebook_name, cell_name and interpretable_code_hash which means there may
+// be "duplicate" cells when interpretable_code has been edited.
+query_sql_rows_no_args!(
+    migratable_notebook_cells_uniq_all,
+    r#"   SELECT c.code_notebook_cell_id,
+                 c.notebook_name,
+                 c.cell_name,
+                 c.interpretable_code,
+                 c.interpretable_code_hash,
+                 MAX(c.created_at) AS most_recent_created_at
+           FROM code_notebook_cell c
+          WHERE c.notebook_name = 'ConstructionSqlNotebook'
+       GROUP BY c.notebook_name, c.cell_name
+       ORDER BY c.cell_name"#;
+    notebook_name: String,
+    cell_name: String,
+    interpretable_code: String,
+    interpretable_code_hash: String,
+    code_notebook_cell_id: String
+);
+
+// same as migratable_notebook_cells_all, executed cells are excluded.
+query_sql_rows_no_args!(
+    migratable_notebook_cells_not_executed,
+    r#"   SELECT c.code_notebook_cell_id,
+                 c.notebook_name,
+                 c.cell_name,
+                 c.interpretable_code,
+                 c.interpretable_code_hash,
+                 MAX(c.created_at) AS most_recent_created_at
+           FROM code_notebook_cell c
+          WHERE c.notebook_name = 'ConstructionSqlNotebook'
+            AND c.code_notebook_cell_id NOT IN (
+                    SELECT s.code_notebook_cell_id
+                    FROM code_notebook_state s
+                    WHERE s.to_state = 'EXECUTED'
+                )
+       GROUP BY c.notebook_name, c.cell_name
+       ORDER BY c.cell_name"#;
+    notebook_name: String,
+    cell_name: String,
+    interpretable_code: String,
+    interpretable_code_hash: String,
     code_notebook_cell_id: String
 );
 
 query_sql_rows_no_args!(
-    notebook_cells,
-    r"SELECT notebook_kernel_id, notebook_name, cell_name, code_notebook_cell_id
-        FROM code_notebook_cell";
+    notebook_cells_versions,
+    r"  SELECT notebook_name,
+               notebook_kernel_id,
+               cell_name,
+               COUNT(*) OVER(PARTITION BY notebook_name, cell_name) AS versions,
+               code_notebook_cell_id
+          FROM code_notebook_cell
+      ORDER BY notebook_name, cell_name";
     notebook_kernel_id: String,
     notebook_name: String,
     cell_name: String,
+    versions: usize,
     code_notebook_cell_id: String
 );
 
@@ -69,6 +135,7 @@ query_sql_rows_no_args!(
     notebook_cell_states,
     r"SELECT cns.code_notebook_state_id,
              cnc.notebook_name,
+             cnc.code_notebook_cell_id,
              cnc.cell_name,
              cnc.notebook_kernel_id,
              cns.from_state,
@@ -79,6 +146,7 @@ query_sql_rows_no_args!(
         JOIN code_notebook_cell cnc ON cns.code_notebook_cell_id = cnc.code_notebook_cell_id";
     code_notebook_state_id: String,
     notebook_name: String,
+    code_notebook_cell_id: String,
     cell_name: String,
     notebook_kernel_id: String,
     from_state: String,
@@ -233,12 +301,12 @@ pub enum ExecutableCode {
 }
 
 impl ExecutableCode {
-    pub fn executable_code(&self, conn: &Connection) -> RusqliteResult<String> {
+    pub fn executable_code_latest(&self, conn: &Connection) -> RusqliteResult<String> {
         match self {
             ExecutableCode::NotebookCell {
                 notebook_name,
                 cell_name,
-            } => match select_notebook_cell_code(conn, notebook_name, cell_name) {
+            } => match select_notebook_cell_code_latest(conn, notebook_name, cell_name) {
                 Ok((_id, code)) => Ok(code),
                 Err(err) => Err(err),
             },
@@ -266,49 +334,52 @@ impl ExecutableCode {
     }
 }
 
-pub fn execute_migrations(conn: &Connection) -> RusqliteResult<()> {
+pub fn execute_migrations(conn: &Connection, context: &str) -> RusqliteResult<()> {
     // bootstrap_ddl is idempotent and should be called at start of every session
     // because it contains notebook entries, SQL used in migrations, etc.
     let _ = bootstrap_ddl(conn);
-    construction_notebook_cells(conn, |_index, notebook_name, cell_name, sql, _id| {
-        if cell_name.contains("_once_") {
-            match execute_batch_stateful(
-                conn,
-                &ExecutableCode::NotebookCell {
-                    notebook_name: notebook_name.clone(),
-                    cell_name: cell_name.clone(),
-                },
-                "NONE",
-                "EXECUTED",
-                "execute_migrations",
-            ) {
-                None => {
-                    println!(
-                        "[TODO: move this to Otel] {} {} migration not required",
-                        notebook_name, cell_name
-                    );
-                    Ok(())
+    migratable_notebook_cells_uniq_all(
+        conn,
+        |_index, notebook_name, cell_name, sql, _hash, id: String| {
+            if cell_name.contains("_once_") {
+                match execute_batch_stateful(
+                    conn,
+                    &ExecutableCode::NotebookCell {
+                        notebook_name: notebook_name.clone(),
+                        cell_name: cell_name.clone(),
+                    },
+                    "NONE",
+                    "EXECUTED",
+                    "execute_migrations",
+                ) {
+                    None => {
+                        println!(
+                            "[TODO: move this to Otel, {}] {} {} migration not required ({})",
+                            context, notebook_name, cell_name, id
+                        );
+                        Ok(())
+                    }
+                    Some(_) => {
+                        println!(
+                            "[TODO: move this to Otel, {}] {} {} migrated ({})",
+                            context, notebook_name, cell_name, id
+                        );
+                        Ok(())
+                    }
                 }
-                Some(_) => {
-                    println!(
-                        "[TODO: move this to Otel] {} {} migrated",
-                        notebook_name, cell_name
-                    );
-                    Ok(())
-                }
+            } else {
+                println!(
+                    "[TODO: move this to Otel, {}] {} {} migrated ({})",
+                    context, notebook_name, cell_name, id
+                );
+                conn.execute_batch(&sql)
             }
-        } else {
-            println!(
-                "[TODO: move this to Otel] {} {} migrated",
-                notebook_name, cell_name
-            );
-            conn.execute_batch(&sql)
-        }
-    })
+        },
+    )
 }
 
 pub fn execute_batch(conn: &Connection, ec: &ExecutableCode) -> RusqliteResult<()> {
-    match ec.executable_code(conn) {
+    match ec.executable_code_latest(conn) {
         Ok(sql) => conn.execute_batch(&sql),
         Err(err) => Err(err),
     }

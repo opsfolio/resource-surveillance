@@ -93,7 +93,11 @@ pub enum NotebooksCommands {
     },
 
     /// list all notebooks
-    Ls,
+    Ls {
+        /// list all SQL cells that will be handled by execute_migrations
+        #[arg(short, long)]
+        migratable: bool,
+    },
 }
 
 /// Admin / maintenance utilities

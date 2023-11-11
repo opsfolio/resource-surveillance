@@ -14,7 +14,13 @@ impl NotebooksCommands {
                 cell,
                 seps,
             } => self.cat(args, notebook, cell, *seps),
-            NotebooksCommands::Ls => self.ls(args),
+            NotebooksCommands::Ls { migratable } => {
+                if *migratable {
+                    self.ls_migrations(args)
+                } else {
+                    self.ls(args)
+                }
+            }
         }
     }
 
@@ -57,22 +63,79 @@ impl NotebooksCommands {
                 Connection::open_with_flags(db_fs_path, OpenFlags::SQLITE_OPEN_READ_WRITE)
             {
                 let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
-                notebook_cells(&conn, |_index, kernel, nb, cell, id| {
-                    rows.push(vec![nb, kernel, cell, id]);
+                notebook_cells_versions(&conn, |_index, kernel, nb, cell: String, versions, id| {
+                    rows.push(vec![nb, kernel, cell, versions.to_string(), id]);
                     Ok(())
                 })
                 .unwrap();
                 println!(
                     "{}",
-                    format_table(&["Notebook", "Kernel", "Cell", "ID"], &rows)
+                    format_table(&["Notebook", "Kernel", "Cell", "Versions", "ID"], &rows)
+                );
+            } else {
+                println!("Notebooks command requires a database: {}", db_fs_path);
+            };
+        }
+        Ok(())
+    }
+
+    fn ls_migrations(&self, args: &super::NotebooksArgs) -> anyhow::Result<()> {
+        if let Some(db_fs_path) = args.surveil_db_fs_path.as_deref() {
+            if let Ok(conn) =
+                Connection::open_with_flags(db_fs_path, OpenFlags::SQLITE_OPEN_READ_WRITE)
+            {
+                let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
+                migratable_notebook_cells_all_with_versions(
+                    &conn,
+                    |_index, notebook_name, cell_name, _sql, hash, id: String| {
+                        rows.push(vec![notebook_name, cell_name, hash, id]);
+                        Ok(())
+                    },
+                )
+                .unwrap();
+                println!("All cells that are candidates for migration (including duplicates)");
+                println!(
+                    "{}",
+                    format_table(&["Notebook", "Cell", "Code Hash", "ID"], &rows)
                 );
 
-                rows = Vec::new(); // Declare the rows as a vector of vectors of strings
+                let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
+                migratable_notebook_cells_uniq_all(
+                    &conn,
+                    |_index, notebook_name, cell_name, _sql, hash, id: String| {
+                        rows.push(vec![notebook_name, cell_name, hash, id]);
+                        Ok(())
+                    },
+                )
+                .unwrap();
+                println!("All cells deemed to be migratable (unique rows)");
+                println!(
+                    "{}",
+                    format_table(&["Notebook", "Cell", "Code Hash", "ID"], &rows)
+                );
+
+                let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
+                migratable_notebook_cells_not_executed(
+                    &conn,
+                    |_index, notebook_name, cell_name, _sql, hash, id: String| {
+                        rows.push(vec![notebook_name, cell_name, hash, id]);
+                        Ok(())
+                    },
+                )
+                .unwrap();
+                println!("All cells that should be migrated because they have not been executed");
+                println!(
+                    "{}",
+                    format_table(&["Notebook", "Cell", "Code Hash", "ID"], &rows)
+                );
+
+                let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
                 notebook_cell_states(
                     &conn,
                     |_index,
                      _code_notebook_state_id,
                      notebook_name,
+                     code_notebook_cell_id: String,
                      cell_name,
                      notebook_kernel_id,
                      from_state,
@@ -87,15 +150,20 @@ impl NotebooksCommands {
                             to_state,
                             transition_reason,
                             transitioned_at,
+                            code_notebook_cell_id,
                         ]);
                         Ok(())
                     },
                 )
                 .unwrap();
+                println!("code_notebook_state");
                 println!(
                     "{}",
                     format_table(
-                        &["Notebook", "Kernel", "Cell", "From", "To", "Remarks", "When"],
+                        &[
+                            "Notebook", "Kernel", "Cell", "From", "To", "Remarks", "When",
+                            "Cell ID"
+                        ],
                         &rows
                     )
                 );
