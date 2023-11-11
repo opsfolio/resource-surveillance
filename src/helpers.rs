@@ -105,7 +105,7 @@ macro_rules! _query_sql_single_no_args {
 }
 
 // Macro for executing a query SQL command that calls a closure for each row with type-safe bind parameters
-macro_rules! _query_sql_rows {
+macro_rules! query_sql_rows {
     // Match when there's only one output column
     ($func_name:ident, $sql:expr, $($param_name:ident : $param_type:ty),*; $out_name:ident : $out_type:ty) => {
         pub fn $func_name<F>(conn: &Connection, mut callback: F $(, $param_name: $param_type)*) -> RusqliteResult<()>

@@ -33,7 +33,7 @@ test: ensure-cargo-nextest
 
 # Run end-to-end tests
 test-e2e: 
-    rm -f ./e2e-test-state.sqlite.db && just sqla-sync && just run --debug fs-walk -d ./e2e-test-state.sqlite.db
+    rm -f ./e2e-test-state.sqlite.db && just sqla-sync && just run --debug fs-walk -d ./e2e-test-state.sqlite.db --stats
 
 # Lint all the code
 lint:

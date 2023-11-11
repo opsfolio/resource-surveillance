@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::{Context, Result};
 use indoc::indoc;
 use rusqlite::{params, Connection};
 
@@ -6,7 +6,7 @@ use crate::fsresource::*;
 use crate::persist::*;
 use crate::resource::*;
 
-pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> anyhow::Result<()> {
+pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
     let db_fs_path = &args.surveil_db_fs_path;
 
     if cli.debug == 1 {
@@ -46,6 +46,10 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> anyhow::Result<()>
     const INS_UR_WALK_SESSION_SQL: &str = indoc! {"
         INSERT INTO ur_walk_session (ur_walk_session_id, device_id, ignore_paths_regex, blobs_regex, digests_regex, walk_started_at) 
                              VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)"};
+    const INS_UR_WALK_SESSION_FINISH_SQL: &str = indoc! {"
+        UPDATE ur_walk_session 
+           SET walk_finished_at = CURRENT_TIMESTAMP 
+         WHERE ur_walk_session_id = ?"};
     const INS_UR_WSP_SQL: &str = indoc! {"
         INSERT INTO ur_walk_session_path (ur_walk_session_path_id, walk_session_id, root_path) 
                                   VALUES (?, ?, ?)"};
@@ -394,7 +398,18 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> anyhow::Result<()>
         }
     }
 
+    match tx.execute(INS_UR_WALK_SESSION_FINISH_SQL, params![walk_session_id]) {
+        Ok(_) => {}
+        Err(err) => {
+            eprintln!(
+                "[fs_walk] unable to execute SQL {} in {}: {}",
+                INS_UR_WALK_SESSION_FINISH_SQL, db_fs_path, err
+            )
+        }
+    }
     // putting everything inside a transaction improves performance significantly
-    tx.commit()?;
-    Ok(())
+    tx.commit()
+        .with_context(|| format!("[fs_walk] unable to perform final commit in {}", db_fs_path))?;
+
+    Ok(walk_session_id)
 }

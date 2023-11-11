@@ -392,70 +392,75 @@ export class ConstructionSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
     return this.nbh.viewDefn("fs_content_walk_session_stats")/* sql */`
       WITH Summary AS (
           SELECT
-              strftime('%Y-%m-%d %H:%M:%S.%f', fcws.walk_started_at) AS walk_datetime,
-              strftime('%f', fcws.walk_finished_at - fcws.walk_started_at) AS walk_duration,
-              COALESCE(fcwpe.file_extn, '') AS file_extn,
-              fcwp.root_path AS root_path,
-              COUNT(fcwpe.uniform_resource_id) AS total_count,
-              SUM(CASE WHEN fsc.content IS NOT NULL THEN 1 ELSE 0 END) AS with_content,
-              SUM(CASE WHEN fsc.frontmatter IS NOT NULL THEN 1 ELSE 0 END) AS with_frontmatter,
-              AVG(fsc.size_bytes) AS average_size,
-              strftime('%Y-%m-%d %H:%M:%S', datetime(MIN(fsc.last_modified_at), 'unixepoch')) AS oldest,
-              strftime('%Y-%m-%d %H:%M:%S', datetime(MAX(fsc.last_modified_at), 'unixepoch')) AS youngest
+              device.device_id AS device_id,
+              ur_walk_session.ur_walk_session_id AS walk_session_id,
+              ur_walk_session.walk_started_at AS walk_session_started_at,
+              ur_walk_session.walk_finished_at AS walk_session_finished_at,
+              COALESCE(ur_walk_session_path_fs_entry.file_extn, '') AS file_extension,
+              ur_walk_session_path.ur_walk_session_path_id as walk_session_path_id,
+              ur_walk_session_path.root_path AS walk_session_root_path,
+              COUNT(ur_walk_session_path_fs_entry.uniform_resource_id) AS total_file_count,
+              SUM(CASE WHEN uniform_resource.content IS NOT NULL THEN 1 ELSE 0 END) AS file_count_with_content,
+              SUM(CASE WHEN uniform_resource.frontmatter IS NOT NULL THEN 1 ELSE 0 END) AS file_count_with_frontmatter,
+              MIN(uniform_resource.size_bytes) AS min_file_size_bytes,
+              AVG(uniform_resource.size_bytes) AS average_file_size_bytes,
+              MAX(uniform_resource.size_bytes) AS max_file_size_bytes,
+              MIN(uniform_resource.last_modified_at) AS oldest_file_last_modified_datetime,
+              MAX(uniform_resource.last_modified_at) AS youngest_file_last_modified_datetime
           FROM
-              ur_walk_session AS fcws
+              ur_walk_session
+          JOIN
+              device ON ur_walk_session.device_id = device.device_id
           LEFT JOIN
-              ur_walk_session_path AS fcwp ON fcws.ur_walk_session_id = fcwp.walk_session_id
+              ur_walk_session_path ON ur_walk_session.ur_walk_session_id = ur_walk_session_path.walk_session_id
           LEFT JOIN
-              ur_walk_session_path_fs_entry AS fcwpe ON fcwp.ur_walk_session_path_id = fcwpe.walk_path_id
+              ur_walk_session_path_fs_entry ON ur_walk_session_path.ur_walk_session_path_id = ur_walk_session_path_fs_entry.walk_path_id
           LEFT JOIN
-              uniform_resource AS fsc ON fcwpe.uniform_resource_id = fsc.uniform_resource_id
+              uniform_resource ON ur_walk_session_path_fs_entry.uniform_resource_id = uniform_resource.uniform_resource_id
           GROUP BY
-              fcws.walk_started_at,
-              fcws.walk_finished_at,
-              fcwpe.file_extn,
-              fcwp.root_path
-          UNION ALL
-          SELECT
-              strftime('%Y-%m-%d %H:%M:%S.%f', fcws.walk_started_at) AS walk_datetime,
-              strftime('%f', fcws.walk_finished_at - fcws.walk_started_at) AS walk_duration,
-              'ALL' AS file_extn,
-              fcwp.root_path AS root_path,
-              COUNT(fcwpe.uniform_resource_id) AS total_count,
-              SUM(CASE WHEN fsc.content IS NOT NULL THEN 1 ELSE 0 END) AS with_content,
-              SUM(CASE WHEN fsc.frontmatter IS NOT NULL THEN 1 ELSE 0 END) AS with_frontmatter,
-              AVG(fsc.size_bytes) AS average_size,
-              strftime('%Y-%m-%d %H:%M:%S', datetime(MIN(fsc.last_modified_at), 'unixepoch')) AS oldest,
-              strftime('%Y-%m-%d %H:%M:%S', datetime(MAX(fsc.last_modified_at), 'unixepoch')) AS youngest
-          FROM
-              ur_walk_session AS fcws
-          LEFT JOIN
-              ur_walk_session_path AS fcwp ON fcws.ur_walk_session_id = fcwp.walk_session_id
-          LEFT JOIN
-              ur_walk_session_path_fs_entry AS fcwpe ON fcwp.ur_walk_session_path_id = fcwpe.walk_path_id
-          LEFT JOIN
-              uniform_resource AS fsc ON fcwpe.uniform_resource_id = fsc.uniform_resource_id
-          GROUP BY
-              fcws.walk_started_at,
-              fcws.walk_finished_at,
-              fcwp.root_path
+              device.device_id,
+              ur_walk_session.ur_walk_session_id,
+              ur_walk_session.walk_started_at,
+              ur_walk_session.walk_finished_at,
+              ur_walk_session_path_fs_entry.file_extn,
+              ur_walk_session_path.root_path
       )
       SELECT
-          walk_datetime,
-          walk_duration,
-          file_extn,
-          root_path,
-          total_count,
-          with_content,
-          with_frontmatter,
-          CAST(ROUND(average_size) AS INTEGER) AS average_size,
-          oldest,
-          youngest
+          device_id,
+          walk_session_id,
+          walk_session_started_at,
+          walk_session_finished_at,
+          file_extension,
+          walk_session_path_id,
+          walk_session_root_path,
+          total_file_count,
+          file_count_with_content,
+          file_count_with_frontmatter,
+          min_file_size_bytes,
+          CAST(ROUND(average_file_size_bytes) AS INTEGER) AS average_file_size_bytes,
+          max_file_size_bytes,
+          oldest_file_last_modified_datetime,
+          youngest_file_last_modified_datetime
       FROM
           Summary
       ORDER BY
-          walk_datetime,
-          file_extn`;
+          device_id,
+          walk_session_finished_at,
+          file_extension;
+      `;
+  }
+
+  // note since `once_` pragma is not present, it will be run each time
+  v002_fsContentWalkSessionStatsLatestViewDDL() {
+    // deno-fmt-ignore
+    return this.nbh.viewDefn("fs_content_walk_session_stats_latest")/* sql */`
+      SELECT fs.*
+        FROM fs_content_walk_session_stats AS fs
+        JOIN (  SELECT ur_walk_session.ur_walk_session_id AS latest_session_id
+                  FROM ur_walk_session
+              ORDER BY ur_walk_session.walk_finished_at DESC
+                 LIMIT 1) AS latest
+          ON fs.walk_session_id = latest.latest_session_id;`;
   }
 }
 
@@ -974,6 +979,7 @@ export class LargeLanguageModelsPromptsNotebook<
    */
   "understand notebooks schema"() {
     return () =>
+      // deno-fmt-ignore
       codeBlock`
         Understand the following structure of an SQLite database designed to store code notebooks and execution kernels. The database comprises three main tables: 'code_notebook_kernel', 'code_notebook_cell', and 'code_notebook_state'.
 
@@ -985,9 +991,26 @@ export class LargeLanguageModelsPromptsNotebook<
         
         The relationships are as follows: Each cell in 'code_notebook_cell' is associated with a kernel in 'code_notebook_kernel'. The 'code_notebook_state' table tracks changes in the state of each cell, linking back to the 'code_notebook_cell' table. 
         
-        Use the following SQLite Schema to generate SQL queries that interact with these tables:
+        Use the following SQLite Schema to generate SQL queries that interact with these tables and once you understand them let me know so I can ask you for help:
         
         ${this.bootstrapNB.bootstrapDDL().SQL(this.nbh.emitCtx)}
+      `;
+  }
+
+  "understand service schema"() {
+    return () =>
+      // deno-fmt-ignore
+      codeBlock`
+        Understand the following structure of an SQLite database designed to store cybersecurity and compliance data for files in a file system.
+        The database is designed to store devices in the 'device' table and entities called 'resources' stored in the immutable append-only 
+        'uniform_resource' table. Each time files are "walked" they are stored in sessions and link back to un
+        
+        Use the following SQLite Schema to generate SQL queries that interact with these tables and once you understand them let me know so I can ask you for help:
+        
+        ${this.constrNB.v001_once_initialDDL().SQL(this.nbh.emitCtx)}
+
+        ${this.constrNB.v002_fsContentWalkSessionStatsViewDDL().SQL(this.nbh.emitCtx)
+      }
       `;
   }
 }
