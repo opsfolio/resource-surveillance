@@ -1,7 +1,9 @@
 use clap::{Args, Parser, Subcommand};
 use regex::Regex;
+use rusqlite::{Connection, OpenFlags};
 
 use self::fswalk::fs_walk;
+use crate::persist::*;
 
 pub mod admin;
 pub mod fswalk;
@@ -62,6 +64,10 @@ pub struct FsWalkArgs {
     /// target SQLite database
     #[arg(short='d', long, default_value = DEFAULT_DB, default_missing_value = "always")]
     pub surveil_db_fs_path: String,
+
+    /// show stats after completion
+    #[arg(short, long)]
+    stats: bool,
 }
 
 /// Notebooks maintenance utilities
@@ -127,7 +133,68 @@ pub enum AdminCommands {
 impl CliCommands {
     pub fn execute(&self, cli: &Cli) -> anyhow::Result<()> {
         match self {
-            CliCommands::FsWalk(args) => fs_walk(cli, args),
+            CliCommands::FsWalk(args) => match fs_walk(cli, args) {
+                Ok(walk_session_id) => {
+                    if args.stats {
+                        if let Ok(conn) = Connection::open_with_flags(
+                            args.surveil_db_fs_path.clone(),
+                            OpenFlags::SQLITE_OPEN_READ_WRITE,
+                        ) {
+                            let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
+                            fs_walk_session_stats(
+                                &conn,
+                                |_index,
+                                 root_path,
+                                 file_extension,
+                                 file_count,
+                                 with_content_count,
+                                 with_frontmatter_count| {
+                                    if args.root_path.len() < 2 {
+                                        rows.push(vec![
+                                            file_extension,
+                                            file_count.to_string(),
+                                            with_content_count.to_string(),
+                                            with_frontmatter_count.to_string(),
+                                        ]);
+                                    } else {
+                                        rows.push(vec![
+                                            root_path,
+                                            file_extension,
+                                            file_count.to_string(),
+                                            with_content_count.to_string(),
+                                            with_frontmatter_count.to_string(),
+                                        ]);
+                                    }
+                                    Ok(())
+                                },
+                                walk_session_id,
+                            )
+                            .unwrap();
+                            println!(
+                                "{}",
+                                if args.root_path.len() < 2 {
+                                    crate::format::format_table(
+                                        &["Extn", "Count", "Content", "Frontmatter"],
+                                        &rows,
+                                    )
+                                } else {
+                                    crate::format::format_table(
+                                        &["Path", "Extn", "Count", "Content", "Frontmatter"],
+                                        &rows,
+                                    )
+                                }
+                            );
+                        } else {
+                            println!(
+                                "Notebooks cells command requires a database: {}",
+                                args.surveil_db_fs_path
+                            );
+                        }
+                    }
+                    Ok(())
+                }
+                Err(err) => Err(err),
+            },
             CliCommands::Notebooks(args) => args.command.execute(cli, args),
             CliCommands::Admin(args) => args.command.execute(cli, args),
         }
