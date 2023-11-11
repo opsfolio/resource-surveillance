@@ -1,10 +1,4 @@
-import {
-  chainNB,
-  SQLa,
-  SQLa_tp as typical,
-  sysinfo as si,
-  ulid,
-} from "./deps.ts";
+import { chainNB, SQLa, SQLa_tp as typical, ulid } from "./deps.ts";
 import * as m from "./models.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -69,6 +63,31 @@ type Any = any;
  *   errors or warnings into a table that the application should query.
  */
 
+function codeBlock(
+  literals: TemplateStringsArray,
+  ...expressions: unknown[]
+): string {
+  // Remove the first line if it has whitespace only or is a blank line
+  const firstLiteral = literals[0].replace(/^(\s+\n|\n)/, "");
+  const indentation = /^(\s*)/.exec(firstLiteral);
+
+  let result: string;
+  if (indentation) {
+    const replacer = new RegExp(`^${indentation[1]}`, "gm");
+    result = firstLiteral.replaceAll(replacer, "");
+    for (let i = 0; i < expressions.length; i++) {
+      result += expressions[i] + literals[i + 1].replaceAll(replacer, "");
+    }
+  } else {
+    result = firstLiteral;
+    for (let i = 0; i < expressions.length; i++) {
+      result += expressions[i] + literals[i + 1];
+    }
+  }
+
+  return result;
+}
+
 /**
  * Decorate a function with `@notIdempotent` if it's important to indicate
  * whether its SQL is idempotent or not. By default we assume all SQL is
@@ -130,15 +149,13 @@ async function gitLikeHash(content: string) {
   return hashHex;
 }
 
-
 /**
  * Encapsulates instances of SQLa objects needed to creation of SQL text in the
  * other notebooks. An instance of this class is usually passed into all the
  * other notebooks.
  */
-export class SqlNotebookHelpers<
-  EmitContext extends SQLa.SqlEmitContext = SQLa.SqlEmitContext,
-> extends SQLa.SqlNotebook<EmitContext> {
+export class SqlNotebookHelpers<EmitContext extends SQLa.SqlEmitContext>
+  extends SQLa.SqlNotebook<EmitContext> {
   readonly emitCtx: EmitContext;
   readonly models: ReturnType<typeof m.serviceModels<EmitContext>>;
   readonly loadExtnSQL: (
@@ -273,6 +290,8 @@ export class SqlNotebookHelpers<
   }
 }
 
+export type KernelID = "SQL" | "PlantUML" | "LLM Prompt";
+
 /**
  * Encapsulates SQL DDL and table/view/entity construction SQLa objects for
  * "bootstrapping" (creating a SQLite database from scratch). The actual models
@@ -280,7 +299,7 @@ export class SqlNotebookHelpers<
  * which assemble the other SQL into a migration steps.
  */
 export class BootstrapSqlNotebook<
-  EmitContext extends SQLa.SqlEmitContext = SQLa.SqlEmitContext,
+  EmitContext extends SQLa.SqlEmitContext,
 > extends SQLa.SqlNotebook<EmitContext> {
   constructor(readonly nbh: SqlNotebookHelpers<EmitContext>) {
     super();
@@ -322,7 +341,14 @@ export class BootstrapSqlNotebook<
       file_extn: ".puml",
       created_at,
     }, options);
-    return [sql, puml];
+    const llmPrompt = kernel.insertDML({
+      code_notebook_kernel_id: "LLM Prompt",
+      kernel_name: "Large Lanugage Model (LLM) Prompt",
+      mime_type: "text/vnd.netspective.llm-prompt",
+      file_extn: ".llm-prompt.txt",
+      created_at,
+    }, options);
+    return [sql, puml, llmPrompt];
   }
 }
 
@@ -338,9 +364,8 @@ export class BootstrapSqlNotebook<
  *     (see https://www.chezmoi.io/reference/source-state-attributes/ for ideas)
  * - {arbitrary} may be anything else
  */
-export class ConstructionSqlNotebook<
-  EmitContext extends SQLa.SqlEmitContext = SQLa.SqlEmitContext,
-> extends SQLa.SqlNotebook<EmitContext> {
+export class ConstructionSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
+  extends SQLa.SqlNotebook<EmitContext> {
   constructor(
     readonly nbh: SqlNotebookHelpers<EmitContext>,
     readonly storedNotebookStateTransitions: ReturnType<
@@ -437,9 +462,8 @@ export class ConstructionSqlNotebook<
 /**
  * Encapsulates SQL DML and stateful table data insert/update/delete operations.
  */
-export class MutationSqlNotebook<
-  EmitContext extends SQLa.SqlEmitContext = SQLa.SqlEmitContext,
-> extends SQLa.SqlNotebook<EmitContext> {
+export class MutationSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
+  extends SQLa.SqlNotebook<EmitContext> {
   constructor(readonly nbh: SqlNotebookHelpers<EmitContext>) {
     super();
   }
@@ -449,9 +473,8 @@ export class MutationSqlNotebook<
  * Encapsulates SQL DQL and stateless table queries that can operate all within
  * SQLite (means they are "storable" in code_notebook_cell table).
  */
-export class QuerySqlNotebook<
-  EmitContext extends SQLa.SqlEmitContext = SQLa.SqlEmitContext,
-> extends SQLa.SqlNotebook<EmitContext> {
+export class QuerySqlNotebook<EmitContext extends SQLa.SqlEmitContext>
+  extends SQLa.SqlNotebook<EmitContext> {
   constructor(readonly nbh: SqlNotebookHelpers<EmitContext>) {
     super();
   }
@@ -673,9 +696,8 @@ export class QuerySqlNotebook<
  * NOTE: we break our PascalCase convention for the name of the class since SQLPage
  *       is a proper noun (product name).
  */
-export class SQLPageNotebook<
-  EmitContext extends SQLa.SqlEmitContext = SQLa.SqlEmitContext,
-> extends SQLa.SqlNotebook<EmitContext> {
+export class SQLPageNotebook<EmitContext extends SQLa.SqlEmitContext>
+  extends SQLa.SqlNotebook<EmitContext> {
   // if you want to add any annotations, use this like:
   //   @SQLPageNotebook.nbd.init(), .finalize(), etc.
   //   @SQLPageNotebook.nbd.disregard(), etc.
@@ -830,9 +852,8 @@ export class SQLPageNotebook<
   }
 }
 
-export class AssuranceSqlNotebook<
-  EmitContext extends SQLa.SqlEmitContext = SQLa.SqlEmitContext,
-> extends SQLa.SqlNotebook<EmitContext> {
+export class AssuranceSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
+  extends SQLa.SqlNotebook<EmitContext> {
   readonly queryNB: QuerySqlNotebook<EmitContext>;
 
   constructor(readonly nbh: SqlNotebookHelpers<EmitContext>) {
@@ -859,6 +880,118 @@ export class AssuranceSqlNotebook<
   }
 }
 
+/**
+ * Chain-of-Responsiblity style notebook base class
+ */
+export abstract class CodeNotebook<Context extends SQLa.SqlEmitContext> {
+}
+
+export function codeNotebookAnnotations<
+  Notebook extends CodeNotebook<Context>,
+  Context extends SQLa.SqlEmitContext,
+>() {
+  return new chainNB.NotebookDescriptor<
+    Notebook,
+    chainNB.NotebookCell<Notebook, chainNB.NotebookCellID<Notebook>>
+  >();
+}
+
+export function codeNotebookFactory<
+  Notebook extends CodeNotebook<EmitContext>,
+  EmitContext extends SQLa.SqlEmitContext,
+>(
+  prototype: Notebook,
+  instance: () => Notebook,
+  nbd = codeNotebookAnnotations<Notebook, EmitContext>(),
+) {
+  type CellID = chainNB.NotebookCellID<Notebook>;
+  const kernel = chainNB.ObservableKernel.create(prototype, nbd);
+
+  type EventEmitter = Awaited<
+    ReturnType<typeof kernel.initRunState>
+  >["runState"]["eventEmitter"];
+  return {
+    nbd,
+    kernel,
+    instance,
+    cellsDML: async (
+      nbh: SqlNotebookHelpers<EmitContext>,
+      kernelID: KernelID,
+      notebookName: string,
+    ) => {
+      const { codeNbModels: { codeNotebookCell } } = nbh.models;
+      const sqlDML: SQLa.SqlTextSupplier<EmitContext>[] = [];
+      // prepare the run state with list of all pages defined and have the kernel
+      // traverse the cells and emit (the SQL generator, no SQL is executed)
+      const irs = await kernel.initRunState();
+      irs.runState.eventEmitter.afterCell = async (cell, state) => {
+        if (state.status == "successful") {
+          const interpretable_code = typeof state.execResult === "function"
+            ? state.execResult(cell, state)
+            : (typeof state.execResult === "string"
+              ? state.execResult
+              : `CodeNotebookFactory::cellsDML "${cell}" did not return a function or text (found: ${typeof state
+                .execResult})`);
+          sqlDML.push(codeNotebookCell.insertDML({
+            code_notebook_cell_id: nbh.newUlid(),
+            notebook_kernel_id: kernelID,
+            notebook_name: notebookName,
+            cell_name: cell, // the class's method name is the "cell"
+            interpretable_code,
+            interpretable_code_hash: await gitLikeHash(interpretable_code),
+          }, {
+            onConflict: nbh
+              .SQL`ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+                   interpretable_code = EXCLUDED.interpretable_code,
+                   notebook_kernel_id = EXCLUDED.notebook_kernel_id,
+                   updated_at = CURRENT_TIMESTAMP,
+                   activity_log = ${codeNotebookCell.activityLogDmlPartial()}`,
+          }));
+        }
+      };
+      await kernel.run(instance(), irs);
+      return sqlDML;
+    },
+  };
+}
+
+export class LargeLanguageModelsPromptsNotebook<
+  EmitContext extends SQLa.SqlEmitContext,
+> extends CodeNotebook<EmitContext> {
+  constructor(
+    readonly nbh: SqlNotebookHelpers<EmitContext>,
+    readonly bootstrapNB: BootstrapSqlNotebook<EmitContext>,
+    readonly constrNB: ConstructionSqlNotebook<EmitContext>,
+    readonly queryNB: QuerySqlNotebook<EmitContext>,
+  ) {
+    super();
+  }
+
+  /**
+   * Prepares a prompt that will allow the user to "teach" an LLM about this
+   * project's "code notebooks" schema and how to interact with it. Once you
+   * @returns AI prompt as text that can be used to allow LLMs to generate SQL for you
+   */
+  "understand notebooks schema"() {
+    return () =>
+      codeBlock`
+        Understand the following structure of an SQLite database designed to store code notebooks and execution kernels. The database comprises three main tables: 'code_notebook_kernel', 'code_notebook_cell', and 'code_notebook_state'.
+
+        1. 'code_notebook_kernel': This table stores information about various kernels or execution engines. Each record includes a unique kernel ID, kernel name, a description, MIME type, file extension, and other metadata such as creation and update timestamps.
+        
+        2. 'code_notebook_cell': This table contains individual notebook cells. Each cell is linked to a kernel in the 'code_notebook_kernel' table via 'notebook_kernel_id'. It includes details like the cell's unique ID, notebook name, cell name, interpretable code, and relevant metadata.
+        
+        3. 'code_notebook_state': This table tracks the state transitions of notebook cells. Each record links to a cell in the 'code_notebook_cell' table and includes information about the state transition, such as the previous and new states, transition reason, and timestamps.
+        
+        The relationships are as follows: Each cell in 'code_notebook_cell' is associated with a kernel in 'code_notebook_kernel'. The 'code_notebook_state' table tracks changes in the state of each cell, linking back to the 'code_notebook_cell' table. 
+        
+        Use the following SQLite Schema to generate SQL queries that interact with these tables:
+        
+        ${this.bootstrapNB.bootstrapDDL().SQL(this.nbh.emitCtx)}
+      `;
+  }
+}
+
 export const orchestrableSqlNotebooksNames = [
   "bootstrap",
   "construction",
@@ -875,30 +1008,47 @@ export type OrchestrableSqlNotebookName =
  * of creating other notebook kernel factories and actually performing
  * operations with those notebooks' cells.
  */
-export class SqlNotebooksOrchestrator<
-  EmitContext extends SQLa.SqlEmitContext = SQLa.SqlEmitContext,
-> {
+export class SqlNotebooksOrchestrator<EmitContext extends SQLa.SqlEmitContext> {
   readonly bootstrapNBF: ReturnType<
-    typeof SQLa.sqlNotebookFactory<BootstrapSqlNotebook, EmitContext>
+    typeof SQLa.sqlNotebookFactory<
+      BootstrapSqlNotebook<EmitContext>,
+      EmitContext
+    >
   >;
   readonly constructionNBF: ReturnType<
-    typeof SQLa.sqlNotebookFactory<ConstructionSqlNotebook, EmitContext>
+    typeof SQLa.sqlNotebookFactory<
+      ConstructionSqlNotebook<EmitContext>,
+      EmitContext
+    >
   >;
   readonly mutationNBF: ReturnType<
-    typeof SQLa.sqlNotebookFactory<MutationSqlNotebook, EmitContext>
+    typeof SQLa.sqlNotebookFactory<
+      MutationSqlNotebook<EmitContext>,
+      EmitContext
+    >
   >;
   readonly queryNBF: ReturnType<
-    typeof SQLa.sqlNotebookFactory<QuerySqlNotebook, EmitContext>
+    typeof SQLa.sqlNotebookFactory<QuerySqlNotebook<EmitContext>, EmitContext>
   >;
   readonly assuranceNBF: ReturnType<
-    typeof SQLa.sqlNotebookFactory<AssuranceSqlNotebook, EmitContext>
+    typeof SQLa.sqlNotebookFactory<
+      AssuranceSqlNotebook<EmitContext>,
+      EmitContext
+    >
+  >;
+  readonly llmPromptsNBF: ReturnType<
+    typeof codeNotebookFactory<
+      LargeLanguageModelsPromptsNotebook<EmitContext>,
+      EmitContext
+    >
   >;
 
-  readonly bootstrapNB: BootstrapSqlNotebook;
-  readonly constructionNB: ConstructionSqlNotebook;
-  readonly mutationNB: MutationSqlNotebook;
-  readonly queryNB: QuerySqlNotebook;
-  readonly assuranceNB: AssuranceSqlNotebook;
+  readonly bootstrapNB: BootstrapSqlNotebook<EmitContext>;
+  readonly constructionNB: ConstructionSqlNotebook<EmitContext>;
+  readonly mutationNB: MutationSqlNotebook<EmitContext>;
+  readonly queryNB: QuerySqlNotebook<EmitContext>;
+  readonly assuranceNB: AssuranceSqlNotebook<EmitContext>;
+  readonly llmPromptsNB: LargeLanguageModelsPromptsNotebook<EmitContext>;
 
   constructor(readonly nbh: SqlNotebookHelpers<EmitContext>) {
     this.bootstrapNBF = SQLa.sqlNotebookFactory(
@@ -927,6 +1077,18 @@ export class SqlNotebooksOrchestrator<
     this.mutationNB = this.mutationNBF.instance();
     this.queryNB = this.queryNBF.instance();
     this.assuranceNB = this.assuranceNBF.instance();
+
+    this.llmPromptsNBF = codeNotebookFactory(
+      LargeLanguageModelsPromptsNotebook.prototype,
+      () =>
+        new LargeLanguageModelsPromptsNotebook<EmitContext>(
+          nbh,
+          this.bootstrapNB,
+          this.constructionNB,
+          this.queryNB,
+        ),
+    );
+    this.llmPromptsNB = this.llmPromptsNBF.instance();
   }
 
   separator(cell: string) {
@@ -953,14 +1115,14 @@ export class SqlNotebooksOrchestrator<
         // don't put housekeeping columns in the diagram
         includeEntityAttr: (ea) =>
           [
-            "created_at",
-            "created_by",
-            "updated_at",
-            "updated_by",
-            "deleted_at",
-            "deleted_by",
-            "activity_log",
-          ].find((c) => c == ea.attr.identity)
+              "created_at",
+              "created_by",
+              "updated_at",
+              "updated_by",
+              "deleted_at",
+              "deleted_by",
+              "activity_log",
+            ].find((c) => c == ea.attr.identity)
             ? false
             : true,
       }),
@@ -1044,7 +1206,7 @@ export class SqlNotebooksOrchestrator<
     const ctx = this.nbh.modelsGovn.sqlEmitContext<EmitContext>();
     const sqlDML: SQLa.SqlTextSupplier<EmitContext>[] = [];
 
-    const kernelDML = async <
+    const sqlKernelDML = async <
       Factory extends ReturnType<
         typeof SQLa.sqlNotebookFactory<Any, EmitContext>
       >,
@@ -1080,25 +1242,33 @@ export class SqlNotebooksOrchestrator<
       await f.kernel.run(instance, irs);
     };
 
-    await kernelDML(
+    await sqlKernelDML(
       this.bootstrapNBF as Any,
       BootstrapSqlNotebook.prototype.constructor.name,
     );
-    await kernelDML(
+    await sqlKernelDML(
       this.constructionNBF as Any,
       ConstructionSqlNotebook.prototype.constructor.name,
     );
-    await kernelDML(
+    await sqlKernelDML(
       this.mutationNBF as Any,
       MutationSqlNotebook.prototype.constructor.name,
     );
-    await kernelDML(
+    await sqlKernelDML(
       this.queryNBF as Any,
       QuerySqlNotebook.prototype.constructor.name,
     );
-    await kernelDML(
+    await sqlKernelDML(
       this.assuranceNBF as Any,
       AssuranceSqlNotebook.prototype.constructor.name,
+    );
+
+    sqlDML.push(
+      ...(await this.llmPromptsNBF.cellsDML(
+        this.nbh,
+        "LLM Prompt",
+        "LargeLanguageModelsPromptsNotebook",
+      )),
     );
 
     // NOTE: SQLPageNotebook is not stored since its cells are stored in special
