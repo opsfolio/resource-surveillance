@@ -142,7 +142,9 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       device_id: gm.keys.ulidPrimaryKey(),
       name: gd.text(),
       boundary: gd.text(), // can be IP address, VLAN, or any other device name differentiator
-      device_elaboration: gd.jsonTextNullable(),
+      segmentation: gd.jsonTextNullable(), // zero trust or other network segmentation
+      state: gd.jsonTextNullable(), // any sysinfo or other state data that is specific to this device (mutable)
+      elaboration: gd.jsonTextNullable(), // any elaboration needed for the device (mutable)
       ...gm.housekeeping.columns,
     },
     {
