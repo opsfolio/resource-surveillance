@@ -130,6 +130,17 @@ pub enum AdminCommands {
         remove_existing_first: bool,
     },
 
+    /// generate SQLite SQL that will merge multiple databases into a single one
+    MergeSql {
+        /// one or more DB name globs to match and merge
+        #[arg(short, long, default_value = "*.db")]
+        db_glob: Vec<String>,
+
+        /// one or more DB name globs to ignore if they match
+        #[arg(short = 'i', long)]
+        db_glob_ignore: Vec<String>,
+    },
+
     /// generate CLI help markdown
     CliHelpMd,
 }
