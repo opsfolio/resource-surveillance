@@ -7,10 +7,10 @@ use crate::persist::*;
 use crate::resource::*;
 
 pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
-    let db_fs_path = &args.surveil_db_fs_path;
+    let db_fs_path = &args.state_db_fs_path;
 
     if cli.debug == 1 {
-        println!("Surveillance DB: {}", db_fs_path);
+        println!("Surveillance State DB: {}", db_fs_path);
     }
 
     let mut conn = Connection::open(db_fs_path)
@@ -43,7 +43,7 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
     }
 
     let mut ignore_db_fs_path: Vec<String> = Vec::new();
-    if !args.include_surveil_db_in_walk {
+    if !args.include_state_db_in_walk {
         let canonical_db_fs_path = std::fs::canonicalize(std::path::Path::new(&db_fs_path))
             .with_context(|| format!("[fs_walk] unable to canonicalize in {}", db_fs_path))?;
         let canonical_db_fs_path = canonical_db_fs_path.to_string_lossy().to_string();
@@ -332,7 +332,7 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                 uri = unknown.uri.to_string();
 
                                 // don't store the database we're creating in the walk unless requested
-                                if !args.include_surveil_db_in_walk
+                                if !args.include_state_db_in_walk
                                     && ignore_db_fs_path.iter().any(|s| s == &uri)
                                 {
                                     continue;

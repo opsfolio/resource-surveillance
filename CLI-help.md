@@ -6,6 +6,8 @@ This document contains the help content for the `surveilr` command-line program.
 
 * [`surveilr`↴](#surveilr)
 * [`surveilr admin`↴](#surveilr-admin)
+* [`surveilr admin init`↴](#surveilr-admin-init)
+* [`surveilr admin merge-sql`↴](#surveilr-admin-merge-sql)
 * [`surveilr admin cli-help-md`↴](#surveilr-admin-cli-help-md)
 * [`surveilr notebooks`↴](#surveilr-notebooks)
 * [`surveilr notebooks cat`↴](#surveilr-notebooks-cat)
@@ -26,7 +28,7 @@ This document contains the help content for the `surveilr` command-line program.
 
 * `--device-name <DEVICE_NAME>` — How to identify this device
 
-  Default value: `Titan`
+  Default value: `Constitution`
 * `-d`, `--debug` — Turn debugging information on (repeat for higher levels)
 
 
@@ -39,7 +41,39 @@ Admin / maintenance utilities
 
 ###### **Subcommands:**
 
+* `init` — initialize an empty database with bootstrap.sql
+* `merge-sql` — generate SQLite SQL that will merge multiple databases into a single one
 * `cli-help-md` — generate CLI help markdown
+
+
+
+## `surveilr admin init`
+
+initialize an empty database with bootstrap.sql
+
+**Usage:** `surveilr admin init [OPTIONS]`
+
+###### **Options:**
+
+* `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
+
+  Default value: `./resource-surveillance.sqlite.db`
+* `-r`, `--remove-existing-first` — remove the existing database first
+
+
+
+## `surveilr admin merge-sql`
+
+generate SQLite SQL that will merge multiple databases into a single one
+
+**Usage:** `surveilr admin merge-sql [OPTIONS]`
+
+###### **Options:**
+
+* `-d`, `--db-glob <DB_GLOB>` — one or more DB name globs to match and merge
+
+  Default value: `*.db`
+* `-i`, `--db-glob-ignore <DB_GLOB_IGNORE>` — one or more DB name globs to ignore if they match
 
 
 
@@ -64,7 +98,7 @@ Notebooks maintenance utilities
 
 ###### **Options:**
 
-* `--surveil-db-fs-path <SURVEIL_DB_FS_PATH>` — target SQLite database
+* `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
 
   Default value: `./resource-surveillance.sqlite.db`
 
@@ -78,8 +112,9 @@ Notebooks' cells emit utilities
 
 ###### **Options:**
 
-* `-n`, `--notebook <NOTEBOOK>`
-* `-c`, `--cell <CELL>`
+* `-n`, `--notebook <NOTEBOOK>` — search for these notebooks (include % for LIKE otherwise =)
+* `-c`, `--cell <CELL>` — search for these cells (include % for LIKE otherwise =)
+* `-s`, `--seps` — add separators before each cell
 
 
 
@@ -87,7 +122,11 @@ Notebooks' cells emit utilities
 
 list all notebooks
 
-**Usage:** `surveilr notebooks ls`
+**Usage:** `surveilr notebooks ls [OPTIONS]`
+
+###### **Options:**
+
+* `-m`, `--migratable` — list all SQL cells that will be handled by execute_migrations
 
 
 
@@ -111,9 +150,11 @@ Walks the device file system
 * `--surveil-content <SURVEIL_CONTENT>` — reg-exes to use to load content for entry instead of just walking
 
   Default value: `\.(md|mdx|html|json|jsonc)$`
-* `--surveil-db-fs-path <SURVEIL_DB_FS_PATH>` — target SQLite database
+* `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
 
   Default value: `./resource-surveillance.sqlite.db`
+* `--include-state-db-in-walk` — include the surveil database in the walk
+* `-s`, `--stats` — show stats after completion
 
 
 

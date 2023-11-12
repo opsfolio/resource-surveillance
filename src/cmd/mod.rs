@@ -9,13 +9,13 @@ pub mod admin;
 pub mod fswalk;
 pub mod notebooks;
 
-const DEFAULT_DB: &str = "./resource-surveillance.sqlite.db";
+const DEFAULT_STATEDB_FS_PATH: &str = "./resource-surveillance.sqlite.db";
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
     /// How to identify this device
-    #[arg(long, num_args = 0..=1, default_value = super::DEVICE.name(), default_missing_value = "always")]
+    #[arg(long, num_args = 0..=1, default_value = super::DEVICE.name(), default_missing_value = "always", env="SURVEILR_DEVICE_NAME")]
     pub device_name: Option<String>,
 
     /// Turn debugging information on (repeat for higher levels)
@@ -62,12 +62,12 @@ pub struct FsWalkArgs {
     pub surveil_content: Vec<Regex>,
 
     /// target SQLite database
-    #[arg(short='d', long, default_value = DEFAULT_DB, default_missing_value = "always")]
-    pub surveil_db_fs_path: String,
+    #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
+    pub state_db_fs_path: String,
 
     /// include the surveil database in the walk
     #[arg(long)]
-    pub include_surveil_db_in_walk: bool,
+    pub include_state_db_in_walk: bool,
 
     /// show stats after completion
     #[arg(short, long)]
@@ -78,8 +78,8 @@ pub struct FsWalkArgs {
 #[derive(Args)]
 pub struct NotebooksArgs {
     /// target SQLite database
-    #[arg(short='d', long, default_value = DEFAULT_DB, default_missing_value = "always")]
-    pub surveil_db_fs_path: Option<String>,
+    #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
+    pub state_db_fs_path: Option<String>,
 
     #[command(subcommand)]
     pub command: NotebooksCommands,
@@ -122,8 +122,8 @@ pub enum AdminCommands {
     /// initialize an empty database with bootstrap.sql
     Init {
         /// target SQLite database
-        #[arg(short='d', long, default_value = DEFAULT_DB, default_missing_value = "always")]
-        surveil_db_fs_path: String,
+        #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
+        state_db_fs_path: String,
 
         /// remove the existing database first
         #[arg(short, long)]
@@ -152,7 +152,7 @@ impl CliCommands {
                 Ok(walk_session_id) => {
                     if args.stats {
                         if let Ok(conn) = Connection::open_with_flags(
-                            args.surveil_db_fs_path.clone(),
+                            args.state_db_fs_path.clone(),
                             OpenFlags::SQLITE_OPEN_READ_WRITE,
                         ) {
                             let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
@@ -202,7 +202,7 @@ impl CliCommands {
                         } else {
                             println!(
                                 "Notebooks cells command requires a database: {}",
-                                args.surveil_db_fs_path
+                                args.state_db_fs_path
                             );
                         }
                     }

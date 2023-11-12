@@ -31,7 +31,7 @@ impl NotebooksCommands {
         cells: &Vec<String>,
         seps: bool,
     ) -> anyhow::Result<()> {
-        if let Some(db_fs_path) = args.surveil_db_fs_path.as_deref() {
+        if let Some(db_fs_path) = args.state_db_fs_path.as_deref() {
             if let Ok(conn) =
                 Connection::open_with_flags(db_fs_path, OpenFlags::SQLITE_OPEN_READ_WRITE)
             {
@@ -58,7 +58,7 @@ impl NotebooksCommands {
     }
 
     fn ls(&self, args: &super::NotebooksArgs) -> anyhow::Result<()> {
-        if let Some(db_fs_path) = args.surveil_db_fs_path.as_deref() {
+        if let Some(db_fs_path) = args.state_db_fs_path.as_deref() {
             if let Ok(conn) =
                 Connection::open_with_flags(db_fs_path, OpenFlags::SQLITE_OPEN_READ_WRITE)
             {
@@ -80,7 +80,7 @@ impl NotebooksCommands {
     }
 
     fn ls_migrations(&self, args: &super::NotebooksArgs) -> anyhow::Result<()> {
-        if let Some(db_fs_path) = args.surveil_db_fs_path.as_deref() {
+        if let Some(db_fs_path) = args.state_db_fs_path.as_deref() {
             if let Ok(conn) =
                 Connection::open_with_flags(db_fs_path, OpenFlags::SQLITE_OPEN_READ_WRITE)
             {

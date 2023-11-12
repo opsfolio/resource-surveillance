@@ -10,9 +10,9 @@ impl AdminCommands {
     pub fn execute(&self, cli: &super::Cli, _args: &super::AdminArgs) -> anyhow::Result<()> {
         match self {
             AdminCommands::Init {
-                surveil_db_fs_path,
+                state_db_fs_path,
                 remove_existing_first,
-            } => self.init(cli, surveil_db_fs_path, *remove_existing_first),
+            } => self.init(cli, state_db_fs_path, *remove_existing_first),
             AdminCommands::MergeSql {
                 db_glob,
                 db_glob_ignore,

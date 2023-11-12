@@ -1,9 +1,9 @@
 # Opsfolio Resource Surveillance
 
-`surveilr` is an extendable file system inspector for performing
-surveillance of machine resources. It is used to walk resources like file
-systems and generate an SQLite database which can then be consumed by any
-computing environment that supports SQLite.
+`surveilr` is an extendable file system inspector for performing surveillance of
+machine resources. It is used to walk resources like file systems and generate
+an SQLite database which can then be consumed by any computing environment that
+supports SQLite.
 
 ## Installation
 
@@ -24,40 +24,90 @@ $ eget opsfolio/resource-surveillance --asset tar.gz
 
 ## Usage
 
-```bash
-$ ./surveilr --help                         # get CLI help
-$ ./surveilr fs-walk                        # walk the current working directory (CWD)
-$ ./surveilr fs-walk -r /other -r /other2   # walk some other director(ies)
-$ ./surveilr fs-walk --stats                # walk the current working directory (CWD) show stats afterwards
-```
+Unless you set the `SURVEILR_STATEDB_FS_PATH` env var, the default _Resource
+Surveillance State ("surveillance state") SQLite Database_ will be
+`resource-surveillance.sqlite.db`.
 
-Other use cases:
+If you have many surveillance state SQLite databases, you should use a pattern
+like like this so they can be easily merged using `surveilr admin merge-sql`.
 
 ```bash
-$ ./surveilr notebooks ls                                     # list all notebooks and cells available, with migrations status
-$ ./surveilr notebooks cat --cell infoSchemaOsQueryATCs       # export the information schema as osQuery ATC
-$ ./surveilr notebooks cat --cell notebooksInfoSchemaDiagram  # show the notebooks admin PlanUML ERD stored in the database
-$ ./surveilr notebooks cat --cell surveilrInfoSchemaDiagram   # show the surveilr PlanUML ERD stored in the database
-$ ./surveilr --completions fish | source                      # setup completions to reduce typing
+$ export SURVEILR_STATEDB_FS_PATH="resource-surveillance-$(hostname).sqlite.db"
 ```
 
-In order to ensure that the Resource Surveillance agent is extensible, we leverage SQLite heavily for both storage of data but also storing the SQL it needs to bootstrap itself, perform migrations, and conduct regular administrative and query operations.
+Here's how you use the most common command patterns:
 
-The key to that extensibility is the `code_notebook_cell` table which stores SQL (called _SQL notebook cells_) or other interpretable code in the database so that once the database is created, all SQL and related code is part of the database and may be executed like this from the CLI using any environment that supports SQLite shell or SQLite drivers:
+```bash
+$ surveilr --help                         # get CLI help (pay special attention to ENV var names)
+$ surveilr fs-walk                        # walk the current working directory (CWD)
+$ surveilr fs-walk -r /other -r /other2   # walk some other director(ies)
+$ surveilr fs-walk --stats                # walk the current working directory (CWD) show stats afterwards
+$ surveilr --completions fish | source                      # setup completions to reduce typing
+```
+
+Generating SQL to merge multiple _Resource Surveillance State SQLite Databases_
+into one:
+
+```bash
+$ surveilr admin merge-sql                # generate merge SQL for all files in the current path
+$ surveilr admin merge-sql -d "**/*.db"   # generate merge SQL for specific globs in the current path
+$ surveilr admin merge-sql -i "x*.db"     # generate merge SQL for all files except ignore a glob
+
+$ surveilr admin init -d target.sqlite.db -r \
+    && surveilr admin merge-sql -i target.sqlite.db  \
+     | sqlite3 target.sqlite.db
+```
+
+Mergning multiple databases into one:
+
+The following command does three things:
+
+1. `surveilr admin init` initializes an empty `target.sqlite.db` (`-r` removes
+   it if it exists)
+2. `surveilr admin merge-sql` generates the merge SQL for all databases except
+   `target.sqlite.db`
+3. `sqlite3` pipe at the end just executes the generated SQL using SQLite 3
+   shell and produces merged `target.sqlite.db`
+
+```bash
+$ surveilr admin init -d target.sqlite.db -r && surveilr admin merge-sql -i target.sqlite.db | sqlite3 target.sqlite.db
+```
+
+Notebook use cases:
+
+```bash
+$ surveilr notebooks ls                                     # list all notebooks and cells available, with migrations status
+$ surveilr notebooks cat --cell infoSchemaOsQueryATCs       # export the information schema as osQuery ATC
+$ surveilr notebooks cat --cell notebooksInfoSchemaDiagram  # show the notebooks admin PlanUML ERD stored in the database
+$ surveilr notebooks cat --cell surveilrInfoSchemaDiagram   # show the surveilr PlanUML ERD stored in the database
+```
+
+In order to ensure that the Resource Surveillance agent is extensible, we
+leverage SQLite heavily for both storage of data but also storing the SQL it
+needs to bootstrap itself, perform migrations, and conduct regular
+administrative and query operations.
+
+The key to that extensibility is the `code_notebook_cell` table which stores SQL
+(called _SQL notebook cells_) or other interpretable code in the database so
+that once the database is created, all SQL and related code is part of the
+database and may be executed like this from the CLI using any environment that
+supports SQLite shell or SQLite drivers:
 
 ```bash
 $ sqlite3 xyz.db "select sql from code_notebook_cell where code_notebook_cell_id = 'infoSchemaMarkdown'" | sqlite3 xyz.db
 ```
 
-You can pass in arguments using .parameter or `sql_parameters` table, like:
+You can pass in arguments using `.parameter` or `sql_parameters` table, like:
+
 ```bash
 $ echo ".parameter set X Y; $(sqlite3 xyz.db \"SELECT sql FROM code_notebook_cell where code_notebook_cell_id = 'init'\")" | sqlite3 xyz.db
 ```
 
-Anywhere you see `./surveilr notebooks cat` those can be run directly through SQLite, the following two commands do the same thing:
+Anywhere you see `surveilr notebooks cat` those can be run directly through
+SQLite, the following two commands do the same thing:
 
 ```bash
-$ ./surveilr notebooks cat --cell infoSchemaOsQueryATCs | sqlite3 resource-surveillance.sqlite.db
+$ surveilr notebooks cat --cell infoSchemaOsQueryATCs | sqlite3 resource-surveillance.sqlite.db
 $ sqlite3 resource-surveillance.sqlite.db "select interpretable_code from stored_notebook_cell where cell_name = 'infoSchemaOsQueryATCs'" | sqlite3 device-content.sqlite.db
 ```
 
@@ -68,13 +118,13 @@ See [CLI Help](CLI-help.md) for details.
 ![Architecture](architecture.drawio.svg)
 
 Device Uniform Resource ER Diagram (generated from
-`./surveilr notebooks cat --cell surveilrInfoSchemaDiagram`) without
-housekeeping columns:
+`surveilr notebooks cat --cell surveilrInfoSchemaDiagram`) without housekeeping
+columns:
 
 ![Uniform Resource ER Diagram](device-ur-er-diagram.png)
 
 Administrative Code Notebooks ER Diagram (generated from
-`./surveilr notebooks cat --cell notebooksInfoSchemaDiagram`):
+`surveilr notebooks cat --cell notebooksInfoSchemaDiagram`):
 
 ![Notebooks ER Diagram](notebooks-er-diagram.png)
 
