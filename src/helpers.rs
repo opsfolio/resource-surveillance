@@ -179,3 +179,33 @@ macro_rules! query_sql_rows_no_args {
         }
     };
 }
+
+#[macro_export]
+macro_rules! query_sql_rows_json {
+    ($func_name:ident, $sql:expr, $($param_name:ident : $param_type:ty),*) => {
+        pub fn $func_name(conn: &rusqlite::Connection $(, $param_name: $param_type)*) -> rusqlite::Result<serde_json::Value> {
+            let mut stmt = conn.prepare_cached($sql)?;
+            let params = [$(&$param_name as &dyn rusqlite::ToSql),*];
+            let mut rows = stmt.query(params)?;
+
+            let mut array = Vec::new();
+            while let Some(row_result) = rows.next()? {
+                let mut row_map = serde_json::Map::new();
+                for (i, column_name) in row_result.as_ref().column_names().iter().enumerate() {
+                    let value: rusqlite::types::ValueRef = row_result.get_ref_unwrap(i);
+                    let json_value = match value {
+                        rusqlite::types::ValueRef::Null => serde_json::Value::Null,
+                        rusqlite::types::ValueRef::Integer(i) => serde_json::Value::from(i),
+                        rusqlite::types::ValueRef::Real(f) => serde_json::Value::from(f),
+                        rusqlite::types::ValueRef::Text(t) => serde_json::Value::from(String::from_utf8_lossy(t).to_string()),
+                        rusqlite::types::ValueRef::Blob(b) => serde_json::Value::from(base64::engine::general_purpose::STANDARD_NO_PAD.encode(b)),
+                    };
+                    row_map.insert(column_name.to_string(), json_value);
+                }
+                array.push(serde_json::Value::Object(row_map));
+            }
+
+            Ok(serde_json::Value::Array(array))
+        }
+    };
+}

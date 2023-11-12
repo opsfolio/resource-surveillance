@@ -1,6 +1,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
+use base64::Engine;
 use rusqlite::{Connection, Result as RusqliteResult, ToSql};
 use ulid::Ulid;
 
@@ -184,6 +185,14 @@ query_sql_rows!(
     file_count: usize,
     with_content_count: usize,
     with_frontmatter_count: usize
+);
+
+query_sql_rows_json!(
+    fs_content_walk_session_stats_latest,
+    r"SELECT *
+        FROM fs_content_walk_session_stats_latest
+       WHERE walk_session_id = ?",
+    walk_session_id: String
 );
 
 /// Executes a query to select notebook and cell information from the `code_notebook_cell` table.

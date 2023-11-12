@@ -154,7 +154,8 @@ Walks the device file system
 
   Default value: `./resource-surveillance.sqlite.db`
 * `--include-state-db-in-walk` — include the surveil database in the walk
-* `-s`, `--stats` — show stats after completion
+* `--stats` — show stats as an ASCII table after completion
+* `--stats-json` — show stats in JSON after completion
 
 
 

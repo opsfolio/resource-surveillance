@@ -69,9 +69,13 @@ pub struct FsWalkArgs {
     #[arg(long)]
     pub include_state_db_in_walk: bool,
 
-    /// show stats after completion
-    #[arg(short, long)]
+    /// show stats as an ASCII table after completion
+    #[arg(long)]
     pub stats: bool,
+
+    /// show stats in JSON after completion
+    #[arg(long)]
+    pub stats_json: bool,
 }
 
 /// Notebooks maintenance utilities
@@ -150,55 +154,66 @@ impl CliCommands {
         match self {
             CliCommands::FsWalk(args) => match fs_walk(cli, args) {
                 Ok(walk_session_id) => {
-                    if args.stats {
+                    if args.stats || args.stats_json {
                         if let Ok(conn) = Connection::open_with_flags(
                             args.state_db_fs_path.clone(),
                             OpenFlags::SQLITE_OPEN_READ_WRITE,
                         ) {
-                            let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
-                            fs_walk_session_stats(
-                                &conn,
-                                |_index,
-                                 root_path,
-                                 file_extension,
-                                 file_count,
-                                 with_content_count,
-                                 with_frontmatter_count| {
-                                    if args.root_path.len() < 2 {
-                                        rows.push(vec![
-                                            file_extension,
-                                            file_count.to_string(),
-                                            with_content_count.to_string(),
-                                            with_frontmatter_count.to_string(),
-                                        ]);
-                                    } else {
-                                        rows.push(vec![
-                                            root_path,
-                                            file_extension,
-                                            file_count.to_string(),
-                                            with_content_count.to_string(),
-                                            with_frontmatter_count.to_string(),
-                                        ]);
-                                    }
-                                    Ok(())
-                                },
-                                walk_session_id,
-                            )
-                            .unwrap();
-                            println!(
-                                "{}",
-                                if args.root_path.len() < 2 {
-                                    crate::format::format_table(
-                                        &["Extn", "Count", "Content", "Frontmatter"],
-                                        &rows,
-                                    )
-                                } else {
-                                    crate::format::format_table(
-                                        &["Path", "Extn", "Count", "Content", "Frontmatter"],
-                                        &rows,
-                                    )
+                            if args.stats_json {
+                                if let Ok(stats) = fs_content_walk_session_stats_latest(
+                                    &conn,
+                                    walk_session_id.clone(),
+                                ) {
+                                    print!("{}", serde_json::to_string_pretty(&stats).unwrap())
                                 }
-                            );
+                            }
+
+                            if args.stats {
+                                let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
+                                fs_walk_session_stats(
+                                    &conn,
+                                    |_index,
+                                     root_path,
+                                     file_extension,
+                                     file_count,
+                                     with_content_count,
+                                     with_frontmatter_count| {
+                                        if args.root_path.len() < 2 {
+                                            rows.push(vec![
+                                                file_extension,
+                                                file_count.to_string(),
+                                                with_content_count.to_string(),
+                                                with_frontmatter_count.to_string(),
+                                            ]);
+                                        } else {
+                                            rows.push(vec![
+                                                root_path,
+                                                file_extension,
+                                                file_count.to_string(),
+                                                with_content_count.to_string(),
+                                                with_frontmatter_count.to_string(),
+                                            ]);
+                                        }
+                                        Ok(())
+                                    },
+                                    walk_session_id,
+                                )
+                                .unwrap();
+                                println!(
+                                    "{}",
+                                    if args.root_path.len() < 2 {
+                                        crate::format::format_table(
+                                            &["Extn", "Count", "Content", "Frontmatter"],
+                                            &rows,
+                                        )
+                                    } else {
+                                        crate::format::format_table(
+                                            &["Path", "Extn", "Count", "Content", "Frontmatter"],
+                                            &rows,
+                                        )
+                                    }
+                                );
+                            }
                         } else {
                             println!(
                                 "Notebooks cells command requires a database: {}",

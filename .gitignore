@@ -3,7 +3,7 @@ sqla-sync-state.sqlite.db
 e2e-test-state.sqlite.db
 
 # surveilr CLI testing
-resource-surveillance.sqlite.db*
+resource-surveillance*.sqlite.db*
 
 # rust-specific
 /target

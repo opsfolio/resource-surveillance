@@ -111,7 +111,10 @@ $ surveilr notebooks cat --cell infoSchemaOsQueryATCs | sqlite3 resource-surveil
 $ sqlite3 resource-surveillance.sqlite.db "select interpretable_code from stored_notebook_cell where cell_name = 'infoSchemaOsQueryATCs'" | sqlite3 device-content.sqlite.db
 ```
 
-See [CLI Help](CLI-help.md) for details.
+See [CLI Help](CLI-help.md) for summary of what `surveilr --help` provides.
+Though [CLI Help](CLI-help.md) is a good reference, it's best to depend on
+`surveilr --help` and `surveilr <command> --help` because it will more accurate
+for the latest version.
 
 ## Architecture
 
