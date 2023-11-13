@@ -1,4 +1,4 @@
-# Opsfolio Resource Surveillance
+![](support/surveilr-logo-with-text-264x66px.png)
 
 `surveilr` is an extendable file system inspector for performing surveillance of
 machine resources. It is used to walk resources like file systems and generate
