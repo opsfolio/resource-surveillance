@@ -1,4 +1,7 @@
-![](support/surveilr-logo-with-text-264x66px.png)
+<center>
+<img src="support/surveilr-logo-with-text-264x66px.png" width="264" height="66"/>
+</center>
+<p/>
 
 `surveilr` is an extendable file system inspector for performing surveillance of
 machine resources. It is used to walk resources like file systems and generate
@@ -52,15 +55,15 @@ into one:
 $ surveilr admin merge-sql                # generate merge SQL for all files in the current path
 $ surveilr admin merge-sql -d "**/*.db"   # generate merge SQL for specific globs in the current path
 $ surveilr admin merge-sql -i "x*.db"     # generate merge SQL for all files except ignore a glob
-
-$ surveilr admin init -d target.sqlite.db -r \
-    && surveilr admin merge-sql -i target.sqlite.db  \
-     | sqlite3 target.sqlite.db
 ```
 
-Mergning multiple databases into one:
+Merging multiple databases into one using generated SQL:
 
-The following command does three things:
+```bash
+$ surveilr admin init -d target.sqlite.db -r && surveilr admin merge-sql -i target.sqlite.db | sqlite3 target.sqlite.db
+```
+
+The CLI multi-command pipe above does three things:
 
 1. `surveilr admin init` initializes an empty `target.sqlite.db` (`-r` removes
    it if it exists)
@@ -68,10 +71,6 @@ The following command does three things:
    `target.sqlite.db`
 3. `sqlite3` pipe at the end just executes the generated SQL using SQLite 3
    shell and produces merged `target.sqlite.db`
-
-```bash
-$ surveilr admin init -d target.sqlite.db -r && surveilr admin merge-sql -i target.sqlite.db | sqlite3 target.sqlite.db
-```
 
 Notebook use cases:
 
@@ -115,6 +114,23 @@ See [CLI Help](CLI-help.md) for summary of what `surveilr --help` provides.
 Though [CLI Help](CLI-help.md) is a good reference, it's best to depend on
 `surveilr --help` and `surveilr <command> --help` because it will more accurate
 for the latest version.
+
+### AI Prompts
+
+In order to make it easier to understand how to generate `surveilr` SQL, you can
+use these prompts stored in the notebooks:
+
+```bash
+$ surveil notebooks cat --cell "%understand service schema%"
+$ surveil notebooks cat --cell "%understand notebooks schema%"
+```
+
+The output of the first one is a good way to help ChatGPT or other LLM to
+understand the `surveilr` service SQL schema (`device`, `uniform_resource`,
+`fs-walk`, etc) and ask it questions to generate SQL for you. The second one is
+a good way to help ChatGPT or other LLM to understand the `surveilr` notebooks
+schema and ask it questions to generate SQL specifically for the _notebooks_
+capability.
 
 ## Architecture
 
