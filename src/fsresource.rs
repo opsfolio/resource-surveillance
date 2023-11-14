@@ -220,11 +220,16 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
                     Ok(Box::new(UniformResource::Html(html)))
                 }
                 "json" | "jsonc" => {
-                    let json = JsonResource {
-                        resource,
-                        content: None, // TODO parse using serde
-                    };
-                    Ok(Box::new(UniformResource::Json(json)))
+                    if resource.uri.ends_with(".spdx.json") {
+                        let spdx_json = SoftwarePackageDxResource { resource };
+                        Ok(Box::new(UniformResource::SpdxJson(spdx_json)))
+                    } else {
+                        let json = JsonResource {
+                            resource,
+                            content: None, // TODO parse using serde
+                        };
+                        Ok(Box::new(UniformResource::Json(json)))
+                    }
                 }
                 "md" | "mdx" => {
                     let markdown = MarkdownResource { resource };
@@ -236,6 +241,10 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
                         image_meta: HashMap::new(),
                     };
                     Ok(Box::new(UniformResource::Image(image)))
+                }
+                "tap" => {
+                    let tap = TestAnythingResource { resource };
+                    Ok(Box::new(UniformResource::Tap(tap)))
                 }
                 _ => Ok(Box::new(UniformResource::Unknown(resource))),
             }

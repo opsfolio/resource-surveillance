@@ -67,12 +67,25 @@ pub struct MarkdownResource<Resource> {
     pub resource: Resource,
 }
 
+pub struct TestAnythingResource<Resource> {
+    pub resource: Resource,
+}
+
+pub struct SoftwarePackageDxResource<Resource> {
+    pub resource: Resource,
+}
+
 pub enum UniformResource<Resource> {
     Unknown(Resource),
     Image(ImageResource<Resource>),
     Markdown(MarkdownResource<Resource>),
     Json(JsonResource<Resource>),
     Html(HtmlResource<Resource>),
+    Tap(TestAnythingResource<Resource>),
+
+    // TODO: SPDX comes in 5 flavors (see https://spdx.dev/learn/overview/) so we need
+    // to model each of them; for now, we're supporting on SPDX JSON.
+    SpdxJson(SoftwarePackageDxResource<Resource>),
 }
 
 pub trait UniformResourceSupplier<Resource> {

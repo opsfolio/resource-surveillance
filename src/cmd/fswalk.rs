@@ -180,7 +180,7 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                             UniformResource::Html(html) => {
                                 uri = html.resource.uri.to_string();
                                 // TODO: this will panic if content not available, so test for proper existence not unwrap()!
-                                let content_supplier =
+                                let html_src =
                                     html.resource.content_text_supplier.unwrap()().unwrap();
                                 match ins_ur_stmt.query_row(
                                     params![
@@ -190,8 +190,8 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                         walk_path_id,
                                         html.resource.uri,
                                         html.resource.nature,
-                                        content_supplier.content_text(),
-                                        content_supplier.content_digest_hash(),
+                                        html_src.content_text(),
+                                        html_src.content_digest_hash(),
                                         html.resource.size,
                                         html.resource.last_modified_at.unwrap().to_string(),
                                         &None::<String>,
@@ -213,7 +213,7 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                             UniformResource::Json(json) => {
                                 uri = json.resource.uri.to_string();
                                 // TODO: this will panic if content not available, so test for proper existence not unwrap()!
-                                let content_supplier =
+                                let json_src =
                                     json.resource.content_text_supplier.unwrap()().unwrap();
                                 match ins_ur_stmt.query_row(
                                     params![
@@ -223,8 +223,8 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                         walk_path_id,
                                         json.resource.uri,
                                         json.resource.nature,
-                                        content_supplier.content_text(),
-                                        content_supplier.content_digest_hash(),
+                                        json_src.content_text(),
+                                        json_src.content_digest_hash(),
                                         json.resource.size,
                                         json.resource.last_modified_at.unwrap().to_string(),
                                         &None::<String>,
@@ -245,9 +245,8 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                             UniformResource::Image(img) => {
                                 uri = img.resource.uri.to_string();
                                 let mut digest_hash: String = String::from("-");
-                                if let Some(binary_supplier) = img.resource.content_binary_supplier
-                                {
-                                    if let Ok(binary_supplier) = binary_supplier() {
+                                if let Some(img_binary) = img.resource.content_binary_supplier {
+                                    if let Ok(binary_supplier) = img_binary() {
                                         digest_hash =
                                             binary_supplier.content_digest_hash().to_string();
                                     }
@@ -282,12 +281,12 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                             UniformResource::Markdown(md) => {
                                 uri = md.resource.uri.to_string();
                                 // TODO: this will panic if content not available, so test for proper existence not unwrap()!
-                                let content_supplier =
+                                let markdown_src =
                                     md.resource.content_text_supplier.unwrap()().unwrap();
                                 let mut fm_attrs = None::<String>;
                                 let mut fm_json: Option<String> = None::<String>;
                                 let (_, fm_raw, fm_json_value, fm_body) =
-                                    content_supplier.frontmatter();
+                                    markdown_src.frontmatter();
                                 if fm_json_value.is_ok() {
                                     fm_json = Some(
                                         serde_json::to_string_pretty(&fm_json_value.ok()).unwrap(),
@@ -309,8 +308,8 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                         walk_path_id,
                                         md.resource.uri,
                                         md.resource.nature,
-                                        content_supplier.content_text(),
-                                        content_supplier.content_digest_hash(),
+                                        markdown_src.content_text(),
+                                        markdown_src.content_digest_hash(),
                                         md.resource.size,
                                         md.resource.last_modified_at.unwrap().to_string(),
                                         fm_attrs,
@@ -325,6 +324,73 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                         "Error inserting UniformResource::Markdown for {}: {:?}",
                                         &uri, err
                                     );
+                                    }
+                                }
+                            }
+                            UniformResource::SpdxJson(spdx) => {
+                                uri = spdx.resource.uri.to_string();
+                                // TODO: this will panic if content not available, so test for proper existence not unwrap()!
+                                let spdx_json_src =
+                                    spdx.resource.content_text_supplier.unwrap()().unwrap();
+                                match ins_ur_stmt.query_row(
+                                    params![
+                                        uniform_resource_id,
+                                        device_id,
+                                        walk_session_id,
+                                        walk_path_id,
+                                        spdx.resource.uri,
+                                        spdx.resource.nature,
+                                        spdx_json_src.content_text(),
+                                        spdx_json_src.content_digest_hash(),
+                                        spdx.resource.size,
+                                        spdx.resource.last_modified_at.unwrap().to_string(),
+                                        &None::<String>,
+                                        &None::<String>
+                                    ],
+                                    |row| row.get(0),
+                                ) {
+                                    Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING for existing row
+                                    Err(rusqlite::Error::QueryReturnedNoRows) => {} // this happens with a new row
+                                    Err(err) => {
+                                        eprintln!(
+                                            "Error inserting UniformResource::Json for {}: {:?}",
+                                            &uri, err
+                                        );
+                                    }
+                                }
+                            }
+                            UniformResource::Tap(tap) => {
+                                uri = tap.resource.uri.to_string();
+                                // TODO: figure out whether to add a new uniform resource row
+                                //       for the transformed TAP to JSON or if original TAP is
+                                //       good enough as a format for searching.
+                                // TODO: this will panic if content not available, so test for proper existence not unwrap()!
+                                let tap_result =
+                                    tap.resource.content_text_supplier.unwrap()().unwrap();
+                                match ins_ur_stmt.query_row(
+                                    params![
+                                        uniform_resource_id,
+                                        device_id,
+                                        walk_session_id,
+                                        walk_path_id,
+                                        tap.resource.uri,
+                                        tap.resource.nature,
+                                        tap_result.content_text(),
+                                        tap_result.content_digest_hash(),
+                                        tap.resource.size,
+                                        tap.resource.last_modified_at.unwrap().to_string(),
+                                        &None::<String>,
+                                        &None::<String>
+                                    ],
+                                    |row| row.get(0),
+                                ) {
+                                    Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING for existing row
+                                    Err(rusqlite::Error::QueryReturnedNoRows) => {} // this happens with a new row
+                                    Err(err) => {
+                                        eprintln!(
+                                            "Error inserting UniformResource::Json for {}: {:?}",
+                                            &uri, err
+                                        );
                                     }
                                 }
                             }
