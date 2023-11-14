@@ -110,10 +110,10 @@ $ surveilr notebooks cat --cell infoSchemaOsQueryATCs | sqlite3 resource-surveil
 $ sqlite3 resource-surveillance.sqlite.db "select interpretable_code from stored_notebook_cell where cell_name = 'infoSchemaOsQueryATCs'" | sqlite3 device-content.sqlite.db
 ```
 
-See [CLI Help](CLI-help.md) for summary of what `surveilr --help` provides.
-Though [CLI Help](CLI-help.md) is a good reference, it's best to depend on
-`surveilr --help` and `surveilr <command> --help` because it will more accurate
-for the latest version.
+See [CLI Help](support/docs/CLI-help.md) for summary of what `surveilr --help`
+provides. Though [CLI Help](support/docs/CLI-help.md) is a good reference, it's
+best to depend on `surveilr --help` and `surveilr <command> --help` because it
+will more accurate for the latest version.
 
 ### AI Prompts
 
@@ -134,18 +134,18 @@ capability.
 
 ## Architecture
 
-![Architecture](architecture.drawio.svg)
+![Architecture](support/docs/architecture.drawio.svg)
 
 Device Uniform Resource ER Diagram (generated from
 `surveilr notebooks cat --cell surveilrInfoSchemaDiagram`) without housekeeping
 columns:
 
-![Uniform Resource ER Diagram](device-ur-er-diagram.png)
+![Uniform Resource ER Diagram](support/docs/device-ur-er-diagram.png)
 
 Administrative Code Notebooks ER Diagram (generated from
 `surveilr notebooks cat --cell notebooksInfoSchemaDiagram`):
 
-![Notebooks ER Diagram](notebooks-er-diagram.png)
+![Notebooks ER Diagram](support/docs/notebooks-er-diagram.png)
 
 ## Development
 
