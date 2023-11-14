@@ -9,12 +9,20 @@ list:
     @just --list
 
 # Install cargo watch if it's not already available
-ensure-cargo-watch:
-    @cargo install -q cargo-watch
-
-# Install cargo watch if it's not already available
 ensure-cargo-nextest:
     @cargo install -q cargo-nextest
+
+# Install cargo watch if it's not already available
+ensure-cargo-sbom:
+    @cargo install -q cargo-watch
+
+# Install cargo SBOM if it's not already available
+ensure-cargo-watch:
+    @cargo install -q cargo-sbom
+
+# Generate surveilr binary SBOM in SPDX format
+sbom: ensure-cargo-sbom
+    @cargo-sbom > surveilr-sbom.spdx.json
 
 # Use SQLa to generate bootstrap and code notebook SQL
 sqla-sync:

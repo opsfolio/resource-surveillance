@@ -339,7 +339,7 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                         walk_session_id,
                                         walk_path_id,
                                         spdx.resource.uri,
-                                        spdx.resource.nature,
+                                        "spdx.json", // override the nature
                                         spdx_json_src.content_text(),
                                         spdx_json_src.content_digest_hash(),
                                         spdx.resource.size,
