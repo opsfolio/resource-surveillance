@@ -121,8 +121,8 @@ In order to make it easier to understand how to generate `surveilr` SQL, you can
 use these prompts stored in the notebooks:
 
 ```bash
-$ surveil notebooks cat --cell "%understand service schema%"
-$ surveil notebooks cat --cell "%understand notebooks schema%"
+$ surveilr notebooks cat --cell "%understand service schema%"
+$ surveilr notebooks cat --cell "%understand notebooks schema%"
 ```
 
 The output of the first one is a good way to help ChatGPT or other LLM to
