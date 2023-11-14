@@ -22,7 +22,7 @@ ensure-cargo-watch:
 
 # Generate surveilr binary SBOM in SPDX format
 sbom: ensure-cargo-sbom
-    @cargo-sbom > surveilr-sbom.spdx.json
+    @cargo-sbom > support/quality-system/surveilr-sbom.spdx.json
 
 # Use SQLa to generate bootstrap and code notebook SQL
 sqla-sync:
