@@ -31,9 +31,13 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
+        target: x86_64-apple-darwin
+        archive: zip
+        os: macos-latest
         toolchain: [stable]
         triple:
           - { target: x86_64-apple-darwin, cross: false }
+
     steps:
       - uses: actions/checkout@v2
       - name: Install toolchain
