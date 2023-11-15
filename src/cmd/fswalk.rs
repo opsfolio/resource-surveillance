@@ -16,6 +16,9 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
     let mut conn = Connection::open(db_fs_path)
         .with_context(|| format!("[fs_walk] SQLite database {}", db_fs_path))?;
 
+    prepare_conn(&conn)
+        .with_context(|| format!("[fs_walk] prepare SQLite connection for {}", db_fs_path))?;
+
     // putting everything inside a transaction improves performance significantly
     let tx = conn
         .transaction()
@@ -37,11 +40,6 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
         println!("Device: {device_name} ({device_id})");
     }
 
-    let walk_session_id = ulid::Ulid::new().to_string();
-    if cli.debug == 1 {
-        println!("Walk Session: {walk_session_id}");
-    }
-
     let mut ignore_db_fs_path: Vec<String> = Vec::new();
     if !args.include_state_db_in_walk {
         let canonical_db_fs_path = std::fs::canonicalize(std::path::Path::new(&db_fs_path))
@@ -56,56 +54,63 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
         ignore_db_fs_path.push(db_journal_path.to_string_lossy().to_string());
     }
 
+    // the ulid() function we're using below is not built into SQLite, we define
+    // it in persist::prepare_conn.
+
     // separate the SQL from the execute so we can use it in logging, errors, etc.
     const INS_UR_WALK_SESSION_SQL: &str = indoc! {"
         INSERT INTO ur_walk_session (ur_walk_session_id, device_id, ignore_paths_regex, blobs_regex, digests_regex, walk_started_at) 
-                             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)"};
+                             VALUES (ulid(), ?, ?, ?, ?, CURRENT_TIMESTAMP) RETURNING ur_walk_session_id"};
     const INS_UR_WALK_SESSION_FINISH_SQL: &str = indoc! {"
         UPDATE ur_walk_session 
            SET walk_finished_at = CURRENT_TIMESTAMP 
          WHERE ur_walk_session_id = ?"};
     const INS_UR_WSP_SQL: &str = indoc! {"
         INSERT INTO ur_walk_session_path (ur_walk_session_path_id, walk_session_id, root_path) 
-                                  VALUES (?, ?, ?)"};
+                                  VALUES (ulid(), ?, ?) RETURNING ur_walk_session_path_id"};
     // in ins_ur_stmt the `DO UPDATE SET size_bytes = EXCLUDED.size_bytes` is a workaround to force uniform_resource_id when the row already exists
     const INS_UR_SQL: &str = indoc! {"
         INSERT INTO uniform_resource (uniform_resource_id, device_id, walk_session_id, walk_path_id, uri, nature, content, content_digest, size_bytes, last_modified_at, content_fm_body_attrs, frontmatter)
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+                              VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
                          ON CONFLICT (device_id, content_digest, uri, size_bytes, last_modified_at) 
                            DO UPDATE SET size_bytes = EXCLUDED.size_bytes
                            RETURNING uniform_resource_id"};
     const INS_UR_FS_ENTRY_SQL: &str = indoc! {"
         INSERT INTO ur_walk_session_path_fs_entry (ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn) 
-                                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"};
+                                           VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?)"};
 
-    tx.execute(
-        INS_UR_WALK_SESSION_SQL,
-        params![
-            walk_session_id,
-            device_id,
-            args.ignore_entry
-                .iter()
-                .map(|r| r.as_str())
-                .collect::<Vec<&str>>()
-                .join(", "),
-            args.compute_digests
-                .iter()
-                .map(|r| r.as_str())
-                .collect::<Vec<&str>>()
-                .join(", "),
-            args.surveil_content
-                .iter()
-                .map(|r| r.as_str())
-                .collect::<Vec<&str>>()
-                .join(", ")
-        ],
-    )
-    .with_context(|| {
-        format!(
-            "[fs_walk] inserting UR walk session using {} in {}",
-            INS_UR_WALK_SESSION_SQL, db_fs_path
+    let walk_session_id: String = tx
+        .query_row(
+            INS_UR_WALK_SESSION_SQL,
+            params![
+                device_id,
+                args.ignore_entry
+                    .iter()
+                    .map(|r| r.as_str())
+                    .collect::<Vec<&str>>()
+                    .join(", "),
+                args.compute_digests
+                    .iter()
+                    .map(|r| r.as_str())
+                    .collect::<Vec<&str>>()
+                    .join(", "),
+                args.surveil_content
+                    .iter()
+                    .map(|r| r.as_str())
+                    .collect::<Vec<&str>>()
+                    .join(", ")
+            ],
+            |row| row.get(0),
         )
-    })?;
+        .with_context(|| {
+            format!(
+                "[fs_walk] inserting UR walk session using {} in {}",
+                INS_UR_WALK_SESSION_SQL, db_fs_path
+            )
+        })?;
+    if cli.debug == 1 {
+        println!("Walk Session: {walk_session_id}");
+    }
 
     // TODO: https://github.com/opsfolio/resource-surveillance/issues/16
     //       from this point on, since we have a walk session put all errors
@@ -143,20 +148,19 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                     )
                 })?;
             let canonical_path = canonical_path_buf.into_os_string().into_string().unwrap();
-            let walk_path_id = ulid::Ulid::new().to_string();
-            if cli.debug == 1 {
-                println!("  Walk Session Path: {root_path} ({walk_path_id})");
-            }
 
-            let ins_ur_wsp_params = params![walk_path_id, walk_session_id, canonical_path];
-            ins_ur_wsp_stmt
-                .execute(ins_ur_wsp_params)
+            let ins_ur_wsp_params = params![walk_session_id, canonical_path];
+            let walk_path_id: String = ins_ur_wsp_stmt
+                .query_row(ins_ur_wsp_params, |row| row.get(0))
                 .with_context(|| {
                     format!(
                         "[fs_walk] ins_ur_wsp_stmt {} with {} in {}",
                         INS_UR_WSP_SQL, "TODO: ins_ur_wsp_params.join()", db_fs_path
                     )
                 })?;
+            if cli.debug == 1 {
+                println!("  Walk Session Path: {root_path} ({walk_path_id})");
+            }
 
             let rp: Vec<String> = vec![canonical_path.clone()];
             let walker =
@@ -171,10 +175,9 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
             for resource_result in walker.walk_resources_iter() {
                 match resource_result {
                     Ok(resource) => {
-                        // compute a new Ulid in case case a new row is added, it will be
-                        // replaced by the value of the RETURNING clause, though, in case
-                        // the content is already in the database.
-                        let mut uniform_resource_id = ulid::Ulid::new().to_string();
+                        // this value, if all goes well, is set by the value of
+                        // INSERT INTO uniform_resource RETURNING clause.
+                        let uniform_resource_id: String;
                         let uri: String;
                         match resource {
                             UniformResource::Html(html) => {
@@ -184,7 +187,6 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                     html.resource.content_text_supplier.unwrap()().unwrap();
                                 match ins_ur_stmt.query_row(
                                     params![
-                                        uniform_resource_id,
                                         device_id,
                                         walk_session_id,
                                         walk_path_id,
@@ -199,13 +201,15 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                     ],
                                     |row| row.get(0),
                                 ) {
-                                    Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING for existing row
-                                    Err(rusqlite::Error::QueryReturnedNoRows) => {} // this happens with a new row
+                                    Ok(new_or_existing_ur_id) => {
+                                        uniform_resource_id = new_or_existing_ur_id
+                                    }
                                     Err(err) => {
                                         eprintln!(
                                             "Error inserting UniformResource::Html for {}: {:?}",
                                             &uri, err
                                         );
+                                        continue;
                                     }
                                 }
                                 // TODO: parse HTML and store HTML <head><meta> as frontmatter
@@ -217,7 +221,6 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                     json.resource.content_text_supplier.unwrap()().unwrap();
                                 match ins_ur_stmt.query_row(
                                     params![
-                                        uniform_resource_id,
                                         device_id,
                                         walk_session_id,
                                         walk_path_id,
@@ -232,13 +235,15 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                     ],
                                     |row| row.get(0),
                                 ) {
-                                    Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING for existing row
-                                    Err(rusqlite::Error::QueryReturnedNoRows) => {} // this happens with a new row
+                                    Ok(new_or_existing_ur_id) => {
+                                        uniform_resource_id = new_or_existing_ur_id
+                                    }
                                     Err(err) => {
                                         eprintln!(
-                                            "Error inserting UniformResource::Json for {}: {:?}",
+                                            "Error inserting UniformResource::Html for {}: {:?}",
                                             &uri, err
                                         );
+                                        continue;
                                     }
                                 }
                             }
@@ -253,7 +258,6 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                 }
                                 match ins_ur_stmt.query_row(
                                     params![
-                                        uniform_resource_id,
                                         device_id,
                                         walk_session_id,
                                         walk_path_id,
@@ -268,13 +272,15 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                     ],
                                     |row| row.get(0),
                                 ) {
-                                    Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING for existing row
-                                    Err(rusqlite::Error::QueryReturnedNoRows) => {} // this happens with a new row
+                                    Ok(new_or_existing_ur_id) => {
+                                        uniform_resource_id = new_or_existing_ur_id
+                                    }
                                     Err(err) => {
                                         eprintln!(
-                                            "Error inserting UniformResource::Image for {}: {:?}",
+                                            "Error inserting UniformResource::Html for {}: {:?}",
                                             &uri, err
                                         );
+                                        continue;
                                     }
                                 }
                             }
@@ -302,7 +308,6 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                 }
                                 match ins_ur_stmt.query_row(
                                     params![
-                                        uniform_resource_id,
                                         device_id,
                                         walk_session_id,
                                         walk_path_id,
@@ -317,13 +322,15 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                     ],
                                     |row| row.get(0),
                                 ) {
-                                    Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING for existing row
-                                    Err(rusqlite::Error::QueryReturnedNoRows) => {} // this happens with a new row
+                                    Ok(new_or_existing_ur_id) => {
+                                        uniform_resource_id = new_or_existing_ur_id
+                                    }
                                     Err(err) => {
                                         eprintln!(
-                                        "Error inserting UniformResource::Markdown for {}: {:?}",
-                                        &uri, err
-                                    );
+                                            "Error inserting UniformResource::Html for {}: {:?}",
+                                            &uri, err
+                                        );
+                                        continue;
                                     }
                                 }
                             }
@@ -334,7 +341,6 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                     spdx.resource.content_text_supplier.unwrap()().unwrap();
                                 match ins_ur_stmt.query_row(
                                     params![
-                                        uniform_resource_id,
                                         device_id,
                                         walk_session_id,
                                         walk_path_id,
@@ -349,13 +355,15 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                     ],
                                     |row| row.get(0),
                                 ) {
-                                    Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING for existing row
-                                    Err(rusqlite::Error::QueryReturnedNoRows) => {} // this happens with a new row
+                                    Ok(new_or_existing_ur_id) => {
+                                        uniform_resource_id = new_or_existing_ur_id
+                                    }
                                     Err(err) => {
                                         eprintln!(
-                                            "Error inserting UniformResource::Json for {}: {:?}",
+                                            "Error inserting UniformResource::Html for {}: {:?}",
                                             &uri, err
                                         );
+                                        continue;
                                     }
                                 }
                             }
@@ -369,7 +377,6 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                     tap.resource.content_text_supplier.unwrap()().unwrap();
                                 match ins_ur_stmt.query_row(
                                     params![
-                                        uniform_resource_id,
                                         device_id,
                                         walk_session_id,
                                         walk_path_id,
@@ -384,13 +391,15 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                     ],
                                     |row| row.get(0),
                                 ) {
-                                    Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING for existing row
-                                    Err(rusqlite::Error::QueryReturnedNoRows) => {} // this happens with a new row
+                                    Ok(new_or_existing_ur_id) => {
+                                        uniform_resource_id = new_or_existing_ur_id
+                                    }
                                     Err(err) => {
                                         eprintln!(
-                                            "Error inserting UniformResource::Json for {}: {:?}",
+                                            "Error inserting UniformResource::Html for {}: {:?}",
                                             &uri, err
                                         );
+                                        continue;
                                     }
                                 }
                             }
@@ -406,7 +415,6 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
 
                                 match ins_ur_stmt.query_row(
                                     params![
-                                        uniform_resource_id,
                                         device_id,
                                         walk_session_id,
                                         walk_path_id,
@@ -421,13 +429,15 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                     ],
                                     |row| row.get(0),
                                 ) {
-                                    Ok(existing_ur_id) => uniform_resource_id = existing_ur_id, // this happens with RETURNING for existing row
-                                    Err(rusqlite::Error::QueryReturnedNoRows) => {} // this happens with a new row
+                                    Ok(new_or_existing_ur_id) => {
+                                        uniform_resource_id = new_or_existing_ur_id
+                                    }
                                     Err(err) => {
                                         eprintln!(
-                                            "Error inserting UniformResource::Unknown for {}: {:?}",
+                                            "Error inserting UniformResource::Html for {}: {:?}",
                                             &uri, err
                                         );
+                                        continue;
                                     }
                                 }
                             }
@@ -444,11 +454,7 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                 file_basename,
                                 file_extn,
                             )) => {
-                                let ur_walk_session_path_fs_entry_id =
-                                    ulid::Ulid::new().to_string();
-
                                 match ins_ur_fs_entry_stmt.execute(params![
-                                    ur_walk_session_path_fs_entry_id,
                                     walk_session_id,
                                     walk_path_id,
                                     uniform_resource_id,

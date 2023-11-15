@@ -27,9 +27,6 @@ sbom: ensure-cargo-sbom
 # Use SQLa to generate bootstrap and code notebook SQL
 sqla-sync:
     @./support/sql-aide/sqlactl.ts
-    @rm -f ./sqla-sync-state.sqlite.db
-    @cat src/bootstrap.sql | sqlite3 ./sqla-sync-state.sqlite.db && rm -f ./sqla-sync-state.sqlite.db
-    @# if there are any errors, ./sqla-sync-state.sqlite.db should still be available
 
 # Hot reload (with `cargo watch`) on all the source files in this project
 dev: ensure-cargo-watch    

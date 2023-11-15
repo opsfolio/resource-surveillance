@@ -41,6 +41,14 @@ impl AdminCommands {
         let conn = Connection::open(db_fs_path)
             .with_context(|| format!("[AdminCommands::init] SQLite database {}", db_fs_path))?;
 
+        // add all our custom functions (`ulid()`, etc.)
+        prepare_conn(&conn).with_context(|| {
+            format!(
+                "[AdminCommands::init] prepare SQLite connection for {}",
+                db_fs_path
+            )
+        })?;
+
         execute_migrations(&conn, "AdminCommands::init").with_context(|| {
             format!("[AdminCommands::init] execute_migrations in {}", db_fs_path)
         })?;

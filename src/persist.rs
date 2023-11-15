@@ -2,10 +2,24 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use base64::Engine;
+use rusqlite::functions::FunctionFlags;
 use rusqlite::{Connection, Result as RusqliteResult, ToSql};
 use ulid::Ulid;
 
 use super::device::Device;
+
+//type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
+
+pub fn prepare_conn(db: &Connection) -> RusqliteResult<()> {
+    declare_ulid_function(db)
+}
+
+pub fn declare_ulid_function(db: &Connection) -> RusqliteResult<()> {
+    db.create_scalar_function("ulid", 0, FunctionFlags::SQLITE_UTF8, move |ctx| {
+        assert_eq!(ctx.len(), 0, "called with unexpected number of arguments");
+        Ok(Ulid::new().to_string())
+    })
+}
 
 execute_sql_batch!(bootstrap_ddl, include_str!("bootstrap.sql"));
 
@@ -38,10 +52,9 @@ query_sql_single!(
 execute_sql!(
     insert_notebook_cell_state,
     r"INSERT INTO code_notebook_state (code_notebook_state_id, code_notebook_cell_id, from_state, to_state, transition_reason)
-                               VALUES (?3, (SELECT code_notebook_cell_id FROM code_notebook_cell WHERE notebook_name = ?1 AND cell_name = ?2), ?4, ?5, ?6)",
+                               VALUES (ulid(), (SELECT code_notebook_cell_id FROM code_notebook_cell WHERE notebook_name = ?1 AND cell_name = ?2), ?3, ?4, ?5)",
     notebook_name: &str,
     cell_name: &str,
-    code_notebook_cell_id: &str,
     from_state: &str,
     to_state: &str,
     transition_reason: &str
@@ -156,12 +169,12 @@ query_sql_rows_no_args!(
     transitioned_at: String
 );
 
+// ulid() is not built into SQLite, be sure to register it with prepare_conn
 query_sql_single!(
     upsert_device,
-    r"INSERT INTO device (device_id, name, boundary, state, state_sysinfo) VALUES (?, ?, ?, ?, ?)
+    r"INSERT INTO device (device_id, name, boundary, state, state_sysinfo) VALUES (ulid(), ?, ?, ?, ?)
       ON CONFLICT(name, state, boundary) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
       RETURNING device_id, name",
-    device_id: &str,
     name: &str,
     boundary: &str,
     state: &str,
@@ -221,6 +234,7 @@ query_sql_rows_json!(
 /// # use std::vec::Vec;
 /// # fn main() -> SqliteResult<()> {
 /// let conn = Connection::open("code_notebooks.db")?;
+/// prepare_conn(&conn)?; // make sure to register custom functions like ulid()
 /// let notebooks = vec!["Notebook1".to_string(), "Notebook2".to_string()];
 /// let cells = vec!["CellA".to_string(), "CellB".to_string()];
 /// let results = select_notebooks_and_cells(&conn, &notebooks, &cells)?;
@@ -428,12 +442,10 @@ pub fn execute_batch_stateful(
             Ok(_) => None,
             Err(rusqlite::Error::QueryReturnedNoRows) => match execute_batch(conn, ec) {
                 Ok(_) => {
-                    let ulid = Ulid::new().to_string();
                     match insert_notebook_cell_state(
                         conn,
                         notebook_name,
                         cell_name,
-                        &ulid,
                         from_state,
                         to_state,
                         transition_reason,
@@ -455,10 +467,8 @@ pub fn execute_batch_stateful(
 }
 
 pub fn upserted_device(conn: &Connection, device: &Device) -> RusqliteResult<(String, String)> {
-    let ulid = Ulid::new().to_string();
     upsert_device(
         conn,
-        &ulid,
         &device.name,
         if let Some(boundary) = &device.boundary {
             boundary

@@ -1,4 +1,4 @@
-import { chainNB, SQLa, SQLa_tp as typical, ulid } from "./deps.ts";
+import { chainNB, SQLa, SQLa_tp as typical } from "./deps.ts";
 import * as tbls from "./tbls.ts";
 import * as m from "./models.ts";
 
@@ -210,11 +210,6 @@ export class SqlNotebookHelpers<EmitContext extends SQLa.SqlEmitContext>
     return {
       executeSqlBehavior: () => sts,
     };
-  }
-
-  // ULID generator when the value is needed in JS runtime
-  get newUlid() {
-    return ulid.ulid;
   }
 
   // ULID generator when the value is needed by the SQLite engine runtime
@@ -945,7 +940,7 @@ export function codeNotebookFactory<
               : `CodeNotebookFactory::cellsDML "${cell}" did not return a function or text (found: ${typeof state
                 .execResult})`);
           sqlDML.push(codeNotebookCell.insertDML({
-            code_notebook_cell_id: nbh.newUlid(),
+            code_notebook_cell_id: nbh.sqlEngineNewUlid,
             notebook_kernel_id: kernelID,
             notebook_name: notebookName,
             cell_name: cell, // the class's method name is the "cell"
@@ -1190,7 +1185,7 @@ export class SqlNotebooksOrchestrator<EmitContext extends SQLa.SqlEmitContext> {
     };
     return [
       codeNotebookCell.insertDML({
-        code_notebook_cell_id: this.nbh.newUlid(),
+        code_notebook_cell_id: this.nbh.sqlEngineNewUlid,
         notebook_kernel_id: "PlantUML",
         notebook_name: SqlNotebooksOrchestrator.prototype.constructor.name,
         cell_name: "surveilrInfoSchemaDiagram",
@@ -1198,7 +1193,7 @@ export class SqlNotebooksOrchestrator<EmitContext extends SQLa.SqlEmitContext> {
         interpretable_code_hash: await gitLikeHash(surveilrInfoSchemaDiagram),
       }, options),
       codeNotebookCell.insertDML({
-        code_notebook_cell_id: this.nbh.newUlid(),
+        code_notebook_cell_id: this.nbh.sqlEngineNewUlid,
         notebook_kernel_id: "PlantUML",
         notebook_name: SqlNotebooksOrchestrator.prototype.constructor.name,
         cell_name: "notebooksInfoSchemaDiagram",
@@ -1298,7 +1293,7 @@ export class SqlNotebooksOrchestrator<EmitContext extends SQLa.SqlEmitContext> {
               : `storeNotebookCellsDML "${cell}" did not return SQL (found: ${typeof state
                 .execResult})`;
           sqlDML.push(codeNotebookCell.insertDML({
-            code_notebook_cell_id: this.nbh.newUlid(),
+            code_notebook_cell_id: this.nbh.sqlEngineNewUlid,
             notebook_kernel_id: "SQL",
             notebook_name: notebookName,
             cell_name: cell, // the class's method name is the "cell"
