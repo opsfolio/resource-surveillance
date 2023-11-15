@@ -31,7 +31,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-                toolchain: [stable]
+        toolchain: [stable]
         triple:
           - { target: x86_64-apple-darwin, cross: false }
     steps:
