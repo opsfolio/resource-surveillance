@@ -27,7 +27,17 @@ async function CLI() {
         ),
       },
     )
-    .action(async ({ sqlHome }) => {
+    .option(
+      "--tbls-conf-home <path:string>",
+      "Store the generated SQL in the provided directory",
+      {
+        default: path.relative(
+          Deno.cwd(),
+          path.fromFileUrl(import.meta.resolve("../../support/docs")),
+        ),
+      },
+    )
+    .action(async ({ sqlHome, tblsConfHome }) => {
       const sqlPageNB = nbooks.SQLPageNotebook.create(sno.nbh);
       const initSQL = nbh.SQL`
         ${sno.bootstrapNB.bootstrapDDL()}
@@ -45,6 +55,13 @@ async function CLI() {
         path.join(sqlHome, "bootstrap.sql"),
         initSQL.SQL(sno.nbh.emitCtx),
       );
+
+      for (const tc of sno.tblsYAML()) {
+        await Deno.writeTextFile(
+          path.join(tblsConfHome, tc.identity),
+          tc.configYAML,
+        );
+      }
     })
     .command("help", new cliffy.HelpCommand().global())
     .command("completions", new cliffy.CompletionsCommand())

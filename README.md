@@ -136,16 +136,14 @@ capability.
 
 ![Architecture](support/docs/architecture.drawio.svg)
 
-Device Uniform Resource ER Diagram (generated from
-`surveilr notebooks cat --cell surveilrInfoSchemaDiagram`) without housekeeping
-columns:
+- [SQLite Notebooks Schema Documentation](support/docs/surveilr-state-schema/README.md)
+- [SQLite State Schema Documentation](support/docs/surveilr-code-notebooks-schema/README.md)
 
-![Uniform Resource ER Diagram](support/docs/device-ur-er-diagram.png)
+To generate schema docs:
 
-Administrative Code Notebooks ER Diagram (generated from
-`surveilr notebooks cat --cell notebooksInfoSchemaDiagram`):
-
-![Notebooks ER Diagram](support/docs/notebooks-er-diagram.png)
+```bash
+$ just tbls
+```
 
 ## Development
 

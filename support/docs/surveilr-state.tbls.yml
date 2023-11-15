@@ -1,0 +1,62 @@
+format:
+  adjust: true
+  hideColumnsWithoutValues:
+    - Parents
+    - Children
+er:
+  hideDef: true
+  distance: 2
+name: Resource Surveillance State Schema
+exclude:
+  - code_notebook_kernel
+  - code_notebook_cell
+  - code_notebook_state
+comments:
+  - table: device
+    tableComment: ''
+    columnComments:
+      device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      state: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      segmentation: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      state_sysinfo: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
+  - table: ur_walk_session
+    tableComment: ''
+    columnComments:
+      ur_walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      walk_started_at: >-
+        {"isSqlDomainZodDescrMeta":true,"isDateSqlDomain":true,"isDateTime":true}
+      walk_finished_at: >-
+        {"isSqlDomainZodDescrMeta":true,"isDateSqlDomain":true,"isDateTime":true}
+      elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
+  - table: ur_walk_session_path
+    tableComment: ''
+    columnComments:
+      ur_walk_session_path_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
+  - table: uniform_resource
+    tableComment: ''
+    columnComments:
+      uniform_resource_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      walk_path_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      content: '{"isSqlDomainZodDescrMeta":true,"isBlobText":true}'
+      content_fm_body_attrs: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      frontmatter: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
+  - table: ur_walk_session_path_fs_entry
+    tableComment: ''
+    columnComments:
+      ur_walk_session_path_fs_entry_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      walk_path_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      uniform_resource_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'

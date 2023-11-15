@@ -1,4 +1,26 @@
-import { SQLa, SQLa_tp as tp } from "./deps.ts";
+import { SQLa, SQLa_tp as tp, whitespace as ws } from "./deps.ts";
+
+// we want to auto-unindent our string literals and remove initial newline
+export const markdown = (
+  literals: TemplateStringsArray,
+  ...expressions: unknown[]
+) => {
+  const literalSupplier = ws.whitespaceSensitiveTemplateLiteralSupplier(
+    literals,
+    expressions,
+    {
+      unindent: true,
+      removeInitialNewLine: true,
+    },
+  );
+  let interpolated = "";
+  for (let i = 0; i < expressions.length; i++) {
+    interpolated += literalSupplier(i);
+    interpolated += String(expressions[i]);
+  }
+  interpolated = literalSupplier(literals.length - 1);
+  return interpolated;
+};
 
 /**
  * Encapsulate the keys, domains, templateState, and other model "governance"
@@ -41,13 +63,13 @@ export function codeNotebooksModels<
   const { keys: gk, domains: gd, model: gm } = modelsGovn;
 
   const codeNotebookKernel = gm.textPkTable("code_notebook_kernel", {
-    code_notebook_kernel_id: gk.textPrimaryKey(), // the kernel identifier for PK/FK purposes
-    kernel_name: gd.text(), // the kernel name for human/display use cases
-    description: gd.textNullable(), // any further description of the kernel for human/display use cases
-    mime_type: gd.textNullable(), // MIME type of this kernel's code in case it will be served
-    file_extn: gd.textNullable(), // the typical file extension for these kernel's codebases, can be used for syntax highlighting, etc.
-    elaboration: gd.jsonTextNullable(), // kernel-specific attributes/properties
-    governance: gd.jsonTextNullable(), // kernel-specific governance data
+    code_notebook_kernel_id: gk.textPrimaryKey(),
+    kernel_name: gd.text(),
+    description: gd.textNullable(),
+    mime_type: gd.textNullable(),
+    file_extn: gd.textNullable(),
+    elaboration: gd.jsonTextNullable(),
+    governance: gd.jsonTextNullable(),
     ...gm.housekeeping.columns, // activity_log should store previous versions in JSON format (for history tracking)
   }, {
     isIdempotent: true,
@@ -56,6 +78,32 @@ export function codeNotebooksModels<
       return [
         c.unique("kernel_name"),
       ];
+    },
+    populateQS: (t, c, _, tableName) => {
+      t.description = markdown`
+        A Notebook is a group of Cells. A kernel is a computational engine that executes the code contained in a notebook cell. 
+        Each notebook is associated with a kernel of a specific programming language or code transformer which can interpret
+        code and produce a result. For example, a SQL notebook might use a SQLite kernel for running SQL code and an AI Prompt
+        might prepare AI prompts for LLMs.`;
+      c.code_notebook_kernel_id.description =
+        `${tableName} primary key and internal label (not a ULID)`;
+      c.kernel_name.description = `the kernel name for human/display use cases`;
+      c.description.description =
+        `any further description of the kernel for human/display use cases`;
+      c.mime_type.description =
+        `MIME type of this kernel's code in case it will be served`;
+      c.file_extn.description =
+        `the typical file extension for these kernel's codebases, can be used for syntax highlighting, etc.`;
+      c.elaboration.description = `kernel-specific attributes/properties`;
+      c.governance.description = `kernel-specific governance data`;
+    },
+
+    qualitySystem: {
+      description: markdown`
+          A Notebook is a group of Cells. A kernel is a computational engine that executes the code contained in a notebook cell. 
+          Each notebook is associated with a kernel of a specific programming language or code transformer which can interpret
+          code and produce a result. For example, a SQL notebook might use a SQLite kernel for running SQL code and an AI Prompt
+          might prepare AI prompts for LLMs.`,
     },
   });
 
@@ -70,7 +118,7 @@ export function codeNotebooksModels<
     notebook_kernel_id: codeNotebookKernel.references.code_notebook_kernel_id(),
     notebook_name: gd.text(),
     cell_name: gd.text(),
-    cell_governance: gd.jsonTextNullable(), // any idempotency, versioning, hash, branch, tag or other "governance" data (dependent on the cell)
+    cell_governance: gd.jsonTextNullable(),
     interpretable_code: gd.text(),
     interpretable_code_hash: gd.text(),
     description: gd.textNullable(),
@@ -84,17 +132,28 @@ export function codeNotebooksModels<
         c.unique("notebook_name", "cell_name", "interpretable_code_hash"),
       ];
     },
+    populateQS: (t, c, _, tableName) => {
+      t.description = markdown`
+        Each Notebook is divided into cells, which are individual units of interpretable code.
+        The content of Cells depends on the Notebook Kernel and contain the source code to be
+        executed by the Notebook's Kernel. The output of the code (text, graphics, etc.) can be
+        stateless or may be stateful and store its results and state transitions in code_notebook_state.`;
+      c.code_notebook_cell_id.description = `${tableName} primary key`;
+      c.cell_governance.description =
+        `any idempotency, versioning, hash, branch, tag or other "governance" data (dependent on the cell)`;
+    },
   });
 
   const codeNotebookState = gm.textPkTable("code_notebook_state", {
     code_notebook_state_id: gk.textPrimaryKey(),
     code_notebook_cell_id: codeNotebookCell.references
       .code_notebook_cell_id(),
-    from_state: gd.text(), // the previous state (set to "INITIAL" when it's the first transition)
-    to_state: gd.text(), // the current state; if no rows exist it means no state transition occurred
-    transition_reason: gd.textNullable(), // short text or code explaining why the transition occurred
-    transitioned_at: gd.createdAt(), // stores when the transition occurred
-    elaboration: gd.jsonTextNullable(), // any elaboration needed for the state transition
+    from_state: gd.text(),
+    to_state: gd.text(),
+    transition_result: gd.jsonTextNullable(),
+    transition_reason: gd.textNullable(),
+    transitioned_at: gd.createdAt(),
+    elaboration: gd.jsonTextNullable(),
     ...gm.housekeeping.columns, // activity_log should store previous versions in JSON format (for history tracking)
   }, {
     isIdempotent: true,
@@ -103,6 +162,26 @@ export function codeNotebooksModels<
       return [
         c.unique("code_notebook_cell_id", "from_state", "to_state"),
       ];
+    },
+    populateQS: (t, c, _, tableName) => {
+      t.description = markdown`
+        Records the state of a notebook's cells' executions, computations, and results for Kernels that are stateful. 
+        For example, a SQL Notebook Cell that creates tables should only be run once (meaning it's statefule). 
+        Other Kernels might store results for functions and output defined in one cell can be used in later cells.`;
+      c.code_notebook_state_id.description = `${tableName} primary key`;
+      c.code_notebook_cell_id.description =
+        `${codeNotebookCell.tableName} row this state describes`;
+      c.from_state.description =
+        `the previous state (set to "INITIAL" when it's the first transition)`;
+      c.to_state.description =
+        `the current state; if no rows exist it means no state transition occurred`;
+      c.transition_result.description =
+        `if the result of state change is necessary for future use`;
+      c.transition_reason.description =
+        `short text or code explaining why the transition occurred`;
+      c.transitioned_at.description = `when the transition occurred`;
+      c.elaboration.description =
+        `any elaboration needed for the state transition`;
     },
   });
 
