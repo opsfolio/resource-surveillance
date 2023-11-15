@@ -1,4 +1,5 @@
 import { chainNB, SQLa, SQLa_tp as typical, ulid } from "./deps.ts";
+import * as tbls from "./tbls.ts";
 import * as m from "./models.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -827,7 +828,13 @@ export class SQLPageNotebook<EmitContext extends SQLa.SqlEmitContext>
           path: gk.textPrimaryKey(),
           contents: gd.text(),
           last_modified: gd.createdAt(),
-        }, { isIdempotent: true });
+        }, {
+          isIdempotent: true,
+          qualitySystem: {
+            description: m.markdown`
+              [SQLPage](https://sql.ophir.dev/) app server content`,
+          },
+        });
         const ctx = nbh.emitCtx;
         const seedSQL: SQLa.SqlTextSupplier<EmitContext>[] = [sqlPageFiles];
         irs.runState.eventEmitter.afterCell = (cell, state) => {
@@ -1222,6 +1229,51 @@ export class SqlNotebooksOrchestrator<EmitContext extends SQLa.SqlEmitContext> {
       cells.push({ notebook: "assurance", cell: cell.nbCellID });
     });
     return cells;
+  }
+
+  tblsYAML() {
+    const { models, models: { codeNbModels } } = this.nbh;
+    const notebooksTables = codeNbModels.informationSchema.tables.map((t) =>
+      t.tableName
+    );
+    const defaultConf: tbls.TblsConfig = {
+      format: {
+        adjust: true,
+        hideColumnsWithoutValues: ["Parents", "Children"],
+      },
+      er: { hideDef: true, distance: 2 },
+    };
+    return [{
+      identity: "surveilr-state.tbls.yml",
+      configYAML: tbls.tblsConfig({
+        ...defaultConf,
+        name: "Resource Surveillance State Schema",
+        exclude: notebooksTables,
+        comments: models.informationSchema.tables.map((t) => ({
+          table: t.tableName,
+          tableComment: t.tblQualitySystem?.description ?? "",
+          columnComments: t.columnsQS?.reduce?.((acc, obj) => {
+            acc[obj.identity] = obj.qualitySystem.description;
+            return acc;
+          }, {} as Record<string, string>) ?? {},
+        })),
+      }),
+    }, {
+      identity: "surveilr-code-notebooks.tbls.yml",
+      configYAML: tbls.tblsConfig({
+        ...defaultConf,
+        name: "Resource Surveillance Notebooks Schema",
+        include: notebooksTables,
+        comments: codeNbModels.informationSchema.tables.map((t) => ({
+          table: t.tableName,
+          tableComment: t.tblQualitySystem?.description ?? "",
+          columnComments: t.columnsQS?.reduce?.((acc, obj) => {
+            acc[obj.identity] = obj.qualitySystem.description;
+            return acc;
+          }, {} as Record<string, string>) ?? {},
+        })),
+      }),
+    }];
   }
 
   async storeNotebookCellsDML() {
