@@ -2,6 +2,8 @@
 
 ## Description
 
+Contains entries related to file system content walk paths. On multiple executions,  unlike uniform_resource, ur_walk_session_path_fs_entry rows are always inserted and   references the uniform_resource primary key of its related content.  This method allows for a more efficient query of file version differences across  sessions. With SQL queries, you can detect which sessions have a file added or modified,   which sessions have a file deleted, and what the differences are in file contents  if they were modified across sessions.
+
 <details>
 <summary><strong>Table Definition</strong></summary>
 

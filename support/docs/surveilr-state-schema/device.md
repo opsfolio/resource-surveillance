@@ -2,6 +2,8 @@
 
 ## Description
 
+Identity, network segmentation, and sysinfo for devices on which uniform_resource are found
+
 <details>
 <summary><strong>Table Definition</strong></summary>
 
@@ -29,22 +31,22 @@ CREATE TABLE "device" (
 
 ## Columns
 
-| Name          | Type      | Default           | Nullable | Children                                                                      | Comment                                                 |
-| ------------- | --------- | ----------------- | -------- | ----------------------------------------------------------------------------- | ------------------------------------------------------- |
-| device_id     | ULID      |                   | false    | [ur_walk_session](ur_walk_session.md) [uniform_resource](uniform_resource.md) | {"isSqlDomainZodDescrMeta":true,"isUlid":true}          |
-| name          | TEXT      |                   | false    |                                                                               |                                                         |
-| state         | TEXT      |                   | false    |                                                                               | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |
-| boundary      | TEXT      |                   | false    |                                                                               |                                                         |
-| segmentation  | TEXT      |                   | true     |                                                                               | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |
-| state_sysinfo | TEXT      |                   | true     |                                                                               | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |
-| elaboration   | TEXT      |                   | true     |                                                                               | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |
-| created_at    | TIMESTAMP | CURRENT_TIMESTAMP | true     |                                                                               |                                                         |
-| created_by    | TEXT      | 'UNKNOWN'         | true     |                                                                               |                                                         |
-| updated_at    | TIMESTAMP |                   | true     |                                                                               |                                                         |
-| updated_by    | TEXT      |                   | true     |                                                                               |                                                         |
-| deleted_at    | TIMESTAMP |                   | true     |                                                                               |                                                         |
-| deleted_by    | TEXT      |                   | true     |                                                                               |                                                         |
-| activity_log  | TEXT      |                   | true     |                                                                               | {"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true} |
+| Name          | Type      | Default           | Nullable | Children                                                                      | Comment                                                                                          |
+| ------------- | --------- | ----------------- | -------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| device_id     | ULID      |                   | false    | [ur_walk_session](ur_walk_session.md) [uniform_resource](uniform_resource.md) | {"isSqlDomainZodDescrMeta":true,"isUlid":true}                                                   |
+| name          | TEXT      |                   | false    |                                                                               | unique device identifier (defaults to hostname)                                                  |
+| state         | TEXT      |                   | false    |                                                                               | should be "SINGLETON" if only one state is allowed, or other tags if multiple states are allowed |
+| boundary      | TEXT      |                   | false    |                                                                               | can be IP address, VLAN, or any other device name differentiator                                 |
+| segmentation  | TEXT      |                   | true     |                                                                               | zero trust or other network segmentation                                                         |
+| state_sysinfo | TEXT      |                   | true     |                                                                               | any sysinfo or other state data that is specific to this device (mutable)                        |
+| elaboration   | TEXT      |                   | true     |                                                                               | any elaboration needed for the device (mutable)                                                  |
+| created_at    | TIMESTAMP | CURRENT_TIMESTAMP | true     |                                                                               |                                                                                                  |
+| created_by    | TEXT      | 'UNKNOWN'         | true     |                                                                               |                                                                                                  |
+| updated_at    | TIMESTAMP |                   | true     |                                                                               |                                                                                                  |
+| updated_by    | TEXT      |                   | true     |                                                                               |                                                                                                  |
+| deleted_at    | TIMESTAMP |                   | true     |                                                                               |                                                                                                  |
+| deleted_by    | TEXT      |                   | true     |                                                                               |                                                                                                  |
+| activity_log  | TEXT      |                   | true     |                                                                               | {"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}                                          |
 
 ## Constraints
 

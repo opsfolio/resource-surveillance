@@ -13,16 +13,39 @@ exclude:
   - code_notebook_state
 comments:
   - table: device
-    tableComment: ''
+    tableComment: >-
+      Identity, network segmentation, and sysinfo for devices on which
+      uniform_resource are found
     columnComments:
       device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      state: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
-      segmentation: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
-      state_sysinfo: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
-      elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      name: unique device identifier (defaults to hostname)
+      state: >-
+        should be "SINGLETON" if only one state is allowed, or other tags if
+        multiple states are allowed
+      boundary: 'can be IP address, VLAN, or any other device name differentiator'
+      segmentation: zero trust or other network segmentation
+      state_sysinfo: >-
+        any sysinfo or other state data that is specific to this device
+        (mutable)
+      elaboration: any elaboration needed for the device (mutable)
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
   - table: ur_walk_session
-    tableComment: ''
+    tableComment: >-
+      Immutable FileSystem Walk Sessions Represents a single file system scan
+      (or
+
+      "walk") session. Each time a directory is scanned for files and entries, a
+
+      record is created here. ur_walk_session has a foreign key reference to the
+
+      device table so that the same device can be used for multiple walk
+      sessions
+
+      but also the walk sessions can be merged across workstations / servers for
+      easier
+
+      detection of changes and similaries between file systems on different
+      devices.
     columnComments:
       ur_walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
@@ -33,14 +56,22 @@ comments:
       elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
   - table: ur_walk_session_path
-    tableComment: ''
+    tableComment: |-
+      Stores file system content walk paths associated with a particular
+      session and may have one or more root paths per session.
     columnComments:
       ur_walk_session_path_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
   - table: uniform_resource
-    tableComment: ''
+    tableComment: |-
+      Records file system content information. On multiple executions,
+      uniform_resource are inserted only if the the file content (see unique 
+      index for details). For historical logging, uniform_resource has foreign
+      key references to both ur_walk_session and ur_walk_session_path
+      tables to indicate which particular session and walk path the
+      resourced was inserted during.
     columnComments:
       uniform_resource_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
@@ -52,7 +83,25 @@ comments:
       elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
   - table: ur_walk_session_path_fs_entry
-    tableComment: ''
+    tableComment: >-
+      Contains entries related to file system content walk paths. On multiple
+      executions,
+
+      unlike uniform_resource, ur_walk_session_path_fs_entry rows are always
+      inserted and 
+
+      references the uniform_resource primary key of its related content.
+
+      This method allows for a more efficient query of file version differences
+      across
+
+      sessions. With SQL queries, you can detect which sessions have a file
+      added or modified, 
+
+      which sessions have a file deleted, and what the differences are in file
+      contents
+
+      if they were modified across sessions.
     columnComments:
       ur_walk_session_path_fs_entry_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'

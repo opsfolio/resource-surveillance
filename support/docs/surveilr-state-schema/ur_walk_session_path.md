@@ -2,6 +2,9 @@
 
 ## Description
 
+Stores file system content walk paths associated with a particular  
+session and may have one or more root paths per session.
+
 <details>
 <summary><strong>Table Definition</strong></summary>
 

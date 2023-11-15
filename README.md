@@ -136,8 +136,8 @@ capability.
 
 ![Architecture](support/docs/architecture.drawio.svg)
 
-- [SQLite Notebooks Schema Documentation](support/docs/surveilr-state-schema/README.md)
-- [SQLite State Schema Documentation](support/docs/surveilr-code-notebooks-schema/README.md)
+- [SQLite State Schema Documentation](support/docs/surveilr-state-schema/README.md)
+- [SQLite Notebooks Schema Documentation](support/docs/surveilr-code-notebooks-schema/README.md)
 
 To generate schema docs:
 

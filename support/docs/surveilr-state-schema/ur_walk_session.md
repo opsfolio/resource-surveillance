@@ -2,6 +2,8 @@
 
 ## Description
 
+Immutable FileSystem Walk Sessions Represents a single file system scan (or  "walk") session. Each time a directory is scanned for files and entries, a  record is created here. ur_walk_session has a foreign key reference to the  device table so that the same device can be used for multiple walk sessions  but also the walk sessions can be merged across workstations / servers for easier  detection of changes and similaries between file systems on different devices.
+
 <details>
 <summary><strong>Table Definition</strong></summary>
 

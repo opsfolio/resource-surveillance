@@ -2,6 +2,13 @@
 
 ## Description
 
+Records file system content information. On multiple executions,  
+uniform_resource are inserted only if the the file content (see unique   
+index for details). For historical logging, uniform_resource has foreign  
+key references to both ur_walk_session and ur_walk_session_path  
+tables to indicate which particular session and walk path the  
+resourced was inserted during.
+
 <details>
 <summary><strong>Table Definition</strong></summary>
 
