@@ -1,6 +1,6 @@
 #!/usr/bin/env -S deno run --allow-read --allow-write --allow-env --allow-run --allow-sys
 
-import { cliffy, path, SQLa } from "./deps.ts";
+import { cliffy, path, SQLa, yaml } from "./deps.ts";
 import * as nbooks from "./notebooks.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -59,7 +59,7 @@ async function CLI() {
       for (const tc of sno.tblsYAML()) {
         await Deno.writeTextFile(
           path.join(tblsConfHome, tc.identity),
-          tc.configYAML,
+          yaml.stringify(tc.emit),
         );
       }
     })

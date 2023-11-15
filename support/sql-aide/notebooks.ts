@@ -1,5 +1,4 @@
-import { chainNB, SQLa, SQLa_tp as typical } from "./deps.ts";
-import * as tbls from "./tbls.ts";
+import { chainNB, SQLa, SQLa_tp as typical, tbls } from "./deps.ts";
 import * as m from "./models.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -1227,48 +1226,33 @@ export class SqlNotebooksOrchestrator<EmitContext extends SQLa.SqlEmitContext> {
   }
 
   tblsYAML() {
-    const { models, models: { codeNbModels } } = this.nbh;
-    const notebooksTables = codeNbModels.informationSchema.tables.map((t) =>
-      t.tableName
-    );
-    const defaultConf: tbls.TblsConfig = {
-      format: {
-        adjust: true,
-        hideColumnsWithoutValues: ["Parents", "Children"],
+    const { nbh: { models, models: { codeNbModels } } } = this;
+    return [
+      {
+        identity: "surveilr-state.tbls.yml",
+        emit: tbls.tblsConfig(
+          function* () {
+            for (const table of models.informationSchema.tables) {
+              yield table;
+            }
+          },
+          tbls.defaultTblsOptions(),
+          { name: "Resource Surveillance State Schema" },
+        ),
       },
-      er: { hideDef: true, distance: 2 },
-    };
-    return [{
-      identity: "surveilr-state.tbls.yml",
-      configYAML: tbls.tblsConfig({
-        ...defaultConf,
-        name: "Resource Surveillance State Schema",
-        exclude: notebooksTables,
-        comments: models.informationSchema.tables.map((t) => ({
-          table: t.tableName,
-          tableComment: t.tblQualitySystem?.description ?? "",
-          columnComments: t.columnsQS?.reduce?.((acc, obj) => {
-            acc[obj.identity] = obj.qualitySystem.description;
-            return acc;
-          }, {} as Record<string, string>) ?? {},
-        })),
-      }),
-    }, {
-      identity: "surveilr-code-notebooks.tbls.yml",
-      configYAML: tbls.tblsConfig({
-        ...defaultConf,
-        name: "Resource Surveillance Notebooks Schema",
-        include: notebooksTables,
-        comments: codeNbModels.informationSchema.tables.map((t) => ({
-          table: t.tableName,
-          tableComment: t.tblQualitySystem?.description ?? "",
-          columnComments: t.columnsQS?.reduce?.((acc, obj) => {
-            acc[obj.identity] = obj.qualitySystem.description;
-            return acc;
-          }, {} as Record<string, string>) ?? {},
-        })),
-      }),
-    }];
+      {
+        identity: "surveilr-code-notebooks.tbls.yml",
+        emit: tbls.tblsConfig(
+          function* () {
+            for (const table of codeNbModels.informationSchema.tables) {
+              yield table;
+            }
+          },
+          tbls.defaultTblsOptions(),
+          { name: "Resource Surveillance Notebooks Schema" },
+        ),
+      },
+    ];
   }
 
   async storeNotebookCellsDML() {

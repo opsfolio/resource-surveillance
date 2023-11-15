@@ -6,16 +6,15 @@ format:
 er:
   hideDef: true
   distance: 2
+include:
+  - device
+  - ur_walk_session
+  - ur_walk_session_path
+  - uniform_resource
+  - ur_walk_session_path_fs_entry
 name: Resource Surveillance State Schema
-exclude:
-  - code_notebook_kernel
-  - code_notebook_cell
-  - code_notebook_state
 comments:
   - table: device
-    tableComment: >-
-      Identity, network segmentation, and sysinfo for devices on which
-      uniform_resource are found
     columnComments:
       device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       name: unique device identifier (defaults to hostname)
@@ -29,7 +28,19 @@ comments:
         (mutable)
       elaboration: any elaboration needed for the device (mutable)
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
+    tableComment: >-
+      Identity, network segmentation, and sysinfo for devices on which
+      uniform_resource are found
   - table: ur_walk_session
+    columnComments:
+      ur_walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      walk_started_at: >-
+        {"isSqlDomainZodDescrMeta":true,"isDateSqlDomain":true,"isDateTime":true}
+      walk_finished_at: >-
+        {"isSqlDomainZodDescrMeta":true,"isDateSqlDomain":true,"isDateTime":true}
+      elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: >-
       Immutable FileSystem Walk Sessions Represents a single file system scan
       (or
@@ -46,32 +57,16 @@ comments:
 
       detection of changes and similaries between file systems on different
       devices.
-    columnComments:
-      ur_walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      walk_started_at: >-
-        {"isSqlDomainZodDescrMeta":true,"isDateSqlDomain":true,"isDateTime":true}
-      walk_finished_at: >-
-        {"isSqlDomainZodDescrMeta":true,"isDateSqlDomain":true,"isDateTime":true}
-      elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
-      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
   - table: ur_walk_session_path
-    tableComment: |-
-      Stores file system content walk paths associated with a particular
-      session and may have one or more root paths per session.
     columnComments:
       ur_walk_session_path_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
-  - table: uniform_resource
     tableComment: |-
-      Records file system content information. On multiple executions,
-      uniform_resource are inserted only if the the file content (see unique 
-      index for details). For historical logging, uniform_resource has foreign
-      key references to both ur_walk_session and ur_walk_session_path
-      tables to indicate which particular session and walk path the
-      resourced was inserted during.
+      Stores file system content walk paths associated with a particular
+      session and may have one or more root paths per session.
+  - table: uniform_resource
     columnComments:
       uniform_resource_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
@@ -82,7 +77,21 @@ comments:
       frontmatter: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
+    tableComment: |-
+      Records file system content information. On multiple executions,
+      uniform_resource are inserted only if the the file content (see unique 
+      index for details). For historical logging, uniform_resource has foreign
+      key references to both ur_walk_session and ur_walk_session_path
+      tables to indicate which particular session and walk path the
+      resourced was inserted during.
   - table: ur_walk_session_path_fs_entry
+    columnComments:
+      ur_walk_session_path_fs_entry_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      walk_path_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      uniform_resource_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: >-
       Contains entries related to file system content walk paths. On multiple
       executions,
@@ -102,10 +111,3 @@ comments:
       contents
 
       if they were modified across sessions.
-    columnComments:
-      ur_walk_session_path_fs_entry_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      walk_path_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      uniform_resource_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
-      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'

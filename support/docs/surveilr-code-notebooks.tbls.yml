@@ -6,24 +6,13 @@ format:
 er:
   hideDef: true
   distance: 2
-name: Resource Surveillance Notebooks Schema
 include:
   - code_notebook_kernel
   - code_notebook_cell
   - code_notebook_state
+name: Resource Surveillance Notebooks Schema
 comments:
   - table: code_notebook_kernel
-    tableComment: >-
-      A Notebook is a group of Cells. A kernel is a computational engine that
-      executes the code contained in a notebook cell. 
-
-      Each notebook is associated with a kernel of a specific programming
-      language or code transformer which can interpret
-
-      code and produce a result. For example, a SQL notebook might use a SQLite
-      kernel for running SQL code and an AI Prompt
-
-      might prepare AI prompts for LLMs.
     columnComments:
       code_notebook_kernel_id: code_notebook_kernel primary key and internal label (not a ULID)
       kernel_name: the kernel name for human/display use cases
@@ -35,7 +24,25 @@ comments:
       elaboration: kernel-specific attributes/properties
       governance: kernel-specific governance data
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
+    tableComment: >-
+      A Notebook is a group of Cells. A kernel is a computational engine that
+      executes the code contained in a notebook cell. 
+
+      Each notebook is associated with a kernel of a specific programming
+      language or code transformer which can interpret
+
+      code and produce a result. For example, a SQL notebook might use a SQLite
+      kernel for running SQL code and an AI Prompt
+
+      might prepare AI prompts for LLMs.
   - table: code_notebook_cell
+    columnComments:
+      code_notebook_cell_id: code_notebook_cell primary key
+      cell_governance: >-
+        any idempotency, versioning, hash, branch, tag or other "governance"
+        data (dependent on the cell)
+      arguments: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: >-
       Each Notebook is divided into cells, which are individual units of
       interpretable code.
@@ -48,23 +55,7 @@ comments:
 
       stateless or may be stateful and store its results and state transitions
       in code_notebook_state.
-    columnComments:
-      code_notebook_cell_id: code_notebook_cell primary key
-      cell_governance: >-
-        any idempotency, versioning, hash, branch, tag or other "governance"
-        data (dependent on the cell)
-      arguments: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
-      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
   - table: code_notebook_state
-    tableComment: >-
-      Records the state of a notebook's cells' executions, computations, and
-      results for Kernels that are stateful. 
-
-      For example, a SQL Notebook Cell that creates tables should only be run
-      once (meaning it's statefule). 
-
-      Other Kernels might store results for functions and output defined in one
-      cell can be used in later cells.
     columnComments:
       code_notebook_state_id: code_notebook_state primary key
       code_notebook_cell_id: code_notebook_cell row this state describes
@@ -77,3 +68,12 @@ comments:
       transitioned_at: when the transition occurred
       elaboration: any elaboration needed for the state transition
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
+    tableComment: >-
+      Records the state of a notebook's cells' executions, computations, and
+      results for Kernels that are stateful. 
+
+      For example, a SQL Notebook Cell that creates tables should only be run
+      once (meaning it's statefule). 
+
+      Other Kernels might store results for functions and output defined in one
+      cell can be used in later cells.
