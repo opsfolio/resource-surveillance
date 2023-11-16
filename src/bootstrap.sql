@@ -218,6 +218,8 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session_path_fs_entry" (
     "file_path_rel" TEXT NOT NULL,
     "file_basename" TEXT NOT NULL,
     "file_extn" TEXT,
+    "ur_status" TEXT,
+    "ur_status_explanation" TEXT CHECK(json_valid(ur_status_explanation) OR ur_status_explanation IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
@@ -235,7 +237,7 @@ CREATE INDEX IF NOT EXISTS "idx_device__name__state" ON "device"("name", "state"
 CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path__walk_session_id__root_path" ON "ur_walk_session_path"("walk_session_id", "root_path");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource__device_id__uri" ON "uniform_resource"("device_id", "uri");
 CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path_fs_entry__walk_session_id__file_path_abs" ON "ur_walk_session_path_fs_entry"("walk_session_id", "file_path_abs");
-', 'c079cd24b745b1e91d748f6c90a4be2910fb576c', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', '602608928531d85741baae0f229420abc7927cbf', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -313,6 +315,32 @@ CREATE VIEW IF NOT EXISTS "fs_content_walk_session_stats_latest" AS
             ORDER BY ur_walk_session.walk_finished_at DESC
                LIMIT 1) AS latest
         ON fs.walk_session_id = latest.latest_session_id;', 'f2b7a41a567cab6a59d6dc57a223ec053d0f2276', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+            interpretable_code = EXCLUDED.interpretable_code,
+            notebook_kernel_id = EXCLUDED.notebook_kernel_id,
+            updated_at = CURRENT_TIMESTAMP,
+            activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v002_urWalkSessionIssueViewDDL', NULL, 'DROP VIEW IF EXISTS "ur_walk_session_issue";
+CREATE VIEW IF NOT EXISTS "ur_walk_session_issue" AS
+      SELECT us.device_id,
+             us.ur_walk_session_id,
+             usp.ur_walk_session_path_id,
+             usp.root_path,
+             ufs.ur_walk_session_path_fs_entry_id,
+             ufs.file_path_abs,
+             ufs.ur_status,
+             ufs.ur_status_explanation
+        FROM ur_walk_session_path_fs_entry ufs
+        JOIN ur_walk_session_path usp ON ufs.walk_path_id = usp.ur_walk_session_path_id
+        JOIN ur_walk_session us ON usp.walk_session_id = us.ur_walk_session_id
+       WHERE ufs.ur_status IS NOT NULL
+    GROUP BY us.device_id, 
+             us.ur_walk_session_id, 
+             usp.ur_walk_session_path_id, 
+             usp.root_path, 
+             ufs.ur_walk_session_path_fs_entry_id, 
+             ufs.file_path_abs, 
+             ufs.ur_status, 
+             ufs.ur_status_explanation;', 'ec1c66da7cda8a7b192adbada0b12c98e5b6421a', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -671,6 +699,8 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session_path_fs_entry" (
     "file_path_rel" TEXT NOT NULL,
     "file_basename" TEXT NOT NULL,
     "file_extn" TEXT,
+    "ur_status" TEXT,
+    "ur_status_explanation" TEXT CHECK(json_valid(ur_status_explanation) OR ur_status_explanation IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
@@ -750,7 +780,7 @@ CREATE VIEW IF NOT EXISTS "fs_content_walk_session_stats" AS
         walk_session_finished_at,
         file_extension;
     
-      ', 'c23b748256617172ad708bd76de0d3397cf8e728', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', 'f86e19246d5d254a15b29518d9d2e925c50871d0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -827,6 +857,8 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     * file_path_rel: TEXT
     * file_basename: TEXT
       file_extn: TEXT
+      ur_status: TEXT
+      ur_status_explanation: TEXT
       elaboration: TEXT
   }
 
@@ -838,7 +870,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   ur_walk_session |o..o{ ur_walk_session_path_fs_entry
   ur_walk_session_path |o..o{ ur_walk_session_path_fs_entry
   uniform_resource |o..o{ ur_walk_session_path_fs_entry
-@enduml', '09c4c55a5e00de9e73dbeba438bffecccb8c26fa', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', '6707f453be175f3b3f080e78db3bd780aa958925', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,

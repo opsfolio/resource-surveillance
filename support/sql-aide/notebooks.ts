@@ -457,6 +457,31 @@ export class ConstructionSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
                  LIMIT 1) AS latest
           ON fs.walk_session_id = latest.latest_session_id;`;
   }
+
+  v002_urWalkSessionIssueViewDDL() {
+    // deno-fmt-ignore
+    return this.nbh.viewDefn("ur_walk_session_issue")/* sql */`
+        SELECT us.device_id,
+               us.ur_walk_session_id,
+               usp.ur_walk_session_path_id,
+               usp.root_path,
+               ufs.ur_walk_session_path_fs_entry_id,
+               ufs.file_path_abs,
+               ufs.ur_status,
+               ufs.ur_status_explanation
+          FROM ur_walk_session_path_fs_entry ufs
+          JOIN ur_walk_session_path usp ON ufs.walk_path_id = usp.ur_walk_session_path_id
+          JOIN ur_walk_session us ON usp.walk_session_id = us.ur_walk_session_id
+         WHERE ufs.ur_status IS NOT NULL
+      GROUP BY us.device_id, 
+               us.ur_walk_session_id, 
+               usp.ur_walk_session_path_id, 
+               usp.root_path, 
+               ufs.ur_walk_session_path_fs_entry_id, 
+               ufs.file_path_abs, 
+               ufs.ur_status, 
+               ufs.ur_status_explanation;`
+  }
 }
 
 /**
