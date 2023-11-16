@@ -19,7 +19,7 @@ CREATE TABLE "ur_walk_session_path_fs_entry" (
     "file_basename" TEXT NOT NULL,
     "file_extn" TEXT,
     "ur_status" TEXT,
-    "ur_status_explanation" TEXT CHECK(json_valid(ur_status_explanation) OR ur_status_explanation IS NULL),
+    "ur_diagnostics" TEXT CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT 'UNKNOWN',
@@ -50,7 +50,7 @@ CREATE TABLE "ur_walk_session_path_fs_entry" (
 | file_basename                    | TEXT      |                   | false    |                                                 |                                                         |
 | file_extn                        | TEXT      |                   | true     |                                                 |                                                         |
 | ur_status                        | TEXT      |                   | true     |                                                 |                                                         |
-| ur_status_explanation            | TEXT      |                   | true     |                                                 | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |
+| ur_diagnostics                   | TEXT      |                   | true     |                                                 | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |
 | elaboration                      | TEXT      |                   | true     |                                                 | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |
 | created_at                       | TIMESTAMP | CURRENT_TIMESTAMP | true     |                                                 |                                                         |
 | created_by                       | TEXT      | 'UNKNOWN'         | true     |                                                 |                                                         |
@@ -69,7 +69,7 @@ CREATE TABLE "ur_walk_session_path_fs_entry" (
 | - (Foreign key ID: 1)                            | FOREIGN KEY | FOREIGN KEY (walk_path_id) REFERENCES ur_walk_session_path (ur_walk_session_path_id) ON UPDATE NO ACTION ON DELETE NO ACTION MATCH NONE |
 | - (Foreign key ID: 2)                            | FOREIGN KEY | FOREIGN KEY (walk_session_id) REFERENCES ur_walk_session (ur_walk_session_id) ON UPDATE NO ACTION ON DELETE NO ACTION MATCH NONE        |
 | sqlite_autoindex_ur_walk_session_path_fs_entry_1 | PRIMARY KEY | PRIMARY KEY (ur_walk_session_path_fs_entry_id)                                                                                          |
-| -                                                | CHECK       | CHECK(json_valid(ur_status_explanation) OR ur_status_explanation IS NULL)                                                               |
+| -                                                | CHECK       | CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL)                                                                             |
 | -                                                | CHECK       | CHECK(json_valid(elaboration) OR elaboration IS NULL)                                                                                   |
 
 ## Indexes

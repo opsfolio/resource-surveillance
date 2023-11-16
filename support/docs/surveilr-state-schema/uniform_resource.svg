@@ -280,8 +280,8 @@
 <text text-anchor="start" x="266.5431" y="-3274.9" font-family="Arial" font-size="14.00" fill="#000000">ur_status    </text>
 <text text-anchor="start" x="358.3201" y="-3274.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="259.5431,-3233.5 259.5431,-3263.5 597.5431,-3263.5 597.5431,-3233.5 259.5431,-3233.5"/>
-<text text-anchor="start" x="266.5431" y="-3244.9" font-family="Arial" font-size="14.00" fill="#000000">ur_status_explanation    </text>
-<text text-anchor="start" x="437.6847" y="-3244.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="266.5431" y="-3244.9" font-family="Arial" font-size="14.00" fill="#000000">ur_diagnostics    </text>
+<text text-anchor="start" x="390.9905" y="-3244.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="259.5431,-3203.5 259.5431,-3233.5 597.5431,-3233.5 597.5431,-3203.5 259.5431,-3203.5"/>
 <text text-anchor="start" x="266.5431" y="-3214.9" font-family="Arial" font-size="14.00" fill="#000000">elaboration    </text>
 <text text-anchor="start" x="369.9905" y="-3214.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>

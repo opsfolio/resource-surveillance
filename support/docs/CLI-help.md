@@ -28,7 +28,7 @@ This document contains the help content for the `surveilr` command-line program.
 
 * `--device-name <DEVICE_NAME>` — How to identify this device
 
-  Default value: `Defiant`
+  Default value: `Titan`
 * `-d`, `--debug` — Turn debugging information on (repeat for higher levels)
 
 

@@ -112,7 +112,7 @@ comments:
       walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       walk_path_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       uniform_resource_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      ur_status_explanation: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      ur_diagnostics: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: >-

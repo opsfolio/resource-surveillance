@@ -468,7 +468,7 @@ export class ConstructionSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
                ufs.ur_walk_session_path_fs_entry_id,
                ufs.file_path_abs,
                ufs.ur_status,
-               ufs.ur_status_explanation
+               ufs.ur_diagnostics
           FROM ur_walk_session_path_fs_entry ufs
           JOIN ur_walk_session_path usp ON ufs.walk_path_id = usp.ur_walk_session_path_id
           JOIN ur_walk_session us ON usp.walk_session_id = us.ur_walk_session_id
@@ -480,7 +480,7 @@ export class ConstructionSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
                ufs.ur_walk_session_path_fs_entry_id, 
                ufs.file_path_abs, 
                ufs.ur_status, 
-               ufs.ur_status_explanation;`
+               ufs.ur_diagnostics;`
   }
 }
 

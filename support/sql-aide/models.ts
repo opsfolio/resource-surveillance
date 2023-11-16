@@ -491,7 +491,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       file_basename: gd.text(),
       file_extn: gd.textNullable(),
       ur_status: gd.textNullable(), // either NULL if uniform_resource_id was created, or "ERROR"
-      ur_status_explanation: gd.jsonTextNullable(),
+      ur_diagnostics: gd.jsonTextNullable(), // JSON diagnostics for ur_status column
       elaboration: gd.jsonTextNullable(), // anything that doesn't fit above
       ...gm.housekeeping.columns,
     },

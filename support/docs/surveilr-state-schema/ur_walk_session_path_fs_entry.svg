@@ -48,8 +48,8 @@
 <text text-anchor="start" x="93.9624" y="-2724.9" font-family="Arial" font-size="14.00" fill="#000000">ur_status </text>
 <text text-anchor="start" x="155.4252" y="-2724.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="86.9624,-2683.5 86.9624,-2713.5 424.9624,-2713.5 424.9624,-2683.5 86.9624,-2683.5"/>
-<text text-anchor="start" x="93.9624" y="-2694.9" font-family="Arial" font-size="14.00" fill="#000000">ur_status_explanation </text>
-<text text-anchor="start" x="234.7898" y="-2694.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="93.9624" y="-2694.9" font-family="Arial" font-size="14.00" fill="#000000">ur_diagnostics </text>
+<text text-anchor="start" x="188.0956" y="-2694.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="86.9624,-2653.5 86.9624,-2683.5 424.9624,-2683.5 424.9624,-2653.5 86.9624,-2653.5"/>
 <text text-anchor="start" x="93.9624" y="-2664.9" font-family="Arial" font-size="14.00" fill="#000000">elaboration </text>
 <text text-anchor="start" x="167.0956" y="-2664.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>

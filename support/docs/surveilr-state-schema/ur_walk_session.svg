@@ -346,8 +346,8 @@
 <text text-anchor="start" x="142.8053" y="-3274.9" font-family="Arial" font-size="14.00" fill="#000000">ur_status    </text>
 <text text-anchor="start" x="234.5823" y="-3274.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="135.8053,-3233.5 135.8053,-3263.5 473.8053,-3263.5 473.8053,-3233.5 135.8053,-3233.5"/>
-<text text-anchor="start" x="142.8053" y="-3244.9" font-family="Arial" font-size="14.00" fill="#000000">ur_status_explanation    </text>
-<text text-anchor="start" x="313.9469" y="-3244.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="142.8053" y="-3244.9" font-family="Arial" font-size="14.00" fill="#000000">ur_diagnostics    </text>
+<text text-anchor="start" x="267.2527" y="-3244.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="135.8053,-3203.5 135.8053,-3233.5 473.8053,-3233.5 473.8053,-3203.5 135.8053,-3203.5"/>
 <text text-anchor="start" x="142.8053" y="-3214.9" font-family="Arial" font-size="14.00" fill="#000000">elaboration    </text>
 <text text-anchor="start" x="246.2527" y="-3214.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>

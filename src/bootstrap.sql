@@ -265,7 +265,7 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session_path_fs_entry" (
     "file_basename" TEXT NOT NULL,
     "file_extn" TEXT,
     "ur_status" TEXT,
-    "ur_status_explanation" TEXT CHECK(json_valid(ur_status_explanation) OR ur_status_explanation IS NULL),
+    "ur_diagnostics" TEXT CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
@@ -283,7 +283,7 @@ CREATE INDEX IF NOT EXISTS "idx_device__name__state" ON "device"("name", "state"
 CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path__walk_session_id__root_path" ON "ur_walk_session_path"("walk_session_id", "root_path");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource__device_id__uri" ON "uniform_resource"("device_id", "uri");
 CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path_fs_entry__walk_session_id__file_path_abs" ON "ur_walk_session_path_fs_entry"("walk_session_id", "file_path_abs");
-', '0b9fd1a68f399409c29241dc8a79e0cdaa0d4063', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', '61513bc7e80c20b153a568f9e8c2bad4e6a116dd', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -374,7 +374,7 @@ CREATE VIEW IF NOT EXISTS "ur_walk_session_issue" AS
              ufs.ur_walk_session_path_fs_entry_id,
              ufs.file_path_abs,
              ufs.ur_status,
-             ufs.ur_status_explanation
+             ufs.ur_diagnostics
         FROM ur_walk_session_path_fs_entry ufs
         JOIN ur_walk_session_path usp ON ufs.walk_path_id = usp.ur_walk_session_path_id
         JOIN ur_walk_session us ON usp.walk_session_id = us.ur_walk_session_id
@@ -386,7 +386,7 @@ CREATE VIEW IF NOT EXISTS "ur_walk_session_issue" AS
              ufs.ur_walk_session_path_fs_entry_id, 
              ufs.file_path_abs, 
              ufs.ur_status, 
-             ufs.ur_status_explanation;', 'ec1c66da7cda8a7b192adbada0b12c98e5b6421a', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+             ufs.ur_diagnostics;', '5b248ab0b7f6fafa0ad64a05d4327596e9df0039', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -778,7 +778,7 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session_path_fs_entry" (
     "file_basename" TEXT NOT NULL,
     "file_extn" TEXT,
     "ur_status" TEXT,
-    "ur_status_explanation" TEXT CHECK(json_valid(ur_status_explanation) OR ur_status_explanation IS NULL),
+    "ur_diagnostics" TEXT CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
@@ -858,7 +858,7 @@ CREATE VIEW IF NOT EXISTS "fs_content_walk_session_stats" AS
         walk_session_finished_at,
         file_extension;
     
-      ', '9385294fe2db40abf870d5e174136b6177e02fc7', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', '86767369f23d64d282bb0b996d81261709457ac2', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -945,7 +945,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     * file_basename: TEXT
       file_extn: TEXT
       ur_status: TEXT
-      ur_status_explanation: TEXT
+      ur_diagnostics: TEXT
       elaboration: TEXT
   }
 
@@ -959,7 +959,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   ur_walk_session |o..o{ ur_walk_session_path_fs_entry
   ur_walk_session_path |o..o{ ur_walk_session_path_fs_entry
   uniform_resource |o..o{ ur_walk_session_path_fs_entry
-@enduml', 'f2ef61cfeb35d91261bad2c07f9ba0d711e4dd38', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', '5aad6fff8c722746c9e9a1d34d4abf921bee8931', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,
