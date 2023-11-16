@@ -6,6 +6,309 @@ use crate::fsresource::*;
 use crate::persist::*;
 use crate::resource::*;
 
+pub struct UniformResourceWriterState<'a> {
+    device_id: &'a String,
+    walk_session_id: &'a String,
+    walk_path_id: &'a String,
+}
+
+// TODO: switch the actual URI (first parameter) to an &str? to save memory?
+#[derive(Debug)]
+pub enum UniformResourceWriterAction {
+    Inserted(String),
+    ContentSupplierError(Box<dyn std::error::Error>),
+    ContentUnavailable(),
+    Error(anyhow::Error),
+}
+
+#[derive(Debug)]
+pub struct UniformResourceWriterResult {
+    uri: String,
+    action: UniformResourceWriterAction,
+}
+
+pub trait UniformResourceWriter<Resource> {
+    fn insert(
+        &self,
+        ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        urw_state: &UniformResourceWriterState<'_>,
+    ) -> UniformResourceWriterResult;
+
+    fn insert_text(
+        &self,
+        ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        urw_state: &UniformResourceWriterState<'_>,
+        resource: &ContentResource,
+    ) -> UniformResourceWriterResult {
+        let uri = resource.uri.clone();
+        match resource.content_text_supplier.as_ref() {
+            Some(text_supplier) => match text_supplier() {
+                Ok(text) => match ins_ur_stmt.query_row(
+                    params![
+                        urw_state.device_id,
+                        urw_state.walk_session_id,
+                        urw_state.walk_path_id,
+                        resource.uri,
+                        resource.nature,
+                        text.content_text(),
+                        text.content_digest_hash(),
+                        resource.size,
+                        resource.last_modified_at.unwrap().to_string(),
+                        &None::<String>,
+                        &None::<String>
+                    ],
+                    |row| row.get(0),
+                ) {
+                    Ok(new_or_existing_ur_id) => UniformResourceWriterResult {
+                        uri,
+                        action: UniformResourceWriterAction::Inserted(new_or_existing_ur_id),
+                    },
+                    Err(err) => UniformResourceWriterResult {
+                        uri,
+                        action: UniformResourceWriterAction::Error(err.into()),
+                    },
+                },
+                Err(err) => UniformResourceWriterResult {
+                    uri,
+                    action: UniformResourceWriterAction::ContentSupplierError(err),
+                },
+            },
+            None => UniformResourceWriterResult {
+                uri,
+                action: UniformResourceWriterAction::ContentUnavailable(),
+            },
+        }
+    }
+
+    fn insert_binary(
+        &self,
+        ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        urw_state: &UniformResourceWriterState<'_>,
+        resource: &ContentResource,
+        bc: Box<dyn BinaryContent>,
+    ) -> UniformResourceWriterResult {
+        let uri = resource.uri.clone();
+        match ins_ur_stmt.query_row(
+            params![
+                urw_state.device_id,
+                urw_state.walk_session_id,
+                urw_state.walk_path_id,
+                resource.uri,
+                resource.nature,
+                bc.content_binary(),
+                bc.content_digest_hash(),
+                resource.size,
+                resource.last_modified_at.unwrap().to_string(),
+                &None::<String>,
+                &None::<String>
+            ],
+            |row| row.get(0),
+        ) {
+            Ok(new_or_existing_ur_id) => UniformResourceWriterResult {
+                uri,
+                action: UniformResourceWriterAction::Inserted(new_or_existing_ur_id),
+            },
+            Err(err) => UniformResourceWriterResult {
+                uri,
+                action: UniformResourceWriterAction::Error(err.into()),
+            },
+        }
+    }
+}
+
+// this is the unknown resource content handler
+impl UniformResourceWriter<ContentResource> for ContentResource {
+    fn insert(
+        &self,
+        ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        urw_state: &UniformResourceWriterState<'_>,
+    ) -> UniformResourceWriterResult {
+        let uri = self.uri.clone();
+        match ins_ur_stmt.query_row(
+            params![
+                urw_state.device_id,
+                urw_state.walk_session_id,
+                urw_state.walk_path_id,
+                self.uri,
+                self.nature,
+                &None::<String>,
+                String::from("-"),
+                self.size,
+                self.last_modified_at.unwrap().to_string(),
+                &None::<String>,
+                &None::<String>
+            ],
+            |row| row.get(0),
+        ) {
+            Ok(new_or_existing_ur_id) => UniformResourceWriterResult {
+                uri,
+                action: UniformResourceWriterAction::Inserted(new_or_existing_ur_id),
+            },
+            Err(err) => UniformResourceWriterResult {
+                uri,
+                action: UniformResourceWriterAction::Error(err.into()),
+            },
+        }
+    }
+}
+
+impl UniformResourceWriter<ContentResource> for HtmlResource<ContentResource> {
+    fn insert(
+        &self,
+        ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        urw_state: &UniformResourceWriterState<'_>,
+    ) -> UniformResourceWriterResult {
+        self.insert_text(ins_ur_stmt, urw_state, &self.resource)
+    }
+}
+
+impl UniformResourceWriter<ContentResource> for ImageResource<ContentResource> {
+    fn insert(
+        &self,
+        ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        urw_state: &UniformResourceWriterState<'_>,
+    ) -> UniformResourceWriterResult {
+        let uri = self.resource.uri.clone();
+        match self.resource.content_binary_supplier.as_ref() {
+            Some(image_supplier) => match image_supplier() {
+                Ok(image_src) => {
+                    self.insert_binary(ins_ur_stmt, urw_state, &self.resource, image_src)
+                }
+                Err(err) => UniformResourceWriterResult {
+                    uri,
+                    action: UniformResourceWriterAction::ContentSupplierError(err),
+                },
+            },
+            None => UniformResourceWriterResult {
+                uri,
+                action: UniformResourceWriterAction::ContentUnavailable(),
+            },
+        }
+    }
+}
+
+impl UniformResourceWriter<ContentResource> for JsonResource<ContentResource> {
+    fn insert(
+        &self,
+        ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        urw_state: &UniformResourceWriterState<'_>,
+    ) -> UniformResourceWriterResult {
+        self.insert_text(ins_ur_stmt, urw_state, &self.resource)
+    }
+}
+
+impl UniformResourceWriter<ContentResource> for MarkdownResource<ContentResource> {
+    fn insert(
+        &self,
+        ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        urw_state: &UniformResourceWriterState<'_>,
+    ) -> UniformResourceWriterResult {
+        let uri = self.resource.uri.clone();
+        match self.resource.content_text_supplier.as_ref() {
+            Some(md_supplier) => match md_supplier() {
+                Ok(markdown_src) => {
+                    let mut fm_attrs = None::<String>;
+                    let mut fm_json: Option<String> = None::<String>;
+                    let (_, fm_raw, fm_json_value, fm_body) = markdown_src.frontmatter();
+                    if fm_json_value.is_ok() {
+                        fm_json = Some(serde_json::to_string_pretty(&fm_json_value.ok()).unwrap());
+                        let fm_attrs_value = serde_json::json!({
+                            "frontMatter": fm_raw.unwrap(),
+                            "body": fm_body,
+                            "attrs": fm_json.clone().unwrap()
+                        });
+                        fm_attrs = Some(serde_json::to_string_pretty(&fm_attrs_value).unwrap());
+                    }
+                    let uri = self.resource.uri.to_string();
+                    match ins_ur_stmt.query_row(
+                        params![
+                            urw_state.device_id,
+                            urw_state.walk_session_id,
+                            urw_state.walk_path_id,
+                            self.resource.uri,
+                            self.resource.nature,
+                            markdown_src.content_text(),
+                            markdown_src.content_digest_hash(),
+                            self.resource.size,
+                            self.resource.last_modified_at.unwrap().to_string(),
+                            fm_attrs,
+                            fm_json
+                        ],
+                        |row| row.get(0),
+                    ) {
+                        Ok(new_or_existing_ur_id) => UniformResourceWriterResult {
+                            uri,
+                            action: UniformResourceWriterAction::Inserted(new_or_existing_ur_id),
+                        },
+                        Err(err) => UniformResourceWriterResult {
+                            uri,
+                            action: UniformResourceWriterAction::Error(err.into()),
+                        },
+                    }
+                }
+                Err(err) => UniformResourceWriterResult {
+                    uri,
+                    action: UniformResourceWriterAction::ContentSupplierError(err),
+                },
+            },
+            None => UniformResourceWriterResult {
+                uri,
+                action: UniformResourceWriterAction::ContentUnavailable(),
+            },
+        }
+    }
+}
+
+impl UniformResourceWriter<ContentResource> for SoftwarePackageDxResource<ContentResource> {
+    fn insert(
+        &self,
+        ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        urw_state: &UniformResourceWriterState<'_>,
+    ) -> UniformResourceWriterResult {
+        self.insert_text(ins_ur_stmt, urw_state, &self.resource)
+    }
+}
+
+impl UniformResourceWriter<ContentResource> for SvgResource<ContentResource> {
+    fn insert(
+        &self,
+        ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        urw_state: &UniformResourceWriterState<'_>,
+    ) -> UniformResourceWriterResult {
+        self.insert_text(ins_ur_stmt, urw_state, &self.resource)
+    }
+}
+
+impl UniformResourceWriter<ContentResource> for TestAnythingResource<ContentResource> {
+    fn insert(
+        &self,
+        ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        urw_state: &UniformResourceWriterState<'_>,
+    ) -> UniformResourceWriterResult {
+        self.insert_text(ins_ur_stmt, urw_state, &self.resource)
+    }
+}
+
+impl UniformResourceWriter<ContentResource> for TomlResource<ContentResource> {
+    fn insert(
+        &self,
+        ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        urw_state: &UniformResourceWriterState<'_>,
+    ) -> UniformResourceWriterResult {
+        self.insert_text(ins_ur_stmt, urw_state, &self.resource)
+    }
+}
+
+impl UniformResourceWriter<ContentResource> for YamlResource<ContentResource> {
+    fn insert(
+        &self,
+        ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        urw_state: &UniformResourceWriterState<'_>,
+    ) -> UniformResourceWriterResult {
+        self.insert_text(ins_ur_stmt, urw_state, &self.resource)
+    }
+}
+
 pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
     let db_fs_path = &args.state_db_fs_path;
 
@@ -76,8 +379,8 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                            DO UPDATE SET size_bytes = EXCLUDED.size_bytes
                            RETURNING uniform_resource_id"};
     const INS_UR_FS_ENTRY_SQL: &str = indoc! {"
-        INSERT INTO ur_walk_session_path_fs_entry (ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn) 
-                                           VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?)"};
+        INSERT INTO ur_walk_session_path_fs_entry (ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn, ur_status, ur_status_explanation) 
+                                           VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"};
 
     let walk_session_id: String = tx
         .query_row(
@@ -162,6 +465,12 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                 println!("  Walk Session Path: {root_path} ({walk_path_id})");
             }
 
+            let urw_state = UniformResourceWriterState {
+                device_id: &device_id,
+                walk_session_id: &walk_session_id,
+                walk_path_id: &walk_path_id,
+            };
+
             let rp: Vec<String> = vec![canonical_path.clone()];
             let walker =
                 FileSysResourcesWalker::new(&rp, &args.ignore_entry, &args.surveil_content)
@@ -175,277 +484,50 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
             for resource_result in walker.walk_resources_iter() {
                 match resource_result {
                     Ok(resource) => {
-                        // this value, if all goes well, is set by the value of
-                        // INSERT INTO uniform_resource RETURNING clause.
-                        let uniform_resource_id: String;
-                        let uri: String;
-                        match resource {
+                        let inserted = match resource {
                             UniformResource::Html(html) => {
-                                uri = html.resource.uri.to_string();
-                                // TODO: this will panic if content not available, so test for proper existence not unwrap()!
-                                let html_src =
-                                    html.resource.content_text_supplier.unwrap()().unwrap();
-                                match ins_ur_stmt.query_row(
-                                    params![
-                                        device_id,
-                                        walk_session_id,
-                                        walk_path_id,
-                                        html.resource.uri,
-                                        html.resource.nature,
-                                        html_src.content_text(),
-                                        html_src.content_digest_hash(),
-                                        html.resource.size,
-                                        html.resource.last_modified_at.unwrap().to_string(),
-                                        &None::<String>,
-                                        &None::<String>
-                                    ],
-                                    |row| row.get(0),
-                                ) {
-                                    Ok(new_or_existing_ur_id) => {
-                                        uniform_resource_id = new_or_existing_ur_id
-                                    }
-                                    Err(err) => {
-                                        eprintln!(
-                                            "Error inserting UniformResource::Html for {}: {:?}",
-                                            &uri, err
-                                        );
-                                        continue;
-                                    }
-                                }
-                                // TODO: parse HTML and store HTML <head><meta> as frontmatter
+                                html.insert(&mut ins_ur_stmt, &urw_state)
                             }
                             UniformResource::Json(json) => {
-                                uri = json.resource.uri.to_string();
-                                // TODO: this will panic if content not available, so test for proper existence not unwrap()!
-                                let json_src =
-                                    json.resource.content_text_supplier.unwrap()().unwrap();
-                                match ins_ur_stmt.query_row(
-                                    params![
-                                        device_id,
-                                        walk_session_id,
-                                        walk_path_id,
-                                        json.resource.uri,
-                                        json.resource.nature,
-                                        json_src.content_text(),
-                                        json_src.content_digest_hash(),
-                                        json.resource.size,
-                                        json.resource.last_modified_at.unwrap().to_string(),
-                                        &None::<String>,
-                                        &None::<String>
-                                    ],
-                                    |row| row.get(0),
-                                ) {
-                                    Ok(new_or_existing_ur_id) => {
-                                        uniform_resource_id = new_or_existing_ur_id
-                                    }
-                                    Err(err) => {
-                                        eprintln!(
-                                            "Error inserting UniformResource::Html for {}: {:?}",
-                                            &uri, err
-                                        );
-                                        continue;
-                                    }
-                                }
+                                json.insert(&mut ins_ur_stmt, &urw_state)
                             }
-                            UniformResource::Image(img) => {
-                                uri = img.resource.uri.to_string();
-                                let mut digest_hash: String = String::from("-");
-                                if let Some(img_binary) = img.resource.content_binary_supplier {
-                                    if let Ok(binary_supplier) = img_binary() {
-                                        digest_hash =
-                                            binary_supplier.content_digest_hash().to_string();
-                                    }
-                                }
-                                match ins_ur_stmt.query_row(
-                                    params![
-                                        device_id,
-                                        walk_session_id,
-                                        walk_path_id,
-                                        img.resource.uri,
-                                        img.resource.nature,
-                                        &None::<String>, // TODO: should we store the binaries?
-                                        digest_hash,
-                                        img.resource.size,
-                                        img.resource.last_modified_at.unwrap().to_string(),
-                                        &None::<String>,
-                                        &None::<String>
-                                    ],
-                                    |row| row.get(0),
-                                ) {
-                                    Ok(new_or_existing_ur_id) => {
-                                        uniform_resource_id = new_or_existing_ur_id
-                                    }
-                                    Err(err) => {
-                                        eprintln!(
-                                            "Error inserting UniformResource::Html for {}: {:?}",
-                                            &uri, err
-                                        );
-                                        continue;
-                                    }
-                                }
-                            }
+                            UniformResource::Image(img) => img.insert(&mut ins_ur_stmt, &urw_state),
                             UniformResource::Markdown(md) => {
-                                uri = md.resource.uri.to_string();
-                                // TODO: this will panic if content not available, so test for proper existence not unwrap()!
-                                let markdown_src =
-                                    md.resource.content_text_supplier.unwrap()().unwrap();
-                                let mut fm_attrs = None::<String>;
-                                let mut fm_json: Option<String> = None::<String>;
-                                let (_, fm_raw, fm_json_value, fm_body) =
-                                    markdown_src.frontmatter();
-                                if fm_json_value.is_ok() {
-                                    fm_json = Some(
-                                        serde_json::to_string_pretty(&fm_json_value.ok()).unwrap(),
-                                    );
-                                    let fm_attrs_value = serde_json::json!({
-                                        "frontMatter": fm_raw.unwrap(),
-                                        "body": fm_body,
-                                        "attrs": fm_json.clone().unwrap()
-                                    });
-                                    fm_attrs = Some(
-                                        serde_json::to_string_pretty(&fm_attrs_value).unwrap(),
-                                    );
-                                }
-                                match ins_ur_stmt.query_row(
-                                    params![
-                                        device_id,
-                                        walk_session_id,
-                                        walk_path_id,
-                                        md.resource.uri,
-                                        md.resource.nature,
-                                        markdown_src.content_text(),
-                                        markdown_src.content_digest_hash(),
-                                        md.resource.size,
-                                        md.resource.last_modified_at.unwrap().to_string(),
-                                        fm_attrs,
-                                        fm_json
-                                    ],
-                                    |row| row.get(0),
-                                ) {
-                                    Ok(new_or_existing_ur_id) => {
-                                        uniform_resource_id = new_or_existing_ur_id
-                                    }
-                                    Err(err) => {
-                                        eprintln!(
-                                            "Error inserting UniformResource::Html for {}: {:?}",
-                                            &uri, err
-                                        );
-                                        continue;
-                                    }
-                                }
+                                md.insert(&mut ins_ur_stmt, &urw_state)
                             }
                             UniformResource::SpdxJson(spdx) => {
-                                uri = spdx.resource.uri.to_string();
-                                // TODO: this will panic if content not available, so test for proper existence not unwrap()!
-                                let spdx_json_src =
-                                    spdx.resource.content_text_supplier.unwrap()().unwrap();
-                                match ins_ur_stmt.query_row(
-                                    params![
-                                        device_id,
-                                        walk_session_id,
-                                        walk_path_id,
-                                        spdx.resource.uri,
-                                        "spdx.json", // override the nature
-                                        spdx_json_src.content_text(),
-                                        spdx_json_src.content_digest_hash(),
-                                        spdx.resource.size,
-                                        spdx.resource.last_modified_at.unwrap().to_string(),
-                                        &None::<String>,
-                                        &None::<String>
-                                    ],
-                                    |row| row.get(0),
-                                ) {
-                                    Ok(new_or_existing_ur_id) => {
-                                        uniform_resource_id = new_or_existing_ur_id
-                                    }
-                                    Err(err) => {
-                                        eprintln!(
-                                            "Error inserting UniformResource::Html for {}: {:?}",
-                                            &uri, err
-                                        );
-                                        continue;
-                                    }
-                                }
+                                spdx.insert(&mut ins_ur_stmt, &urw_state)
                             }
-                            UniformResource::Tap(tap) => {
-                                uri = tap.resource.uri.to_string();
-                                // TODO: figure out whether to add a new uniform resource row
-                                //       for the transformed TAP to JSON or if original TAP is
-                                //       good enough as a format for searching.
-                                // TODO: this will panic if content not available, so test for proper existence not unwrap()!
-                                let tap_result =
-                                    tap.resource.content_text_supplier.unwrap()().unwrap();
-                                match ins_ur_stmt.query_row(
-                                    params![
-                                        device_id,
-                                        walk_session_id,
-                                        walk_path_id,
-                                        tap.resource.uri,
-                                        tap.resource.nature,
-                                        tap_result.content_text(),
-                                        tap_result.content_digest_hash(),
-                                        tap.resource.size,
-                                        tap.resource.last_modified_at.unwrap().to_string(),
-                                        &None::<String>,
-                                        &None::<String>
-                                    ],
-                                    |row| row.get(0),
-                                ) {
-                                    Ok(new_or_existing_ur_id) => {
-                                        uniform_resource_id = new_or_existing_ur_id
-                                    }
-                                    Err(err) => {
-                                        eprintln!(
-                                            "Error inserting UniformResource::Html for {}: {:?}",
-                                            &uri, err
-                                        );
-                                        continue;
-                                    }
-                                }
+                            UniformResource::Svg(svg) => svg.insert(&mut ins_ur_stmt, &urw_state),
+                            UniformResource::Tap(tap) => tap.insert(&mut ins_ur_stmt, &urw_state),
+                            UniformResource::Toml(toml) => {
+                                toml.insert(&mut ins_ur_stmt, &urw_state)
+                            }
+                            UniformResource::Yaml(yaml) => {
+                                yaml.insert(&mut ins_ur_stmt, &urw_state)
                             }
                             UniformResource::Unknown(unknown) => {
-                                uri = unknown.uri.to_string();
-
-                                // don't store the database we're creating in the walk unless requested
-                                if !args.include_state_db_in_walk
-                                    && ignore_db_fs_path.iter().any(|s| s == &uri)
-                                {
-                                    continue;
-                                }
-
-                                match ins_ur_stmt.query_row(
-                                    params![
-                                        device_id,
-                                        walk_session_id,
-                                        walk_path_id,
-                                        unknown.uri,
-                                        unknown.nature,
-                                        &None::<String>,
-                                        String::from("-"),
-                                        unknown.size,
-                                        unknown.last_modified_at.unwrap().to_string(),
-                                        &None::<String>,
-                                        &None::<String>
-                                    ],
-                                    |row| row.get(0),
-                                ) {
-                                    Ok(new_or_existing_ur_id) => {
-                                        uniform_resource_id = new_or_existing_ur_id
-                                    }
-                                    Err(err) => {
-                                        eprintln!(
-                                            "Error inserting UniformResource::Html for {}: {:?}",
-                                            &uri, err
-                                        );
-                                        continue;
-                                    }
-                                }
+                                unknown.insert(&mut ins_ur_stmt, &urw_state)
                             }
+                        };
+
+                        let uniform_resource_id = match inserted.action {
+                            UniformResourceWriterAction::Inserted(ref uniform_resource_id) => {
+                                Some(uniform_resource_id)
+                            }
+                            _ => None,
+                        };
+
+                        // don't store the database we're creating in the walk unless requested
+                        if !args.include_state_db_in_walk
+                            && ignore_db_fs_path.iter().any(|s| s == &inserted.uri)
+                        {
+                            continue;
                         }
 
                         match extract_path_info(
                             std::path::Path::new(&canonical_path),
-                            std::path::Path::new(&uri),
+                            std::path::Path::new(&inserted.uri),
                         ) {
                             Some((
                                 file_path_abs,
@@ -466,12 +548,33 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                                         file_extn
                                     } else {
                                         String::from("")
+                                    },
+                                    match inserted.action {
+                                        UniformResourceWriterAction::Inserted(_) => None,
+                                        UniformResourceWriterAction::ContentSupplierError(_) | UniformResourceWriterAction::Error(_) =>
+                                            Some(String::from("ERROR")),
+                                        UniformResourceWriterAction::ContentUnavailable() =>
+                                            Some(String::from("ISSUE")),
+                                    },
+                                    match inserted.action {
+                                        UniformResourceWriterAction::Inserted(_) => None,
+                                        UniformResourceWriterAction::ContentSupplierError(_) =>
+                                            Some(String::from(
+                                                r#"{ "error": "TODO: serialize content supplier error" }"#
+                                            )),
+                                        UniformResourceWriterAction::ContentUnavailable() =>
+                                            Some(String::from(
+                                                r#"{ "issue": "content supplier was not provided for", "remediation": "see CLI args/config and request content for this extension" }"#
+                                            )),
+                                        UniformResourceWriterAction::Error(_) => Some(
+                                            String::from(r#"{ "error": "TODO: serialize error" }"#)
+                                        ),
                                     }
                                 ]) {
                                     Ok(_) => {}
                                     Err(err) => {
                                         eprintln!( "[fs_walk] unable to insert UR walk session path file system entry for {} in {}: {} ({})",
-                                            &uri, db_fs_path, err, INS_UR_FS_ENTRY_SQL
+                                        &inserted.uri, db_fs_path, err, INS_UR_FS_ENTRY_SQL
                                         )
                                     }
                                 }
