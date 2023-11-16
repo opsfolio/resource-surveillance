@@ -310,74 +310,77 @@
 <!-- ur_walk_session_path_fs_entry -->
 <g id="node5" class="node">
 <title>ur_walk_session_path_fs_entry</title>
-<polygon fill="#efefef" stroke="transparent" points="411,-2334.5 411,-2369.5 749,-2369.5 749,-2334.5 411,-2334.5"/>
-<polygon fill="none" stroke="#000000" points="411,-2334.5 411,-2369.5 749,-2369.5 749,-2334.5 411,-2334.5"/>
-<text text-anchor="start" x="417.8012" y="-2347.3" font-family="Arial Bold" font-size="18.00" fill="#000000">ur_walk_session_path_fs_entry</text>
-<text text-anchor="start" x="669.8678" y="-2347.3" font-family="Arial" font-size="14.00" fill="#000000">    </text>
-<text text-anchor="start" x="704.0726" y="-2347.3" font-family="Arial" font-size="14.00" fill="#666666">[table]</text>
-<polygon fill="none" stroke="#000000" points="411,-2304.5 411,-2334.5 749,-2334.5 749,-2304.5 411,-2304.5"/>
-<text text-anchor="start" x="418" y="-2315.9" font-family="Arial" font-size="14.00" fill="#000000">ur_walk_session_path_fs_entry_id    </text>
-<text text-anchor="start" x="666.9284" y="-2315.9" font-family="Arial" font-size="14.00" fill="#666666">[ULID]</text>
-<polygon fill="none" stroke="#000000" points="411,-2274.5 411,-2304.5 749,-2304.5 749,-2274.5 411,-2274.5"/>
-<text text-anchor="start" x="418" y="-2285.9" font-family="Arial" font-size="14.00" fill="#000000">walk_session_id    </text>
-<text text-anchor="start" x="554.1094" y="-2285.9" font-family="Arial" font-size="14.00" fill="#666666">[ULID]</text>
-<polygon fill="none" stroke="#000000" points="411,-2244.5 411,-2274.5 749,-2274.5 749,-2244.5 411,-2244.5"/>
-<text text-anchor="start" x="418" y="-2255.9" font-family="Arial" font-size="14.00" fill="#000000">walk_path_id    </text>
-<text text-anchor="start" x="533.8934" y="-2255.9" font-family="Arial" font-size="14.00" fill="#666666">[ULID]</text>
-<polygon fill="none" stroke="#000000" points="411,-2214.5 411,-2244.5 749,-2244.5 749,-2214.5 411,-2214.5"/>
-<text text-anchor="start" x="418" y="-2225.9" font-family="Arial" font-size="14.00" fill="#000000">uniform_resource_id    </text>
-<text text-anchor="start" x="579.777" y="-2225.9" font-family="Arial" font-size="14.00" fill="#666666">[ULID]</text>
-<polygon fill="none" stroke="#000000" points="411,-2184.5 411,-2214.5 749,-2214.5 749,-2184.5 411,-2184.5"/>
-<text text-anchor="start" x="418" y="-2195.9" font-family="Arial" font-size="14.00" fill="#000000">file_path_abs    </text>
-<text text-anchor="start" x="535.46" y="-2195.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
-<polygon fill="none" stroke="#000000" points="411,-2154.5 411,-2184.5 749,-2184.5 749,-2154.5 411,-2154.5"/>
-<text text-anchor="start" x="418" y="-2165.9" font-family="Arial" font-size="14.00" fill="#000000">file_path_rel_parent    </text>
-<text text-anchor="start" x="575.9088" y="-2165.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
-<polygon fill="none" stroke="#000000" points="411,-2124.5 411,-2154.5 749,-2154.5 749,-2124.5 411,-2124.5"/>
-<text text-anchor="start" x="418" y="-2135.9" font-family="Arial" font-size="14.00" fill="#000000">file_path_rel    </text>
-<text text-anchor="start" x="528.4446" y="-2135.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
-<polygon fill="none" stroke="#000000" points="411,-2094.5 411,-2124.5 749,-2124.5 749,-2094.5 411,-2094.5"/>
-<text text-anchor="start" x="418" y="-2105.9" font-family="Arial" font-size="14.00" fill="#000000">file_basename    </text>
-<text text-anchor="start" x="543.23" y="-2105.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
-<polygon fill="none" stroke="#000000" points="411,-2064.5 411,-2094.5 749,-2094.5 749,-2064.5 411,-2064.5"/>
-<text text-anchor="start" x="418" y="-2075.9" font-family="Arial" font-size="14.00" fill="#000000">file_extn    </text>
-<text text-anchor="start" x="504.3296" y="-2075.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
-<polygon fill="none" stroke="#000000" points="411,-2034.5 411,-2064.5 749,-2064.5 749,-2034.5 411,-2034.5"/>
-<text text-anchor="start" x="418" y="-2045.9" font-family="Arial" font-size="14.00" fill="#000000">ur_status    </text>
-<text text-anchor="start" x="509.777" y="-2045.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
-<polygon fill="none" stroke="#000000" points="411,-2004.5 411,-2034.5 749,-2034.5 749,-2004.5 411,-2004.5"/>
-<text text-anchor="start" x="418" y="-2015.9" font-family="Arial" font-size="14.00" fill="#000000">ur_diagnostics    </text>
-<text text-anchor="start" x="542.4474" y="-2015.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
-<polygon fill="none" stroke="#000000" points="411,-1974.5 411,-2004.5 749,-2004.5 749,-1974.5 411,-1974.5"/>
-<text text-anchor="start" x="418" y="-1985.9" font-family="Arial" font-size="14.00" fill="#000000">elaboration    </text>
-<text text-anchor="start" x="521.4474" y="-1985.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
-<polygon fill="none" stroke="#000000" points="411,-1944.5 411,-1974.5 749,-1974.5 749,-1944.5 411,-1944.5"/>
-<text text-anchor="start" x="418" y="-1955.9" font-family="Arial" font-size="14.00" fill="#000000">created_at    </text>
-<text text-anchor="start" x="518.3422" y="-1955.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
-<polygon fill="none" stroke="#000000" points="411,-1914.5 411,-1944.5 749,-1944.5 749,-1914.5 411,-1914.5"/>
-<text text-anchor="start" x="418" y="-1925.9" font-family="Arial" font-size="14.00" fill="#000000">created_by    </text>
-<text text-anchor="start" x="521.4516" y="-1925.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
-<polygon fill="none" stroke="#000000" points="411,-1884.5 411,-1914.5 749,-1914.5 749,-1884.5 411,-1884.5"/>
-<text text-anchor="start" x="418" y="-1895.9" font-family="Arial" font-size="14.00" fill="#000000">updated_at    </text>
-<text text-anchor="start" x="522.2468" y="-1895.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
-<polygon fill="none" stroke="#000000" points="411,-1854.5 411,-1884.5 749,-1884.5 749,-1854.5 411,-1854.5"/>
-<text text-anchor="start" x="418" y="-1865.9" font-family="Arial" font-size="14.00" fill="#000000">updated_by    </text>
-<text text-anchor="start" x="525.3562" y="-1865.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
-<polygon fill="none" stroke="#000000" points="411,-1824.5 411,-1854.5 749,-1854.5 749,-1824.5 411,-1824.5"/>
-<text text-anchor="start" x="418" y="-1835.9" font-family="Arial" font-size="14.00" fill="#000000">deleted_at    </text>
-<text text-anchor="start" x="517.5708" y="-1835.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
-<polygon fill="none" stroke="#000000" points="411,-1794.5 411,-1824.5 749,-1824.5 749,-1794.5 411,-1794.5"/>
-<text text-anchor="start" x="418" y="-1805.9" font-family="Arial" font-size="14.00" fill="#000000">deleted_by    </text>
-<text text-anchor="start" x="520.6802" y="-1805.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
-<polygon fill="none" stroke="#000000" points="411,-1764.5 411,-1794.5 749,-1794.5 749,-1764.5 411,-1764.5"/>
-<text text-anchor="start" x="418" y="-1775.9" font-family="Arial" font-size="14.00" fill="#000000">activity_log    </text>
-<text text-anchor="start" x="521.4362" y="-1775.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<polygon fill="#efefef" stroke="transparent" points="411,-2349.5 411,-2384.5 749,-2384.5 749,-2349.5 411,-2349.5"/>
+<polygon fill="none" stroke="#000000" points="411,-2349.5 411,-2384.5 749,-2384.5 749,-2349.5 411,-2349.5"/>
+<text text-anchor="start" x="417.8012" y="-2362.3" font-family="Arial Bold" font-size="18.00" fill="#000000">ur_walk_session_path_fs_entry</text>
+<text text-anchor="start" x="669.8678" y="-2362.3" font-family="Arial" font-size="14.00" fill="#000000">    </text>
+<text text-anchor="start" x="704.0726" y="-2362.3" font-family="Arial" font-size="14.00" fill="#666666">[table]</text>
+<polygon fill="none" stroke="#000000" points="411,-2319.5 411,-2349.5 749,-2349.5 749,-2319.5 411,-2319.5"/>
+<text text-anchor="start" x="418" y="-2330.9" font-family="Arial" font-size="14.00" fill="#000000">ur_walk_session_path_fs_entry_id    </text>
+<text text-anchor="start" x="666.9284" y="-2330.9" font-family="Arial" font-size="14.00" fill="#666666">[ULID]</text>
+<polygon fill="none" stroke="#000000" points="411,-2289.5 411,-2319.5 749,-2319.5 749,-2289.5 411,-2289.5"/>
+<text text-anchor="start" x="418" y="-2300.9" font-family="Arial" font-size="14.00" fill="#000000">walk_session_id    </text>
+<text text-anchor="start" x="554.1094" y="-2300.9" font-family="Arial" font-size="14.00" fill="#666666">[ULID]</text>
+<polygon fill="none" stroke="#000000" points="411,-2259.5 411,-2289.5 749,-2289.5 749,-2259.5 411,-2259.5"/>
+<text text-anchor="start" x="418" y="-2270.9" font-family="Arial" font-size="14.00" fill="#000000">walk_path_id    </text>
+<text text-anchor="start" x="533.8934" y="-2270.9" font-family="Arial" font-size="14.00" fill="#666666">[ULID]</text>
+<polygon fill="none" stroke="#000000" points="411,-2229.5 411,-2259.5 749,-2259.5 749,-2229.5 411,-2229.5"/>
+<text text-anchor="start" x="418" y="-2240.9" font-family="Arial" font-size="14.00" fill="#000000">uniform_resource_id    </text>
+<text text-anchor="start" x="579.777" y="-2240.9" font-family="Arial" font-size="14.00" fill="#666666">[ULID]</text>
+<polygon fill="none" stroke="#000000" points="411,-2199.5 411,-2229.5 749,-2229.5 749,-2199.5 411,-2199.5"/>
+<text text-anchor="start" x="418" y="-2210.9" font-family="Arial" font-size="14.00" fill="#000000">file_path_abs    </text>
+<text text-anchor="start" x="535.46" y="-2210.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<polygon fill="none" stroke="#000000" points="411,-2169.5 411,-2199.5 749,-2199.5 749,-2169.5 411,-2169.5"/>
+<text text-anchor="start" x="418" y="-2180.9" font-family="Arial" font-size="14.00" fill="#000000">file_path_rel_parent    </text>
+<text text-anchor="start" x="575.9088" y="-2180.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<polygon fill="none" stroke="#000000" points="411,-2139.5 411,-2169.5 749,-2169.5 749,-2139.5 411,-2139.5"/>
+<text text-anchor="start" x="418" y="-2150.9" font-family="Arial" font-size="14.00" fill="#000000">file_path_rel    </text>
+<text text-anchor="start" x="528.4446" y="-2150.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<polygon fill="none" stroke="#000000" points="411,-2109.5 411,-2139.5 749,-2139.5 749,-2109.5 411,-2109.5"/>
+<text text-anchor="start" x="418" y="-2120.9" font-family="Arial" font-size="14.00" fill="#000000">file_basename    </text>
+<text text-anchor="start" x="543.23" y="-2120.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<polygon fill="none" stroke="#000000" points="411,-2079.5 411,-2109.5 749,-2109.5 749,-2079.5 411,-2079.5"/>
+<text text-anchor="start" x="418" y="-2090.9" font-family="Arial" font-size="14.00" fill="#000000">file_extn    </text>
+<text text-anchor="start" x="504.3296" y="-2090.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<polygon fill="none" stroke="#000000" points="411,-2049.5 411,-2079.5 749,-2079.5 749,-2049.5 411,-2049.5"/>
+<text text-anchor="start" x="418" y="-2060.9" font-family="Arial" font-size="14.00" fill="#000000">ur_status    </text>
+<text text-anchor="start" x="509.777" y="-2060.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<polygon fill="none" stroke="#000000" points="411,-2019.5 411,-2049.5 749,-2049.5 749,-2019.5 411,-2019.5"/>
+<text text-anchor="start" x="418" y="-2030.9" font-family="Arial" font-size="14.00" fill="#000000">ur_diagnostics    </text>
+<text text-anchor="start" x="542.4474" y="-2030.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<polygon fill="none" stroke="#000000" points="411,-1989.5 411,-2019.5 749,-2019.5 749,-1989.5 411,-1989.5"/>
+<text text-anchor="start" x="418" y="-2000.9" font-family="Arial" font-size="14.00" fill="#000000">ur_transformations    </text>
+<text text-anchor="start" x="568.8864" y="-2000.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<polygon fill="none" stroke="#000000" points="411,-1959.5 411,-1989.5 749,-1989.5 749,-1959.5 411,-1959.5"/>
+<text text-anchor="start" x="418" y="-1970.9" font-family="Arial" font-size="14.00" fill="#000000">elaboration    </text>
+<text text-anchor="start" x="521.4474" y="-1970.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<polygon fill="none" stroke="#000000" points="411,-1929.5 411,-1959.5 749,-1959.5 749,-1929.5 411,-1929.5"/>
+<text text-anchor="start" x="418" y="-1940.9" font-family="Arial" font-size="14.00" fill="#000000">created_at    </text>
+<text text-anchor="start" x="518.3422" y="-1940.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
+<polygon fill="none" stroke="#000000" points="411,-1899.5 411,-1929.5 749,-1929.5 749,-1899.5 411,-1899.5"/>
+<text text-anchor="start" x="418" y="-1910.9" font-family="Arial" font-size="14.00" fill="#000000">created_by    </text>
+<text text-anchor="start" x="521.4516" y="-1910.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<polygon fill="none" stroke="#000000" points="411,-1869.5 411,-1899.5 749,-1899.5 749,-1869.5 411,-1869.5"/>
+<text text-anchor="start" x="418" y="-1880.9" font-family="Arial" font-size="14.00" fill="#000000">updated_at    </text>
+<text text-anchor="start" x="522.2468" y="-1880.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
+<polygon fill="none" stroke="#000000" points="411,-1839.5 411,-1869.5 749,-1869.5 749,-1839.5 411,-1839.5"/>
+<text text-anchor="start" x="418" y="-1850.9" font-family="Arial" font-size="14.00" fill="#000000">updated_by    </text>
+<text text-anchor="start" x="525.3562" y="-1850.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<polygon fill="none" stroke="#000000" points="411,-1809.5 411,-1839.5 749,-1839.5 749,-1809.5 411,-1809.5"/>
+<text text-anchor="start" x="418" y="-1820.9" font-family="Arial" font-size="14.00" fill="#000000">deleted_at    </text>
+<text text-anchor="start" x="517.5708" y="-1820.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
+<polygon fill="none" stroke="#000000" points="411,-1779.5 411,-1809.5 749,-1809.5 749,-1779.5 411,-1779.5"/>
+<text text-anchor="start" x="418" y="-1790.9" font-family="Arial" font-size="14.00" fill="#000000">deleted_by    </text>
+<text text-anchor="start" x="520.6802" y="-1790.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<polygon fill="none" stroke="#000000" points="411,-1749.5 411,-1779.5 749,-1779.5 749,-1749.5 411,-1749.5"/>
+<text text-anchor="start" x="418" y="-1760.9" font-family="Arial" font-size="14.00" fill="#000000">activity_log    </text>
+<text text-anchor="start" x="521.4362" y="-1760.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 </g>
 <!-- ur_walk_session_path_fs_entry&#45;&gt;ur_walk_session -->
 <g id="edge4" class="edge">
 <title>ur_walk_session_path_fs_entry:walk_session_id&#45;&gt;ur_walk_session:ur_walk_session_id</title>
-<path fill="none" stroke="#000000" d="M758.2572,-2285.3253C809.4487,-2236.1969 785.6761,-1769.1442 749,-1722 692.4086,-1649.2564 604.5914,-1743.7436 548,-1671 522.4837,-1638.2009 506.4444,-1577.5 548,-1577.5"/>
-<polygon fill="#000000" stroke="#000000" points="758.1159,-2285.3889 747.15,-2285.3978 753.558,-2287.4445 749,-2289.5 749,-2289.5 749,-2289.5 753.558,-2287.4445 750.85,-2293.6022 758.1159,-2285.3889 758.1159,-2285.3889"/>
+<path fill="none" stroke="#000000" d="M758.4257,-2300.408C812.9248,-2250.2656 789.4419,-1755.3288 749,-1707 690.7575,-1637.3993 606.2425,-1740.6007 548,-1671 521.3315,-1639.1307 506.4444,-1577.5 548,-1577.5"/>
+<polygon fill="#000000" stroke="#000000" points="758.1729,-2300.5177 747.208,-2300.3722 753.5864,-2302.5088 749,-2304.5 749,-2304.5 749,-2304.5 753.5864,-2302.5088 750.792,-2308.6278 758.1729,-2300.5177 758.1729,-2300.5177"/>
 </g>
 </g>
 </svg>

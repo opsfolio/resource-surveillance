@@ -12,6 +12,7 @@ include:
   - ur_walk_session
   - ur_walk_session_path
   - uniform_resource
+  - uniform_resource_transform
   - ur_walk_session_path_fs_entry
 name: Resource Surveillance State Schema
 comments:
@@ -86,26 +87,48 @@ comments:
       elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: |-
-      Stores file system content walk paths associated with a particular
-      session and may have one or more root paths per session.
+      Immutable Walk Sessions represents a single scan (or "walk") session.
+      Each time a directory is scanned for files and entries, a record is
+      created here.
   - table: uniform_resource
     columnComments:
-      uniform_resource_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      walk_path_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      content: '{"isSqlDomainZodDescrMeta":true,"isBlobText":true}'
-      content_fm_body_attrs: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
-      frontmatter: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
-      elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      uniform_resource_id: uniform_resource ULID primary key
+      device_id: which device row introduced this resource
+      walk_session_id: which ur_walk_session row introduced this resource
+      walk_path_id: which ur_walk_session_path row introduced this resource
+      uri: >-
+        the resource's URI (dependent on how it was acquired and on which
+        device)
+      content_digest: >-
+        '-' when no hash was computed (not NULL); content_digest for symlinks
+        will be the same as their target
+      content: >-
+        either NULL if no content was acquired or the actual blob/text of the
+        content
+      nature: file extension or MIME
+      content_fm_body_attrs: >-
+        each component of frontmatter-based content ({ frontMatter: '', body:
+        '', attrs: {...} })
+      frontmatter: meta data or other "frontmatter" in JSON format
+      elaboration: anything that doesn't fit in other columns (JSON)
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: |-
-      Records file system content information. On multiple executions,
-      uniform_resource are inserted only if the the file content (see unique 
+      Immutable resource and content information. On multiple executions,
+      uniform_resource are inserted only if the the content (see unique 
       index for details). For historical logging, uniform_resource has foreign
       key references to both ur_walk_session and ur_walk_session_path
       tables to indicate which particular session and walk path the
       resourced was inserted during.
+  - table: uniform_resource_transform
+    columnComments:
+      uniform_resource_transform_id: uniform_resource_transform ULID primary key
+      uniform_resource_id: uniform_resource row ID of original content
+      content_digest: transformed content hash
+      content: transformed content
+      nature: file extension or MIME
+      elaboration: anything that doesn't fit in other columns (JSON)
+      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
+    tableComment: uniform_resource transformed content
   - table: ur_walk_session_path_fs_entry
     columnComments:
       ur_walk_session_path_fs_entry_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
@@ -113,6 +136,7 @@ comments:
       walk_path_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       uniform_resource_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       ur_diagnostics: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      ur_transformations: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: >-

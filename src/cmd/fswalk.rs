@@ -33,6 +33,7 @@ pub trait UniformResourceWriter<Resource> {
     fn insert(
         &self,
         ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
         urw_state: &UniformResourceWriterState<'_>,
     ) -> UniformResourceWriterResult;
 
@@ -56,8 +57,8 @@ pub trait UniformResourceWriter<Resource> {
                         text.content_digest_hash(),
                         resource.size,
                         resource.last_modified_at.unwrap().to_string(),
-                        &None::<String>,
-                        &None::<String>
+                        &None::<String>, // content_fm_body_attrs
+                        &None::<String>, // frontmatter
                     ],
                     |row| row.get(0),
                 ) {
@@ -101,8 +102,8 @@ pub trait UniformResourceWriter<Resource> {
                 bc.content_digest_hash(),
                 resource.size,
                 resource.last_modified_at.unwrap().to_string(),
-                &None::<String>,
-                &None::<String>
+                &None::<String>, // content_fm_body_attrs
+                &None::<String>, // frontmatter
             ],
             |row| row.get(0),
         ) {
@@ -123,6 +124,7 @@ impl UniformResourceWriter<ContentResource> for ContentResource {
     fn insert(
         &self,
         ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
         urw_state: &UniformResourceWriterState<'_>,
     ) -> UniformResourceWriterResult {
         let uri = self.uri.clone();
@@ -133,12 +135,12 @@ impl UniformResourceWriter<ContentResource> for ContentResource {
                 urw_state.walk_path_id,
                 self.uri,
                 self.nature,
-                &None::<String>,
-                String::from("-"),
+                &None::<String>,   // not storing content
+                String::from("-"), // no hash being computed
                 self.size,
                 self.last_modified_at.unwrap().to_string(),
-                &None::<String>,
-                &None::<String>
+                &None::<String>, // content_fm_body_attrs
+                &None::<String>, // frontmatter
             ],
             |row| row.get(0),
         ) {
@@ -158,6 +160,7 @@ impl UniformResourceWriter<ContentResource> for HtmlResource<ContentResource> {
     fn insert(
         &self,
         ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
         urw_state: &UniformResourceWriterState<'_>,
     ) -> UniformResourceWriterResult {
         self.insert_text(ins_ur_stmt, urw_state, &self.resource)
@@ -168,6 +171,7 @@ impl UniformResourceWriter<ContentResource> for ImageResource<ContentResource> {
     fn insert(
         &self,
         ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
         urw_state: &UniformResourceWriterState<'_>,
     ) -> UniformResourceWriterResult {
         let uri = self.resource.uri.clone();
@@ -193,6 +197,7 @@ impl UniformResourceWriter<ContentResource> for JsonResource<ContentResource> {
     fn insert(
         &self,
         ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
         urw_state: &UniformResourceWriterState<'_>,
     ) -> UniformResourceWriterResult {
         self.insert_text(ins_ur_stmt, urw_state, &self.resource)
@@ -203,6 +208,7 @@ impl UniformResourceWriter<ContentResource> for MarkdownResource<ContentResource
     fn insert(
         &self,
         ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
         urw_state: &UniformResourceWriterState<'_>,
     ) -> UniformResourceWriterResult {
         let uri = self.resource.uri.clone();
@@ -234,7 +240,7 @@ impl UniformResourceWriter<ContentResource> for MarkdownResource<ContentResource
                             self.resource.size,
                             self.resource.last_modified_at.unwrap().to_string(),
                             fm_attrs,
-                            fm_json
+                            fm_json,
                         ],
                         |row| row.get(0),
                     ) {
@@ -265,6 +271,7 @@ impl UniformResourceWriter<ContentResource> for SoftwarePackageDxResource<Conten
     fn insert(
         &self,
         ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
         urw_state: &UniformResourceWriterState<'_>,
     ) -> UniformResourceWriterResult {
         self.insert_text(ins_ur_stmt, urw_state, &self.resource)
@@ -275,6 +282,7 @@ impl UniformResourceWriter<ContentResource> for SvgResource<ContentResource> {
     fn insert(
         &self,
         ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
         urw_state: &UniformResourceWriterState<'_>,
     ) -> UniformResourceWriterResult {
         self.insert_text(ins_ur_stmt, urw_state, &self.resource)
@@ -285,6 +293,7 @@ impl UniformResourceWriter<ContentResource> for TestAnythingResource<ContentReso
     fn insert(
         &self,
         ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
         urw_state: &UniformResourceWriterState<'_>,
     ) -> UniformResourceWriterResult {
         self.insert_text(ins_ur_stmt, urw_state, &self.resource)
@@ -295,6 +304,7 @@ impl UniformResourceWriter<ContentResource> for TomlResource<ContentResource> {
     fn insert(
         &self,
         ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
         urw_state: &UniformResourceWriterState<'_>,
     ) -> UniformResourceWriterResult {
         self.insert_text(ins_ur_stmt, urw_state, &self.resource)
@@ -305,6 +315,7 @@ impl UniformResourceWriter<ContentResource> for YamlResource<ContentResource> {
     fn insert(
         &self,
         ins_ur_stmt: &mut rusqlite::Statement<'_>,
+        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
         urw_state: &UniformResourceWriterState<'_>,
     ) -> UniformResourceWriterResult {
         self.insert_text(ins_ur_stmt, urw_state, &self.resource)
@@ -478,6 +489,12 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
                          ON CONFLICT (device_id, content_digest, uri, size_bytes, last_modified_at) 
                            DO UPDATE SET size_bytes = EXCLUDED.size_bytes
                            RETURNING uniform_resource_id"};
+    const INS_UR_TRANSFORM_SQL: &str = indoc! {"
+        INSERT INTO uniform_resource_transform (uniform_resource_transform_id, uniform_resource_id, uri, nature, content_digest, content, size_bytes)
+                                        VALUES (ulid(), ?, ?, ?, ?, ?, ?) 
+                                   ON CONFLICT (uniform_resource_id, content_digest, nature, size_bytes) 
+                                 DO UPDATE SET size_bytes = EXCLUDED.size_bytes
+                                     RETURNING uniform_resource_transform_id"};
     const INS_UR_FS_ENTRY_SQL: &str = indoc! {"
         INSERT INTO ur_walk_session_path_fs_entry (ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn, ur_status, ur_diagnostics) 
                                            VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"};
@@ -526,12 +543,7 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
         println!("Walk Session: {walk_session_id}");
     }
 
-    // TODO: https://github.com/opsfolio/resource-surveillance/issues/16
-    //       from this point on, since we have a walk session put all errors
-    //       into an error log table inside the database associated with each
-    //       session (e.g. ur_walk_session_telemetry) and only report to CLI if
-    //       writing the log into the database fails.
-
+    // We don't use an ORM and just use raw Rusqlite for highest performance.
     // Use a scope to ensure all prepared SQL statements, which borrow `tx`` are dropped before committing the transaction.
     {
         let mut ins_ur_wsp_stmt = tx.prepare(INS_UR_WSP_SQL).with_context(|| {
@@ -544,6 +556,12 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
             format!(
                 "[fs_walk] unable to create `ins_ur_stmt` SQL {} in {}",
                 INS_UR_SQL, db_fs_path
+            )
+        })?;
+        let mut ins_ur_transform_stmt = tx.prepare(INS_UR_TRANSFORM_SQL).with_context(|| {
+            format!(
+                "[fs_walk] unable to create `ins_ur_transform_stmt` SQL {} in {}",
+                INS_UR_TRANSFORM_SQL, db_fs_path
             )
         })?;
         let mut ins_ur_fs_entry_stmt = tx.prepare(INS_UR_FS_ENTRY_SQL).with_context(|| {
@@ -596,30 +614,48 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
                 match resource_result {
                     Ok(resource) => {
                         let inserted = match resource {
-                            UniformResource::Html(html) => {
-                                html.insert(&mut ins_ur_stmt, &urw_state)
+                            UniformResource::Html(html) => html.insert(
+                                &mut ins_ur_stmt,
+                                &mut ins_ur_transform_stmt,
+                                &urw_state,
+                            ),
+                            UniformResource::Json(json) => json.insert(
+                                &mut ins_ur_stmt,
+                                &mut ins_ur_transform_stmt,
+                                &urw_state,
+                            ),
+                            UniformResource::Image(img) => {
+                                img.insert(&mut ins_ur_stmt, &mut ins_ur_transform_stmt, &urw_state)
                             }
-                            UniformResource::Json(json) => {
-                                json.insert(&mut ins_ur_stmt, &urw_state)
-                            }
-                            UniformResource::Image(img) => img.insert(&mut ins_ur_stmt, &urw_state),
                             UniformResource::Markdown(md) => {
-                                md.insert(&mut ins_ur_stmt, &urw_state)
+                                md.insert(&mut ins_ur_stmt, &mut ins_ur_transform_stmt, &urw_state)
                             }
-                            UniformResource::SpdxJson(spdx) => {
-                                spdx.insert(&mut ins_ur_stmt, &urw_state)
+                            UniformResource::SpdxJson(spdx) => spdx.insert(
+                                &mut ins_ur_stmt,
+                                &mut ins_ur_transform_stmt,
+                                &urw_state,
+                            ),
+                            UniformResource::Svg(svg) => {
+                                svg.insert(&mut ins_ur_stmt, &mut ins_ur_transform_stmt, &urw_state)
                             }
-                            UniformResource::Svg(svg) => svg.insert(&mut ins_ur_stmt, &urw_state),
-                            UniformResource::Tap(tap) => tap.insert(&mut ins_ur_stmt, &urw_state),
-                            UniformResource::Toml(toml) => {
-                                toml.insert(&mut ins_ur_stmt, &urw_state)
+                            UniformResource::Tap(tap) => {
+                                tap.insert(&mut ins_ur_stmt, &mut ins_ur_transform_stmt, &urw_state)
                             }
-                            UniformResource::Yaml(yaml) => {
-                                yaml.insert(&mut ins_ur_stmt, &urw_state)
-                            }
-                            UniformResource::Unknown(unknown) => {
-                                unknown.insert(&mut ins_ur_stmt, &urw_state)
-                            }
+                            UniformResource::Toml(toml) => toml.insert(
+                                &mut ins_ur_stmt,
+                                &mut ins_ur_transform_stmt,
+                                &urw_state,
+                            ),
+                            UniformResource::Yaml(yaml) => yaml.insert(
+                                &mut ins_ur_stmt,
+                                &mut ins_ur_transform_stmt,
+                                &urw_state,
+                            ),
+                            UniformResource::Unknown(unknown) => unknown.insert(
+                                &mut ins_ur_stmt,
+                                &mut ins_ur_transform_stmt,
+                                &urw_state,
+                            ),
                         };
 
                         let uniform_resource_id = match inserted.action {

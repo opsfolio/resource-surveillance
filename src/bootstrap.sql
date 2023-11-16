@@ -254,6 +254,25 @@ CREATE TABLE IF NOT EXISTS "uniform_resource" (
     FOREIGN KEY("walk_path_id") REFERENCES "ur_walk_session_path"("ur_walk_session_path_id"),
     UNIQUE("device_id", "content_digest", "uri", "size_bytes", "last_modified_at")
 );
+CREATE TABLE IF NOT EXISTS "uniform_resource_transform" (
+    "uniform_resource_transform_id" ULID PRIMARY KEY NOT NULL,
+    "uniform_resource_id" ULID NOT NULL,
+    "uri" TEXT NOT NULL,
+    "content_digest" TEXT NOT NULL,
+    "content" BLOB,
+    "nature" TEXT,
+    "size_bytes" INTEGER,
+    "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
+    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT DEFAULT ''UNKNOWN'',
+    "updated_at" TIMESTAMP,
+    "updated_by" TEXT,
+    "deleted_at" TIMESTAMP,
+    "deleted_by" TEXT,
+    "activity_log" TEXT,
+    FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id"),
+    UNIQUE("uniform_resource_id", "content_digest", "nature", "size_bytes")
+);
 CREATE TABLE IF NOT EXISTS "ur_walk_session_path_fs_entry" (
     "ur_walk_session_path_fs_entry_id" ULID PRIMARY KEY NOT NULL,
     "walk_session_id" ULID NOT NULL,
@@ -266,6 +285,7 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session_path_fs_entry" (
     "file_extn" TEXT,
     "ur_status" TEXT,
     "ur_diagnostics" TEXT CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL),
+    "ur_transformations" TEXT CHECK(json_valid(ur_transformations) OR ur_transformations IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
@@ -282,8 +302,9 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session_path_fs_entry" (
 CREATE INDEX IF NOT EXISTS "idx_device__name__state" ON "device"("name", "state");
 CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path__walk_session_id__root_path" ON "ur_walk_session_path"("walk_session_id", "root_path");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource__device_id__uri" ON "uniform_resource"("device_id", "uri");
+CREATE INDEX IF NOT EXISTS "idx_uniform_resource_transform__uniform_resource_id__content_digest" ON "uniform_resource_transform"("uniform_resource_id", "content_digest");
 CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path_fs_entry__walk_session_id__file_path_abs" ON "ur_walk_session_path_fs_entry"("walk_session_id", "file_path_abs");
-', '61513bc7e80c20b153a568f9e8c2bad4e6a116dd', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', 'b7d85e167aa0e24c160b9e7f4bccc735518be2df', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -767,6 +788,25 @@ CREATE TABLE IF NOT EXISTS "uniform_resource" (
     FOREIGN KEY("walk_path_id") REFERENCES "ur_walk_session_path"("ur_walk_session_path_id"),
     UNIQUE("device_id", "content_digest", "uri", "size_bytes", "last_modified_at")
 );
+CREATE TABLE IF NOT EXISTS "uniform_resource_transform" (
+    "uniform_resource_transform_id" ULID PRIMARY KEY NOT NULL,
+    "uniform_resource_id" ULID NOT NULL,
+    "uri" TEXT NOT NULL,
+    "content_digest" TEXT NOT NULL,
+    "content" BLOB,
+    "nature" TEXT,
+    "size_bytes" INTEGER,
+    "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
+    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT DEFAULT ''UNKNOWN'',
+    "updated_at" TIMESTAMP,
+    "updated_by" TEXT,
+    "deleted_at" TIMESTAMP,
+    "deleted_by" TEXT,
+    "activity_log" TEXT,
+    FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id"),
+    UNIQUE("uniform_resource_id", "content_digest", "nature", "size_bytes")
+);
 CREATE TABLE IF NOT EXISTS "ur_walk_session_path_fs_entry" (
     "ur_walk_session_path_fs_entry_id" ULID PRIMARY KEY NOT NULL,
     "walk_session_id" ULID NOT NULL,
@@ -779,6 +819,7 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session_path_fs_entry" (
     "file_extn" TEXT,
     "ur_status" TEXT,
     "ur_diagnostics" TEXT CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL),
+    "ur_transformations" TEXT CHECK(json_valid(ur_transformations) OR ur_transformations IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
@@ -795,6 +836,7 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session_path_fs_entry" (
 CREATE INDEX IF NOT EXISTS "idx_device__name__state" ON "device"("name", "state");
 CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path__walk_session_id__root_path" ON "ur_walk_session_path"("walk_session_id", "root_path");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource__device_id__uri" ON "uniform_resource"("device_id", "uri");
+CREATE INDEX IF NOT EXISTS "idx_uniform_resource_transform__uniform_resource_id__content_digest" ON "uniform_resource_transform"("uniform_resource_id", "content_digest");
 CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path_fs_entry__walk_session_id__file_path_abs" ON "ur_walk_session_path_fs_entry"("walk_session_id", "file_path_abs");
 
 
@@ -858,7 +900,7 @@ CREATE VIEW IF NOT EXISTS "fs_content_walk_session_stats" AS
         walk_session_finished_at,
         file_extension;
     
-      ', '86767369f23d64d282bb0b996d81261709457ac2', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', 'fe55ef245be19beffad847bef3af2e798af6cd66', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -933,6 +975,18 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       elaboration: TEXT
   }
 
+  entity "uniform_resource_transform" as uniform_resource_transform {
+    * **uniform_resource_transform_id**: ULID
+    --
+    * uniform_resource_id: ULID
+    * uri: TEXT
+    * content_digest: TEXT
+      content: BLOB
+      nature: TEXT
+      size_bytes: INTEGER
+      elaboration: TEXT
+  }
+
   entity "ur_walk_session_path_fs_entry" as ur_walk_session_path_fs_entry {
     * **ur_walk_session_path_fs_entry_id**: ULID
     --
@@ -946,6 +1000,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       file_extn: TEXT
       ur_status: TEXT
       ur_diagnostics: TEXT
+      ur_transformations: TEXT
       elaboration: TEXT
   }
 
@@ -956,10 +1011,11 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   device |o..o{ uniform_resource
   ur_walk_session |o..o{ uniform_resource
   ur_walk_session_path |o..o{ uniform_resource
+  uniform_resource |o..o{ uniform_resource_transform
   ur_walk_session |o..o{ ur_walk_session_path_fs_entry
   ur_walk_session_path |o..o{ ur_walk_session_path_fs_entry
   uniform_resource |o..o{ ur_walk_session_path_fs_entry
-@enduml', '5aad6fff8c722746c9e9a1d34d4abf921bee8931', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', '13b0e457d5d24361e6e594b87c597b9ba16ff938', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,

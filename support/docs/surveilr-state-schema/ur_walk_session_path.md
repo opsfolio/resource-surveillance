@@ -2,8 +2,9 @@
 
 ## Description
 
-Stores file system content walk paths associated with a particular  
-session and may have one or more root paths per session.
+Immutable Walk Sessions represents a single scan (or "walk") session.  
+Each time a directory is scanned for files and entries, a record is  
+created here.
 
 <details>
 <summary><strong>Table Definition</strong></summary>

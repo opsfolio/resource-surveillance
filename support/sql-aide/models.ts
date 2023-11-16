@@ -253,14 +253,6 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   const { domains: gd, model: gm } = codeNbModels.modelsGovn;
   const UNIFORM_RESOURCE = "uniform_resource" as const;
 
-  /**
-   * Immutable Devices table represents different machines, servers, or workstations.
-   * Every device has a unique identifier (ULID) and contains fields for its name,
-   * operating system, os_info (possibly Unix name info, like output of uname -a),
-   * and a JSON-structured field for additional details about the device.
-   *
-   * Always append new records. NEVER delete or update existing records.
-   */
   const device = gm.textPkTable("device", {
     device_id: gm.keys.ulidPrimaryKey(),
     name: gd.text(),
@@ -334,14 +326,6 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     },
   });
 
-  /**
-   * Immutable FileSystem Walk Sessions Represents a single file system scan (or
-   * "walk") session. Each time a directory is scanned for files and entries, a
-   * record is created here. It includes a reference to the device being scanned
-   * and the root path of the scan.
-   *
-   * Always append new records. NEVER delete or update existing records.
-   */
   const urWalkSession = gm.textPkTable("ur_walk_session", {
     ur_walk_session_id: gm.keys.ulidPrimaryKey(),
     device_id: device.references.device_id(),
@@ -370,14 +354,6 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     },
   });
 
-  /**
-   * Immutable FileSystem Walk Sessions Represents a single file system scan (or
-   * "walk") session. Each time a directory is scanned for files and entries, a
-   * record is created here. It includes a reference to the device being scanned
-   * and the root path of the scan.
-   *
-   * Always append new records. NEVER delete or update existing records.
-   */
   const urWalkSessionPath = gm.textPkTable("ur_walk_session_path", {
     ur_walk_session_path_id: gm.keys.ulidPrimaryKey(),
     walk_session_id: urWalkSession.references
@@ -401,36 +377,26 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     },
     populateQS: (t, _c, _cols, _tableName) => {
       t.description = markdown`
-        Stores file system content walk paths associated with a particular
-        session and may have one or more root paths per session.`;
+        Immutable Walk Sessions represents a single scan (or "walk") session.
+        Each time a directory is scanned for files and entries, a record is
+        created here.`;
     },
   });
 
-  /**
-   * Immutable File Content table represents the content and metadata of a file at
-   * a particular point in time. This table contains references to the device where
-   * the file resides, file content (optional), digest hash of the content (to
-   * detect changes), and modification time.
-   *
-   * The file content is "versioned" using mtime which are then related to the walk
-   * session to see which version.
-   *
-   * Always append new records. NEVER delete or update existing records.
-   */
   const uniformResource = gm.textPkTable(UNIFORM_RESOURCE, {
     uniform_resource_id: gm.keys.ulidPrimaryKey(),
-    device_id: device.references.device_id(), // present in this device
-    walk_session_id: urWalkSession.references.ur_walk_session_id(), // introduced in this session
-    walk_path_id: urWalkSessionPath.references.ur_walk_session_path_id(), // introduced in this walk path
+    device_id: device.references.device_id(),
+    walk_session_id: urWalkSession.references.ur_walk_session_id(),
+    walk_path_id: urWalkSessionPath.references.ur_walk_session_path_id(),
     uri: gd.text(),
-    content_digest: gd.text(), // '-' when no hash was computed (not NULL); content_digest for symlinks will be the same as their target
+    content_digest: gd.text(),
     content: gd.blobTextNullable(),
-    nature: gd.textNullable(), // file extension or MIME
-    size_bytes: gd.integerNullable(), // file_bytes for symlinks will be different than their target
+    nature: gd.textNullable(),
+    size_bytes: gd.integerNullable(),
     last_modified_at: gd.integerNullable(),
-    content_fm_body_attrs: gd.jsonTextNullable(), // each component of frontmatter-based content ({ frontMatter: '', body: '', attrs: {...} })
-    frontmatter: gd.jsonTextNullable(), // meta data or other "frontmatter" in JSON format
-    elaboration: gd.jsonTextNullable(), // anything that doesn't fit above
+    content_fm_body_attrs: gd.jsonTextNullable(),
+    frontmatter: gd.jsonTextNullable(),
+    elaboration: gd.jsonTextNullable(),
     ...gm.housekeeping.columns,
   }, {
     isIdempotent: true,
@@ -454,28 +420,91 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
         tif.index({ isIdempotent: true }, "device_id", "uri"),
       ];
     },
-    populateQS: (t, _c, _cols, tableName) => {
+    populateQS: (t, c, _cols, tableName) => {
       t.description = markdown`
-        Records file system content information. On multiple executions,
-        ${tableName} are inserted only if the the file content (see unique 
+        Immutable resource and content information. On multiple executions,
+        ${tableName} are inserted only if the the content (see unique 
         index for details). For historical logging, ${tableName} has foreign
         key references to both ${urWalkSession.tableName} and ${urWalkSessionPath.tableName}
         tables to indicate which particular session and walk path the
         resourced was inserted during.`;
+      c.uniform_resource_id.description = `${tableName} ULID primary key`;
+      c.device_id.description =
+        `which ${device.tableName} row introduced this resource`;
+      c.walk_session_id.description =
+        `which ${urWalkSession.tableName} row introduced this resource`;
+      c.walk_path_id.description =
+        `which ${urWalkSessionPath.tableName} row introduced this resource`;
+      c.uri.description =
+        `the resource's URI (dependent on how it was acquired and on which device)`;
+      c.content_digest.description =
+        `'-' when no hash was computed (not NULL); content_digest for symlinks will be the same as their target`;
+      c.content.description =
+        `either NULL if no content was acquired or the actual blob/text of the content`;
+      c.nature.description = `file extension or MIME`;
+      c.content_fm_body_attrs.description =
+        `each component of frontmatter-based content ({ frontMatter: '', body: '', attrs: {...} })`;
+      c.frontmatter.description =
+        `meta data or other "frontmatter" in JSON format`;
+      c.elaboration.description =
+        `anything that doesn't fit in other columns (JSON)`;
     },
   });
 
-  /**
-   * Immutable File Content walk path entry table represents an entry that was
-   * traversed during path walking of a physical file system (`fs`). This table
-   * contains references to the device where the file resides, and references
-   * to the file content, digest hash, etc.
-   *
-   * If you want to see which files did not change between sessions, just "diff"
-   * the rows in SQL.
-   *
-   * Always append new records. NEVER delete or update existing records.
-   */
+  const uniformResourceTransform = gm.textPkTable(
+    `uniform_resource_transform`,
+    {
+      uniform_resource_transform_id: gm.keys.ulidPrimaryKey(),
+      uniform_resource_id: uniformResource.references.uniform_resource_id(),
+      uri: gd.text(),
+      content_digest: gd.text(),
+      content: gd.blobTextNullable(),
+      nature: gd.textNullable(),
+      size_bytes: gd.integerNullable(),
+      elaboration: gd.jsonTextNullable(),
+      ...gm.housekeeping.columns,
+    },
+    {
+      isIdempotent: true,
+      constraints: (props, tableName) => {
+        const c = SQLa.tableConstraints(tableName, props);
+        // TODO: note that content_hash for symlinks will be the same as their target
+        //       figure out whether we need anything special in the UNIQUE index
+        return [
+          c.unique(
+            "uniform_resource_id",
+            "content_digest", // use something like `-` when hash is no computed
+            "nature",
+            "size_bytes",
+          ),
+        ];
+      },
+      indexes: (props, tableName) => {
+        const tif = SQLa.tableIndexesFactory(tableName, props);
+        return [
+          tif.index(
+            { isIdempotent: true },
+            "uniform_resource_id",
+            "content_digest",
+          ),
+        ];
+      },
+      populateQS: (t, c, _cols, tableName) => {
+        t.description = markdown`
+          ${uniformResource.tableName} transformed content`;
+        c.uniform_resource_transform_id.description =
+          `${tableName} ULID primary key`;
+        c.uniform_resource_id.description =
+          `${uniformResource.tableName} row ID of original content`;
+        c.content_digest.description = `transformed content hash`;
+        c.content.description = `transformed content`;
+        c.nature.description = `file extension or MIME`;
+        c.elaboration.description =
+          `anything that doesn't fit in other columns (JSON)`;
+      },
+    },
+  );
+
   const urWalkSessionPathFsEntry = gm.textPkTable(
     "ur_walk_session_path_fs_entry",
     {
@@ -484,14 +513,15 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
         .ur_walk_session_id(),
       walk_path_id: urWalkSessionPath.references.ur_walk_session_path_id(),
       uniform_resource_id: uniformResource.references.uniform_resource_id()
-        .optional(),
+        .optional(), // if a uniform_resource was prepared for this or already existed
       file_path_abs: gd.text(),
       file_path_rel_parent: gd.text(),
       file_path_rel: gd.text(),
       file_basename: gd.text(),
       file_extn: gd.textNullable(),
-      ur_status: gd.textNullable(), // either NULL if uniform_resource_id was created, or "ERROR"
+      ur_status: gd.textNullable(), // "CREATED", "EXISTING", "ERROR" / "WARNING" / etc.
       ur_diagnostics: gd.jsonTextNullable(), // JSON diagnostics for ur_status column
+      ur_transformations: gd.jsonTextNullable(), // JSON-based details to know what transformations occurred, if any
       elaboration: gd.jsonTextNullable(), // anything that doesn't fit above
       ...gm.housekeeping.columns,
     },
@@ -523,6 +553,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       urWalkSession,
       urWalkSessionPath,
       uniformResource,
+      uniformResourceTransform,
       urWalkSessionPathFsEntry,
     ],
     tableIndexes: [
@@ -531,6 +562,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       ...urWalkSession.indexes,
       ...urWalkSessionPath.indexes,
       ...uniformResource.indexes,
+      ...uniformResourceTransform.indexes,
       ...urWalkSessionPathFsEntry.indexes,
     ],
   };
@@ -542,6 +574,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     urWalkSession,
     urWalkSessionPath,
     uniformResource,
+    uniformResourceTransform,
     urWalkSessionPathFsEntry,
     informationSchema,
   };
