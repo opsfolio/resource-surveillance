@@ -381,6 +381,32 @@ impl FsWalkBehavior {
     pub fn persistable_json_text(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)
     }
+
+    pub fn save(
+        &self,
+        conn: &Connection,
+        device_id: &String,
+        behavior_name: &String,
+    ) -> anyhow::Result<String> {
+        let behavior_id: String = conn
+            .query_row(
+                r#"
+             INSERT INTO behavior (behavior_id, device_id, behavior_name, behavior_conf_json)
+                           VALUES (ulid(), ?, ?, ?)
+             ON CONFLICT (device_id, behavior_name) DO UPDATE
+                     SET behavior_conf_json = EXCLUDED.behavior_conf_json, 
+                         updated_at = CURRENT_TIMESTAMP
+               RETURNING behavior_id"#,
+                params![
+                    device_id,
+                    behavior_name,
+                    self.persistable_json_text().unwrap() // TODO: do proper error checking, don't panic
+                ],
+                |row| row.get(0),
+            )
+            .with_context(|| format!("[fs_walk] unable to save behavior '{}'", behavior_name))?;
+        Ok(behavior_id)
+    }
 }
 
 pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String> {
@@ -456,8 +482,19 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
         INSERT INTO ur_walk_session_path_fs_entry (ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn, ur_status, ur_status_explanation) 
                                            VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"};
 
-    let (fswb, behavior_id) = FsWalkBehavior::new(&device_id, fsw_args, &tx)
+    let (fswb, mut behavior_id) = FsWalkBehavior::new(&device_id, fsw_args, &tx)
         .with_context(|| format!("[fs_walk] behavior issue {}", db_fs_path))?;
+    if let Some(save_behavior_name) = &fsw_args.save_behavior {
+        let saved_bid = fswb
+            .save(&tx, &device_id, save_behavior_name)
+            .with_context(|| {
+                format!("[fs_walk] saving {} in {}", save_behavior_name, db_fs_path)
+            })?;
+        if cli.debug == 1 {
+            println!("Saved behavior: {} ({})", save_behavior_name, saved_bid);
+        }
+        behavior_id = Some(saved_bid);
+    }
     if cli.debug == 1 {
         println!(
             "Behavior: {}",

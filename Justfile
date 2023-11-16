@@ -38,7 +38,7 @@ test: ensure-cargo-nextest
 
 # Run end-to-end tests
 test-e2e: 
-    rm -f ./e2e-test-state.sqlite.db && just sqla-sync && just run --debug fs-walk -d ./e2e-test-state.sqlite.db --stats
+    rm -f ./e2e-test-state.sqlite.db && just sqla-sync && just run --debug fs-walk -d ./e2e-test-state.sqlite.db --stats --save-behavior behavior1
 
 # Lint all the code
 lint:
@@ -52,6 +52,7 @@ release:
 help-markdown:
     @cargo run -- admin cli-help-md > CLI-help.md
 
+# Generate `tbls` database schema documents
 tbls: sqla-sync
     @just run admin init -d tbls-temp.sqlite.db
     @tbls -c ./support/docs/surveilr-code-notebooks.tbls.yml doc sqlite://./tbls-temp.sqlite.db ./support/docs/surveilr-code-notebooks-schema --rm-dist
@@ -61,3 +62,6 @@ tbls: sqla-sync
 # Pass all arguments to `cargo run --` to execute the CLI
 run *args='--help':
     @cargo run -- $@
+
+# Perform all the functions to prepare for a release
+prepare-release: lint help-markdown tbls test test-e2e

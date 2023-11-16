@@ -28,7 +28,7 @@ This document contains the help content for the `surveilr` command-line program.
 
 * `--device-name <DEVICE_NAME>` — How to identify this device
 
-  Default value: `Titan`
+  Default value: `Defiant`
 * `-d`, `--debug` — Turn debugging information on (repeat for higher levels)
 
 
@@ -157,6 +157,7 @@ Walks the device file system
 * `--include-state-db-in-walk` — include the surveil database in the walk
 * `--stats` — show stats as an ASCII table after completion
 * `--stats-json` — show stats in JSON after completion
+* `--save-behavior <SAVE_BEHAVIOR>` — save the options as a new behavior
 
 
 

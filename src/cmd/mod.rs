@@ -80,6 +80,10 @@ pub struct FsWalkArgs {
     /// show stats in JSON after completion
     #[arg(long)]
     pub stats_json: bool,
+
+    /// save the options as a new behavior
+    #[arg(long)]
+    pub save_behavior: Option<String>,
 }
 
 /// Notebooks maintenance utilities
