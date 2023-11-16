@@ -28,7 +28,7 @@ This document contains the help content for the `surveilr` command-line program.
 
 * `--device-name <DEVICE_NAME>` — How to identify this device
 
-  Default value: `Constitution`
+  Default value: `Defiant`
 * `-d`, `--debug` — Turn debugging information on (repeat for higher levels)
 
 
@@ -138,6 +138,7 @@ Walks the device file system
 
 ###### **Options:**
 
+* `-b`, `--behavior <BEHAVIOR>` — the behavior name in `behavior` table
 * `-r`, `--root-path <ROOT_PATH>` — one or more root paths to walk
 
   Default value: `.`
@@ -149,13 +150,14 @@ Walks the device file system
   Default value: `.*`
 * `--surveil-content <SURVEIL_CONTENT>` — reg-exes to use to load content for entry instead of just walking
 
-  Default value: `\.(md|mdx|html|json|jsonc)$`
+  Default value: `\.(md|mdx|html|json|jsonc|toml|yaml)$`
 * `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
 
   Default value: `./resource-surveillance.sqlite.db`
 * `--include-state-db-in-walk` — include the surveil database in the walk
 * `--stats` — show stats as an ASCII table after completion
 * `--stats-json` — show stats in JSON after completion
+* `--save-behavior <SAVE_BEHAVIOR>` — save the options as a new behavior
 
 
 

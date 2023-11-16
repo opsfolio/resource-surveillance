@@ -50,7 +50,7 @@ release:
 
 # Generate CLI markdown help and save in CLI-help.md
 help-markdown:
-    @cargo run -- admin cli-help-md > CLI-help.md
+    @cargo run -- admin cli-help-md > support/docs/CLI-help.md
 
 # Generate `tbls` database schema documents
 tbls: sqla-sync
