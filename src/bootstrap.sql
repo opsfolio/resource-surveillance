@@ -1,3 +1,17 @@
+CREATE TABLE IF NOT EXISTS "assurance_schema" (
+    "assurance_schema_id" TEXT PRIMARY KEY NOT NULL,
+    "assurance_type" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "code_json" TEXT CHECK(json_valid(code_json) OR code_json IS NULL),
+    "governance" TEXT CHECK(json_valid(governance) OR governance IS NULL),
+    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT DEFAULT 'UNKNOWN',
+    "updated_at" TIMESTAMP,
+    "updated_by" TEXT,
+    "deleted_at" TIMESTAMP,
+    "deleted_by" TEXT,
+    "activity_log" TEXT
+);
 CREATE TABLE IF NOT EXISTS "code_notebook_kernel" (
     "code_notebook_kernel_id" TEXT PRIMARY KEY NOT NULL,
     "kernel_name" TEXT NOT NULL,
@@ -63,7 +77,21 @@ INSERT INTO "code_notebook_kernel" ("code_notebook_kernel_id", "kernel_name", "d
 INSERT INTO "code_notebook_kernel" ("code_notebook_kernel_id", "kernel_name", "description", "mime_type", "file_extn", "elaboration", "governance", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ('LLM Prompt', 'Large Lanugage Model (LLM) Prompt', NULL, 'text/vnd.netspective.llm-prompt', '.llm-prompt.txt', NULL, NULL, (CURRENT_TIMESTAMP), NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(kernel_name) DO UPDATE SET mime_type = EXCLUDED.mime_type, file_extn = EXCLUDED.file_extn;
 
 -- store all SQL that is potentially reusable in the database
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'BootstrapSqlNotebook', 'bootstrapDDL', NULL, 'CREATE TABLE IF NOT EXISTS "code_notebook_kernel" (
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'BootstrapSqlNotebook', 'bootstrapDDL', NULL, 'CREATE TABLE IF NOT EXISTS "assurance_schema" (
+    "assurance_schema_id" TEXT PRIMARY KEY NOT NULL,
+    "assurance_type" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "code_json" TEXT CHECK(json_valid(code_json) OR code_json IS NULL),
+    "governance" TEXT CHECK(json_valid(governance) OR governance IS NULL),
+    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT DEFAULT ''UNKNOWN'',
+    "updated_at" TIMESTAMP,
+    "updated_by" TEXT,
+    "deleted_at" TIMESTAMP,
+    "deleted_by" TEXT,
+    "activity_log" TEXT
+);
+CREATE TABLE IF NOT EXISTS "code_notebook_kernel" (
     "code_notebook_kernel_id" TEXT PRIMARY KEY NOT NULL,
     "kernel_name" TEXT NOT NULL,
     "description" TEXT,
@@ -121,7 +149,7 @@ CREATE TABLE IF NOT EXISTS "code_notebook_state" (
 );
 
 
-', '069dfed1ccd14da0e1c6955e7950622f47d6dd52', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', '462f572072dd9c791b33439efac2ecac8dd5b0b1', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -148,14 +176,31 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     "activity_log" TEXT,
     UNIQUE("name", "state", "boundary")
 );
+CREATE TABLE IF NOT EXISTS "behavior" (
+    "behavior_id" ULID PRIMARY KEY NOT NULL,
+    "device_id" ULID NOT NULL,
+    "behavior_name" TEXT NOT NULL,
+    "behavior_conf_json" TEXT CHECK(json_valid(behavior_conf_json)) NOT NULL,
+    "assurance_schema_id" TEXT,
+    "governance" TEXT CHECK(json_valid(governance) OR governance IS NULL),
+    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT DEFAULT ''UNKNOWN'',
+    "updated_at" TIMESTAMP,
+    "updated_by" TEXT,
+    "deleted_at" TIMESTAMP,
+    "deleted_by" TEXT,
+    "activity_log" TEXT,
+    FOREIGN KEY("device_id") REFERENCES "device"("device_id"),
+    FOREIGN KEY("assurance_schema_id") REFERENCES "assurance_schema"("assurance_schema_id"),
+    UNIQUE("device_id", "behavior_name")
+);
 CREATE TABLE IF NOT EXISTS "ur_walk_session" (
     "ur_walk_session_id" ULID PRIMARY KEY NOT NULL,
     "device_id" ULID NOT NULL,
+    "behavior_id" ULID,
+    "behavior_json" TEXT CHECK(json_valid(behavior_json) OR behavior_json IS NULL),
     "walk_started_at" TIMESTAMP NOT NULL,
     "walk_finished_at" TIMESTAMP,
-    "ignore_paths_regex" TEXT,
-    "blobs_regex" TEXT,
-    "digests_regex" TEXT,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
@@ -165,6 +210,7 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session" (
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("device_id") REFERENCES "device"("device_id"),
+    FOREIGN KEY("behavior_id") REFERENCES "behavior"("behavior_id"),
     UNIQUE("device_id", "created_at")
 );
 CREATE TABLE IF NOT EXISTS "ur_walk_session_path" (
@@ -237,7 +283,7 @@ CREATE INDEX IF NOT EXISTS "idx_device__name__state" ON "device"("name", "state"
 CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path__walk_session_id__root_path" ON "ur_walk_session_path"("walk_session_id", "root_path");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource__device_id__uri" ON "uniform_resource"("device_id", "uri");
 CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path_fs_entry__walk_session_id__file_path_abs" ON "ur_walk_session_path_fs_entry"("walk_session_id", "file_path_abs");
-', '602608928531d85741baae0f229420abc7927cbf', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', '0b9fd1a68f399409c29241dc8a79e0cdaa0d4063', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -542,6 +588,20 @@ The relationships are as follows: Each cell in ''code_notebook_cell'' is associa
 
 Use the following SQLite Schema to generate SQL queries that interact with these tables and once you understand them let me know so I can ask you for help:
 
+CREATE TABLE IF NOT EXISTS "assurance_schema" (
+    "assurance_schema_id" TEXT PRIMARY KEY NOT NULL,
+    "assurance_type" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "code_json" TEXT CHECK(json_valid(code_json) OR code_json IS NULL),
+    "governance" TEXT CHECK(json_valid(governance) OR governance IS NULL),
+    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT DEFAULT ''UNKNOWN'',
+    "updated_at" TIMESTAMP,
+    "updated_by" TEXT,
+    "deleted_at" TIMESTAMP,
+    "deleted_by" TEXT,
+    "activity_log" TEXT
+);
 CREATE TABLE IF NOT EXISTS "code_notebook_kernel" (
     "code_notebook_kernel_id" TEXT PRIMARY KEY NOT NULL,
     "kernel_name" TEXT NOT NULL,
@@ -601,7 +661,7 @@ CREATE TABLE IF NOT EXISTS "code_notebook_state" (
 
 
 
-      ', '22b0165e3ddb6ba948bf7788a5d7fd4b3bb658b5', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', '8c96a6667bc2dc4ca8df2b210292ed07609703f9', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -629,14 +689,31 @@ CREATE TABLE IF NOT EXISTS "device" (
     "activity_log" TEXT,
     UNIQUE("name", "state", "boundary")
 );
+CREATE TABLE IF NOT EXISTS "behavior" (
+    "behavior_id" ULID PRIMARY KEY NOT NULL,
+    "device_id" ULID NOT NULL,
+    "behavior_name" TEXT NOT NULL,
+    "behavior_conf_json" TEXT CHECK(json_valid(behavior_conf_json)) NOT NULL,
+    "assurance_schema_id" TEXT,
+    "governance" TEXT CHECK(json_valid(governance) OR governance IS NULL),
+    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT DEFAULT ''UNKNOWN'',
+    "updated_at" TIMESTAMP,
+    "updated_by" TEXT,
+    "deleted_at" TIMESTAMP,
+    "deleted_by" TEXT,
+    "activity_log" TEXT,
+    FOREIGN KEY("device_id") REFERENCES "device"("device_id"),
+    FOREIGN KEY("assurance_schema_id") REFERENCES "assurance_schema"("assurance_schema_id"),
+    UNIQUE("device_id", "behavior_name")
+);
 CREATE TABLE IF NOT EXISTS "ur_walk_session" (
     "ur_walk_session_id" ULID PRIMARY KEY NOT NULL,
     "device_id" ULID NOT NULL,
+    "behavior_id" ULID,
+    "behavior_json" TEXT CHECK(json_valid(behavior_json) OR behavior_json IS NULL),
     "walk_started_at" TIMESTAMP NOT NULL,
     "walk_finished_at" TIMESTAMP,
-    "ignore_paths_regex" TEXT,
-    "blobs_regex" TEXT,
-    "digests_regex" TEXT,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
@@ -646,6 +723,7 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session" (
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("device_id") REFERENCES "device"("device_id"),
+    FOREIGN KEY("behavior_id") REFERENCES "behavior"("behavior_id"),
     UNIQUE("device_id", "created_at")
 );
 CREATE TABLE IF NOT EXISTS "ur_walk_session_path" (
@@ -780,7 +858,7 @@ CREATE VIEW IF NOT EXISTS "fs_content_walk_session_stats" AS
         walk_session_finished_at,
         file_extension;
     
-      ', 'f86e19246d5d254a15b29518d9d2e925c50871d0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', '9385294fe2db40abf870d5e174136b6177e02fc7', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -809,15 +887,24 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       elaboration: TEXT
   }
 
+  entity "behavior" as behavior {
+    * **behavior_id**: ULID
+    --
+    * device_id: ULID
+    * behavior_name: TEXT
+    * behavior_conf_json: TEXT
+      assurance_schema_id: TEXT
+      governance: TEXT
+  }
+
   entity "ur_walk_session" as ur_walk_session {
     * **ur_walk_session_id**: ULID
     --
     * device_id: ULID
+      behavior_id: ULID
+      behavior_json: TEXT
     * walk_started_at: TIMESTAMP
       walk_finished_at: TIMESTAMP
-      ignore_paths_regex: TEXT
-      blobs_regex: TEXT
-      digests_regex: TEXT
       elaboration: TEXT
   }
 
@@ -862,7 +949,9 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       elaboration: TEXT
   }
 
+  device |o..o{ behavior
   device |o..o{ ur_walk_session
+  behavior |o..o{ ur_walk_session
   ur_walk_session |o..o{ ur_walk_session_path
   device |o..o{ uniform_resource
   ur_walk_session |o..o{ uniform_resource
@@ -870,7 +959,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   ur_walk_session |o..o{ ur_walk_session_path_fs_entry
   ur_walk_session_path |o..o{ ur_walk_session_path_fs_entry
   uniform_resource |o..o{ ur_walk_session_path_fs_entry
-@enduml', '6707f453be175f3b3f080e78db3bd780aa958925', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', 'f2ef61cfeb35d91261bad2c07f9ba0d711e4dd38', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,
@@ -885,6 +974,22 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     BorderColor Silver
     FontColor Black
     FontSize 12
+  }
+
+  entity "assurance_schema" as assurance_schema {
+    * **assurance_schema_id**: TEXT
+    --
+    * assurance_type: TEXT
+    * code: TEXT
+      code_json: TEXT
+      governance: TEXT
+      created_at: TIMESTAMP
+      created_by: TEXT
+      updated_at: TIMESTAMP
+      updated_by: TEXT
+      deleted_at: TIMESTAMP
+      deleted_by: TEXT
+      activity_log: TEXT
   }
 
   entity "code_notebook_kernel" as code_notebook_kernel {
@@ -946,7 +1051,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
 
   code_notebook_kernel |o..o{ code_notebook_cell
   code_notebook_cell |o..o{ code_notebook_state
-@enduml', 'b4205da6b432bcee78b0c4bad8ee15d7d5fddd0c', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', 'de749b44284019413053f78449e7f6ed54a3bb25', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,

@@ -65,6 +65,41 @@ export function codeNotebooksModels<
   const modelsGovn = modelsGovernance<EmitContext>();
   const { keys: gk, domains: gd, model: gm } = modelsGovn;
 
+  const assuranceSchema = gm.textPkTable("assurance_schema", {
+    assurance_schema_id: gk.textPrimaryKey(),
+    assurance_type: gd.text(),
+    code: gd.text(),
+    code_json: gd.jsonTextNullable(),
+    governance: gd.jsonTextNullable(),
+    ...gm.housekeeping.columns, // activity_log should store previous versions in JSON format (for history tracking)
+  }, {
+    isIdempotent: true,
+    populateQS: (t, c, _, tableName) => {
+      t.description = markdown`
+        A Notebook is a group of Cells. A kernel is a computational engine that executes the code contained in a notebook cell. 
+        Each notebook is associated with a kernel of a specific programming language or code transformer which can interpret
+        code and produce a result. For example, a SQL notebook might use a SQLite kernel for running SQL code and an AI Prompt
+        might prepare AI prompts for LLMs.`;
+      c.assurance_schema_id.description =
+        `${tableName} primary key and internal label (not a ULID)`;
+      c.assurance_type.description = `'JSON Schema', 'XML Schema', etc.`;
+      c.code.description =
+        `If the schema is other than JSON Schema, use this for the validation code`;
+      c.code_json.description =
+        `If the schema is a JSON Schema or the assurance code has a JSON representation`;
+      c.governance.description =
+        `JSON schema-specific governance data (description, documentation, usage, etc. in JSON)`;
+    },
+
+    qualitySystem: {
+      description: markdown`
+          A Notebook is a group of Cells. A kernel is a computational engine that executes the code contained in a notebook cell. 
+          Each notebook is associated with a kernel of a specific programming language or code transformer which can interpret
+          code and produce a result. For example, a SQL notebook might use a SQLite kernel for running SQL code and an AI Prompt
+          might prepare AI prompts for LLMs.`,
+    },
+  });
+
   const codeNotebookKernel = gm.textPkTable("code_notebook_kernel", {
     code_notebook_kernel_id: gk.textPrimaryKey(),
     kernel_name: gd.text(),
@@ -189,8 +224,14 @@ export function codeNotebooksModels<
   });
 
   const informationSchema = {
-    tables: [codeNotebookKernel, codeNotebookCell, codeNotebookState],
+    tables: [
+      assuranceSchema,
+      codeNotebookKernel,
+      codeNotebookCell,
+      codeNotebookState,
+    ],
     tableIndexes: [
+      ...assuranceSchema.indexes,
       ...codeNotebookKernel.indexes,
       ...codeNotebookCell.indexes,
       ...codeNotebookState.indexes,
@@ -199,6 +240,7 @@ export function codeNotebooksModels<
 
   return {
     modelsGovn,
+    assuranceSchema,
     codeNotebookKernel,
     codeNotebookCell,
     codeNotebookState,
@@ -256,6 +298,42 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     },
   });
 
+  const behavior = gm.textPkTable("behavior", {
+    behavior_id: gm.keys.ulidPrimaryKey(),
+    device_id: device.references.device_id(),
+    behavior_name: gd.text(),
+    behavior_conf_json: gd.jsonText(),
+    assurance_schema_id: codeNbModels.assuranceSchema.references
+      .assurance_schema_id().optional(),
+    governance: gd.jsonTextNullable(),
+    ...gm.housekeeping.columns,
+  }, {
+    isIdempotent: true,
+    constraints: (props, tableName) => {
+      const c = SQLa.tableConstraints(tableName, props);
+      return [
+        c.unique("device_id", "behavior_name"),
+      ];
+    },
+    populateQS: (t, c, _cols, tableName) => {
+      t.description = markdown`
+          Behaviors are configuration "presets" that can be used to drive
+          application operations at runtime. For example FS Walk behaviors
+          include configs that indicate which files to ignore, which to
+          scan, when to load content, etc. This is more convenient than 
+          creating 
+          
+          ${tableName} has a foreign key reference to the device table since
+          behaviors might be device-specific.`;
+      c.behavior_name.description =
+        `Arbitrary but unique per-device behavior name (e.g. fs-walk::xyz)`;
+      c.behavior_conf_json.description =
+        `Configuration, settings, parameters, etc. describing the behavior (JSON, behavior-dependent)`;
+      c.governance.description =
+        `Descriptions or other "governance" details (JSON, behavior-dependent)`;
+    },
+  });
+
   /**
    * Immutable FileSystem Walk Sessions Represents a single file system scan (or
    * "walk") session. Each time a directory is scanned for files and entries, a
@@ -267,11 +345,10 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   const urWalkSession = gm.textPkTable("ur_walk_session", {
     ur_walk_session_id: gm.keys.ulidPrimaryKey(),
     device_id: device.references.device_id(),
+    behavior_id: behavior.references.behavior_id().optional(),
+    behavior_json: gd.jsonTextNullable(),
     walk_started_at: gd.dateTime(),
     walk_finished_at: gd.dateTimeNullable(),
-    ignore_paths_regex: gd.textNullable(),
-    blobs_regex: gd.textNullable(),
-    digests_regex: gd.textNullable(),
     elaboration: gd.jsonTextNullable(),
     ...gm.housekeeping.columns,
   }, {
@@ -284,7 +361,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     },
     populateQS: (t, _c, _cols, tableName) => {
       t.description = markdown`
-        Immutable FileSystem Walk Sessions Represents a single file system scan (or
+        Immutable FileSystem Walk Sessions represents a single file system scan (or
         "walk") session. Each time a directory is scanned for files and entries, a
         record is created here. ${tableName} has a foreign key reference to the
         device table so that the same device can be used for multiple walk sessions
@@ -442,6 +519,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   const informationSchema = {
     tables: [
       device,
+      behavior,
       urWalkSession,
       urWalkSessionPath,
       uniformResource,
@@ -449,6 +527,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     ],
     tableIndexes: [
       ...device.indexes,
+      ...behavior.indexes,
       ...urWalkSession.indexes,
       ...urWalkSessionPath.indexes,
       ...uniformResource.indexes,
@@ -459,6 +538,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   return {
     codeNbModels,
     device,
+    behavior,
     urWalkSession,
     urWalkSessionPath,
     uniformResource,
