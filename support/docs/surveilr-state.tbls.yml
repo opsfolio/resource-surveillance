@@ -8,6 +8,7 @@ er:
   distance: 2
 include:
   - device
+  - behavior
   - ur_walk_session
   - ur_walk_session_path
   - uniform_resource
@@ -31,10 +32,31 @@ comments:
     tableComment: >-
       Identity, network segmentation, and sysinfo for devices on which
       uniform_resource are found
+  - table: behavior
+    columnComments:
+      behavior_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      behavior_name: 'Arbitrary but unique per-device behavior name (e.g. fs-walk::xyz)'
+      behavior_conf_json: >-
+        Configuration, settings, parameters, etc. describing the behavior (JSON,
+        behavior-dependent)
+      governance: 'Descriptions or other "governance" details (JSON, behavior-dependent)'
+      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
+    tableComment: |-
+      Behaviors are configuration "presets" that can be used to drive
+      application operations at runtime. For example FS Walk behaviors
+      include configs that indicate which files to ignore, which to
+      scan, when to load content, etc. This is more convenient than 
+      creating 
+
+      behavior has a foreign key reference to the device table since
+      behaviors might be device-specific.
   - table: ur_walk_session
     columnComments:
       ur_walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      behavior_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      behavior_json: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       walk_started_at: >-
         {"isSqlDomainZodDescrMeta":true,"isDateSqlDomain":true,"isDateTime":true}
       walk_finished_at: >-
@@ -42,7 +64,7 @@ comments:
       elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: >-
-      Immutable FileSystem Walk Sessions Represents a single file system scan
+      Immutable FileSystem Walk Sessions represents a single file system scan
       (or
 
       "walk") session. Each time a directory is scanned for files and entries, a

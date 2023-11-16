@@ -36,6 +36,10 @@ pub enum CliCommands {
 /// Walks the device file system
 #[derive(Args)]
 pub struct FsWalkArgs {
+    /// the behavior name in `behavior` table
+    #[arg(short, long, env = "SURVEILR_FS_WALK_BEHAVIOR_NAME")]
+    pub behavior: Option<String>,
+
     /// one or more root paths to walk
     #[arg(short, long, default_value = ".", default_missing_value = "always")]
     pub root_path: Vec<String>,

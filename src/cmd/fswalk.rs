@@ -1,6 +1,8 @@
 use anyhow::{Context, Result};
 use indoc::indoc;
 use rusqlite::{params, Connection};
+use serde::{Deserialize, Serialize};
+use serde_regex;
 
 use crate::fsresource::*;
 use crate::persist::*;
@@ -309,8 +311,80 @@ impl UniformResourceWriter<ContentResource> for YamlResource<ContentResource> {
     }
 }
 
-pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
-    let db_fs_path = &args.state_db_fs_path;
+// TODO: Allow per file type / MIME / extension / nature configuration
+// such as compression for certain types of files but as-is for other
+// types;
+
+#[derive(Serialize, Deserialize)]
+pub struct FsWalkBehavior {
+    pub root_paths: Vec<String>,
+
+    #[serde(with = "serde_regex")]
+    pub ignore_entries: Vec<regex::Regex>,
+
+    #[serde(with = "serde_regex")]
+    pub ingest_content: Vec<regex::Regex>,
+
+    #[serde(with = "serde_regex")]
+    pub compute_digests: Vec<regex::Regex>,
+}
+
+impl FsWalkBehavior {
+    pub fn new(
+        device_id: &String,
+        fsw_args: &super::FsWalkArgs,
+        conn: &Connection,
+    ) -> anyhow::Result<(Self, Option<String>)> {
+        if let Some(behavior_name) = &fsw_args.behavior {
+            let (fswb_behavior_id, fswb_json): (String, String) = conn
+                .query_row(
+                    r#"
+                   SELECT behavior_id, behavior_conf_json 
+                     FROM behavior 
+                    WHERE device_id = ?1 AND behavior_name = ?2 
+                 ORDER BY created_at desc 
+                    LIMIT 1"#,
+                    params![device_id, behavior_name],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .with_context(|| {
+                    format!(
+                        "[fs_walk] unable to read behavior '{}' from {} behavior table",
+                        behavior_name, fsw_args.state_db_fs_path
+                    )
+                })?;
+            let fswb = FsWalkBehavior::from_json(&fswb_json).with_context(|| {
+                format!(
+                    "[fs_walk] unable to deserialize behavior {} in {}",
+                    fswb_json, fsw_args.state_db_fs_path
+                )
+            })?;
+            Ok((fswb, Some(fswb_behavior_id)))
+        } else {
+            Ok((FsWalkBehavior::from_fs_walk_args(fsw_args), None))
+        }
+    }
+
+    pub fn from_fs_walk_args(args: &super::FsWalkArgs) -> Self {
+        FsWalkBehavior {
+            root_paths: args.root_path.clone(),
+            ingest_content: args.surveil_content.clone(),
+            compute_digests: args.compute_digests.clone(),
+            ignore_entries: args.ignore_entry.clone(),
+        }
+    }
+
+    pub fn from_json(json_text: &str) -> Result<Self, serde_json::Error> {
+        serde_json::from_str(json_text)
+    }
+
+    pub fn persistable_json_text(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string_pretty(self)
+    }
+}
+
+pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String> {
+    let db_fs_path = &fsw_args.state_db_fs_path;
 
     if cli.debug == 1 {
         println!("Surveillance State DB: {}", db_fs_path);
@@ -344,7 +418,7 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
     }
 
     let mut ignore_db_fs_path: Vec<String> = Vec::new();
-    if !args.include_state_db_in_walk {
+    if !fsw_args.include_state_db_in_walk {
         let canonical_db_fs_path = std::fs::canonicalize(std::path::Path::new(&db_fs_path))
             .with_context(|| format!("[fs_walk] unable to canonicalize in {}", db_fs_path))?;
         let canonical_db_fs_path = canonical_db_fs_path.to_string_lossy().to_string();
@@ -362,8 +436,8 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
 
     // separate the SQL from the execute so we can use it in logging, errors, etc.
     const INS_UR_WALK_SESSION_SQL: &str = indoc! {"
-        INSERT INTO ur_walk_session (ur_walk_session_id, device_id, ignore_paths_regex, blobs_regex, digests_regex, walk_started_at) 
-                             VALUES (ulid(), ?, ?, ?, ?, CURRENT_TIMESTAMP) RETURNING ur_walk_session_id"};
+        INSERT INTO ur_walk_session (ur_walk_session_id, device_id, behavior_id, behavior_json, walk_started_at) 
+                             VALUES (ulid(), ?, ?, ?, CURRENT_TIMESTAMP) RETURNING ur_walk_session_id"};
     const INS_UR_WALK_SESSION_FINISH_SQL: &str = indoc! {"
         UPDATE ur_walk_session 
            SET walk_finished_at = CURRENT_TIMESTAMP 
@@ -382,26 +456,26 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
         INSERT INTO ur_walk_session_path_fs_entry (ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn, ur_status, ur_status_explanation) 
                                            VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"};
 
+    let (fswb, behavior_id) = FsWalkBehavior::new(&device_id, fsw_args, &tx)
+        .with_context(|| format!("[fs_walk] behavior issue {}", db_fs_path))?;
+    if cli.debug == 1 {
+        println!(
+            "Behavior: {}",
+            behavior_id.clone().unwrap_or(String::from("custom"))
+        );
+    }
+
     let walk_session_id: String = tx
         .query_row(
             INS_UR_WALK_SESSION_SQL,
             params![
                 device_id,
-                args.ignore_entry
-                    .iter()
-                    .map(|r| r.as_str())
-                    .collect::<Vec<&str>>()
-                    .join(", "),
-                args.compute_digests
-                    .iter()
-                    .map(|r| r.as_str())
-                    .collect::<Vec<&str>>()
-                    .join(", "),
-                args.surveil_content
-                    .iter()
-                    .map(|r| r.as_str())
-                    .collect::<Vec<&str>>()
-                    .join(", ")
+                behavior_id,
+                match fswb.persistable_json_text() {
+                    Ok(json_text) => json_text,
+                    Err(_err) =>
+                        String::from("JSON serialization error, TODO: convert err to string"),
+                }
             ],
             |row| row.get(0),
         )
@@ -442,7 +516,7 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
             )
         })?;
 
-        for root_path in &args.root_path {
+        for root_path in &fswb.root_paths {
             let canonical_path_buf = std::fs::canonicalize(std::path::Path::new(&root_path))
                 .with_context(|| {
                     format!(
@@ -473,7 +547,7 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
 
             let rp: Vec<String> = vec![canonical_path.clone()];
             let walker =
-                FileSysResourcesWalker::new(&rp, &args.ignore_entry, &args.surveil_content)
+                FileSysResourcesWalker::new(&rp, &fswb.ignore_entries, &fswb.ingest_content)
                     .with_context(|| {
                         format!(
                             "[fs_walk] unable to walker for {} in {}",
@@ -519,7 +593,7 @@ pub fn fs_walk(cli: &super::Cli, args: &super::FsWalkArgs) -> Result<String> {
                         };
 
                         // don't store the database we're creating in the walk unless requested
-                        if !args.include_state_db_in_walk
+                        if !fsw_args.include_state_db_in_walk
                             && ignore_db_fs_path.iter().any(|s| s == &inserted.uri)
                         {
                             continue;

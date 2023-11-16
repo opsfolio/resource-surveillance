@@ -7,11 +7,37 @@ er:
   hideDef: true
   distance: 2
 include:
+  - assurance_schema
   - code_notebook_kernel
   - code_notebook_cell
   - code_notebook_state
 name: Resource Surveillance Notebooks Schema
 comments:
+  - table: assurance_schema
+    columnComments:
+      assurance_schema_id: assurance_schema primary key and internal label (not a ULID)
+      assurance_type: '''JSON Schema'', ''XML Schema'', etc.'
+      code: >-
+        If the schema is other than JSON Schema, use this for the validation
+        code
+      code_json: >-
+        If the schema is a JSON Schema or the assurance code has a JSON
+        representation
+      governance: >-
+        JSON schema-specific governance data (description, documentation, usage,
+        etc. in JSON)
+      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
+    tableComment: >-
+      A Notebook is a group of Cells. A kernel is a computational engine that
+      executes the code contained in a notebook cell. 
+
+      Each notebook is associated with a kernel of a specific programming
+      language or code transformer which can interpret
+
+      code and produce a result. For example, a SQL notebook might use a SQLite
+      kernel for running SQL code and an AI Prompt
+
+      might prepare AI prompts for LLMs.
   - table: code_notebook_kernel
     columnComments:
       code_notebook_kernel_id: code_notebook_kernel primary key and internal label (not a ULID)

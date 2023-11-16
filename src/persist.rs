@@ -8,7 +8,10 @@ use ulid::Ulid;
 
 use super::device::Device;
 
-//type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
+// TODO: every time a prepare_conn runs, allow passing in a Vector of files like
+// surveilr.init.sql as a source file that can help setup configurations and
+// presets through SQL (instead of JSON/YAML/etc.); consider using SQLPage crate
+// for parsers/templating or SQLa to help generate (with Deno integration).
 
 pub fn prepare_conn(db: &Connection) -> RusqliteResult<()> {
     declare_ulid_function(db)
