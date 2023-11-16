@@ -231,6 +231,20 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
                         Ok(Box::new(UniformResource::Json(json)))
                     }
                 }
+                "yaml" | "yml" => {
+                    let yaml = YamlResource {
+                        resource,
+                        content: None, // TODO parse using serde
+                    };
+                    Ok(Box::new(UniformResource::Yaml(yaml)))
+                }
+                "toml" => {
+                    let toml = TomlResource {
+                        resource,
+                        content: None, // TODO parse using serde
+                    };
+                    Ok(Box::new(UniformResource::Toml(toml)))
+                }
                 "md" | "mdx" => {
                     let markdown = MarkdownResource { resource };
                     Ok(Box::new(UniformResource::Markdown(markdown)))
@@ -238,9 +252,13 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
                 "png" | "gif" | "tiff" | "jpg" | "jpeg" => {
                     let image = ImageResource {
                         resource,
-                        image_meta: HashMap::new(),
+                        image_meta: HashMap::new(), // TODO add meta data
                     };
                     Ok(Box::new(UniformResource::Image(image)))
+                }
+                "svg" => {
+                    let svg = SvgResource { resource };
+                    Ok(Box::new(UniformResource::Svg(svg)))
                 }
                 "tap" => {
                     let tap = TestAnythingResource { resource };

@@ -67,25 +67,38 @@ pub struct MarkdownResource<Resource> {
     pub resource: Resource,
 }
 
-pub struct TestAnythingResource<Resource> {
-    pub resource: Resource,
-}
-
 pub struct SoftwarePackageDxResource<Resource> {
     pub resource: Resource,
 }
 
-pub enum UniformResource<Resource> {
-    Unknown(Resource),
-    Image(ImageResource<Resource>),
-    Markdown(MarkdownResource<Resource>),
-    Json(JsonResource<Resource>),
-    Html(HtmlResource<Resource>),
-    Tap(TestAnythingResource<Resource>),
+pub struct SvgResource<Resource> {
+    pub resource: Resource,
+}
 
-    // TODO: SPDX comes in 5 flavors (see https://spdx.dev/learn/overview/) so we need
-    // to model each of them; for now, we're supporting on SPDX JSON.
-    SpdxJson(SoftwarePackageDxResource<Resource>),
+pub struct TestAnythingResource<Resource> {
+    pub resource: Resource,
+}
+pub struct TomlResource<Resource> {
+    pub resource: Resource,
+    pub content: Option<JsonValueSupplier>, // transformed to JSON content
+}
+
+pub struct YamlResource<Resource> {
+    pub resource: Resource,
+    pub content: Option<JsonValueSupplier>, // transformed to JSON content
+}
+
+pub enum UniformResource<Resource> {
+    Html(HtmlResource<Resource>),
+    Image(ImageResource<Resource>),
+    Json(JsonResource<Resource>),
+    Markdown(MarkdownResource<Resource>),
+    SpdxJson(SoftwarePackageDxResource<Resource>), // TODO: SPDX comes in 5 flavors (see https://spdx.dev/learn/overview/)
+    Svg(SvgResource<Resource>),
+    Tap(TestAnythingResource<Resource>),
+    Toml(TomlResource<Resource>),
+    Yaml(YamlResource<Resource>),
+    Unknown(Resource),
 }
 
 pub trait UniformResourceSupplier<Resource> {

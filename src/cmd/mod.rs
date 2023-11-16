@@ -56,7 +56,7 @@ pub struct FsWalkArgs {
     /// reg-exes to use to load content for entry instead of just walking
     #[arg(
         long,
-        default_value = "\\.(md|mdx|html|json|jsonc)$",
+        default_value = "\\.(md|mdx|html|json|jsonc|toml|yaml)$",
         default_missing_value = "always"
     )]
     pub surveil_content: Vec<Regex>,
