@@ -55,8 +55,8 @@ help-markdown:
 # Generate `tbls` database schema documents
 tbls: sqla-sync
     @just run admin init -d tbls-temp.sqlite.db
-    @tbls -c ./support/docs/surveilr-code-notebooks.tbls.yml doc sqlite://./tbls-temp.sqlite.db ./support/docs/surveilr-code-notebooks-schema --rm-dist
-    @tbls -c ./support/docs/surveilr-state.tbls.yml doc sqlite://./tbls-temp.sqlite.db ./support/docs/surveilr-state-schema --rm-dist
+    @tbls -c ./support/docs/surveilr-code-notebooks.tbls.auto.yml doc sqlite://./tbls-temp.sqlite.db ./support/docs/surveilr-code-notebooks-schema --rm-dist
+    @tbls -c ./support/docs/surveilr-state.tbls.auto.yml doc sqlite://./tbls-temp.sqlite.db ./support/docs/surveilr-state-schema --rm-dist
     @rm -f ./tbls-temp.sqlite.db
 
 # Pass all arguments to `cargo run --` to execute the CLI

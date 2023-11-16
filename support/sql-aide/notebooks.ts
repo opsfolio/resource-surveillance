@@ -1254,7 +1254,7 @@ export class SqlNotebooksOrchestrator<EmitContext extends SQLa.SqlEmitContext> {
     const { nbh: { models, models: { codeNbModels } } } = this;
     return [
       {
-        identity: "surveilr-state.tbls.yml",
+        identity: "surveilr-state.tbls.auto.yml",
         emit: tbls.tblsConfig(
           function* () {
             for (const table of models.informationSchema.tables) {
@@ -1266,7 +1266,7 @@ export class SqlNotebooksOrchestrator<EmitContext extends SQLa.SqlEmitContext> {
         ),
       },
       {
-        identity: "surveilr-code-notebooks.tbls.yml",
+        identity: "surveilr-code-notebooks.tbls.auto.yml",
         emit: tbls.tblsConfig(
           function* () {
             for (const table of codeNbModels.informationSchema.tables) {
