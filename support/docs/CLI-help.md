@@ -59,6 +59,7 @@ initialize an empty database with bootstrap.sql
 
   Default value: `./resource-surveillance.sqlite.db`
 * `-r`, `--remove-existing-first` — remove the existing database first
+* `--with-device` — add the current device in the empty database's device table
 
 
 
