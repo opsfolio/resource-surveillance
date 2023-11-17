@@ -140,6 +140,10 @@ pub enum AdminCommands {
         /// remove the existing database first
         #[arg(short, long)]
         remove_existing_first: bool,
+
+        /// add the current device in the empty database's device table
+        #[arg(long)]
+        with_device: bool,
     },
 
     /// generate SQLite SQL that will merge multiple databases into a single one

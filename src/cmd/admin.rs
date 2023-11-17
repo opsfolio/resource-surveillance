@@ -12,7 +12,8 @@ impl AdminCommands {
             AdminCommands::Init {
                 state_db_fs_path,
                 remove_existing_first,
-            } => self.init(cli, state_db_fs_path, *remove_existing_first),
+                with_device,
+            } => self.init(cli, state_db_fs_path, *remove_existing_first, *with_device),
             AdminCommands::MergeSql {
                 db_glob,
                 db_glob_ignore,
@@ -26,6 +27,7 @@ impl AdminCommands {
         cli: &super::Cli,
         db_fs_path: &String,
         remove_existing_first: bool,
+        with_device: bool,
     ) -> anyhow::Result<()> {
         if cli.debug == 1 {
             println!("Initializing {}", db_fs_path);
@@ -53,21 +55,23 @@ impl AdminCommands {
             format!("[AdminCommands::init] execute_migrations in {}", db_fs_path)
         })?;
 
-        // insert the device or, if it exists, get its current ID and name
-        let (device_id, device_name) =
-            upserted_device(&conn, &crate::DEVICE).with_context(|| {
-                format!(
-                    "[AdminCommands::init] upserted_device {} in {}",
-                    crate::DEVICE.name,
-                    db_fs_path
-                )
-            })?;
+        if with_device {
+            // insert the device or, if it exists, get its current ID and name
+            let (device_id, device_name) =
+                upserted_device(&conn, &crate::DEVICE).with_context(|| {
+                    format!(
+                        "[AdminCommands::init] upserted_device {} in {}",
+                        crate::DEVICE.name,
+                        db_fs_path
+                    )
+                })?;
 
-        if cli.debug == 1 {
-            println!(
-                "Initialized {} with device {} ({})",
-                db_fs_path, device_name, device_id
-            );
+            if cli.debug == 1 {
+                println!(
+                    "Initialized {} with device {} ({})",
+                    db_fs_path, device_name, device_id
+                );
+            }
         }
 
         Ok(())
