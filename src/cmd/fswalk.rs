@@ -2,25 +2,104 @@ use anyhow::{Context, Result};
 use indoc::indoc;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use serde_regex;
 
 use crate::fsresource::*;
 use crate::persist::*;
 use crate::resource::*;
 
-pub struct UniformResourceWriterState<'a> {
+pub struct UniformResourceWriterState<'a, 'conn> {
     device_id: &'a String,
     walk_session_id: &'a String,
     walk_path_id: &'a String,
+    fsr_walker: &'a FileSysResourcesWalker,
+    ins_ur_stmt: &'a mut rusqlite::Statement<'conn>,
+    _ins_ur_transform_stmt: &'a mut rusqlite::Statement<'conn>,
 }
 
-// TODO: switch the actual URI (first parameter) to an &str? to save memory?
 #[derive(Debug)]
 pub enum UniformResourceWriterAction {
-    Inserted(String),
+    Inserted(String, Option<String>),
     ContentSupplierError(Box<dyn std::error::Error>),
     ContentUnavailable(),
+    CapturableExecNotExecutable(),
+    CapturableExecNoCaptureSupplier(),
+    CapturableExecNoNature(regex::Regex),
+    CapturableExecError(Box<dyn std::error::Error>),
+    CapturableExecUrCreateError(Box<dyn std::error::Error>),
     Error(anyhow::Error),
+}
+
+impl UniformResourceWriterAction {
+    fn ur_status(&self) -> Option<String> {
+        match self {
+            UniformResourceWriterAction::Inserted(_, ur_status) => ur_status.clone(),
+            UniformResourceWriterAction::ContentSupplierError(_)
+            | UniformResourceWriterAction::Error(_)
+            | UniformResourceWriterAction::CapturableExecError(_)
+            | UniformResourceWriterAction::CapturableExecUrCreateError(_) => {
+                Some(String::from("ERROR"))
+            }
+            UniformResourceWriterAction::CapturableExecNoNature(_) => Some(String::from("ISSUE")),
+            UniformResourceWriterAction::ContentUnavailable()
+            | UniformResourceWriterAction::CapturableExecNotExecutable()
+            | UniformResourceWriterAction::CapturableExecNoCaptureSupplier() => {
+                Some(String::from("ISSUE"))
+            }
+        }
+    }
+
+    fn ur_diagnostics(&self) -> Option<String> {
+        match self {
+            UniformResourceWriterAction::Inserted(_, _) => None,
+            UniformResourceWriterAction::ContentSupplierError(err) =>
+                Some(serde_json::to_string_pretty(&json!({
+                    "instance": "UniformResourceWriterAction::ContentSupplierError(err)",
+                    "message": "Error when trying to get content from the resource",
+                    "error": err.to_string()
+                })).unwrap()),
+            UniformResourceWriterAction::ContentUnavailable() =>
+                Some(serde_json::to_string_pretty(&json!({
+                    "instance": "UniformResourceWriterAction::ContentUnavailable",
+                    "message": "content supplier was not provided",
+                    "remediation": "see CLI args/config and request content for this extension"
+                })).unwrap()),
+            UniformResourceWriterAction::CapturableExecNotExecutable() =>
+                Some(serde_json::to_string_pretty(&json!({
+                    "instance": "UniformResourceWriterAction::CapturableExecNotExecutable",
+                    "message": "File matched as a potential capturable executable but the file permissions do not allow execution",
+                })).unwrap()),
+            UniformResourceWriterAction::CapturableExecNoNature(re)  =>
+                Some(serde_json::to_string_pretty(&json!({
+                    "instance": "UniformResourceWriterAction::CapturableExecNoNature",
+                    "message": "File matched as a potential capturable executable but no 'nature' capture was found in RegEx",
+                    "regex": re.to_string()
+                })).unwrap()),
+            UniformResourceWriterAction::CapturableExecNoCaptureSupplier() =>
+                Some(serde_json::to_string_pretty(&json!({
+                    "instance": "UniformResourceWriterAction::CapturableExecNoCaptureSupplier",
+                    "message": "File matched as a potential capturable executable but no capture supplier was provided",
+                })).unwrap()),
+            UniformResourceWriterAction::CapturableExecError(err) =>
+                Some(serde_json::to_string_pretty(&json!({
+                    "instance": "UniformResourceWriterAction::CapturableExecError",
+                    "message": "File matched as a potential capturable executable but could not be executed",
+                    "error": err.to_string()
+                })).unwrap()),
+            UniformResourceWriterAction::CapturableExecUrCreateError(err) =>
+                Some(serde_json::to_string_pretty(&json!({
+                    "instance": "UniformResourceWriterAction::CapturableExecUrCreateError",
+                    "message": "File matched as a potential capturable executable and was executed but could create a new uniform resource",
+                    "error": err.to_string()
+                })).unwrap()),
+            UniformResourceWriterAction::Error(err) =>
+                Some(serde_json::to_string_pretty(&json!({
+                    "message": "UniformResourceWriterAction::Error(err)",
+                    "error": err.to_string()
+                })).unwrap()),
+}
+    }
 }
 
 #[derive(Debug)]
@@ -32,21 +111,18 @@ pub struct UniformResourceWriterResult {
 pub trait UniformResourceWriter<Resource> {
     fn insert(
         &self,
-        ins_ur_stmt: &mut rusqlite::Statement<'_>,
-        ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
-        urw_state: &UniformResourceWriterState<'_>,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
     ) -> UniformResourceWriterResult;
 
     fn insert_text(
         &self,
-        ins_ur_stmt: &mut rusqlite::Statement<'_>,
-        urw_state: &UniformResourceWriterState<'_>,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
         resource: &ContentResource,
     ) -> UniformResourceWriterResult {
         let uri = resource.uri.clone();
         match resource.content_text_supplier.as_ref() {
             Some(text_supplier) => match text_supplier() {
-                Ok(text) => match ins_ur_stmt.query_row(
+                Ok(text) => match urw_state.ins_ur_stmt.query_row(
                     params![
                         urw_state.device_id,
                         urw_state.walk_session_id,
@@ -64,7 +140,7 @@ pub trait UniformResourceWriter<Resource> {
                 ) {
                     Ok(new_or_existing_ur_id) => UniformResourceWriterResult {
                         uri,
-                        action: UniformResourceWriterAction::Inserted(new_or_existing_ur_id),
+                        action: UniformResourceWriterAction::Inserted(new_or_existing_ur_id, None),
                     },
                     Err(err) => UniformResourceWriterResult {
                         uri,
@@ -85,13 +161,12 @@ pub trait UniformResourceWriter<Resource> {
 
     fn insert_binary(
         &self,
-        ins_ur_stmt: &mut rusqlite::Statement<'_>,
-        urw_state: &UniformResourceWriterState<'_>,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
         resource: &ContentResource,
         bc: Box<dyn BinaryContent>,
     ) -> UniformResourceWriterResult {
         let uri = resource.uri.clone();
-        match ins_ur_stmt.query_row(
+        match urw_state.ins_ur_stmt.query_row(
             params![
                 urw_state.device_id,
                 urw_state.walk_session_id,
@@ -109,7 +184,7 @@ pub trait UniformResourceWriter<Resource> {
         ) {
             Ok(new_or_existing_ur_id) => UniformResourceWriterResult {
                 uri,
-                action: UniformResourceWriterAction::Inserted(new_or_existing_ur_id),
+                action: UniformResourceWriterAction::Inserted(new_or_existing_ur_id, None),
             },
             Err(err) => UniformResourceWriterResult {
                 uri,
@@ -123,12 +198,10 @@ pub trait UniformResourceWriter<Resource> {
 impl UniformResourceWriter<ContentResource> for ContentResource {
     fn insert(
         &self,
-        ins_ur_stmt: &mut rusqlite::Statement<'_>,
-        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
-        urw_state: &UniformResourceWriterState<'_>,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
     ) -> UniformResourceWriterResult {
         let uri = self.uri.clone();
-        match ins_ur_stmt.query_row(
+        match urw_state.ins_ur_stmt.query_row(
             params![
                 urw_state.device_id,
                 urw_state.walk_session_id,
@@ -146,7 +219,7 @@ impl UniformResourceWriter<ContentResource> for ContentResource {
         ) {
             Ok(new_or_existing_ur_id) => UniformResourceWriterResult {
                 uri,
-                action: UniformResourceWriterAction::Inserted(new_or_existing_ur_id),
+                action: UniformResourceWriterAction::Inserted(new_or_existing_ur_id, None),
             },
             Err(err) => UniformResourceWriterResult {
                 uri,
@@ -156,30 +229,108 @@ impl UniformResourceWriter<ContentResource> for ContentResource {
     }
 }
 
+impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentResource> {
+    fn insert(
+        &self,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
+    ) -> UniformResourceWriterResult {
+        // store the executable as a uniform_resource itself so we have history
+        self.insert_text(urw_state, &self.executable);
+
+        // now try to execute the capturable executable and store its output
+        // TODO: figure out what to do with STDERR from the executable, too
+        match &self.executable.capturable_executable {
+            Some(capturable_executable) => match capturable_executable {
+                CapturableExecutable::Text(nature) => {
+                    match self.executable.capturable_exec_text_supplier.as_ref() {
+                        Some(capturable_supplier) => {
+                            match capturable_supplier() {
+                                Ok(capture_src) => {
+                                    // TODO: do we really need to make a copy of all this, can't we just
+                                    // pass in self.executable.capturable_exec_text_supplier!?!?
+                                    let text = String::from(capture_src.content_text());
+                                    let hash = String::from(capture_src.content_digest_hash());
+                                    let output_res = ContentResource {
+                                    uri: self.executable.uri.clone(),
+                                    nature: Some(nature.clone()),
+                                    size: None,
+                                    created_at: Some(chrono::Utc::now()),
+                                    last_modified_at: Some(chrono::Utc::now()),
+                                    content_binary_supplier: None,
+                                    content_text_supplier: Some(Box::new(
+                                        move || -> Result<Box<dyn TextContent>, Box<dyn std::error::Error>> {
+                                            // TODO: do we really need to make clone these, can't we just
+                                            // pass in self.executable.capturable_exec_text_supplier!?!?
+                                            Ok(Box::new(FileTextContent { text: text.clone(), hash: hash.clone() })
+                                                as Box<dyn TextContent>)
+                                        },
+                                    )),
+                                    capturable_executable: None,
+                                    capturable_exec_binary_supplier: None,
+                                    capturable_exec_text_supplier: None,
+                                };
+                                    match urw_state.fsr_walker.uniform_resource_supplier.uniform_resource(output_res)
+                                {
+                                    Ok(output_ur) => {
+                                        let ur = *(output_ur);
+                                        ur.insert( urw_state)
+                                    }
+                                    Err(err) => UniformResourceWriterResult {
+                                        uri: self.executable.uri.clone(),
+                                        action:
+                                            UniformResourceWriterAction::CapturableExecUrCreateError(
+                                                err,
+                                            ),
+                                    },
+                                }
+                                }
+                                Err(err) => UniformResourceWriterResult {
+                                    uri: self.executable.uri.clone(),
+                                    action: UniformResourceWriterAction::CapturableExecError(err),
+                                },
+                            }
+                        }
+                        None => UniformResourceWriterResult {
+                            uri: self.executable.uri.clone(),
+                            action: UniformResourceWriterAction::CapturableExecNoCaptureSupplier(),
+                        },
+                    }
+                }
+                CapturableExecutable::RequestedButNoNature(re) => UniformResourceWriterResult {
+                    uri: self.executable.uri.clone(),
+                    action: UniformResourceWriterAction::CapturableExecNoNature(re.clone()),
+                },
+                CapturableExecutable::RequestedButNotExecutable => UniformResourceWriterResult {
+                    uri: self.executable.uri.clone(),
+                    action: UniformResourceWriterAction::CapturableExecNotExecutable(),
+                },
+            },
+            None => UniformResourceWriterResult {
+                uri: self.executable.uri.clone(),
+                action: UniformResourceWriterAction::CapturableExecNotExecutable(),
+            },
+        }
+    }
+}
+
 impl UniformResourceWriter<ContentResource> for HtmlResource<ContentResource> {
     fn insert(
         &self,
-        ins_ur_stmt: &mut rusqlite::Statement<'_>,
-        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
-        urw_state: &UniformResourceWriterState<'_>,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
     ) -> UniformResourceWriterResult {
-        self.insert_text(ins_ur_stmt, urw_state, &self.resource)
+        self.insert_text(urw_state, &self.resource)
     }
 }
 
 impl UniformResourceWriter<ContentResource> for ImageResource<ContentResource> {
     fn insert(
         &self,
-        ins_ur_stmt: &mut rusqlite::Statement<'_>,
-        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
-        urw_state: &UniformResourceWriterState<'_>,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
     ) -> UniformResourceWriterResult {
         let uri = self.resource.uri.clone();
         match self.resource.content_binary_supplier.as_ref() {
             Some(image_supplier) => match image_supplier() {
-                Ok(image_src) => {
-                    self.insert_binary(ins_ur_stmt, urw_state, &self.resource, image_src)
-                }
+                Ok(image_src) => self.insert_binary(urw_state, &self.resource, image_src),
                 Err(err) => UniformResourceWriterResult {
                     uri,
                     action: UniformResourceWriterAction::ContentSupplierError(err),
@@ -196,20 +347,16 @@ impl UniformResourceWriter<ContentResource> for ImageResource<ContentResource> {
 impl UniformResourceWriter<ContentResource> for JsonResource<ContentResource> {
     fn insert(
         &self,
-        ins_ur_stmt: &mut rusqlite::Statement<'_>,
-        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
-        urw_state: &UniformResourceWriterState<'_>,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
     ) -> UniformResourceWriterResult {
-        self.insert_text(ins_ur_stmt, urw_state, &self.resource)
+        self.insert_text(urw_state, &self.resource)
     }
 }
 
 impl UniformResourceWriter<ContentResource> for MarkdownResource<ContentResource> {
     fn insert(
         &self,
-        ins_ur_stmt: &mut rusqlite::Statement<'_>,
-        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
-        urw_state: &UniformResourceWriterState<'_>,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
     ) -> UniformResourceWriterResult {
         let uri = self.resource.uri.clone();
         match self.resource.content_text_supplier.as_ref() {
@@ -228,7 +375,7 @@ impl UniformResourceWriter<ContentResource> for MarkdownResource<ContentResource
                         fm_attrs = Some(serde_json::to_string_pretty(&fm_attrs_value).unwrap());
                     }
                     let uri = self.resource.uri.to_string();
-                    match ins_ur_stmt.query_row(
+                    match urw_state.ins_ur_stmt.query_row(
                         params![
                             urw_state.device_id,
                             urw_state.walk_session_id,
@@ -246,7 +393,10 @@ impl UniformResourceWriter<ContentResource> for MarkdownResource<ContentResource
                     ) {
                         Ok(new_or_existing_ur_id) => UniformResourceWriterResult {
                             uri,
-                            action: UniformResourceWriterAction::Inserted(new_or_existing_ur_id),
+                            action: UniformResourceWriterAction::Inserted(
+                                new_or_existing_ur_id,
+                                None,
+                            ),
                         },
                         Err(err) => UniformResourceWriterResult {
                             uri,
@@ -270,55 +420,82 @@ impl UniformResourceWriter<ContentResource> for MarkdownResource<ContentResource
 impl UniformResourceWriter<ContentResource> for SoftwarePackageDxResource<ContentResource> {
     fn insert(
         &self,
-        ins_ur_stmt: &mut rusqlite::Statement<'_>,
-        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
-        urw_state: &UniformResourceWriterState<'_>,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
     ) -> UniformResourceWriterResult {
-        self.insert_text(ins_ur_stmt, urw_state, &self.resource)
+        self.insert_text(urw_state, &self.resource)
     }
 }
 
 impl UniformResourceWriter<ContentResource> for SvgResource<ContentResource> {
     fn insert(
         &self,
-        ins_ur_stmt: &mut rusqlite::Statement<'_>,
-        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
-        urw_state: &UniformResourceWriterState<'_>,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
     ) -> UniformResourceWriterResult {
-        self.insert_text(ins_ur_stmt, urw_state, &self.resource)
+        self.insert_text(urw_state, &self.resource)
     }
 }
 
 impl UniformResourceWriter<ContentResource> for TestAnythingResource<ContentResource> {
     fn insert(
         &self,
-        ins_ur_stmt: &mut rusqlite::Statement<'_>,
-        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
-        urw_state: &UniformResourceWriterState<'_>,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
     ) -> UniformResourceWriterResult {
-        self.insert_text(ins_ur_stmt, urw_state, &self.resource)
+        self.insert_text(urw_state, &self.resource)
     }
 }
 
 impl UniformResourceWriter<ContentResource> for TomlResource<ContentResource> {
     fn insert(
         &self,
-        ins_ur_stmt: &mut rusqlite::Statement<'_>,
-        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
-        urw_state: &UniformResourceWriterState<'_>,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
     ) -> UniformResourceWriterResult {
-        self.insert_text(ins_ur_stmt, urw_state, &self.resource)
+        self.insert_text(urw_state, &self.resource)
     }
 }
 
 impl UniformResourceWriter<ContentResource> for YamlResource<ContentResource> {
     fn insert(
         &self,
-        ins_ur_stmt: &mut rusqlite::Statement<'_>,
-        _ins_ur_transform_stmt: &mut rusqlite::Statement<'_>,
-        urw_state: &UniformResourceWriterState<'_>,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
     ) -> UniformResourceWriterResult {
-        self.insert_text(ins_ur_stmt, urw_state, &self.resource)
+        self.insert_text(urw_state, &self.resource)
+    }
+}
+
+impl UniformResource<ContentResource> {
+    fn uri(&self) -> &str {
+        match self {
+            UniformResource::CapturableExec(capturable) => capturable.executable.uri.as_str(),
+            UniformResource::Html(html) => html.resource.uri.as_str(),
+            UniformResource::Json(json) => json.resource.uri.as_str(),
+            UniformResource::Image(img) => img.resource.uri.as_str(),
+            UniformResource::Markdown(md) => md.resource.uri.as_str(),
+            UniformResource::SpdxJson(spdx) => spdx.resource.uri.as_str(),
+            UniformResource::Svg(svg) => svg.resource.uri.as_str(),
+            UniformResource::Tap(tap) => tap.resource.uri.as_str(),
+            UniformResource::Toml(toml) => toml.resource.uri.as_str(),
+            UniformResource::Yaml(yaml) => yaml.resource.uri.as_str(),
+            UniformResource::Unknown(unknown) => unknown.uri.as_str(),
+        }
+    }
+
+    fn insert(
+        &self,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
+    ) -> UniformResourceWriterResult {
+        match self {
+            UniformResource::CapturableExec(capturable) => capturable.insert(urw_state),
+            UniformResource::Html(html) => html.insert(urw_state),
+            UniformResource::Json(json) => json.insert(urw_state),
+            UniformResource::Image(img) => img.insert(urw_state),
+            UniformResource::Markdown(md) => md.insert(urw_state),
+            UniformResource::SpdxJson(spdx) => spdx.insert(urw_state),
+            UniformResource::Svg(svg) => svg.insert(urw_state),
+            UniformResource::Tap(tap) => tap.insert(urw_state),
+            UniformResource::Toml(toml) => toml.insert(urw_state),
+            UniformResource::Yaml(yaml) => yaml.insert(urw_state),
+            UniformResource::Unknown(unknown) => unknown.insert(urw_state),
+        }
     }
 }
 
@@ -338,6 +515,9 @@ pub struct FsWalkBehavior {
 
     #[serde(with = "serde_regex")]
     pub compute_digests: Vec<regex::Regex>,
+
+    #[serde(with = "serde_regex")]
+    pub capturable_executables: Vec<regex::Regex>,
 }
 
 impl FsWalkBehavior {
@@ -382,6 +562,7 @@ impl FsWalkBehavior {
             ingest_content: args.surveil_content.clone(),
             compute_digests: args.compute_digests.clone(),
             ignore_entries: args.ignore_entry.clone(),
+            capturable_executables: args.capture_exec.clone(),
         }
     }
 
@@ -594,83 +775,47 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
                 println!("  Walk Session Path: {root_path} ({walk_path_id})");
             }
 
-            let urw_state = UniformResourceWriterState {
+            let rp: Vec<String> = vec![canonical_path.clone()];
+            let walker = FileSysResourcesWalker::new(
+                &rp,
+                &fswb.ignore_entries,
+                &fswb.ingest_content,
+                &fswb.capturable_executables,
+            )
+            .with_context(|| {
+                format!(
+                    "[fs_walk] unable to walker for {} in {}",
+                    canonical_path, db_fs_path
+                )
+            })?;
+
+            let mut urw_state = UniformResourceWriterState {
                 device_id: &device_id,
                 walk_session_id: &walk_session_id,
                 walk_path_id: &walk_path_id,
+                fsr_walker: &walker,
+                ins_ur_stmt: &mut ins_ur_stmt,
+                _ins_ur_transform_stmt: &mut ins_ur_transform_stmt,
             };
-
-            let rp: Vec<String> = vec![canonical_path.clone()];
-            let walker =
-                FileSysResourcesWalker::new(&rp, &fswb.ignore_entries, &fswb.ingest_content)
-                    .with_context(|| {
-                        format!(
-                            "[fs_walk] unable to walker for {} in {}",
-                            canonical_path, db_fs_path
-                        )
-                    })?;
 
             for resource_result in walker.walk_resources_iter() {
                 match resource_result {
                     Ok(resource) => {
-                        let inserted = match resource {
-                            UniformResource::Html(html) => html.insert(
-                                &mut ins_ur_stmt,
-                                &mut ins_ur_transform_stmt,
-                                &urw_state,
-                            ),
-                            UniformResource::Json(json) => json.insert(
-                                &mut ins_ur_stmt,
-                                &mut ins_ur_transform_stmt,
-                                &urw_state,
-                            ),
-                            UniformResource::Image(img) => {
-                                img.insert(&mut ins_ur_stmt, &mut ins_ur_transform_stmt, &urw_state)
-                            }
-                            UniformResource::Markdown(md) => {
-                                md.insert(&mut ins_ur_stmt, &mut ins_ur_transform_stmt, &urw_state)
-                            }
-                            UniformResource::SpdxJson(spdx) => spdx.insert(
-                                &mut ins_ur_stmt,
-                                &mut ins_ur_transform_stmt,
-                                &urw_state,
-                            ),
-                            UniformResource::Svg(svg) => {
-                                svg.insert(&mut ins_ur_stmt, &mut ins_ur_transform_stmt, &urw_state)
-                            }
-                            UniformResource::Tap(tap) => {
-                                tap.insert(&mut ins_ur_stmt, &mut ins_ur_transform_stmt, &urw_state)
-                            }
-                            UniformResource::Toml(toml) => toml.insert(
-                                &mut ins_ur_stmt,
-                                &mut ins_ur_transform_stmt,
-                                &urw_state,
-                            ),
-                            UniformResource::Yaml(yaml) => yaml.insert(
-                                &mut ins_ur_stmt,
-                                &mut ins_ur_transform_stmt,
-                                &urw_state,
-                            ),
-                            UniformResource::Unknown(unknown) => unknown.insert(
-                                &mut ins_ur_stmt,
-                                &mut ins_ur_transform_stmt,
-                                &urw_state,
-                            ),
-                        };
-
-                        let uniform_resource_id = match inserted.action {
-                            UniformResourceWriterAction::Inserted(ref uniform_resource_id) => {
-                                Some(uniform_resource_id)
-                            }
-                            _ => None,
-                        };
-
                         // don't store the database we're creating in the walk unless requested
                         if !fsw_args.include_state_db_in_walk
-                            && ignore_db_fs_path.iter().any(|s| s == &inserted.uri)
+                            && ignore_db_fs_path.iter().any(|s| s == resource.uri())
                         {
                             continue;
                         }
+
+                        let inserted = resource.insert(&mut urw_state);
+                        let uniform_resource_id = match inserted.action {
+                            UniformResourceWriterAction::Inserted(
+                                ref uniform_resource_id,
+                                None,
+                            ) => Some(uniform_resource_id),
+                            _ => None,
+                        };
 
                         match extract_path_info(
                             std::path::Path::new(&canonical_path),
@@ -696,27 +841,8 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
                                     } else {
                                         String::from("")
                                     },
-                                    match inserted.action {
-                                        UniformResourceWriterAction::Inserted(_) => None,
-                                        UniformResourceWriterAction::ContentSupplierError(_) | UniformResourceWriterAction::Error(_) =>
-                                            Some(String::from("ERROR")),
-                                        UniformResourceWriterAction::ContentUnavailable() =>
-                                            Some(String::from("ISSUE")),
-                                    },
-                                    match inserted.action {
-                                        UniformResourceWriterAction::Inserted(_) => None,
-                                        UniformResourceWriterAction::ContentSupplierError(_) =>
-                                            Some(String::from(
-                                                r#"{ "error": "TODO: serialize content supplier error" }"#
-                                            )),
-                                        UniformResourceWriterAction::ContentUnavailable() =>
-                                            Some(String::from(
-                                                r#"{ "issue": "content supplier was not provided for", "remediation": "see CLI args/config and request content for this extension" }"#
-                                            )),
-                                        UniformResourceWriterAction::Error(_) => Some(
-                                            String::from(r#"{ "error": "TODO: serialize error" }"#)
-                                        ),
-                                    }
+                                    inserted.action.ur_status(),
+                                    inserted.action.ur_diagnostics()
                                 ]) {
                                     Ok(_) => {}
                                     Err(err) => {

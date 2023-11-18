@@ -5,6 +5,7 @@ use std::io::{Error as IoError, Read};
 use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
+use is_executable::IsExecutable;
 use regex::RegexSet;
 use sha1::{Digest, Sha1};
 use walkdir::WalkDir;
@@ -53,6 +54,7 @@ pub fn extract_path_info(
     ))
 }
 
+#[derive(Debug, Clone)]
 pub struct FileBinaryContent {
     hash: String,
     binary: Vec<u8>,
@@ -68,9 +70,10 @@ impl BinaryContent for FileBinaryContent {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct FileTextContent {
-    hash: String,
-    text: String,
+    pub hash: String,
+    pub text: String,
 }
 
 impl TextContent for FileTextContent {
@@ -88,21 +91,26 @@ impl TextContent for FileTextContent {
 }
 
 pub type FileSysResourceQualifier = Box<dyn Fn(&Path, &str, &fs::File) -> bool>;
+pub type FileSysExecutableQualifier =
+    Box<dyn Fn(&Path, &str, &fs::File) -> Option<CapturableExecutable>>;
 
 // Implementing the main logic
 pub struct FileSysResourceSupplier {
     is_resource_ignored: FileSysResourceQualifier,
     is_content_available: FileSysResourceQualifier,
+    is_capturable_executable: FileSysExecutableQualifier,
 }
 
 impl FileSysResourceSupplier {
     pub fn new(
         is_resource_ignored: FileSysResourceQualifier,
         is_content_available: FileSysResourceQualifier,
+        is_capturable_executable: FileSysExecutableQualifier,
     ) -> Self {
         Self {
             is_resource_ignored,
             is_content_available,
+            is_capturable_executable,
         }
     }
 }
@@ -144,6 +152,63 @@ impl ContentResourceSupplier<ContentResource> for FileSysResourceSupplier {
         let last_modified_at = metadata.modified().ok().map(DateTime::<Utc>::from);
         let content_binary_supplier: Option<BinaryContentSupplier>;
         let content_text_supplier: Option<TextContentSupplier>;
+        let capturable_executable: Option<CapturableExecutable>;
+        let capturable_exec_binary_supplier: Option<BinaryContentSupplier>;
+        let capturable_exec_text_supplier: Option<TextContentSupplier>;
+
+        if let Some(capturable) = (self.is_capturable_executable)(path, &nature, &file) {
+            capturable_executable = Some(capturable.clone());
+
+            if !matches!(capturable, CapturableExecutable::RequestedButNotExecutable) {
+                let uri_clone_cebs = uri.to_string(); // Clone for the first closure
+                capturable_exec_binary_supplier = Some(Box::new(
+                    move || -> Result<Box<dyn BinaryContent>, Box<dyn Error>> {
+                        let exec = subprocess::Exec::cmd(&uri_clone_cebs)
+                            .stdout(subprocess::Redirection::Pipe);
+                        let mut popen = exec.popen()?;
+                        let mut output = popen.stdout.take().unwrap();
+
+                        let mut binary = Vec::new();
+                        output.read_to_end(&mut binary)?;
+
+                        let hash = {
+                            let mut hasher = Sha1::new();
+                            hasher.update(&binary);
+                            format!("{:x}", hasher.finalize())
+                        };
+
+                        Ok(Box::new(FileBinaryContent { hash, binary }) as Box<dyn BinaryContent>)
+                    },
+                ));
+
+                let uri_clone_cets = uri.to_string(); // Clone for the second closure
+                capturable_exec_text_supplier = Some(Box::new(
+                    move || -> Result<Box<dyn TextContent>, Box<dyn Error>> {
+                        let exec = subprocess::Exec::cmd(&uri_clone_cets)
+                            .stdout(subprocess::Redirection::Pipe);
+                        let mut popen = exec.popen()?;
+                        let mut output = String::new();
+                        popen.stdout.take().unwrap().read_to_string(&mut output)?;
+
+                        let hash = {
+                            let mut hasher = Sha1::new();
+                            hasher.update(output.as_bytes());
+                            format!("{:x}", hasher.finalize())
+                        };
+
+                        Ok(Box::new(FileTextContent { hash, text: output })
+                            as Box<dyn TextContent>)
+                    },
+                ));
+            } else {
+                capturable_exec_binary_supplier = None;
+                capturable_exec_text_supplier = None;
+            }
+        } else {
+            capturable_executable = None;
+            capturable_exec_binary_supplier = None;
+            capturable_exec_text_supplier = None;
+        }
 
         if (self.is_content_available)(path, &nature, &file) {
             let uri_clone_cbs = uri.to_string(); // Clone for the first closure
@@ -190,8 +255,11 @@ impl ContentResourceSupplier<ContentResource> for FileSysResourceSupplier {
             size: Some(file_size),
             created_at,
             last_modified_at,
+            capturable_executable,
             content_binary_supplier,
             content_text_supplier,
+            capturable_exec_binary_supplier,
+            capturable_exec_text_supplier,
         })
     }
 }
@@ -203,6 +271,14 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
         &self,
         resource: ContentResource,
     ) -> Result<Box<UniformResource<ContentResource>>, Box<dyn Error>> {
+        if resource.capturable_executable.is_some() {
+            return Ok(Box::new(UniformResource::CapturableExec(
+                CapturableExecResource {
+                    executable: resource,
+                },
+            )));
+        }
+
         // Based on the nature of the resource, we determine the type of UniformResource
         if let Some(nature) = &resource.nature {
             match nature.as_str() {
@@ -273,9 +349,9 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
 }
 
 pub struct FileSysResourcesWalker {
-    root_paths: Vec<String>,
-    resource_supplier: FileSysResourceSupplier,
-    uniform_resource_supplier: FileSysUniformResourceSupplier,
+    pub root_paths: Vec<String>,
+    pub resource_supplier: FileSysResourceSupplier,
+    pub uniform_resource_supplier: FileSysUniformResourceSupplier,
 }
 
 impl FileSysResourcesWalker {
@@ -283,16 +359,41 @@ impl FileSysResourcesWalker {
         root_paths: &[String],
         ignore_paths_regexs: &[regex::Regex],
         inspect_content_regexs: &[regex::Regex],
+        capturable_executables_regexs: &[regex::Regex],
     ) -> Result<Self, regex::Error> {
         // Constructor can fail due to RegexSet::new
         let ignore_paths = RegexSet::new(ignore_paths_regexs.iter().map(|r| r.as_str()))?;
         let inspect_content_paths =
             RegexSet::new(inspect_content_regexs.iter().map(|r| r.as_str()))?;
+        let capturable_executables = capturable_executables_regexs.to_vec();
 
         let resource_supplier = FileSysResourceSupplier::new(
             Box::new(move |path, _nature, _file| ignore_paths.is_match(path.to_str().unwrap())),
             Box::new(move |path, _nature, _file| {
                 inspect_content_paths.is_match(path.to_str().unwrap())
+            }),
+            Box::new(move |path, _nature, _file| {
+                let mut ce: Option<CapturableExecutable> = None;
+                let haystack = path.to_str().unwrap();
+                for re in capturable_executables.iter() {
+                    if let Some(caps) = re.captures(haystack) {
+                        if let Some(nature) = caps.name("nature") {
+                            ce = Some(CapturableExecutable::Text(String::from(nature.as_str())));
+                            break;
+                        } else {
+                            ce = Some(CapturableExecutable::RequestedButNoNature(re.clone()));
+                            break;
+                        }
+                    }
+                }
+                if ce.is_some() {
+                    if path.is_executable() {
+                        return ce;
+                    } else {
+                        return Some(CapturableExecutable::RequestedButNotExecutable);
+                    }
+                }
+                None
             }),
         );
 
@@ -371,6 +472,7 @@ mod tests {
         let supplier = FileSysResourceSupplier::new(
             Box::new(|_file, _nature, _metadata| false), // is_resource_ignored
             Box::new(|_file, _nature, _metadata| true),  // is_content_available
+            Box::new(|_file, _nature, _metadata| None),  // is_capturable_executable
         );
 
         // Create a file for the test environment, writing some content

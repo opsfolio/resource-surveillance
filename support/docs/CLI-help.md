@@ -151,7 +151,10 @@ Walks the device file system
   Default value: `.*`
 * `--surveil-content <SURVEIL_CONTENT>` — reg-exes to use to load content for entry instead of just walking
 
-  Default value: `\.(md|mdx|html|json|jsonc|toml|yaml)$`
+  Default values: `\.(md|mdx|html|json|jsonc|toml|yaml)$`, `surveilr\[(?P<nature>[^\]]*)\]`
+* `--capture-exec <CAPTURE_EXEC>` — reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
+
+  Default value: `surveilr\[(?P<nature>[^\]]*)\]`
 * `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
 
   Default value: `./resource-surveillance.sqlite.db`

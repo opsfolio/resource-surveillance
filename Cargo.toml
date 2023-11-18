@@ -1,6 +1,6 @@
 [package]
 name = "surveilr"
-version = "0.6.2"
+version = "0.7.0"
 edition = "2021"
 
 # Before getting arbitrary crates check https://blessed.rs for opinionated list of "best" crates.
@@ -28,3 +28,5 @@ sysinfo = { version = "0.29.10", features = ["multithread", "rayon", "serde"] }
 toml = "0.8.8"
 walkdir = "2.4.0"
 ulid = { version = "1.1.0", features = ["rand", "std", "serde", "uuid"] }
+subprocess = "0.2.9"
+is_executable = "1.0.1"

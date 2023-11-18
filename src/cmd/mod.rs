@@ -60,10 +60,22 @@ pub struct FsWalkArgs {
     /// reg-exes to use to load content for entry instead of just walking
     #[arg(
         long,
-        default_value = "\\.(md|mdx|html|json|jsonc|toml|yaml)$",
+        default_values_t = [
+            Regex::new(r"\.(md|mdx|html|json|jsonc|toml|yaml)$").unwrap(),
+            // if you don't want capturable executables stored in uniform_resource, remove the following
+            Regex::new(r"surveilr\[(?P<nature>[^\]]*)\]").unwrap()],
         default_missing_value = "always"
     )]
     pub surveil_content: Vec<Regex>,
+
+    /// reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
+    #[arg(
+        long,
+        // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
+        default_value = r"surveilr\[(?P<nature>[^\]]*)\]",
+        default_missing_value = "always"
+    )]
+    pub capture_exec: Vec<regex::Regex>,
 
     /// target SQLite database
     #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]

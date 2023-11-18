@@ -440,6 +440,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e186cfbae8084e513daff4240b4797e342f988cecda4fb6c939150f96315fd8"
 
 [[package]]
+name = "is_executable"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa9acdc6d67b75e626ad644734e8bc6df893d9cd2a834129065d3dd6158ea9c8"
+dependencies = [
+ "winapi",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -769,8 +778,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
+name = "subprocess"
+version = "0.2.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c2e86926081dda636c546d8c5e641661049d7562a68f5488be4a1f7f66f6086"
+dependencies = [
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "surveilr"
-version = "0.6.2"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -781,6 +800,7 @@ dependencies = [
  "globset",
  "hostname",
  "indoc",
+ "is_executable",
  "lazy_static",
  "regex",
  "rusqlite",
@@ -790,6 +810,7 @@ dependencies = [
  "serde_rusqlite",
  "serde_yaml",
  "sha1",
+ "subprocess",
  "sysinfo",
  "toml",
  "ulid",

@@ -26,14 +26,24 @@ pub type BinaryContentSupplier = Box<dyn Fn() -> Result<Box<dyn BinaryContent>, 
 pub type TextContentSupplier = Box<dyn Fn() -> Result<Box<dyn TextContent>, Box<dyn Error>>>;
 pub type JsonValueSupplier = Box<dyn Fn() -> Result<Box<JsonValue>, Box<dyn Error>>>;
 
+#[derive(Debug, Clone)]
+pub enum CapturableExecutable {
+    Text(String),
+    RequestedButNoNature(regex::Regex),
+    RequestedButNotExecutable,
+}
+
 pub struct ContentResource {
     pub uri: String,
     pub nature: Option<String>,
     pub size: Option<u64>,
     pub created_at: Option<DateTime<Utc>>,
     pub last_modified_at: Option<DateTime<Utc>>,
+    pub capturable_executable: Option<CapturableExecutable>,
     pub content_binary_supplier: Option<BinaryContentSupplier>,
     pub content_text_supplier: Option<TextContentSupplier>,
+    pub capturable_exec_binary_supplier: Option<BinaryContentSupplier>,
+    pub capturable_exec_text_supplier: Option<TextContentSupplier>,
 }
 
 pub enum ContentResourceSupplied<T> {
@@ -46,6 +56,10 @@ pub enum ContentResourceSupplied<T> {
 
 pub trait ContentResourceSupplier<Resource> {
     fn content_resource(&self, uri: &str) -> ContentResourceSupplied<Resource>;
+}
+
+pub struct CapturableExecResource<Resource> {
+    pub executable: Resource,
 }
 
 pub struct HtmlResource<Resource> {
@@ -89,6 +103,7 @@ pub struct YamlResource<Resource> {
 }
 
 pub enum UniformResource<Resource> {
+    CapturableExec(CapturableExecResource<Resource>),
     Html(HtmlResource<Resource>),
     Image(ImageResource<Resource>),
     Json(JsonResource<Resource>),
