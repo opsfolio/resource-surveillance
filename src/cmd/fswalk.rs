@@ -278,7 +278,7 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
                         Some(capturable_supplier) => {
                             let stdin = urw_state.capturable_exec_ctx(entry);
                             match capturable_supplier(stdin.clone()) {
-                                Ok(capture_src) => {
+                                Ok((capture_src, exit_status, stderr)) => {
                                     // TODO: do we really need to make a copy of all this, can't we just
                                     // pass in self.executable.capturable_exec_text_supplier!?!?
                                     let text = String::from(capture_src.content_text());
@@ -310,8 +310,9 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
                                             let captured_executable_diags = json!({
                                                 "args": [],
                                                 "stdin": stdin_json,
-                                                // "stderr": "", TODO: figure out what to do with STDERR from the executable, too
-                                                // do we need "stdout" since it's just the output?
+                                                "exit-status": format!("{:?}", exit_status),
+                                                "stderr": stderr,
+                                                // TODO: do we need "stdout" since output will already be in uniform_resource?
                                             });
                                             match inserted_output.action {
                                                 UniformResourceWriterAction::Inserted(ur_id, ur_status) => {

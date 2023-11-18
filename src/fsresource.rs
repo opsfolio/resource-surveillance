@@ -162,7 +162,7 @@ impl ContentResourceSupplier<ContentResource> for FileSysResourceSupplier {
             if !matches!(capturable, CapturableExecutable::RequestedButNotExecutable) {
                 let uri_clone_cebs = uri.to_string(); // Clone for the first closure
                 capturable_exec_binary_supplier = Some(Box::new(
-                    move |stdin| -> Result<Box<dyn BinaryContent>, Box<dyn Error>> {
+                    move |stdin| -> Result<BinaryExecOutput, Box<dyn Error>> {
                         let mut exec = subprocess::Exec::cmd(&uri_clone_cebs)
                             .stdout(subprocess::Redirection::Pipe);
 
@@ -180,10 +180,19 @@ impl ContentResourceSupplier<ContentResource> for FileSysResourceSupplier {
                             } // else: no one is listening to the stdin of the subprocess, so we can't pipe anything to it
                         }
 
-                        let mut output = popen.stdout.take().unwrap();
+                        let status = popen.wait()?;
 
+                        let mut output = popen.stdout.take().unwrap();
                         let mut binary = Vec::new();
                         output.read_to_end(&mut binary)?;
+
+                        let mut error_output = String::new();
+                        match &mut popen.stderr.take() {
+                            Some(stderr) => {
+                                stderr.read_to_string(&mut error_output)?;
+                            }
+                            None => {}
+                        }
 
                         let hash = {
                             let mut hasher = Sha1::new();
@@ -191,13 +200,21 @@ impl ContentResourceSupplier<ContentResource> for FileSysResourceSupplier {
                             format!("{:x}", hasher.finalize())
                         };
 
-                        Ok(Box::new(FileBinaryContent { hash, binary }) as Box<dyn BinaryContent>)
+                        Ok((
+                            Box::new(FileBinaryContent { hash, binary }) as Box<dyn BinaryContent>,
+                            status,
+                            if !error_output.is_empty() {
+                                Some(error_output)
+                            } else {
+                                None
+                            },
+                        ))
                     },
                 ));
 
                 let uri_clone_cets = uri.to_string(); // Clone for the second closure
                 capturable_exec_text_supplier = Some(Box::new(
-                    move |stdin| -> Result<Box<dyn TextContent>, Box<dyn Error>> {
+                    move |stdin| -> Result<TextExecOutput, Box<dyn Error>> {
                         let mut exec = subprocess::Exec::cmd(&uri_clone_cets)
                             .stdout(subprocess::Redirection::Pipe);
 
@@ -215,8 +232,18 @@ impl ContentResourceSupplier<ContentResource> for FileSysResourceSupplier {
                             } // else: no one is listening to the stdin of the subprocess, so we can't pipe anything to it
                         }
 
+                        let status = popen.wait()?;
+
                         let mut output = String::new();
                         popen.stdout.take().unwrap().read_to_string(&mut output)?;
+
+                        let mut error_output = String::new();
+                        match &mut popen.stderr.take() {
+                            Some(stderr) => {
+                                stderr.read_to_string(&mut error_output)?;
+                            }
+                            None => {}
+                        }
 
                         let hash = {
                             let mut hasher = Sha1::new();
@@ -224,8 +251,16 @@ impl ContentResourceSupplier<ContentResource> for FileSysResourceSupplier {
                             format!("{:x}", hasher.finalize())
                         };
 
-                        Ok(Box::new(FileTextContent { hash, text: output })
-                            as Box<dyn TextContent>)
+                        Ok((
+                            Box::new(FileTextContent { hash, text: output })
+                                as Box<dyn TextContent>,
+                            status,
+                            if !error_output.is_empty() {
+                                Some(error_output)
+                            } else {
+                                None
+                            },
+                        ))
                     },
                 ));
             } else {

@@ -26,10 +26,17 @@ pub type BinaryContentSupplier = Box<dyn Fn() -> Result<Box<dyn BinaryContent>, 
 pub type TextContentSupplier = Box<dyn Fn() -> Result<Box<dyn TextContent>, Box<dyn Error>>>;
 pub type JsonValueSupplier = Box<dyn Fn() -> Result<Box<JsonValue>, Box<dyn Error>>>;
 
+pub type BinaryExecOutput = (
+    Box<dyn BinaryContent>,
+    subprocess::ExitStatus,
+    Option<String>,
+);
 pub type BinaryExecOutputSupplier =
-    Box<dyn Fn(Option<String>) -> Result<Box<dyn BinaryContent>, Box<dyn Error>>>;
+    Box<dyn Fn(Option<String>) -> Result<BinaryExecOutput, Box<dyn Error>>>;
+
+pub type TextExecOutput = (Box<dyn TextContent>, subprocess::ExitStatus, Option<String>);
 pub type TextExecOutputSupplier =
-    Box<dyn Fn(Option<String>) -> Result<Box<dyn TextContent>, Box<dyn Error>>>;
+    Box<dyn Fn(Option<String>) -> Result<TextExecOutput, Box<dyn Error>>>;
 
 #[derive(Debug, Clone)]
 pub enum CapturableExecutable {
