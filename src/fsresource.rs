@@ -368,7 +368,10 @@ impl FileSysResourcesWalker {
         let capturable_executables = capturable_executables_regexs.to_vec();
 
         let resource_supplier = FileSysResourceSupplier::new(
-            Box::new(move |path, _nature, _file| ignore_paths.is_match(path.to_str().unwrap())),
+            Box::new(move |path, _nature, _file| {
+                let abs_path = path.to_str().unwrap();
+                ignore_paths.is_match(abs_path)
+            }),
             Box::new(move |path, _nature, _file| {
                 inspect_content_paths.is_match(path.to_str().unwrap())
             }),
@@ -437,7 +440,9 @@ impl FileSysResourcesWalker {
 
     pub fn walk_resources_iter(
         &self,
-    ) -> impl Iterator<Item = Result<UniformResource<ContentResource>, Box<dyn Error>>> + '_ {
+    ) -> impl Iterator<
+        Item = Result<(walkdir::DirEntry, UniformResource<ContentResource>), Box<dyn Error>>,
+    > + '_ {
         self.root_paths.iter().flat_map(move |root| {
             WalkDir::new(root)
                 .into_iter()
@@ -447,7 +452,9 @@ impl FileSysResourcesWalker {
                     match self.resource_supplier.content_resource(&uri) {
                         ContentResourceSupplied::Resource(resource) => {
                             match self.uniform_resource_supplier.uniform_resource(resource) {
-                                Ok(uniform_resource) => Some(Ok(*uniform_resource)),
+                                Ok(uniform_resource) => {
+                                    Some(Ok((entry.clone(), *uniform_resource)))
+                                }
                                 Err(e) => Some(Err(e)),
                             }
                         }

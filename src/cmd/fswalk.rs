@@ -112,12 +112,14 @@ pub trait UniformResourceWriter<Resource> {
     fn insert(
         &self,
         urw_state: &mut UniformResourceWriterState<'_, '_>,
+        entry: &walkdir::DirEntry,
     ) -> UniformResourceWriterResult;
 
     fn insert_text(
         &self,
         urw_state: &mut UniformResourceWriterState<'_, '_>,
         resource: &ContentResource,
+        _entry: &walkdir::DirEntry,
     ) -> UniformResourceWriterResult {
         let uri = resource.uri.clone();
         match resource.content_text_supplier.as_ref() {
@@ -164,6 +166,7 @@ pub trait UniformResourceWriter<Resource> {
         urw_state: &mut UniformResourceWriterState<'_, '_>,
         resource: &ContentResource,
         bc: Box<dyn BinaryContent>,
+        _entry: &walkdir::DirEntry,
     ) -> UniformResourceWriterResult {
         let uri = resource.uri.clone();
         match urw_state.ins_ur_stmt.query_row(
@@ -199,6 +202,7 @@ impl UniformResourceWriter<ContentResource> for ContentResource {
     fn insert(
         &self,
         urw_state: &mut UniformResourceWriterState<'_, '_>,
+        _entry: &walkdir::DirEntry,
     ) -> UniformResourceWriterResult {
         let uri = self.uri.clone();
         match urw_state.ins_ur_stmt.query_row(
@@ -233,9 +237,10 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
     fn insert(
         &self,
         urw_state: &mut UniformResourceWriterState<'_, '_>,
+        entry: &walkdir::DirEntry,
     ) -> UniformResourceWriterResult {
         // store the executable as a uniform_resource itself so we have history
-        self.insert_text(urw_state, &self.executable);
+        self.insert_text(urw_state, &self.executable, entry);
 
         // now try to execute the capturable executable and store its output
         // TODO: figure out what to do with STDERR from the executable, too
@@ -273,7 +278,7 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
                                 {
                                     Ok(output_ur) => {
                                         let ur = *(output_ur);
-                                        ur.insert( urw_state)
+                                        ur.insert( urw_state, entry)
                                     }
                                     Err(err) => UniformResourceWriterResult {
                                         uri: self.executable.uri.clone(),
@@ -317,8 +322,9 @@ impl UniformResourceWriter<ContentResource> for HtmlResource<ContentResource> {
     fn insert(
         &self,
         urw_state: &mut UniformResourceWriterState<'_, '_>,
+        entry: &walkdir::DirEntry,
     ) -> UniformResourceWriterResult {
-        self.insert_text(urw_state, &self.resource)
+        self.insert_text(urw_state, &self.resource, entry)
     }
 }
 
@@ -326,11 +332,12 @@ impl UniformResourceWriter<ContentResource> for ImageResource<ContentResource> {
     fn insert(
         &self,
         urw_state: &mut UniformResourceWriterState<'_, '_>,
+        entry: &walkdir::DirEntry,
     ) -> UniformResourceWriterResult {
         let uri = self.resource.uri.clone();
         match self.resource.content_binary_supplier.as_ref() {
             Some(image_supplier) => match image_supplier() {
-                Ok(image_src) => self.insert_binary(urw_state, &self.resource, image_src),
+                Ok(image_src) => self.insert_binary(urw_state, &self.resource, image_src, entry),
                 Err(err) => UniformResourceWriterResult {
                     uri,
                     action: UniformResourceWriterAction::ContentSupplierError(err),
@@ -348,8 +355,9 @@ impl UniformResourceWriter<ContentResource> for JsonResource<ContentResource> {
     fn insert(
         &self,
         urw_state: &mut UniformResourceWriterState<'_, '_>,
+        entry: &walkdir::DirEntry,
     ) -> UniformResourceWriterResult {
-        self.insert_text(urw_state, &self.resource)
+        self.insert_text(urw_state, &self.resource, entry)
     }
 }
 
@@ -357,6 +365,7 @@ impl UniformResourceWriter<ContentResource> for MarkdownResource<ContentResource
     fn insert(
         &self,
         urw_state: &mut UniformResourceWriterState<'_, '_>,
+        _entry: &walkdir::DirEntry,
     ) -> UniformResourceWriterResult {
         let uri = self.resource.uri.clone();
         match self.resource.content_text_supplier.as_ref() {
@@ -421,8 +430,9 @@ impl UniformResourceWriter<ContentResource> for SoftwarePackageDxResource<Conten
     fn insert(
         &self,
         urw_state: &mut UniformResourceWriterState<'_, '_>,
+        entry: &walkdir::DirEntry,
     ) -> UniformResourceWriterResult {
-        self.insert_text(urw_state, &self.resource)
+        self.insert_text(urw_state, &self.resource, entry)
     }
 }
 
@@ -430,8 +440,9 @@ impl UniformResourceWriter<ContentResource> for SvgResource<ContentResource> {
     fn insert(
         &self,
         urw_state: &mut UniformResourceWriterState<'_, '_>,
+        entry: &walkdir::DirEntry,
     ) -> UniformResourceWriterResult {
-        self.insert_text(urw_state, &self.resource)
+        self.insert_text(urw_state, &self.resource, entry)
     }
 }
 
@@ -439,8 +450,9 @@ impl UniformResourceWriter<ContentResource> for TestAnythingResource<ContentReso
     fn insert(
         &self,
         urw_state: &mut UniformResourceWriterState<'_, '_>,
+        entry: &walkdir::DirEntry,
     ) -> UniformResourceWriterResult {
-        self.insert_text(urw_state, &self.resource)
+        self.insert_text(urw_state, &self.resource, entry)
     }
 }
 
@@ -448,8 +460,9 @@ impl UniformResourceWriter<ContentResource> for TomlResource<ContentResource> {
     fn insert(
         &self,
         urw_state: &mut UniformResourceWriterState<'_, '_>,
+        entry: &walkdir::DirEntry,
     ) -> UniformResourceWriterResult {
-        self.insert_text(urw_state, &self.resource)
+        self.insert_text(urw_state, &self.resource, entry)
     }
 }
 
@@ -457,13 +470,14 @@ impl UniformResourceWriter<ContentResource> for YamlResource<ContentResource> {
     fn insert(
         &self,
         urw_state: &mut UniformResourceWriterState<'_, '_>,
+        entry: &walkdir::DirEntry,
     ) -> UniformResourceWriterResult {
-        self.insert_text(urw_state, &self.resource)
+        self.insert_text(urw_state, &self.resource, entry)
     }
 }
 
 impl UniformResource<ContentResource> {
-    fn uri(&self) -> &str {
+    fn _uri(&self) -> &str {
         match self {
             UniformResource::CapturableExec(capturable) => capturable.executable.uri.as_str(),
             UniformResource::Html(html) => html.resource.uri.as_str(),
@@ -482,19 +496,20 @@ impl UniformResource<ContentResource> {
     fn insert(
         &self,
         urw_state: &mut UniformResourceWriterState<'_, '_>,
+        entry: &walkdir::DirEntry,
     ) -> UniformResourceWriterResult {
         match self {
-            UniformResource::CapturableExec(capturable) => capturable.insert(urw_state),
-            UniformResource::Html(html) => html.insert(urw_state),
-            UniformResource::Json(json) => json.insert(urw_state),
-            UniformResource::Image(img) => img.insert(urw_state),
-            UniformResource::Markdown(md) => md.insert(urw_state),
-            UniformResource::SpdxJson(spdx) => spdx.insert(urw_state),
-            UniformResource::Svg(svg) => svg.insert(urw_state),
-            UniformResource::Tap(tap) => tap.insert(urw_state),
-            UniformResource::Toml(toml) => toml.insert(urw_state),
-            UniformResource::Yaml(yaml) => yaml.insert(urw_state),
-            UniformResource::Unknown(unknown) => unknown.insert(urw_state),
+            UniformResource::CapturableExec(capturable) => capturable.insert(urw_state, entry),
+            UniformResource::Html(html) => html.insert(urw_state, entry),
+            UniformResource::Json(json) => json.insert(urw_state, entry),
+            UniformResource::Image(img) => img.insert(urw_state, entry),
+            UniformResource::Markdown(md) => md.insert(urw_state, entry),
+            UniformResource::SpdxJson(spdx) => spdx.insert(urw_state, entry),
+            UniformResource::Svg(svg) => svg.insert(urw_state, entry),
+            UniformResource::Tap(tap) => tap.insert(urw_state, entry),
+            UniformResource::Toml(toml) => toml.insert(urw_state, entry),
+            UniformResource::Yaml(yaml) => yaml.insert(urw_state, entry),
+            UniformResource::Unknown(unknown) => unknown.insert(urw_state, entry),
         }
     }
 }
@@ -508,7 +523,7 @@ pub struct FsWalkBehavior {
     pub root_paths: Vec<String>,
 
     #[serde(with = "serde_regex")]
-    pub ignore_entries: Vec<regex::Regex>,
+    pub ignore_regexs: Vec<regex::Regex>,
 
     #[serde(with = "serde_regex")]
     pub ingest_content: Vec<regex::Regex>,
@@ -561,7 +576,7 @@ impl FsWalkBehavior {
             root_paths: args.root_path.clone(),
             ingest_content: args.surveil_content.clone(),
             compute_digests: args.compute_digests.clone(),
-            ignore_entries: args.ignore_entry.clone(),
+            ignore_regexs: args.ignore_entry.clone(),
             capturable_executables: args.capture_exec.clone(),
         }
     }
@@ -572,6 +587,11 @@ impl FsWalkBehavior {
 
     pub fn persistable_json_text(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)
+    }
+
+    pub fn add_ignore_exact(&mut self, pattern: &str) {
+        self.ignore_regexs
+            .push(regex::Regex::new(format!("^{}$", regex::escape(pattern)).as_str()).unwrap());
     }
 
     pub fn save(
@@ -635,20 +655,6 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
         println!("Device: {device_name} ({device_id})");
     }
 
-    let mut ignore_db_fs_path: Vec<String> = Vec::new();
-    if !fsw_args.include_state_db_in_walk {
-        let canonical_db_fs_path = std::fs::canonicalize(std::path::Path::new(&db_fs_path))
-            .with_context(|| format!("[fs_walk] unable to canonicalize in {}", db_fs_path))?;
-        let canonical_db_fs_path = canonical_db_fs_path.to_string_lossy().to_string();
-        let mut wal_path = std::path::PathBuf::from(&canonical_db_fs_path);
-        let mut db_journal_path = std::path::PathBuf::from(&canonical_db_fs_path);
-        wal_path.set_extension("wal");
-        db_journal_path.set_extension("db-journal");
-        ignore_db_fs_path.push(canonical_db_fs_path);
-        ignore_db_fs_path.push(wal_path.to_string_lossy().to_string());
-        ignore_db_fs_path.push(db_journal_path.to_string_lossy().to_string());
-    }
-
     // the ulid() function we're using below is not built into SQLite, we define
     // it in persist::prepare_conn.
 
@@ -680,8 +686,22 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
         INSERT INTO ur_walk_session_path_fs_entry (ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn, ur_status, ur_diagnostics) 
                                            VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"};
 
-    let (fswb, mut behavior_id) = FsWalkBehavior::new(&device_id, fsw_args, &tx)
+    let (mut fswb, mut behavior_id) = FsWalkBehavior::new(&device_id, fsw_args, &tx)
         .with_context(|| format!("[fs_walk] behavior issue {}", db_fs_path))?;
+
+    if !fsw_args.include_state_db_in_walk {
+        let canonical_db_fs_path = std::fs::canonicalize(std::path::Path::new(&db_fs_path))
+            .with_context(|| format!("[fs_walk] unable to canonicalize in {}", db_fs_path))?;
+        let canonical_db_fs_path = canonical_db_fs_path.to_string_lossy().to_string();
+        let mut wal_path = std::path::PathBuf::from(&canonical_db_fs_path);
+        let mut db_journal_path = std::path::PathBuf::from(&canonical_db_fs_path);
+        wal_path.set_extension("wal");
+        db_journal_path.set_extension("db-journal");
+        fswb.add_ignore_exact(canonical_db_fs_path.as_str());
+        fswb.add_ignore_exact(wal_path.to_string_lossy().to_string().as_str());
+        fswb.add_ignore_exact(db_journal_path.to_string_lossy().to_string().as_str());
+    }
+
     if let Some(save_behavior_name) = &fsw_args.save_behavior {
         let saved_bid = fswb
             .save(&tx, &device_id, save_behavior_name)
@@ -778,7 +798,7 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
             let rp: Vec<String> = vec![canonical_path.clone()];
             let walker = FileSysResourcesWalker::new(
                 &rp,
-                &fswb.ignore_entries,
+                &fswb.ignore_regexs,
                 &fswb.ingest_content,
                 &fswb.capturable_executables,
             )
@@ -800,15 +820,8 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
 
             for resource_result in walker.walk_resources_iter() {
                 match resource_result {
-                    Ok(resource) => {
-                        // don't store the database we're creating in the walk unless requested
-                        if !fsw_args.include_state_db_in_walk
-                            && ignore_db_fs_path.iter().any(|s| s == resource.uri())
-                        {
-                            continue;
-                        }
-
-                        let inserted = resource.insert(&mut urw_state);
+                    Ok((entry, resource)) => {
+                        let inserted = resource.insert(&mut urw_state, &entry);
                         let uniform_resource_id = match inserted.action {
                             UniformResourceWriterAction::Inserted(
                                 ref uniform_resource_id,
