@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
-use std::io::{Error as IoError, Read};
+use std::io::{Error as IoError, Read, Write};
 use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
@@ -153,8 +153,8 @@ impl ContentResourceSupplier<ContentResource> for FileSysResourceSupplier {
         let content_binary_supplier: Option<BinaryContentSupplier>;
         let content_text_supplier: Option<TextContentSupplier>;
         let capturable_executable: Option<CapturableExecutable>;
-        let capturable_exec_binary_supplier: Option<BinaryContentSupplier>;
-        let capturable_exec_text_supplier: Option<TextContentSupplier>;
+        let capturable_exec_binary_supplier: Option<BinaryExecOutputSupplier>;
+        let capturable_exec_text_supplier: Option<TextExecOutputSupplier>;
 
         if let Some(capturable) = (self.is_capturable_executable)(path, &nature, &file) {
             capturable_executable = Some(capturable.clone());
@@ -162,10 +162,24 @@ impl ContentResourceSupplier<ContentResource> for FileSysResourceSupplier {
             if !matches!(capturable, CapturableExecutable::RequestedButNotExecutable) {
                 let uri_clone_cebs = uri.to_string(); // Clone for the first closure
                 capturable_exec_binary_supplier = Some(Box::new(
-                    move || -> Result<Box<dyn BinaryContent>, Box<dyn Error>> {
-                        let exec = subprocess::Exec::cmd(&uri_clone_cebs)
+                    move |stdin| -> Result<Box<dyn BinaryContent>, Box<dyn Error>> {
+                        let mut exec = subprocess::Exec::cmd(&uri_clone_cebs)
                             .stdout(subprocess::Redirection::Pipe);
+
+                        if stdin.is_some() {
+                            exec = exec.stdin(subprocess::Redirection::Pipe);
+                        }
+
                         let mut popen = exec.popen()?;
+
+                        if let Some(stdin_text) = stdin {
+                            if let Some(mut stdin_pipe) = popen.stdin.take() {
+                                stdin_pipe.write_all(stdin_text.as_bytes())?;
+                                stdin_pipe.flush()?;
+                                // `stdin_pipe` is dropped here when it goes out of scope, closing the stdin of the subprocess
+                            } // else: no one is listening to the stdin of the subprocess, so we can't pipe anything to it
+                        }
+
                         let mut output = popen.stdout.take().unwrap();
 
                         let mut binary = Vec::new();
@@ -183,10 +197,24 @@ impl ContentResourceSupplier<ContentResource> for FileSysResourceSupplier {
 
                 let uri_clone_cets = uri.to_string(); // Clone for the second closure
                 capturable_exec_text_supplier = Some(Box::new(
-                    move || -> Result<Box<dyn TextContent>, Box<dyn Error>> {
-                        let exec = subprocess::Exec::cmd(&uri_clone_cets)
+                    move |stdin| -> Result<Box<dyn TextContent>, Box<dyn Error>> {
+                        let mut exec = subprocess::Exec::cmd(&uri_clone_cets)
                             .stdout(subprocess::Redirection::Pipe);
+
+                        if stdin.is_some() {
+                            exec = exec.stdin(subprocess::Redirection::Pipe);
+                        }
+
                         let mut popen = exec.popen()?;
+
+                        if let Some(stdin_text) = stdin {
+                            if let Some(mut stdin_pipe) = popen.stdin.take() {
+                                stdin_pipe.write_all(stdin_text.as_bytes())?;
+                                stdin_pipe.flush()?;
+                                // `stdin_pipe` is dropped here when it goes out of scope, closing the stdin of the subprocess
+                            } // else: no one is listening to the stdin of the subprocess, so we can't pipe anything to it
+                        }
+
                         let mut output = String::new();
                         popen.stdout.take().unwrap().read_to_string(&mut output)?;
 

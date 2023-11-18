@@ -10,6 +10,9 @@ use crate::persist::*;
 use crate::resource::*;
 
 pub struct UniformResourceWriterState<'a, 'conn> {
+    fs_walk_args: &'a super::FsWalkArgs,
+    env_current_dir: &'a String,
+    fs_walk_behavior: &'a FsWalkBehavior,
     device_id: &'a String,
     walk_session_id: &'a String,
     walk_path_id: &'a String,
@@ -18,9 +21,29 @@ pub struct UniformResourceWriterState<'a, 'conn> {
     _ins_ur_transform_stmt: &'a mut rusqlite::Statement<'conn>,
 }
 
+impl<'a, 'conn> UniformResourceWriterState<'a, 'conn> {
+    fn capturable_exec_ctx(&self, entry: &walkdir::DirEntry) -> Option<String> {
+        let ctx = json!({
+            "surveilr-fs-walk": {
+                "args": { "state_db_fs_path": self.fs_walk_args.state_db_fs_path },
+                "env": { "current_dir": self.env_current_dir },
+                "behavior": self.fs_walk_behavior,
+                "device": { "device_id": self.device_id },
+                "session": {
+                    "walk-session-id": self.walk_session_id,
+                    "walk-path-id": self.walk_path_id,
+                    "entry": { "path": entry.path().to_str().unwrap() },
+                },
+            }
+        });
+        Some(serde_json::to_string_pretty(&ctx).unwrap())
+    }
+}
+
 #[derive(Debug)]
 pub enum UniformResourceWriterAction {
     Inserted(String, Option<String>),
+    InsertedExecutableOutput(String, Option<String>, String),
     ContentSupplierError(Box<dyn std::error::Error>),
     ContentUnavailable(),
     CapturableExecNotExecutable(),
@@ -35,6 +58,9 @@ impl UniformResourceWriterAction {
     fn ur_status(&self) -> Option<String> {
         match self {
             UniformResourceWriterAction::Inserted(_, ur_status) => ur_status.clone(),
+            UniformResourceWriterAction::InsertedExecutableOutput(_, ur_status, _) => {
+                ur_status.clone()
+            }
             UniformResourceWriterAction::ContentSupplierError(_)
             | UniformResourceWriterAction::Error(_)
             | UniformResourceWriterAction::CapturableExecError(_)
@@ -53,6 +79,7 @@ impl UniformResourceWriterAction {
     fn ur_diagnostics(&self) -> Option<String> {
         match self {
             UniformResourceWriterAction::Inserted(_, _) => None,
+            UniformResourceWriterAction::InsertedExecutableOutput(_, _, _) => None,
             UniformResourceWriterAction::ContentSupplierError(err) =>
                 Some(serde_json::to_string_pretty(&json!({
                     "instance": "UniformResourceWriterAction::ContentSupplierError(err)",
@@ -239,7 +266,7 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
         urw_state: &mut UniformResourceWriterState<'_, '_>,
         entry: &walkdir::DirEntry,
     ) -> UniformResourceWriterResult {
-        // store the executable as a uniform_resource itself so we have history
+        // if FsWalker wants to, store the executable as a uniform_resource itself so we have history;
         self.insert_text(urw_state, &self.executable, entry);
 
         // now try to execute the capturable executable and store its output
@@ -249,45 +276,62 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
                 CapturableExecutable::Text(nature) => {
                     match self.executable.capturable_exec_text_supplier.as_ref() {
                         Some(capturable_supplier) => {
-                            match capturable_supplier() {
+                            let stdin = urw_state.capturable_exec_ctx(entry);
+                            match capturable_supplier(stdin.clone()) {
                                 Ok(capture_src) => {
                                     // TODO: do we really need to make a copy of all this, can't we just
                                     // pass in self.executable.capturable_exec_text_supplier!?!?
                                     let text = String::from(capture_src.content_text());
                                     let hash = String::from(capture_src.content_digest_hash());
                                     let output_res = ContentResource {
-                                    uri: self.executable.uri.clone(),
-                                    nature: Some(nature.clone()),
-                                    size: None,
-                                    created_at: Some(chrono::Utc::now()),
-                                    last_modified_at: Some(chrono::Utc::now()),
-                                    content_binary_supplier: None,
-                                    content_text_supplier: Some(Box::new(
-                                        move || -> Result<Box<dyn TextContent>, Box<dyn std::error::Error>> {
-                                            // TODO: do we really need to make clone these, can't we just
-                                            // pass in self.executable.capturable_exec_text_supplier!?!?
-                                            Ok(Box::new(FileTextContent { text: text.clone(), hash: hash.clone() })
-                                                as Box<dyn TextContent>)
-                                        },
-                                    )),
-                                    capturable_executable: None,
-                                    capturable_exec_binary_supplier: None,
-                                    capturable_exec_text_supplier: None,
-                                };
-                                    match urw_state.fsr_walker.uniform_resource_supplier.uniform_resource(output_res)
-                                {
-                                    Ok(output_ur) => {
-                                        let ur = *(output_ur);
-                                        ur.insert( urw_state, entry)
-                                    }
-                                    Err(err) => UniformResourceWriterResult {
                                         uri: self.executable.uri.clone(),
-                                        action:
-                                            UniformResourceWriterAction::CapturableExecUrCreateError(
-                                                err,
-                                            ),
-                                    },
-                                }
+                                        nature: Some(nature.clone()),
+                                        size: Some(text.len().try_into().unwrap()),
+                                        created_at: Some(chrono::Utc::now()),
+                                        last_modified_at: Some(chrono::Utc::now()),
+                                        content_binary_supplier: None,
+                                        content_text_supplier: Some(Box::new(
+                                            move || -> Result<Box<dyn TextContent>, Box<dyn std::error::Error>> {
+                                                // TODO: do we really need to make clone these, can't we just
+                                                // pass in self.executable.capturable_exec_text_supplier!?!?
+                                                Ok(Box::new(FileTextContent { text: text.clone(), hash: hash.clone() })
+                                                    as Box<dyn TextContent>)
+                                            },
+                                        )),
+                                        capturable_executable: None,
+                                        capturable_exec_binary_supplier: None,
+                                        capturable_exec_text_supplier: None,
+                                    };
+                                    match urw_state.fsr_walker.uniform_resource_supplier.uniform_resource(output_res) {
+                                        Ok(output_ur) => {
+                                            let ur = *(output_ur) ;
+                                            let inserted_output = ur.insert( urw_state, entry);
+                                            let stdin_json: serde_json::Value = serde_json::from_str(stdin.unwrap().as_str()).unwrap();
+                                            let captured_executable_diags = json!({
+                                                "args": [],
+                                                "stdin": stdin_json,
+                                                // "stderr": "", TODO: figure out what to do with STDERR from the executable, too
+                                                // do we need "stdout" since it's just the output?
+                                            });
+                                            match inserted_output.action {
+                                                UniformResourceWriterAction::Inserted(ur_id, ur_status) => {
+                                                    UniformResourceWriterResult {
+                                                        uri: inserted_output.uri,
+                                                        action: UniformResourceWriterAction::InsertedExecutableOutput(ur_id, ur_status,
+                                                            serde_json::to_string_pretty(&captured_executable_diags).unwrap()),
+                                                    }
+                                                },
+                                                _ => inserted_output
+                                            }
+                                        }
+                                        Err(err) => UniformResourceWriterResult {
+                                            uri: self.executable.uri.clone(),
+                                            action:
+                                                UniformResourceWriterAction::CapturableExecUrCreateError(
+                                                    err,
+                                                ),
+                                        },
+                                    }
                                 }
                                 Err(err) => UniformResourceWriterResult {
                                     uri: self.executable.uri.clone(),
@@ -683,8 +727,8 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
                                  DO UPDATE SET size_bytes = EXCLUDED.size_bytes
                                      RETURNING uniform_resource_transform_id"};
     const INS_UR_FS_ENTRY_SQL: &str = indoc! {"
-        INSERT INTO ur_walk_session_path_fs_entry (ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn, ur_status, ur_diagnostics) 
-                                           VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"};
+        INSERT INTO ur_walk_session_path_fs_entry (ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn, ur_status, ur_diagnostics, captured_executable) 
+                                           VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"};
 
     let (mut fswb, mut behavior_id) = FsWalkBehavior::new(&device_id, fsw_args, &tx)
         .with_context(|| format!("[fs_walk] behavior issue {}", db_fs_path))?;
@@ -747,6 +791,11 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
     // We don't use an ORM and just use raw Rusqlite for highest performance.
     // Use a scope to ensure all prepared SQL statements, which borrow `tx`` are dropped before committing the transaction.
     {
+        let env_current_dir = std::env::current_dir()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+
         let mut ins_ur_wsp_stmt = tx.prepare(INS_UR_WSP_SQL).with_context(|| {
             format!(
                 "[fs_walk] unable to create `ins_ur_wsp_stmt` SQL {} in {}",
@@ -810,6 +859,9 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
             })?;
 
             let mut urw_state = UniformResourceWriterState {
+                fs_walk_args: fsw_args,
+                fs_walk_behavior: &fswb,
+                env_current_dir: &env_current_dir,
                 device_id: &device_id,
                 walk_session_id: &walk_session_id,
                 walk_path_id: &walk_path_id,
@@ -822,11 +874,20 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
                 match resource_result {
                     Ok((entry, resource)) => {
                         let inserted = resource.insert(&mut urw_state, &entry);
-                        let uniform_resource_id = match inserted.action {
+                        let mut captured_exec_diags: Option<String> = None;
+                        let uniform_resource_id = match &inserted.action {
                             UniformResourceWriterAction::Inserted(
                                 ref uniform_resource_id,
                                 None,
                             ) => Some(uniform_resource_id),
+                            UniformResourceWriterAction::InsertedExecutableOutput(
+                                ref uniform_resource_id,
+                                None,
+                                diags,
+                            ) => {
+                                captured_exec_diags = Some(diags.clone());
+                                Some(uniform_resource_id)
+                            }
                             _ => None,
                         };
 
@@ -855,7 +916,8 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
                                         String::from("")
                                     },
                                     inserted.action.ur_status(),
-                                    inserted.action.ur_diagnostics()
+                                    inserted.action.ur_diagnostics(),
+                                    captured_exec_diags
                                 ]) {
                                     Ok(_) => {}
                                     Err(err) => {

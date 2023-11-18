@@ -18,6 +18,7 @@ CREATE TABLE "ur_walk_session_path_fs_entry" (
     "file_path_rel" TEXT NOT NULL,
     "file_basename" TEXT NOT NULL,
     "file_extn" TEXT,
+    "captured_executable" TEXT CHECK(json_valid(captured_executable) OR captured_executable IS NULL),
     "ur_status" TEXT,
     "ur_diagnostics" TEXT CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL),
     "ur_transformations" TEXT CHECK(json_valid(ur_transformations) OR ur_transformations IS NULL),
@@ -50,6 +51,7 @@ CREATE TABLE "ur_walk_session_path_fs_entry" (
 | file_path_rel                    | TEXT      |                   | false    |                                                 |                                                         |
 | file_basename                    | TEXT      |                   | false    |                                                 |                                                         |
 | file_extn                        | TEXT      |                   | true     |                                                 |                                                         |
+| captured_executable              | TEXT      |                   | true     |                                                 | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |
 | ur_status                        | TEXT      |                   | true     |                                                 |                                                         |
 | ur_diagnostics                   | TEXT      |                   | true     |                                                 | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |
 | ur_transformations               | TEXT      |                   | true     |                                                 | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |
@@ -71,6 +73,7 @@ CREATE TABLE "ur_walk_session_path_fs_entry" (
 | - (Foreign key ID: 1)                            | FOREIGN KEY | FOREIGN KEY (walk_path_id) REFERENCES ur_walk_session_path (ur_walk_session_path_id) ON UPDATE NO ACTION ON DELETE NO ACTION MATCH NONE |
 | - (Foreign key ID: 2)                            | FOREIGN KEY | FOREIGN KEY (walk_session_id) REFERENCES ur_walk_session (ur_walk_session_id) ON UPDATE NO ACTION ON DELETE NO ACTION MATCH NONE        |
 | sqlite_autoindex_ur_walk_session_path_fs_entry_1 | PRIMARY KEY | PRIMARY KEY (ur_walk_session_path_fs_entry_id)                                                                                          |
+| -                                                | CHECK       | CHECK(json_valid(captured_executable) OR captured_executable IS NULL)                                                                   |
 | -                                                | CHECK       | CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL)                                                                             |
 | -                                                | CHECK       | CHECK(json_valid(ur_transformations) OR ur_transformations IS NULL)                                                                     |
 | -                                                | CHECK       | CHECK(json_valid(elaboration) OR elaboration IS NULL)                                                                                   |

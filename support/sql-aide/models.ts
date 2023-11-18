@@ -345,12 +345,13 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     },
     populateQS: (t, _c, _cols, tableName) => {
       t.description = markdown`
-        Immutable FileSystem Walk Sessions represents a single file system scan (or
-        "walk") session. Each time a directory is scanned for files and entries, a
-        record is created here. ${tableName} has a foreign key reference to the
-        device table so that the same device can be used for multiple walk sessions
-        but also the walk sessions can be merged across workstations / servers for easier
-        detection of changes and similaries between file systems on different devices.`;
+        Immutable Walk Sessions represents any "discovery" or "walk" operation.
+        This could be a device file system scan or any other resource discovery
+        session. Each time a discovery operation starts, a record is created. 
+        ${tableName} has a foreign key reference to the device table so that the
+        same device can be used for multiple walk sessions but also the walk
+        sessions can be merged across workstations / servers for easier detection
+        of changes and similaries between file systems on different devices.`;
     },
   });
 
@@ -375,11 +376,13 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
         tif.index({ isIdempotent: true }, "walk_session_id", "root_path"),
       ];
     },
-    populateQS: (t, _c, _cols, _tableName) => {
+    populateQS: (t, _c, cols, _tableName) => {
       t.description = markdown`
-        Immutable Walk Sessions represents a single scan (or "walk") session.
-        Each time a directory is scanned for files and entries, a record is
-        created here.`;
+        Immutable Walk Session path represents a discovery or "walk" path If
+        the session was file system scan, then ${cols.root_path.identity} is the
+        root file system path that was scanned. If the session was discovering
+        resources in another target then ${cols.root_path.identity} would be
+        representative of the target path (could be a URI).`;
     },
   });
 
@@ -519,6 +522,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       file_path_rel: gd.text(),
       file_basename: gd.text(),
       file_extn: gd.textNullable(),
+      captured_executable: gd.jsonTextNullable(), // JSON-based details to know what executable was captured, if any
       ur_status: gd.textNullable(), // "CREATED", "EXISTING", "ERROR" / "WARNING" / etc.
       ur_diagnostics: gd.jsonTextNullable(), // JSON diagnostics for ur_status column
       ur_transformations: gd.jsonTextNullable(), // JSON-based details to know what transformations occurred, if any

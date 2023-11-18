@@ -2,9 +2,11 @@
 
 ## Description
 
-Immutable Walk Sessions represents a single scan (or "walk") session.  
-Each time a directory is scanned for files and entries, a record is  
-created here.
+Immutable Walk Session path represents a discovery or "walk" path If  
+the session was file system scan, then root_path is the  
+root file system path that was scanned. If the session was discovering  
+resources in another target then root_path would be  
+representative of the target path (could be a URI).
 
 <details>
 <summary><strong>Table Definition</strong></summary>

@@ -283,6 +283,7 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session_path_fs_entry" (
     "file_path_rel" TEXT NOT NULL,
     "file_basename" TEXT NOT NULL,
     "file_extn" TEXT,
+    "captured_executable" TEXT CHECK(json_valid(captured_executable) OR captured_executable IS NULL),
     "ur_status" TEXT,
     "ur_diagnostics" TEXT CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL),
     "ur_transformations" TEXT CHECK(json_valid(ur_transformations) OR ur_transformations IS NULL),
@@ -304,7 +305,7 @@ CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path__walk_session_id__root_path
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource__device_id__uri" ON "uniform_resource"("device_id", "uri");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource_transform__uniform_resource_id__content_digest" ON "uniform_resource_transform"("uniform_resource_id", "content_digest");
 CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path_fs_entry__walk_session_id__file_path_abs" ON "ur_walk_session_path_fs_entry"("walk_session_id", "file_path_abs");
-', 'b7d85e167aa0e24c160b9e7f4bccc735518be2df', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', '03969c5bd12130ea7544ece1bd3c4bc91944db4b', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -817,6 +818,7 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session_path_fs_entry" (
     "file_path_rel" TEXT NOT NULL,
     "file_basename" TEXT NOT NULL,
     "file_extn" TEXT,
+    "captured_executable" TEXT CHECK(json_valid(captured_executable) OR captured_executable IS NULL),
     "ur_status" TEXT,
     "ur_diagnostics" TEXT CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL),
     "ur_transformations" TEXT CHECK(json_valid(ur_transformations) OR ur_transformations IS NULL),
@@ -900,7 +902,7 @@ CREATE VIEW IF NOT EXISTS "fs_content_walk_session_stats" AS
         walk_session_finished_at,
         file_extension;
     
-      ', 'fe55ef245be19beffad847bef3af2e798af6cd66', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', 'ec68735051807b1f80ce1a07d9b87d3ad8761c7e', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -998,6 +1000,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     * file_path_rel: TEXT
     * file_basename: TEXT
       file_extn: TEXT
+      captured_executable: TEXT
       ur_status: TEXT
       ur_diagnostics: TEXT
       ur_transformations: TEXT
@@ -1015,7 +1018,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   ur_walk_session |o..o{ ur_walk_session_path_fs_entry
   ur_walk_session_path |o..o{ ur_walk_session_path_fs_entry
   uniform_resource |o..o{ ur_walk_session_path_fs_entry
-@enduml', '13b0e457d5d24361e6e594b87c597b9ba16ff938', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', '6acb64bf8aa60fcc26aab41dafd2fc008218b2d8', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,

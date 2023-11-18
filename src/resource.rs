@@ -26,6 +26,11 @@ pub type BinaryContentSupplier = Box<dyn Fn() -> Result<Box<dyn BinaryContent>, 
 pub type TextContentSupplier = Box<dyn Fn() -> Result<Box<dyn TextContent>, Box<dyn Error>>>;
 pub type JsonValueSupplier = Box<dyn Fn() -> Result<Box<JsonValue>, Box<dyn Error>>>;
 
+pub type BinaryExecOutputSupplier =
+    Box<dyn Fn(Option<String>) -> Result<Box<dyn BinaryContent>, Box<dyn Error>>>;
+pub type TextExecOutputSupplier =
+    Box<dyn Fn(Option<String>) -> Result<Box<dyn TextContent>, Box<dyn Error>>>;
+
 #[derive(Debug, Clone)]
 pub enum CapturableExecutable {
     Text(String),
@@ -42,8 +47,8 @@ pub struct ContentResource {
     pub capturable_executable: Option<CapturableExecutable>,
     pub content_binary_supplier: Option<BinaryContentSupplier>,
     pub content_text_supplier: Option<TextContentSupplier>,
-    pub capturable_exec_binary_supplier: Option<BinaryContentSupplier>,
-    pub capturable_exec_text_supplier: Option<TextContentSupplier>,
+    pub capturable_exec_binary_supplier: Option<BinaryExecOutputSupplier>,
+    pub capturable_exec_text_supplier: Option<TextExecOutputSupplier>,
 }
 
 pub enum ContentResourceSupplied<T> {
