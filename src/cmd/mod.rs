@@ -9,7 +9,8 @@ pub mod admin;
 pub mod fswalk;
 pub mod notebooks;
 
-const DEFAULT_STATEDB_FS_PATH: &str = "./resource-surveillance.sqlite.db";
+const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
+const DEFAULT_MERGED_STATEDB_FS_PATH: &str = "resource-surveillance-aggregated.sqlite.db";
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -167,15 +168,27 @@ pub enum AdminCommands {
         with_device: bool,
     },
 
-    /// generate SQLite SQL that will merge multiple databases into a single one
-    MergeSql {
+    /// merge multiple surveillance state databases into a single one
+    Merge {
         /// one or more DB name globs to match and merge
         #[arg(short, long, default_value = "*.db")]
-        db_glob: Vec<String>,
+        candidates: Vec<String>,
 
         /// one or more DB name globs to ignore if they match
         #[arg(short = 'i', long)]
-        db_glob_ignore: Vec<String>,
+        ignore_candidates: Vec<String>,
+
+        /// target SQLite database with merged content
+        #[arg(short='d', long, default_value = DEFAULT_MERGED_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_MERGED_STATEDB_FS_PATH")]
+        state_db_fs_path: String,
+
+        /// remove the existing database first
+        #[arg(short, long)]
+        remove_existing_first: bool,
+
+        /// only generate SQL and emit to STDOUT (no actual merge)
+        #[arg(long)]
+        sql_only: bool,
     },
 
     /// generate CLI help markdown

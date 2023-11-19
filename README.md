@@ -57,27 +57,44 @@ $ surveilr fs-walk --stats                # walk the current working directory (
 $ surveilr --completions fish | source    # setup completions to reduce typing
 ```
 
-Generating SQL to merge multiple _Resource Surveillance State SQLite Databases_
-into one:
+Merging multiple _Resource Surveillance State SQLite Databases_into one using
+`surveilr` _without_ running `sqlite3`:
 
 ```bash
-$ surveilr admin merge-sql                # generate merge SQL for all files in the current path
-$ surveilr admin merge-sql -d "**/*.db"   # generate merge SQL for specific globs in the current path
-$ surveilr admin merge-sql -i "x*.db"     # generate merge SQL for all files except ignore a glob
+$ surveilr admin merge                         # execute merge SQL for all files in the current path
+$ surveilr admin merge --candidates "**/*.db"  # execute merge SQL for specific globs in the current path
 ```
 
-Merging multiple databases into one using generated SQL (using `sqlite3` shell):
+The `surveilr admin merge` above prepares the SQL to merge multiple databases
+into one and executes it automatically creating
+`resource-surveillance-aggregated.sqlite.db` (you can override the name using
+`-d`).
+
+Generating SQL to merge multiple _Resource Surveillance State SQLite Databases_
+into one, inspecting it, and then executing _using_ `sqlite3`:
 
 ```bash
-$ surveilr admin init -d target.sqlite.db -r && surveilr admin merge-sql -i target.sqlite.db | sqlite3 target.sqlite.db
+$ surveilr admin merge --sql-only
+$ surveilr admin merge --candidates "**/*.db" --sql-only
+$ surveilr admin merge --candidates "**/*.db" -i "x*.db" --sql-only # -i ignores certain candidates
+$ surveilr admin merge --sql-only > merge.sql
+```
+
+Merging multiple databases into one using generated SQL (using `sqlite3` shell)
+after generating the code:
+
+```bash
+$ surveilr admin init -d target.sqlite.db -r \
+  && surveilr admin merge -d target.sqlite.db --sql-only \
+   | sqlite3 target.sqlite.db
 ```
 
 The CLI multi-command pipe above does three things:
 
 1. `surveilr admin init` initializes an empty `target.sqlite.db` (`-r` removes
    it if it exists)
-2. `surveilr admin merge-sql` generates the merge SQL for all databases except
-   `target.sqlite.db`
+2. `surveilr admin merge --sql-only` generates the merge SQL for all databases
+   except `target.sqlite.db`
 3. `sqlite3` pipe at the end just executes the generated SQL using SQLite 3
    shell and produces merged `target.sqlite.db`
 

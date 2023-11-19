@@ -13,11 +13,27 @@ impl AdminCommands {
                 state_db_fs_path,
                 remove_existing_first,
                 with_device,
-            } => self.init(cli, state_db_fs_path, *remove_existing_first, *with_device),
-            AdminCommands::MergeSql {
-                db_glob,
-                db_glob_ignore,
-            } => self.merge_sql(db_glob, db_glob_ignore),
+            } => self.init(
+                cli,
+                state_db_fs_path,
+                *remove_existing_first,
+                *with_device,
+                None,
+            ),
+            AdminCommands::Merge {
+                state_db_fs_path,
+                candidates,
+                ignore_candidates,
+                remove_existing_first,
+                sql_only,
+            } => self.merge(
+                cli,
+                state_db_fs_path,
+                candidates,
+                ignore_candidates,
+                *remove_existing_first,
+                *sql_only,
+            ),
             AdminCommands::CliHelpMd => self.cli_help_markdown(),
         }
     }
@@ -28,6 +44,7 @@ impl AdminCommands {
         db_fs_path: &String,
         remove_existing_first: bool,
         with_device: bool,
+        sql_script: Option<&str>,
     ) -> anyhow::Result<()> {
         if cli.debug == 1 {
             println!("Initializing {}", db_fs_path);
@@ -74,7 +91,13 @@ impl AdminCommands {
             }
         }
 
-        Ok(())
+        match sql_script {
+            Some(sql_script) => match conn.execute_batch(sql_script) {
+                Ok(_) => Ok(()),
+                Err(err) => Err(err.into()),
+            },
+            None => Ok(()),
+        }
     }
 
     fn cli_help_markdown(&self) -> anyhow::Result<()> {
@@ -82,14 +105,21 @@ impl AdminCommands {
         Ok(())
     }
 
-    fn merge_sql(
+    fn merge(
         &self,
-        db_globs: &[String],
-        db_ignore_globs: &[String],
+        cli: &super::Cli,
+        state_db_fs_path: &String,
+        candidates: &[String],
+        ignore_candidates: &[String],
+        remove_existing_first: bool,
+        sql_only: bool,
     ) -> Result<(), anyhow::Error> {
+        let mut ignore_candidates = ignore_candidates.to_vec();
+        ignore_candidates.push(state_db_fs_path.clone());
+
         let mut ignore_globset = globset::GlobSetBuilder::new();
-        for db_ignore_path in db_ignore_globs {
-            match globset::GlobBuilder::new(db_ignore_path)
+        for db_ignore_path in ignore_candidates {
+            match globset::GlobBuilder::new(&db_ignore_path)
                 .literal_separator(true)
                 .build()
             {
@@ -98,7 +128,7 @@ impl AdminCommands {
                 }
                 Err(err) => {
                     eprintln!(
-                        "[AdminCommands::merge_sql] invalid ignore glob {}: {}",
+                        "[AdminCommands::merge] invalid ignore glob {}: {}",
                         db_ignore_path, err
                     );
                     continue;
@@ -108,7 +138,7 @@ impl AdminCommands {
         let ignore_globset = ignore_globset.build().unwrap();
 
         let mut db_paths: Vec<String> = Vec::new();
-        for db_glob in db_globs {
+        for db_glob in candidates {
             for entry in glob::glob(db_glob).expect("Failed to read glob pattern") {
                 match entry {
                     Ok(path) => {
@@ -139,9 +169,11 @@ impl AdminCommands {
 
         let merge_tables = &[
             "device",
+            "behavior",
             "ur_walk_session",
             "ur_walk_session_path",
             "uniform_resource",
+            "uniform_resource_transform",
             "ur_walk_session_path_fs_entry",
         ];
         for db_path in &db_paths {
@@ -162,7 +194,18 @@ impl AdminCommands {
             let db_path_sql_identifier = crate::format::to_sql_friendly_identifier(db_path);
             sql_script.push_str(format!("DETACH DATABASE {};\n", db_path_sql_identifier).as_str());
         }
-        print!("{}", sql_script);
-        Ok(())
+
+        if sql_only {
+            print!("{}", sql_script);
+            Ok(())
+        } else {
+            self.init(
+                cli,
+                state_db_fs_path,
+                remove_existing_first,
+                false,
+                Some(sql_script.as_str()),
+            )
+        }
     }
 }

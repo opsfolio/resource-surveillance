@@ -7,7 +7,7 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr`↴](#surveilr)
 * [`surveilr admin`↴](#surveilr-admin)
 * [`surveilr admin init`↴](#surveilr-admin-init)
-* [`surveilr admin merge-sql`↴](#surveilr-admin-merge-sql)
+* [`surveilr admin merge`↴](#surveilr-admin-merge)
 * [`surveilr admin cli-help-md`↴](#surveilr-admin-cli-help-md)
 * [`surveilr notebooks`↴](#surveilr-notebooks)
 * [`surveilr notebooks cat`↴](#surveilr-notebooks-cat)
@@ -42,7 +42,7 @@ Admin / maintenance utilities
 ###### **Subcommands:**
 
 * `init` — initialize an empty database with bootstrap.sql
-* `merge-sql` — generate SQLite SQL that will merge multiple databases into a single one
+* `merge` — merge multiple surveillance state databases into a single one
 * `cli-help-md` — generate CLI help markdown
 
 
@@ -57,24 +57,29 @@ initialize an empty database with bootstrap.sql
 
 * `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
 
-  Default value: `./resource-surveillance.sqlite.db`
+  Default value: `resource-surveillance.sqlite.db`
 * `-r`, `--remove-existing-first` — remove the existing database first
 * `--with-device` — add the current device in the empty database's device table
 
 
 
-## `surveilr admin merge-sql`
+## `surveilr admin merge`
 
-generate SQLite SQL that will merge multiple databases into a single one
+merge multiple surveillance state databases into a single one
 
-**Usage:** `surveilr admin merge-sql [OPTIONS]`
+**Usage:** `surveilr admin merge [OPTIONS]`
 
 ###### **Options:**
 
-* `-d`, `--db-glob <DB_GLOB>` — one or more DB name globs to match and merge
+* `-c`, `--candidates <CANDIDATES>` — one or more DB name globs to match and merge
 
   Default value: `*.db`
-* `-i`, `--db-glob-ignore <DB_GLOB_IGNORE>` — one or more DB name globs to ignore if they match
+* `-i`, `--ignore-candidates <IGNORE_CANDIDATES>` — one or more DB name globs to ignore if they match
+* `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database with merged content
+
+  Default value: `resource-surveillance-aggregated.sqlite.db`
+* `-r`, `--remove-existing-first` — remove the existing database first
+* `--sql-only` — only generate SQL and emit to STDOUT (no actual merge)
 
 
 
@@ -101,7 +106,7 @@ Notebooks maintenance utilities
 
 * `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
 
-  Default value: `./resource-surveillance.sqlite.db`
+  Default value: `resource-surveillance.sqlite.db`
 
 
 
@@ -160,7 +165,7 @@ Walks the device file system
   Default value: `surveilr-SQL`
 * `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
 
-  Default value: `./resource-surveillance.sqlite.db`
+  Default value: `resource-surveillance.sqlite.db`
 * `--include-state-db-in-walk` — include the surveil database in the walk
 * `--stats` — show stats as an ASCII table after completion
 * `--stats-json` — show stats in JSON after completion
