@@ -1,7 +1,6 @@
-<center>
-<img src="support/surveilr-logo-with-text-264x66px.png" width="264" height="66"/>
-</center>
-<p/>
+<p align="center">
+  <img src="support/surveilr-logo-with-text-264x66px.png" width="264" height="66"/>
+</p>
 
 `surveilr` is an extendable file system inspector for performing surveillance of
 machine resources. It is used to walk resources like file systems and generate
@@ -9,7 +8,9 @@ an SQLite database which can then be consumed by any computing environment that
 supports SQLite.
 
 The SQLite file which `surveilr` prepares is called the _Resource Surveillance
-State Database_ (`RSSD`).
+State Database_ (`RSSD`) and once it's been generated it's no longer tied to
+`surveilr` and can be used by any other tool, service, application, or ETL'd
+into a data warehouse.
 
 ![Architecture](support/docs/architecture.drawio.svg)
 
@@ -36,8 +37,11 @@ Unless you set the `SURVEILR_STATEDB_FS_PATH` env var, the default _Resource
 Surveillance State ("surveillance state") SQLite Database_ will be
 `resource-surveillance.sqlite.db`.
 
-If you have many surveillance state SQLite databases, you should use a pattern
-like like this so they can be easily merged using `surveilr admin merge-sql`.
+If you have many surveillance state SQLite databases and you want to query them
+as one database instead of individual `RSSD`s, you should use a pattern like
+like this so they can be easily merged using `surveilr admin merge-sql`. Add any
+kind of _identifying_ or _differenting_ field(s) like `$(hostname)` into the
+`RSSD` filename.
 
 ```bash
 $ export SURVEILR_STATEDB_FS_PATH="resource-surveillance-$(hostname).sqlite.db"
@@ -50,7 +54,7 @@ $ surveilr --help                         # get CLI help (pay special attention 
 $ surveilr fs-walk                        # walk the current working directory (CWD)
 $ surveilr fs-walk -r /other -r /other2   # walk some other director(ies)
 $ surveilr fs-walk --stats                # walk the current working directory (CWD) show stats afterwards
-$ surveilr --completions fish | source                      # setup completions to reduce typing
+$ surveilr --completions fish | source    # setup completions to reduce typing
 ```
 
 Generating SQL to merge multiple _Resource Surveillance State SQLite Databases_
@@ -62,7 +66,7 @@ $ surveilr admin merge-sql -d "**/*.db"   # generate merge SQL for specific glob
 $ surveilr admin merge-sql -i "x*.db"     # generate merge SQL for all files except ignore a glob
 ```
 
-Merging multiple databases into one using generated SQL:
+Merging multiple databases into one using generated SQL (using `sqlite3` shell):
 
 ```bash
 $ surveilr admin init -d target.sqlite.db -r && surveilr admin merge-sql -i target.sqlite.db | sqlite3 target.sqlite.db
@@ -76,6 +80,10 @@ The CLI multi-command pipe above does three things:
    `target.sqlite.db`
 3. `sqlite3` pipe at the end just executes the generated SQL using SQLite 3
    shell and produces merged `target.sqlite.db`
+
+Once `target.sqlite.db` is created after step 3, none of the original
+device-specific `RSSD`s are required and `target.sqlite.db` is independent of
+`surveilr` as well.
 
 Notebook use cases:
 
@@ -120,6 +128,17 @@ provides. Though [CLI Help](support/docs/CLI-help.md) is a good reference, it's
 best to depend on `surveilr --help` and `surveilr <command> --help` because it
 will more accurate for the latest version.
 
+## Database Documentation
+
+- [SQLite State Schema Documentation](support/docs/surveilr-state-schema/README.md)
+- [SQLite Notebooks Schema Documentation](support/docs/surveilr-code-notebooks-schema/README.md)
+
+To generate schema docs:
+
+```bash
+$ just tbls
+```
+
 ### AI Prompts
 
 In order to make it easier to understand how to generate `surveilr` SQL, you can
@@ -136,17 +155,6 @@ understand the `surveilr` service SQL schema (`device`, `uniform_resource`,
 a good way to help ChatGPT or other LLM to understand the `surveilr` notebooks
 schema and ask it questions to generate SQL specifically for the _notebooks_
 capability.
-
-## Database Documentation
-
-- [SQLite State Schema Documentation](support/docs/surveilr-state-schema/README.md)
-- [SQLite Notebooks Schema Documentation](support/docs/surveilr-code-notebooks-schema/README.md)
-
-To generate schema docs:
-
-```bash
-$ just tbls
-```
 
 ## Development
 
