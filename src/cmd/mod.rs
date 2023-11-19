@@ -77,6 +77,15 @@ pub struct FsWalkArgs {
     )]
     pub capture_exec: Vec<regex::Regex>,
 
+    /// reg-exes that will signify which captured executables' output should be treated as batch SQL
+    #[arg(
+        long,
+        // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
+        default_value = r"surveilr-SQL",
+        default_missing_value = "always"
+    )]
+    pub captured_exec_sql: Vec<regex::Regex>,
+
     /// target SQLite database
     #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
     pub state_db_fs_path: String,

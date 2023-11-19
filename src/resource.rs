@@ -40,7 +40,7 @@ pub type TextExecOutputSupplier =
 
 #[derive(Debug, Clone)]
 pub enum CapturableExecutable {
-    Text(String),
+    Text(String, bool),
     RequestedButNoNature(regex::Regex),
     RequestedButNotExecutable,
 }

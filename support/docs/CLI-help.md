@@ -155,6 +155,9 @@ Walks the device file system
 * `--capture-exec <CAPTURE_EXEC>` — reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
 
   Default value: `surveilr\[(?P<nature>[^\]]*)\]`
+* `--captured-exec-sql <CAPTURED_EXEC_SQL>` — reg-exes that will signify which captured executables' output should be treated as batch SQL
+
+  Default value: `surveilr-SQL`
 * `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
 
   Default value: `./resource-surveillance.sqlite.db`

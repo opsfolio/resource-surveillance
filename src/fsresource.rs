@@ -423,12 +423,14 @@ impl FileSysResourcesWalker {
         ignore_paths_regexs: &[regex::Regex],
         inspect_content_regexs: &[regex::Regex],
         capturable_executables_regexs: &[regex::Regex],
+        captured_exec_sql_regexs: &[regex::Regex],
     ) -> Result<Self, regex::Error> {
         // Constructor can fail due to RegexSet::new
         let ignore_paths = RegexSet::new(ignore_paths_regexs.iter().map(|r| r.as_str()))?;
         let inspect_content_paths =
             RegexSet::new(inspect_content_regexs.iter().map(|r| r.as_str()))?;
         let capturable_executables = capturable_executables_regexs.to_vec();
+        let captured_exec_sql = RegexSet::new(captured_exec_sql_regexs.iter().map(|r| r.as_str()))?;
 
         let resource_supplier = FileSysResourceSupplier::new(
             Box::new(move |path, _nature, _file| {
@@ -441,14 +443,25 @@ impl FileSysResourcesWalker {
             Box::new(move |path, _nature, _file| {
                 let mut ce: Option<CapturableExecutable> = None;
                 let haystack = path.to_str().unwrap();
-                for re in capturable_executables.iter() {
-                    if let Some(caps) = re.captures(haystack) {
-                        if let Some(nature) = caps.name("nature") {
-                            ce = Some(CapturableExecutable::Text(String::from(nature.as_str())));
-                            break;
-                        } else {
-                            ce = Some(CapturableExecutable::RequestedButNoNature(re.clone()));
-                            break;
+
+                if captured_exec_sql.is_match(haystack) {
+                    ce = Some(CapturableExecutable::Text(
+                        String::from("surveilr-SQL"),
+                        true,
+                    ));
+                } else {
+                    for re in capturable_executables.iter() {
+                        if let Some(caps) = re.captures(haystack) {
+                            if let Some(nature) = caps.name("nature") {
+                                ce = Some(CapturableExecutable::Text(
+                                    String::from(nature.as_str()),
+                                    false,
+                                ));
+                                break;
+                            } else {
+                                ce = Some(CapturableExecutable::RequestedButNoNature(re.clone()));
+                                break;
+                            }
                         }
                     }
                 }
