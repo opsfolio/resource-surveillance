@@ -43,8 +43,9 @@ impl<'a, 'conn> UniformResourceWriterState<'a, 'conn> {
 #[derive(Debug)]
 pub enum UniformResourceWriterAction {
     Inserted(String, Option<String>),
-    InsertedExecutableOutput(String, Option<String>, String),
-    CapturedExecutableSqlOutput(String, String),
+    InsertedExecutableOutput(String, Option<String>, serde_json::Value),
+    CapturedExecutableSqlOutput(String, serde_json::Value),
+    CapturedExecutableNonZeroExit(subprocess::ExitStatus, Option<String>, serde_json::Value),
     ContentSupplierError(Box<dyn std::error::Error>),
     ContentUnavailable(),
     CapturableExecNotExecutable(),
@@ -63,6 +64,9 @@ impl UniformResourceWriterAction {
                 ur_status.clone()
             }
             UniformResourceWriterAction::CapturedExecutableSqlOutput(_, _) => None,
+            UniformResourceWriterAction::CapturedExecutableNonZeroExit(_, _, _) => {
+                Some(String::from("ERROR"))
+            }
             UniformResourceWriterAction::ContentSupplierError(_)
             | UniformResourceWriterAction::Error(_)
             | UniformResourceWriterAction::CapturableExecError(_)
@@ -83,11 +87,18 @@ impl UniformResourceWriterAction {
             UniformResourceWriterAction::Inserted(_, _) => None,
             UniformResourceWriterAction::InsertedExecutableOutput(_, _, _) => None,
             UniformResourceWriterAction::CapturedExecutableSqlOutput(_, _) => None,
+            UniformResourceWriterAction::CapturedExecutableNonZeroExit(_, _, diags) => {
+                Some(serde_json::to_string_pretty(&json!({
+                    "instance": "UniformResourceWriterAction::CapturedExecutableError(exit, stderr, diags)",
+                    "message": "Non-zero exit status when executing capturable executable",
+                    "diagnostics": diags // this includes exit_status and stderr already
+                })).unwrap())
+            }
             UniformResourceWriterAction::ContentSupplierError(err) =>
                 Some(serde_json::to_string_pretty(&json!({
                     "instance": "UniformResourceWriterAction::ContentSupplierError(err)",
                     "message": "Error when trying to get content from the resource",
-                    "error": err.to_string()
+                    "error": format!("{:?}", err)
                 })).unwrap()),
             UniformResourceWriterAction::ContentUnavailable() =>
                 Some(serde_json::to_string_pretty(&json!({
@@ -273,7 +284,6 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
         self.insert_text(urw_state, &self.executable, entry);
 
         // now try to execute the capturable executable and store its output
-        // TODO: figure out what to do with STDERR from the executable, too
         match &self.executable.capturable_executable {
             Some(capturable_executable) => match capturable_executable {
                 CapturableExecutable::Text(nature, is_batched_sql) => {
@@ -282,10 +292,6 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
                             let stdin = urw_state.capturable_exec_ctx(entry);
                             match capturable_supplier(stdin.clone()) {
                                 Ok((capture_src, exit_status, stderr)) => {
-                                    // TODO: do we really need to make a copy of all this, can't we just
-                                    // pass in self.executable.capturable_exec_text_supplier!?!?
-                                    let captured_text = String::from(capture_src.content_text());
-
                                     let stdin_json: serde_json::Value =
                                         serde_json::from_str(stdin.unwrap().as_str()).unwrap();
                                     let captured_executable_diags = json!({
@@ -293,63 +299,74 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
                                         "stdin": stdin_json,
                                         "exit-status": format!("{:?}", exit_status),
                                         "stderr": stderr,
-                                        // "stdout": captured_text  TODO: should we store this?
                                     });
-                                    let captured_executable_diags =
-                                        serde_json::to_string_pretty(&captured_executable_diags)
-                                            .unwrap();
 
-                                    if *is_batched_sql {
-                                        // the text is considered SQL and should be executed by the
-                                        // caller so we do not store anything in uniform_resource here.
-                                        return UniformResourceWriterResult {
-                                            uri: self.executable.uri.clone(),
-                                            action: UniformResourceWriterAction::CapturedExecutableSqlOutput(captured_text, captured_executable_diags)
-                                        };
-                                    }
-
-                                    let hash = String::from(capture_src.content_digest_hash());
-                                    let output_res = ContentResource {
-                                        uri: self.executable.uri.clone(),
-                                        nature: Some(nature.clone()),
-                                        size: Some(captured_text.len().try_into().unwrap()),
-                                        created_at: Some(chrono::Utc::now()),
-                                        last_modified_at: Some(chrono::Utc::now()),
-                                        content_binary_supplier: None,
-                                        content_text_supplier: Some(Box::new(
-                                            move || -> Result<Box<dyn TextContent>, Box<dyn std::error::Error>> {
-                                                // TODO: do we really need to make clone these, can't we just
-                                                // pass in self.executable.capturable_exec_text_supplier!?!?
-                                                Ok(Box::new(FileTextContent { text: captured_text.clone(), hash: hash.clone() })
-                                                    as Box<dyn TextContent>)
-                                            },
-                                        )),
-                                        capturable_executable: None,
-                                        capturable_exec_binary_supplier: None,
-                                        capturable_exec_text_supplier: None,
-                                    };
-                                    match urw_state.fsr_walker.uniform_resource_supplier.uniform_resource(output_res) {
-                                        Ok(output_ur) => {
-                                            let ur = *(output_ur);
-                                            let inserted_output = ur.insert( urw_state, entry);
-                                            match inserted_output.action {
-                                                UniformResourceWriterAction::Inserted(ur_id, ur_status) => {
-                                                    UniformResourceWriterResult {
-                                                        uri: inserted_output.uri,
-                                                        action: UniformResourceWriterAction::InsertedExecutableOutput(ur_id, ur_status,
-                                                            captured_executable_diags),
-                                                    }
-                                                },
-                                                _ => inserted_output
-                                            }
+                                    if matches!(exit_status, subprocess::ExitStatus::Exited(0)) {
+                                        let captured_text =
+                                            String::from(capture_src.content_text());
+                                        if *is_batched_sql {
+                                            // the text is considered SQL and should be executed by the
+                                            // caller so we do not store anything in uniform_resource here.
+                                            return UniformResourceWriterResult {
+                                                uri: self.executable.uri.clone(),
+                                                action: UniformResourceWriterAction::CapturedExecutableSqlOutput(captured_text, captured_executable_diags)
+                                            };
                                         }
-                                        Err(err) => UniformResourceWriterResult {
+
+                                        let hash = String::from(capture_src.content_digest_hash());
+                                        let output_res = ContentResource {
+                                            uri: self.executable.uri.clone(),
+                                            nature: Some(nature.clone()),
+                                            size: Some(captured_text.len().try_into().unwrap()),
+                                            created_at: Some(chrono::Utc::now()),
+                                            last_modified_at: Some(chrono::Utc::now()),
+                                            content_binary_supplier: None,
+                                            content_text_supplier: Some(Box::new(
+                                                move || -> Result<Box<dyn TextContent>, Box<dyn std::error::Error>> {
+                                                    // TODO: do we really need to make clone these, can't we just
+                                                    // pass in self.executable.capturable_exec_text_supplier!?!?
+                                                    Ok(Box::new(FileTextContent { text: captured_text.clone(), hash: hash.clone() })
+                                                        as Box<dyn TextContent>)
+                                                },
+                                            )),
+                                            capturable_executable: None,
+                                            capturable_exec_binary_supplier: None,
+                                            capturable_exec_text_supplier: None,
+                                        };
+
+                                        match urw_state.fsr_walker.uniform_resource_supplier.uniform_resource(output_res) {
+                                            Ok(output_ur) => {
+                                                let ur = *(output_ur);
+                                                let inserted_output = ur.insert( urw_state, entry);
+                                                match inserted_output.action {
+                                                    UniformResourceWriterAction::Inserted(ur_id, ur_status) => {
+                                                        UniformResourceWriterResult {
+                                                            uri: inserted_output.uri,
+                                                            action: UniformResourceWriterAction::InsertedExecutableOutput(ur_id, ur_status,
+                                                                captured_executable_diags),
+                                                        }
+                                                    },
+                                                    _ => inserted_output
+                                                }
+                                            }
+                                            Err(err) => UniformResourceWriterResult {
+                                                uri: self.executable.uri.clone(),
+                                                action:
+                                                    UniformResourceWriterAction::CapturableExecUrCreateError(
+                                                        err,
+                                                    ),
+                                            },
+                                        }
+                                    } else {
+                                        UniformResourceWriterResult {
                                             uri: self.executable.uri.clone(),
                                             action:
-                                                UniformResourceWriterAction::CapturableExecUrCreateError(
-                                                    err,
+                                                UniformResourceWriterAction::CapturedExecutableNonZeroExit(
+                                                    exit_status,
+                                                    stderr,
+                                                    captured_executable_diags
                                                 ),
-                                        },
+                                        }
                                     }
                                 }
                                 Err(err) => UniformResourceWriterResult {
@@ -912,14 +929,16 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
                                 None,
                                 diags,
                             ) => {
-                                captured_exec_diags = Some(diags.clone());
+                                captured_exec_diags =
+                                    Some(serde_json::to_string_pretty(&diags).unwrap());
                                 Some(uniform_resource_id)
                             }
                             UniformResourceWriterAction::CapturedExecutableSqlOutput(
                                 ref sql_script,
                                 diags,
                             ) => {
-                                captured_exec_diags = Some(diags.clone());
+                                captured_exec_diags =
+                                    Some(serde_json::to_string_pretty(&diags).unwrap());
                                 match tx.execute_batch(sql_script) {
                                     Ok(_) => {
                                         ur_status = Some(String::from("EXECUTED_CAPTURED_SQL"));

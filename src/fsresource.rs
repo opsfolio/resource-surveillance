@@ -216,7 +216,8 @@ impl ContentResourceSupplier<ContentResource> for FileSysResourceSupplier {
                 capturable_exec_text_supplier = Some(Box::new(
                     move |stdin| -> Result<TextExecOutput, Box<dyn Error>> {
                         let mut exec = subprocess::Exec::cmd(&uri_clone_cets)
-                            .stdout(subprocess::Redirection::Pipe);
+                            .stdout(subprocess::Redirection::Pipe)
+                            .stderr(subprocess::Redirection::Pipe);
 
                         if stdin.is_some() {
                             exec = exec.stdin(subprocess::Redirection::Pipe);
