@@ -31,11 +31,23 @@ If you use `eget`:
 $ eget opsfolio/resource-surveillance --asset tar.gz
 ```
 
-## Creating `RSDD`s by walking the file system (`fs-walk`)
+Here's how you get help for the various commands that `surveilr` provides:
+
+```bash
+$ surveilr --version                      # version information
+$ surveilr --help                         # get CLI help (pay special attention to ENV var names)
+$ surveilr --completions fish | source    # setup shell completions to reduce typing
+```
+
+See [CLI Help](support/docs/CLI-help.md) for summary of what `surveilr --help`
+provides. Though [CLI Help](support/docs/CLI-help.md) is a good reference, it's
+best to depend on `surveilr --help` and `surveilr <command> --help` because it
+will more accurate for the latest version.
+
+## Creating `RSSD`s by walking the file system (`fs-walk`)
 
 Unless you set the `SURVEILR_STATEDB_FS_PATH` env var, the default _Resource
-Surveillance State ("surveillance state") SQLite Database_ will be
-`resource-surveillance.sqlite.db`.
+Surveillance State Database_ ("RSSD") will be `resource-surveillance.sqlite.db`.
 
 If you have many surveillance state SQLite databases and you want to query them
 as one database instead of individual `RSSD`s, you should use a pattern like
@@ -47,22 +59,22 @@ kind of _identifying_ or _differenting_ field(s) like `$(hostname)` into the
 $ export SURVEILR_STATEDB_FS_PATH="resource-surveillance-$(hostname).sqlite.db"
 ```
 
-Here's how you use the most common command patterns:
+Here's how you use the most common `fs-walk`patterns:
 
-```bash
-$ surveilr --help                         # get CLI help (pay special attention to ENV var names)
+```base
+$ surveilr fs-walk --help                 # explain the `fs-walk` subcommand
 $ surveilr fs-walk                        # walk the current working directory (CWD)
 $ surveilr fs-walk -r /other -r /other2   # walk some other director(ies)
 $ surveilr fs-walk --stats                # walk the current working directory (CWD) show stats afterwards
-$ surveilr --completions fish | source    # setup completions to reduce typing
 ```
 
 ## Merging multiple `RSSD`s into one using `surveilr` (`admin merge`)
 
-Merging multiple _Resource Surveillance State SQLite Databases_into one using
-`surveilr` _without_ running `sqlite3`:
+Merging multiple _Resource Surveillance State SQLite Databases_ into one using
+`surveilr` _without_ running external `sqlite3`:
 
 ```bash
+$ surveilr admin merge --help                  # explain the `admin merge` subcommand
 $ surveilr admin merge                         # execute merge SQL for all files in the current path
 $ surveilr admin merge --candidates "**/*.db"  # execute merge SQL for specific globs in the current path
 ```
@@ -84,8 +96,9 @@ $ surveilr admin merge --sql-only > merge.sql
 
 ### Merging multiple `RSSD`s into one using `sqlite3` (`admin merge --sql-only`)
 
-Merging multiple databases into one using generated SQL (using `sqlite3` shell)
-after generating the code:
+Because merging multiple database can sometimes fail due to unforseen data
+issues, you can use `sqlite3` to merge multiple databases using
+`surveilr`-generated SQL after inspecting it. Here's how:
 
 ```bash
 $ surveilr admin init -d target.sqlite.db -r \
@@ -98,7 +111,8 @@ The CLI multi-command pipe above does three things:
 1. `surveilr admin init` initializes an empty `target.sqlite.db` (`-r` removes
    it if it exists)
 2. `surveilr admin merge --sql-only` generates the merge SQL for all databases
-   except `target.sqlite.db`
+   except `target.sqlite.db`; to inspect the SQL you can save it to a file
+   `surveilr admin merge -d target.sqlite.db --sql-only > merge.sql`.
 3. `sqlite3` pipe at the end just executes the generated SQL using SQLite 3
    shell and produces merged `target.sqlite.db`
 
@@ -143,11 +157,6 @@ SQLite, the following two commands do the same thing:
 $ surveilr notebooks cat --cell infoSchemaOsQueryATCs | sqlite3 resource-surveillance.sqlite.db
 $ sqlite3 resource-surveillance.sqlite.db "select interpretable_code from stored_notebook_cell where cell_name = 'infoSchemaOsQueryATCs'" | sqlite3 device-content.sqlite.db
 ```
-
-See [CLI Help](support/docs/CLI-help.md) for summary of what `surveilr --help`
-provides. Though [CLI Help](support/docs/CLI-help.md) is a good reference, it's
-best to depend on `surveilr --help` and `surveilr <command> --help` because it
-will more accurate for the latest version.
 
 ## Database Documentation
 
