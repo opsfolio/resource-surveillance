@@ -31,7 +31,7 @@ If you use `eget`:
 $ eget opsfolio/resource-surveillance --asset tar.gz
 ```
 
-## Usage
+## Creating `RSDD`s by walking the file system (`fs-walk`)
 
 Unless you set the `SURVEILR_STATEDB_FS_PATH` env var, the default _Resource
 Surveillance State ("surveillance state") SQLite Database_ will be
@@ -57,6 +57,8 @@ $ surveilr fs-walk --stats                # walk the current working directory (
 $ surveilr --completions fish | source    # setup completions to reduce typing
 ```
 
+## Merging multiple `RSSD`s into one using `surveilr` (`admin merge`)
+
 Merging multiple _Resource Surveillance State SQLite Databases_into one using
 `surveilr` _without_ running `sqlite3`:
 
@@ -80,6 +82,8 @@ $ surveilr admin merge --candidates "**/*.db" -i "x*.db" --sql-only # -i ignores
 $ surveilr admin merge --sql-only > merge.sql
 ```
 
+### Merging multiple `RSSD`s into one using `sqlite3` (`admin merge --sql-only`)
+
 Merging multiple databases into one using generated SQL (using `sqlite3` shell)
 after generating the code:
 
@@ -102,7 +106,12 @@ Once `target.sqlite.db` is created after step 3, none of the original
 device-specific `RSSD`s are required and `target.sqlite.db` is independent of
 `surveilr` as well.
 
-Notebook use cases:
+## Code Notebooks
+
+In order to ensure that the Resource Surveillance agent is extensible, we
+leverage SQLite heavily for both storage of data but also storing the SQL it
+needs to bootstrap itself, perform migrations, and conduct regular
+administrative and query operations.
 
 ```bash
 $ surveilr notebooks ls                                     # list all notebooks and cells available, with migrations status
@@ -110,11 +119,6 @@ $ surveilr notebooks cat --cell infoSchemaOsQueryATCs       # export the informa
 $ surveilr notebooks cat --cell notebooksInfoSchemaDiagram  # show the notebooks admin PlanUML ERD stored in the database
 $ surveilr notebooks cat --cell surveilrInfoSchemaDiagram   # show the surveilr PlanUML ERD stored in the database
 ```
-
-In order to ensure that the Resource Surveillance agent is extensible, we
-leverage SQLite heavily for both storage of data but also storing the SQL it
-needs to bootstrap itself, perform migrations, and conduct regular
-administrative and query operations.
 
 The key to that extensibility is the `code_notebook_cell` table which stores SQL
 (called _SQL notebook cells_) or other interpretable code in the database so
