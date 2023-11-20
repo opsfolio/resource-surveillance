@@ -708,7 +708,7 @@ impl FsWalkBehavior {
 pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String> {
     let db_fs_path = &fsw_args.state_db_fs_path;
 
-    if cli.debug == 1 {
+    if cli.debug > 0 {
         println!("Surveillance State DB: {}", db_fs_path);
     }
 
@@ -735,7 +735,7 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
         )
     })?;
 
-    if cli.debug == 1 {
+    if cli.debug > 0 {
         println!("Device: {device_name} ({device_id})");
     }
 
@@ -792,12 +792,12 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
             .with_context(|| {
                 format!("[fs_walk] saving {} in {}", save_behavior_name, db_fs_path)
             })?;
-        if cli.debug == 1 {
+        if cli.debug > 0 {
             println!("Saved behavior: {} ({})", save_behavior_name, saved_bid);
         }
         behavior_id = Some(saved_bid);
     }
-    if cli.debug == 1 {
+    if cli.debug > 0 {
         println!(
             "Behavior: {}",
             behavior_id.clone().unwrap_or(String::from("custom"))
@@ -824,7 +824,7 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
                 INS_UR_WALK_SESSION_SQL, db_fs_path
             )
         })?;
-    if cli.debug == 1 {
+    if cli.debug > 0 {
         println!("Walk Session: {walk_session_id}");
     }
 
@@ -880,7 +880,7 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
                         INS_UR_WSP_SQL, "TODO: ins_ur_wsp_params.join()", db_fs_path
                     )
                 })?;
-            if cli.debug == 1 {
+            if cli.debug > 0 {
                 println!("  Walk Session Path: {root_path} ({walk_path_id})");
             }
 

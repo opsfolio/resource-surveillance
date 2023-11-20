@@ -20,7 +20,7 @@ pub struct Cli {
     pub device_name: Option<String>,
 
     /// Turn debugging information on (repeat for higher levels)
-    #[arg(short, long, action = clap::ArgAction::Count)]
+    #[arg(short, long, action = clap::ArgAction::Count, env="SURVEILR_DEBUG")]
     pub debug: u8,
 
     #[command(subcommand)]

@@ -46,7 +46,7 @@ impl AdminCommands {
         with_device: bool,
         sql_script: Option<&str>,
     ) -> anyhow::Result<()> {
-        if cli.debug == 1 {
+        if cli.debug > 0 {
             println!("Initializing {}", db_fs_path);
         }
         if remove_existing_first {
@@ -83,7 +83,7 @@ impl AdminCommands {
                     )
                 })?;
 
-            if cli.debug == 1 {
+            if cli.debug > 0 {
                 println!(
                     "Initialized {} with device {} ({})",
                     db_fs_path, device_name, device_id

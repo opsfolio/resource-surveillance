@@ -30,7 +30,7 @@ fn main() -> anyhow::Result<()> {
         _ => println!("Don't be crazy"),
     }
 
-    if cli.debug == 1 {
+    if cli.debug > 0 {
         // You can check the value provided by positional arguments, or option arguments
         if let Some(name) = cli.device_name.as_deref() {
             println!("Device: {name}");
