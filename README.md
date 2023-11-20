@@ -120,6 +120,109 @@ Once `target.sqlite.db` is created after step 3, none of the original
 device-specific `RSSD`s are required and `target.sqlite.db` is independent of
 `surveilr` as well.
 
+## Files as Resources vs. Capturable Executables as Resources
+
+When `fs-walk` command runs, it's main job is to find files and store them in
+`uniform_resource` table as records. If the content of a file is already stored
+in the file system this works well. However, sometimes we need to generate the
+content of a file (or group of files) and store the output of the generated
+files. That's where the idea of _Capturable Executables_ (`CEs`) comes in.
+
+CEs allow you to pass in arguments or behaviors to the `fs-walk` command that
+allows certain patterns of files to be executed in a safe shell, and their
+STDOUT and STDERR captured and stored in `uniform_resource`. These scripts are
+referred to as _capturable executables_ or `CE`s and are influenced through
+_Processing Instructions_ (`PI`s) in file names.
+
+For example, if we want `fs-walk`, as it encounters a `abc.surveilr.sh` file to
+execute it, we can pass in `--capture_exec "surverilr[json]"` and it will
+execute the script, treat the output as JSON, and store it in
+`uniform_resource`. `surverilr[json]` becomes what is known as a `CE` Resource
+Surveillance _Processing Instruction_ (`PI`) and the pattern is arbitrary so
+long as the _nature_ is a named Rust reg ex capture group liked
+`surveilr\[(?P<nature>[^]]*)\]` (focus on `nature`, you can test this regular
+expressions at https://regex101.com/r/sVroiN/1).
+
+This _Capturable Executables_ functionality is available:
+
+- Calls an executable without any parameters and assumes the output is whatever
+  is in `[xyz]` PI as the `uniform_resource` _nature_.
+- If the filename is something like `myfile.surveilr-SQL.sh` it means that the
+  output of the command will be treated as batch SQL and executed on the target
+  SQLite database in the same transaction as the primary database. If we pass in
+  everything through STDIN (see below), `INSERT INTO` should be easy.
+- Need to capture status code from the executable and STDERR from subprocess and
+  pass it back so it can be stored in
+  `walk_session_path_fs_entry`.`captured_executable` JSON column along with
+  `args` and `stdin`.
+- Pass in the device, behavior, and other context information through CLI
+  parameters or STDIN to the shell script. The input (STDIN) should look like
+  this and contain a reasonably complete context so that executables know how to
+  generate their output:
+
+```json
+{
+  "surveilr-fs-walk": {
+    "args": {
+      "state_db_fs_path": "./e2e-test-state.sqlite.db"
+    },
+    "behavior": {
+      "capturable_executables": [
+        "surveilr\\[(?P<nature>[^\\]]*)\\]"
+      ],
+      "compute_digests": [".*"],
+      "ignore_regexs": [
+        "/(\\.git|node_modules)/"
+      ],
+      "ingest_content": [
+        "\\.(md|mdx|html|json|jsonc|toml|yaml)$",
+        "surveilr\\[(?P<nature>[^\\]]*)\\]"
+      ],
+      "root_paths": ["./support/test-fixtures"]
+    },
+    "device": { "device_id": "01HFHZGEZC763PWRBV2WKXBJH0" },
+    "env": {
+      "current_dir": "/home/snshah/workspaces/github.com/opsfolio/resource-surveillance"
+    },
+    "session": {
+      "entry": {
+        "path": "/home/snshah/workspaces/github.com/opsfolio/resource-surveillance/support/test-fixtures/echo-stdin.surveilr[json].sh"
+      },
+      "walk-path-id": "01HFHZGEZEDTW29BWWSEDE46WH",
+      "walk-session-id": "01HFHZGEZD31S0V1EYBW4TT530"
+    }
+  }
+}
+```
+
+### Capturable Executables Examples
+
+See these examples in `support/test-fixtures`:
+
+- `capturable-executable.surveilr[json].ts` shows how to use simple JSON output
+  from a Deno script and store it in `uniform_resource`
+- `capturable-executable.surveilr[json].sh` shows how to use simple JSON output
+  from a Bash script and store it in `uniform_resource`
+- `echo-stdin.surveilr[json].sh` shows how to accept STDIN and emit JSON as
+  STDOUT -- this allows more complex processing by getting additional context
+  from surveilr and doing something special in a script.
+- `idempotent.surveilr-SQL.sh` shows how a script can generate SQL and
+  `surveilr` will execute the SQL as a batch in the same transaction (WARNING:
+  SQL is unsanitized and this might be a security hole so be careful turning it
+  on).
+
+How to control the behavior of _Capturable Executables_ filenames:
+
+- `surveilr fs-walk --captured-exec-sql` Regexp(s) control which files are
+  considered capturable executables who output will be captured and executed as
+  "SQL batch"
+- `surveilr fs-walk --capture-exec` Regexp(s) control which files are considered
+  capturable executables
+
+Full diagnostics of STDIN, STDOUT, STDERR, etc. are present in the
+`ur_session_path_fs_entry` row for all scripts as they're encountered. If you
+need more features, submit tickets.
+
 ## Code Notebooks
 
 In order to ensure that the Resource Surveillance agent is extensible, we
@@ -185,42 +288,3 @@ understand the `surveilr` service SQL schema (`device`, `uniform_resource`,
 a good way to help ChatGPT or other LLM to understand the `surveilr` notebooks
 schema and ask it questions to generate SQL specifically for the _notebooks_
 capability.
-
-## Development
-
-**IMPORTANT**: Use SQLa to generate all SQL so it's portable but use Rusqlite to
-make working with SQLite more ergonomic. Remember to only use libraries to help
-improve developer productivity, always assume SQLite database will be used
-across polyglot programming environments so SQL code should be transparent and
-portable.
-
-Development prerequisites:
-
-- Install Rust toolchain (1.73 or above, best to use `rustup`, `asdf` or `rtx`
-  for multiple simultaneous versions)
-- `cargo install just` so we can use `Justfile` for task management
-
-Regular use:
-
-```bash
-$ just --completions fish | source            # setup completions to reduce typing
-
-$ just test                                   # run unit tests with cargo nextest
-
-$ just run                                    # get CLI help
-$ cargo run -- --help                         # get CLI help, same as above
-
-$ just run admin cli-help-md                  # get CLI in Markdown and update this README.md manually
-$ cargo run -- --help-markdown > CLI-help.md  # get CLI in Markdown, same as above
-
-$ just run fs-walk --help                     # get CLI help for fs-walk subcommand
-$ just run --debug fs-walk                    # walk the current working directory (CWD) with debug messages
-$ just run fs-walk -r /other -r /other2       # walk some other director(ies)
-$ just run fs-walk -i .git/                   # walk CWD, ignore .git/ paths
-$ just run fs-walk -i .git/ -i target/        # walk CWD, ignore .git/ and target/ paths
-
-$ just sqla-sync                              # generate SQLa bootstrap and other SQL
-                                             
-$ just dev                                    # turn on auto-compile, auto-run during development
-                                              # using cargo-watch command
-```
