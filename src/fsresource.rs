@@ -389,6 +389,10 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
                     let markdown = MarkdownResource { resource };
                     Ok(Box::new(UniformResource::Markdown(markdown)))
                 }
+                "txt" | "text" => {
+                    let plain_text = PlainTextResource { resource };
+                    Ok(Box::new(UniformResource::PlainText(plain_text)))
+                }
                 "png" | "gif" | "tiff" | "jpg" | "jpeg" => {
                     let image = ImageResource {
                         resource,

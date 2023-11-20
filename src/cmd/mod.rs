@@ -62,7 +62,7 @@ pub struct FsWalkArgs {
     #[arg(
         long,
         default_values_t = [
-            Regex::new(r"\.(md|mdx|html|json|jsonc|toml|yaml)$").unwrap(),
+            Regex::new(r"\.(md|mdx|html|json|jsonc|tap|txt|text|toml|yaml)$").unwrap(),
             // if you don't want capturable executables stored in uniform_resource, remove the following
             Regex::new(r"surveilr\[(?P<nature>[^\]]*)\]").unwrap()],
         default_missing_value = "always"

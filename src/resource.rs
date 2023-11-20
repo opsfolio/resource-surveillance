@@ -93,6 +93,10 @@ pub struct MarkdownResource<Resource> {
     pub resource: Resource,
 }
 
+pub struct PlainTextResource<Resource> {
+    pub resource: Resource,
+}
+
 pub struct SoftwarePackageDxResource<Resource> {
     pub resource: Resource,
 }
@@ -120,6 +124,7 @@ pub enum UniformResource<Resource> {
     Image(ImageResource<Resource>),
     Json(JsonResource<Resource>),
     Markdown(MarkdownResource<Resource>),
+    PlainText(PlainTextResource<Resource>),
     SpdxJson(SoftwarePackageDxResource<Resource>), // TODO: SPDX comes in 5 flavors (see https://spdx.dev/learn/overview/)
     Svg(SvgResource<Resource>),
     Tap(TestAnythingResource<Resource>),

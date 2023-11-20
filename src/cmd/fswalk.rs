@@ -104,7 +104,7 @@ impl UniformResourceWriterAction {
                 Some(serde_json::to_string_pretty(&json!({
                     "instance": "UniformResourceWriterAction::ContentUnavailable",
                     "message": "content supplier was not provided",
-                    "remediation": "see CLI args/config and request content for this extension"
+                    "remediation": "see CLI args/config and request content for this extension; for security reasons this service does not load any content it has not been explicitly asked to (e.g. by extension or filename pattern in behaviors)"
                 })).unwrap()),
             UniformResourceWriterAction::CapturableExecNotExecutable() =>
                 Some(serde_json::to_string_pretty(&json!({
@@ -264,7 +264,10 @@ impl UniformResourceWriter<ContentResource> for ContentResource {
         ) {
             Ok(new_or_existing_ur_id) => UniformResourceWriterResult {
                 uri,
-                action: UniformResourceWriterAction::Inserted(new_or_existing_ur_id, None),
+                action: UniformResourceWriterAction::Inserted(
+                    new_or_existing_ur_id,
+                    Some(String::from("UKNOWN_NATURE")),
+                ),
             },
             Err(err) => UniformResourceWriterResult {
                 uri,
@@ -506,6 +509,16 @@ impl UniformResourceWriter<ContentResource> for MarkdownResource<ContentResource
     }
 }
 
+impl UniformResourceWriter<ContentResource> for PlainTextResource<ContentResource> {
+    fn insert(
+        &self,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
+        entry: &walkdir::DirEntry,
+    ) -> UniformResourceWriterResult {
+        self.insert_text(urw_state, &self.resource, entry)
+    }
+}
+
 impl UniformResourceWriter<ContentResource> for SoftwarePackageDxResource<ContentResource> {
     fn insert(
         &self,
@@ -564,6 +577,7 @@ impl UniformResource<ContentResource> {
             UniformResource::Json(json) => json.resource.uri.as_str(),
             UniformResource::Image(img) => img.resource.uri.as_str(),
             UniformResource::Markdown(md) => md.resource.uri.as_str(),
+            UniformResource::PlainText(txt) => txt.resource.uri.as_str(),
             UniformResource::SpdxJson(spdx) => spdx.resource.uri.as_str(),
             UniformResource::Svg(svg) => svg.resource.uri.as_str(),
             UniformResource::Tap(tap) => tap.resource.uri.as_str(),
@@ -584,6 +598,7 @@ impl UniformResource<ContentResource> {
             UniformResource::Json(json) => json.insert(urw_state, entry),
             UniformResource::Image(img) => img.insert(urw_state, entry),
             UniformResource::Markdown(md) => md.insert(urw_state, entry),
+            UniformResource::PlainText(txt) => txt.insert(urw_state, entry),
             UniformResource::SpdxJson(spdx) => spdx.insert(urw_state, entry),
             UniformResource::Svg(svg) => svg.insert(urw_state, entry),
             UniformResource::Tap(tap) => tap.insert(urw_state, entry),
