@@ -9,6 +9,8 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr admin init`↴](#surveilr-admin-init)
 * [`surveilr admin merge`↴](#surveilr-admin-merge)
 * [`surveilr admin cli-help-md`↴](#surveilr-admin-cli-help-md)
+* [`surveilr capturable-exec`↴](#surveilr-capturable-exec)
+* [`surveilr capturable-exec ls`↴](#surveilr-capturable-exec-ls)
 * [`surveilr notebooks`↴](#surveilr-notebooks)
 * [`surveilr notebooks cat`↴](#surveilr-notebooks-cat)
 * [`surveilr notebooks ls`↴](#surveilr-notebooks-ls)
@@ -21,6 +23,7 @@ This document contains the help content for the `surveilr` command-line program.
 ###### **Subcommands:**
 
 * `admin` — Admin / maintenance utilities
+* `capturable-exec` — Capturable Executables (CE) maintenance tools
 * `notebooks` — Notebooks maintenance utilities
 * `fs-walk` — Walks the device file system
 
@@ -28,7 +31,7 @@ This document contains the help content for the `surveilr` command-line program.
 
 * `--device-name <DEVICE_NAME>` — How to identify this device
 
-  Default value: `Constitution`
+  Default value: `Titan`
 * `-d`, `--debug` — Turn debugging information on (repeat for higher levels)
 
 
@@ -91,6 +94,41 @@ generate CLI help markdown
 
 
 
+## `surveilr capturable-exec`
+
+Capturable Executables (CE) maintenance tools
+
+**Usage:** `surveilr capturable-exec <COMMAND>`
+
+###### **Subcommands:**
+
+* `ls` — list potential capturable executables
+
+
+
+## `surveilr capturable-exec ls`
+
+list potential capturable executables
+
+**Usage:** `surveilr capturable-exec ls [OPTIONS]`
+
+###### **Options:**
+
+* `-r`, `--root-path <ROOT_PATH>` — one or more root paths to walk
+
+  Default value: `.`
+* `-i`, `--ignore-entry <IGNORE_ENTRY>` — reg-exes to use to ignore files in root-path(s)
+
+  Default value: `/(\\.git|node_modules)/`
+* `--capture-exec <CAPTURE_EXEC>` — reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
+
+  Default value: `surveilr\[(?P<nature>[^\]]*)\]`
+* `--captured-exec-sql <CAPTURED_EXEC_SQL>` — reg-exes that will signify which captured executables' output should be treated as batch SQL
+
+  Default value: `surveilr-SQL`
+
+
+
 ## `surveilr notebooks`
 
 Notebooks maintenance utilities
@@ -150,13 +188,13 @@ Walks the device file system
   Default value: `.`
 * `-i`, `--ignore-entry <IGNORE_ENTRY>` — reg-exes to use to ignore files in root-path(s)
 
-  Default value: `/(\.git|node_modules)/`
+  Default value: `/(\\.git|node_modules)/`
 * `--compute-digests <COMPUTE_DIGESTS>` — reg-exes to use to compute digests for
 
   Default value: `.*`
 * `--surveil-content <SURVEIL_CONTENT>` — reg-exes to use to load content for entry instead of just walking
 
-  Default values: `\.(md|mdx|html|json|jsonc|toml|yaml)$`, `surveilr\[(?P<nature>[^\]]*)\]`
+  Default values: `\.(md|mdx|html|json|jsonc|tap|txt|text|toml|yaml)$`, `surveilr\[(?P<nature>[^\]]*)\]`
 * `--capture-exec <CAPTURE_EXEC>` — reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
 
   Default value: `surveilr\[(?P<nature>[^\]]*)\]`

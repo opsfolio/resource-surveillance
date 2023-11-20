@@ -6,11 +6,16 @@ use self::fswalk::fs_walk;
 use crate::persist::*;
 
 pub mod admin;
+pub mod capexec;
 pub mod fswalk;
 pub mod notebooks;
 
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 const DEFAULT_MERGED_STATEDB_FS_PATH: &str = "resource-surveillance-aggregated.sqlite.db";
+
+const DEFAULT_FS_WALK_IGNORE_PATHS: &str = r"/(\\.git|node_modules)/";
+const DEFAULT_CAPTURE_EXEC_REGEX_PATTERN: &str = r"surveilr\[(?P<nature>[^\]]*)\]";
+const DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN: &str = r"surveilr-SQL";
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -30,6 +35,7 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum CliCommands {
     Admin(AdminArgs),
+    CapturableExec(CapturableExecArgs),
     Notebooks(NotebooksArgs),
     FsWalk(FsWalkArgs),
 }
@@ -49,7 +55,7 @@ pub struct FsWalkArgs {
     #[arg(
         short,
         long,
-        default_value = "/(\\.git|node_modules)/",
+        default_value = DEFAULT_FS_WALK_IGNORE_PATHS,
         default_missing_value = "always"
     )]
     pub ignore_entry: Vec<Regex>,
@@ -64,7 +70,7 @@ pub struct FsWalkArgs {
         default_values_t = [
             Regex::new(r"\.(md|mdx|html|json|jsonc|tap|txt|text|toml|yaml)$").unwrap(),
             // if you don't want capturable executables stored in uniform_resource, remove the following
-            Regex::new(r"surveilr\[(?P<nature>[^\]]*)\]").unwrap()],
+            Regex::new(DEFAULT_CAPTURE_EXEC_REGEX_PATTERN).unwrap()],
         default_missing_value = "always"
     )]
     pub surveil_content: Vec<Regex>,
@@ -73,7 +79,7 @@ pub struct FsWalkArgs {
     #[arg(
         long,
         // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
-        default_value = r"surveilr\[(?P<nature>[^\]]*)\]",
+        default_value = DEFAULT_CAPTURE_EXEC_REGEX_PATTERN,
         default_missing_value = "always"
     )]
     pub capture_exec: Vec<regex::Regex>,
@@ -82,7 +88,7 @@ pub struct FsWalkArgs {
     #[arg(
         long,
         // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
-        default_value = r"surveilr-SQL",
+        default_value = DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN,
         default_missing_value = "always"
     )]
     pub captured_exec_sql: Vec<regex::Regex>,
@@ -195,6 +201,41 @@ pub enum AdminCommands {
     CliHelpMd,
 }
 
+/// Capturable Executables (CE) maintenance tools
+#[derive(Args)]
+pub struct CapturableExecArgs {
+    #[command(subcommand)]
+    pub command: CapturableExecCommands,
+}
+
+#[derive(Subcommand)]
+pub enum CapturableExecCommands {
+    /// list potential capturable executables
+    Ls {
+        /// one or more root paths to walk
+        #[arg(short, long, default_value = ".", default_missing_value = "always")]
+        root_path: Vec<String>,
+
+        /// reg-exes to use to ignore files in root-path(s)
+        #[arg(short, long, default_value = DEFAULT_FS_WALK_IGNORE_PATHS, default_missing_value = "always")]
+        ignore_entry: Vec<Regex>,
+
+        /// reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
+        #[arg(long,
+            // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
+            default_value = DEFAULT_CAPTURE_EXEC_REGEX_PATTERN,
+            default_missing_value = "always")]
+        capture_exec: Vec<regex::Regex>,
+
+        /// reg-exes that will signify which captured executables' output should be treated as batch SQL
+        #[arg(long,
+            // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
+            default_value = DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN,
+            default_missing_value = "always")]
+        captured_exec_sql: Vec<regex::Regex>,
+    },
+}
+
 impl CliCommands {
     pub fn execute(&self, cli: &Cli) -> anyhow::Result<()> {
         match self {
@@ -273,6 +314,7 @@ impl CliCommands {
             },
             CliCommands::Notebooks(args) => args.command.execute(cli, args),
             CliCommands::Admin(args) => args.command.execute(cli, args),
+            CliCommands::CapturableExec(args) => args.command.execute(cli, args),
         }
     }
 }

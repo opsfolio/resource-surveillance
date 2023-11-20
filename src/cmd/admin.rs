@@ -4,7 +4,7 @@ use rusqlite::Connection;
 use super::AdminCommands;
 use crate::persist::*;
 
-// Implement methods for `NotebooksCommands`, ensure that whether the commands
+// Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
 impl AdminCommands {
     pub fn execute(&self, cli: &super::Cli, _args: &super::AdminArgs) -> anyhow::Result<()> {
