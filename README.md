@@ -198,15 +198,15 @@ This _Capturable Executables_ functionality is available:
 ### Testing Capturable Executables
 
 Try to keep CEs individually testable as independent scripts. You can validate
-capturable executables by using `surveilr cap-exec` subcommands.
+capturable executables by using `surveilr capturable-exec` subcommands.
 
 ```bash
-$ surveilr cap-exec --help                       # see all the options
-$ surveilr cap-exec ls                           # scan for CEs and show a table of what's found
-$ surveilr cap-exec ls --markdown > cap-exec.md  # find CEs, try to execute them, store their output in a Markdown
+$ surveilr capturable-exec ls --help                    # see all the options (arguments are same as `fs-walk`)
+$ surveilr capturable-exec ls                           # scan for CEs and show a table of what's found
+$ surveilr capturable-exec ls --markdown > capturable-exec.md  # find CEs, try to execute them, store their output in a Markdown
 ```
 
-Running `cap-exec ls` should show something similar to this:
+Running `capturable-exec ls` should show something similar to this:
 
 ```
 | Executable                                                                     | Nature                        | Issue             |
@@ -219,9 +219,9 @@ Running `cap-exec ls` should show something similar to this:
 | ./support/test-fixtures/capturable-executable-no-permissions.surveilr[json].sh | Executable Permission Not Set | chmod +x required |
 ```
 
-Running `cap-exec ls --markdown` generates a Markdown document that you can use
-to learn more about what `STDIN`, `STDOUT`, and `STDERR` streams will be created
-during `fs-walk`.
+Running `capturable-exec ls --markdown` generates a Markdown document that you
+can use to learn more about what `STDIN`, `STDOUT`, and `STDERR` streams will be
+created during `fs-walk`.
 
 ### Capturable Executables Examples
 
