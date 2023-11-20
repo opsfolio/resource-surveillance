@@ -126,6 +126,7 @@ list potential capturable executables
 * `--captured-exec-sql <CAPTURED_EXEC_SQL>` — reg-exes that will signify which captured executables' output should be treated as batch SQL
 
   Default value: `surveilr-SQL`
+* `--markdown` — emit the results as markdown, not a simple table
 
 
 

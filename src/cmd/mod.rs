@@ -233,6 +233,10 @@ pub enum CapturableExecCommands {
             default_value = DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN,
             default_missing_value = "always")]
         captured_exec_sql: Vec<regex::Regex>,
+
+        /// emit the results as markdown, not a simple table
+        #[arg(long)]
+        markdown: bool,
     },
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "surveilr"
-version = "0.7.3"
+version = "0.7.4"
 edition = "2021"
 
 # Before getting arbitrary crates check https://blessed.rs for opinionated list of "best" crates.
