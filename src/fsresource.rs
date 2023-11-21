@@ -328,7 +328,9 @@ impl ContentResourceSupplier<ContentResource> for FileSysResourceSupplier {
     }
 }
 
-pub struct FileSysUniformResourceSupplier;
+pub struct FileSysUniformResourceSupplier {
+    pub nature_bind: HashMap<String, String>,
+}
 
 impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier {
     fn uniform_resource(
@@ -344,10 +346,16 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
         }
 
         // Based on the nature of the resource, we determine the type of UniformResource
-        if let Some(nature) = &resource.nature {
-            match nature.as_str() {
+        if let Some(supplied_nature) = &resource.nature {
+            let mut candidate_nature = supplied_nature.as_str();
+            let try_alternate_nature = self.nature_bind.get(candidate_nature);
+            if let Some(alternate_bind) = try_alternate_nature {
+                candidate_nature = alternate_bind
+            }
+
+            match candidate_nature {
                 // Match different file extensions
-                "html" => {
+                "html" | "text/html" => {
                     let html = HtmlResource {
                         resource,
                         // TODO parse using
@@ -359,7 +367,7 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
                     };
                     Ok(Box::new(UniformResource::Html(html)))
                 }
-                "json" | "jsonc" => {
+                "json" | "jsonc" | "application/json" => {
                     if resource.uri.ends_with(".spdx.json") {
                         let spdx_json = SoftwarePackageDxResource { resource };
                         Ok(Box::new(UniformResource::SpdxJson(spdx_json)))
@@ -371,36 +379,36 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
                         Ok(Box::new(UniformResource::Json(json)))
                     }
                 }
-                "yaml" | "yml" => {
+                "yml" | "application/yaml" => {
                     let yaml = YamlResource {
                         resource,
                         content: None, // TODO parse using serde
                     };
                     Ok(Box::new(UniformResource::Yaml(yaml)))
                 }
-                "toml" => {
+                "toml" | "application/toml" => {
                     let toml = TomlResource {
                         resource,
                         content: None, // TODO parse using serde
                     };
                     Ok(Box::new(UniformResource::Toml(toml)))
                 }
-                "md" | "mdx" => {
+                "md" | "mdx" | "text/markdown" => {
                     let markdown = MarkdownResource { resource };
                     Ok(Box::new(UniformResource::Markdown(markdown)))
                 }
-                "txt" | "text" => {
+                "txt" | "text/plain" => {
                     let plain_text = PlainTextResource { resource };
                     Ok(Box::new(UniformResource::PlainText(plain_text)))
                 }
                 "png" | "gif" | "tiff" | "jpg" | "jpeg" => {
                     let image = ImageResource {
                         resource,
-                        image_meta: HashMap::new(), // TODO add meta data
+                        image_meta: HashMap::new(), // TODO add meta data, infer type from content
                     };
                     Ok(Box::new(UniformResource::Image(image)))
                 }
-                "svg" => {
+                "svg" | "image/svg+xml" => {
                     let svg = SvgResource { resource };
                     Ok(Box::new(UniformResource::Svg(svg)))
                 }
@@ -408,10 +416,13 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
                     let tap = TestAnythingResource { resource };
                     Ok(Box::new(UniformResource::Tap(tap)))
                 }
-                _ => Ok(Box::new(UniformResource::Unknown(resource))),
+                _ => Ok(Box::new(UniformResource::Unknown(
+                    resource,
+                    try_alternate_nature.cloned(),
+                ))),
             }
         } else {
-            Err("Unknown resource nature.".into())
+            Err("Unable to obtain nature from supplied resource".into())
         }
     }
 }
@@ -429,6 +440,7 @@ impl FileSysResourcesWalker {
         inspect_content_regexs: &[regex::Regex],
         capturable_executables_regexs: &[regex::Regex],
         captured_exec_sql_regexs: &[regex::Regex],
+        nature_bind: &HashMap<String, String>,
     ) -> Result<Self, regex::Error> {
         // Constructor can fail due to RegexSet::new
         let ignore_paths = RegexSet::new(ignore_paths_regexs.iter().map(|r| r.as_str()))?;
@@ -481,7 +493,9 @@ impl FileSysResourcesWalker {
             }),
         );
 
-        let uniform_resource_supplier = FileSysUniformResourceSupplier {};
+        let uniform_resource_supplier = FileSysUniformResourceSupplier {
+            nature_bind: nature_bind.clone(),
+        };
 
         Ok(Self {
             root_paths: root_paths.to_owned(),

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use clap::{Args, Parser, Subcommand};
 use regex::Regex;
 use rusqlite::{Connection, OpenFlags};
@@ -16,6 +18,15 @@ const DEFAULT_MERGED_STATEDB_FS_PATH: &str = "resource-surveillance-aggregated.s
 const DEFAULT_FS_WALK_IGNORE_PATHS: &str = r"/(\\.git|node_modules)/";
 const DEFAULT_CAPTURE_EXEC_REGEX_PATTERN: &str = r"surveilr\[(?P<nature>[^\]]*)\]";
 const DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN: &str = r"surveilr-SQL";
+
+// Function to parse a key-value pair in the form of `key=value`.
+fn parse_key_val(s: &str) -> Result<(String, String), String> {
+    let parts: Vec<&str> = s.splitn(2, '=').collect();
+    if parts.len() != 2 {
+        return Err(format!("Invalid key-value pair: {}", s));
+    }
+    Ok((parts[0].to_string(), parts[1].to_string()))
+}
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -92,6 +103,11 @@ pub struct FsWalkArgs {
         default_missing_value = "always"
     )]
     pub captured_exec_sql: Vec<regex::Regex>,
+
+    /// bind an unknown nature (file extension), the key, to a known nature the value
+    /// "text=text/plain,yaml=application/yaml"
+    #[arg(short = 'N', long, value_parser=parse_key_val)]
+    pub nature_bind: Option<HashMap<String, String>>,
 
     /// target SQLite database
     #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]

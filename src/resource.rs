@@ -130,7 +130,7 @@ pub enum UniformResource<Resource> {
     Tap(TestAnythingResource<Resource>),
     Toml(TomlResource<Resource>),
     Yaml(YamlResource<Resource>),
-    Unknown(Resource),
+    Unknown(Resource, Option<String>),
 }
 
 pub trait UniformResourceSupplier<Resource> {

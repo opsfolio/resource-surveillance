@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::Context;
 use regex::Regex;
 use serde_json::json;
@@ -57,6 +59,7 @@ impl CapturableExecCommands {
             &[],
             capture_exec,
             captured_exec_sql,
+            &HashMap::new(),
         )
         .with_context(|| "[CapturableExecCommands::ls] unable to create fs walker")?;
 
@@ -141,6 +144,7 @@ impl CapturableExecCommands {
             &[],
             capture_exec,
             captured_exec_sql,
+            &HashMap::new(),
         )
         .with_context(|| "[CapturableExecCommands::ls] unable to create fs walker")?;
 
