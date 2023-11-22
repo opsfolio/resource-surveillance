@@ -1029,7 +1029,9 @@ export class LargeLanguageModelsPromptsNotebook<
       codeBlock`
         Understand the following structure of an SQLite database designed to store cybersecurity and compliance data for files in a file system.
         The database is designed to store devices in the 'device' table and entities called 'resources' stored in the immutable append-only 
-        'uniform_resource' table. Each time files are "walked" they are stored in sessions and link back to un
+        'uniform_resource' table. Each time files are "walked" they are stored in sessions and link back to 'uniform_resource'. Because all
+        tables are generally append only and immutable it means that the walk_session_path_fs_entry table can be used for revision control
+        and historical tracking of file changes.
         
         Use the following SQLite Schema to generate SQL queries that interact with these tables and once you understand them let me know so I can ask you for help:
         
