@@ -18,10 +18,15 @@ pub type FrontmatterComponents = (
 
 pub fn frontmatter(text: &str) -> FrontmatterComponents {
     // Define regex patterns for YAML, TOML, and JSON frontmatter
-    // The ending delimiter must be alone on its line and followed by a newline
-    let yaml_regex = Regex::new(r"^---\n(.*?)\n---\n").unwrap();
-    let toml_regex = Regex::new(r"^\+\+\+\n(.*?)\n\+\+\+\n").unwrap();
-    let json_regex = Regex::new(r"^\{\n(.*?)\n\}\n").unwrap();
+    // The ending delimiter must be alone on its line and followed by a newline;
+    // - `[\s\S]` is a character class that matches any whitespace character (\s)
+    //    and any non-whitespace character (\S), which effectively matches any
+    //    character, including newlines.
+    // - `*?` is a non-greedy quantifier that matches as few characters as possible
+    //    to satisfy the pattern.
+    let yaml_regex = Regex::new(r"^---\n([\s\S]*?)\n---\n").unwrap();
+    let toml_regex = Regex::new(r"^\+\+\+\n([\s\S]*?)\n\+\+\+\n").unwrap();
+    let json_regex = Regex::new(r"^\{\n([\s\S]*?)\n\}\n").unwrap();
 
     let nature: FrontmatterNature;
     let content;
