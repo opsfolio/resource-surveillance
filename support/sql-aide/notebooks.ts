@@ -329,6 +329,13 @@ export class BootstrapSqlNotebook<
       file_extn: ".sql",
       created_at,
     }, options);
+    const denoTaskShell = kernel.insertDML({
+      code_notebook_kernel_id: "DenoTaskShell",
+      kernel_name: "Deno Task Shell",
+      mime_type: "application/x-deno-task-sh",
+      file_extn: ".deno-task-sh",
+      created_at,
+    }, options);
     const puml = kernel.insertDML({
       code_notebook_kernel_id: "PlantUML",
       kernel_name: "PlantUML ER Diagram",
@@ -343,7 +350,7 @@ export class BootstrapSqlNotebook<
       file_extn: ".llm-prompt.txt",
       created_at,
     }, options);
-    return [sql, puml, llmPrompt];
+    return [sql, denoTaskShell, puml, llmPrompt];
   }
 }
 
