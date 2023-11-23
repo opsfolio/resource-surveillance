@@ -11,10 +11,12 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr admin cli-help-md`↴](#surveilr-admin-cli-help-md)
 * [`surveilr capturable-exec`↴](#surveilr-capturable-exec)
 * [`surveilr capturable-exec ls`↴](#surveilr-capturable-exec-ls)
+* [`surveilr fs-walk`↴](#surveilr-fs-walk)
 * [`surveilr notebooks`↴](#surveilr-notebooks)
 * [`surveilr notebooks cat`↴](#surveilr-notebooks-cat)
 * [`surveilr notebooks ls`↴](#surveilr-notebooks-ls)
-* [`surveilr fs-walk`↴](#surveilr-fs-walk)
+* [`surveilr shell`↴](#surveilr-shell)
+* [`surveilr shell json`↴](#surveilr-shell-json)
 
 ## `surveilr`
 
@@ -24,8 +26,9 @@ This document contains the help content for the `surveilr` command-line program.
 
 * `admin` — Admin / maintenance utilities
 * `capturable-exec` — Capturable Executables (CE) maintenance tools
-* `notebooks` — Notebooks maintenance utilities
 * `fs-walk` — Walks the device file system
+* `notebooks` — Notebooks maintenance utilities
+* `shell` — Deno Task Shell utilities
 
 ###### **Options:**
 
@@ -130,6 +133,44 @@ list potential capturable executables
 
 
 
+## `surveilr fs-walk`
+
+Walks the device file system
+
+**Usage:** `surveilr fs-walk [OPTIONS]`
+
+###### **Options:**
+
+* `-b`, `--behavior <BEHAVIOR>` — the behavior name in `behavior` table
+* `-r`, `--root-path <ROOT_PATH>` — one or more root paths to walk
+
+  Default value: `.`
+* `-i`, `--ignore-entry <IGNORE_ENTRY>` — reg-exes to use to ignore files in root-path(s)
+
+  Default value: `/(\\.git|node_modules)/`
+* `--compute-digests <COMPUTE_DIGESTS>` — reg-exes to use to compute digests for
+
+  Default value: `.*`
+* `--surveil-content <SURVEIL_CONTENT>` — reg-exes to use to load content for entry instead of just walking
+
+  Default values: `\.(md|mdx|html|json|jsonc|tap|txt|text|toml|yaml)$`, `surveilr\[(?P<nature>[^\]]*)\]`
+* `--capture-exec <CAPTURE_EXEC>` — reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
+
+  Default value: `surveilr\[(?P<nature>[^\]]*)\]`
+* `--captured-exec-sql <CAPTURED_EXEC_SQL>` — reg-exes that will signify which captured executables' output should be treated as batch SQL
+
+  Default value: `surveilr-SQL`
+* `-N`, `--nature-bind <NATURE_BIND>` — bind an unknown nature (file extension), the key, to a known nature the value "text=text/plain,yaml=application/yaml"
+* `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
+
+  Default value: `resource-surveillance.sqlite.db`
+* `--include-state-db-in-walk` — include the surveil database in the walk
+* `--stats` — show stats as an ASCII table after completion
+* `--stats-json` — show stats in JSON after completion
+* `--save-behavior <SAVE_BEHAVIOR>` — save the options as a new behavior
+
+
+
 ## `surveilr notebooks`
 
 Notebooks maintenance utilities
@@ -175,41 +216,31 @@ list all notebooks
 
 
 
-## `surveilr fs-walk`
+## `surveilr shell`
 
-Walks the device file system
+Deno Task Shell utilities
 
-**Usage:** `surveilr fs-walk [OPTIONS]`
+**Usage:** `surveilr shell <COMMAND>`
+
+###### **Subcommands:**
+
+* `json` — Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) returns JSON
+
+
+
+## `surveilr shell json`
+
+Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) returns JSON
+
+**Usage:** `surveilr shell json [OPTIONS] --command <COMMAND>`
 
 ###### **Options:**
 
-* `-b`, `--behavior <BEHAVIOR>` — the behavior name in `behavior` table
-* `-r`, `--root-path <ROOT_PATH>` — one or more root paths to walk
+* `-c`, `--command <COMMAND>` — the command that would work as a Deno Task
+* `--cwd <CWD>` — use this as the current working directory (CWD)
+* `-s`, `--stdout-only` — emit stdout only, without the exec status code and stderr
 
-  Default value: `.`
-* `-i`, `--ignore-entry <IGNORE_ENTRY>` — reg-exes to use to ignore files in root-path(s)
-
-  Default value: `/(\\.git|node_modules)/`
-* `--compute-digests <COMPUTE_DIGESTS>` — reg-exes to use to compute digests for
-
-  Default value: `.*`
-* `--surveil-content <SURVEIL_CONTENT>` — reg-exes to use to load content for entry instead of just walking
-
-  Default values: `\.(md|mdx|html|json|jsonc|tap|txt|text|toml|yaml)$`, `surveilr\[(?P<nature>[^\]]*)\]`
-* `--capture-exec <CAPTURE_EXEC>` — reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
-
-  Default value: `surveilr\[(?P<nature>[^\]]*)\]`
-* `--captured-exec-sql <CAPTURED_EXEC_SQL>` — reg-exes that will signify which captured executables' output should be treated as batch SQL
-
-  Default value: `surveilr-SQL`
-* `-N`, `--nature-bind <NATURE_BIND>` — bind an unknown nature (file extension), the key, to a known nature the value "text=text/plain,yaml=application/yaml"
-* `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
-
-  Default value: `resource-surveillance.sqlite.db`
-* `--include-state-db-in-walk` — include the surveil database in the walk
-* `--stats` — show stats as an ASCII table after completion
-* `--stats-json` — show stats in JSON after completion
-* `--save-behavior <SAVE_BEHAVIOR>` — save the options as a new behavior
+  Default value: `false`
 
 
 

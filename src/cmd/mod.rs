@@ -11,6 +11,7 @@ pub mod admin;
 pub mod capexec;
 pub mod fswalk;
 pub mod notebooks;
+pub mod shell;
 
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 const DEFAULT_MERGED_STATEDB_FS_PATH: &str = "resource-surveillance-aggregated.sqlite.db";
@@ -47,8 +48,99 @@ pub struct Cli {
 pub enum CliCommands {
     Admin(AdminArgs),
     CapturableExec(CapturableExecArgs),
-    Notebooks(NotebooksArgs),
     FsWalk(FsWalkArgs),
+    Notebooks(NotebooksArgs),
+    Shell(ShellArgs),
+}
+
+/// Admin / maintenance utilities
+#[derive(Args)]
+pub struct AdminArgs {
+    #[command(subcommand)]
+    pub command: AdminCommands,
+}
+
+#[derive(Subcommand)]
+pub enum AdminCommands {
+    /// initialize an empty database with bootstrap.sql
+    Init {
+        /// target SQLite database
+        #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
+        state_db_fs_path: String,
+
+        /// remove the existing database first
+        #[arg(short, long)]
+        remove_existing_first: bool,
+
+        /// add the current device in the empty database's device table
+        #[arg(long)]
+        with_device: bool,
+    },
+
+    /// merge multiple surveillance state databases into a single one
+    Merge {
+        /// one or more DB name globs to match and merge
+        #[arg(short, long, default_value = "*.db")]
+        candidates: Vec<String>,
+
+        /// one or more DB name globs to ignore if they match
+        #[arg(short = 'i', long)]
+        ignore_candidates: Vec<String>,
+
+        /// target SQLite database with merged content
+        #[arg(short='d', long, default_value = DEFAULT_MERGED_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_MERGED_STATEDB_FS_PATH")]
+        state_db_fs_path: String,
+
+        /// remove the existing database first
+        #[arg(short, long)]
+        remove_existing_first: bool,
+
+        /// only generate SQL and emit to STDOUT (no actual merge)
+        #[arg(long)]
+        sql_only: bool,
+    },
+
+    /// generate CLI help markdown
+    CliHelpMd,
+}
+
+/// Capturable Executables (CE) maintenance tools
+#[derive(Args)]
+pub struct CapturableExecArgs {
+    #[command(subcommand)]
+    pub command: CapturableExecCommands,
+}
+
+#[derive(Subcommand)]
+pub enum CapturableExecCommands {
+    /// list potential capturable executables
+    Ls {
+        /// one or more root paths to walk
+        #[arg(short, long, default_value = ".", default_missing_value = "always")]
+        root_path: Vec<String>,
+
+        /// reg-exes to use to ignore files in root-path(s)
+        #[arg(short, long, default_value = DEFAULT_FS_WALK_IGNORE_PATHS, default_missing_value = "always")]
+        ignore_entry: Vec<Regex>,
+
+        /// reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
+        #[arg(long,
+            // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
+            default_value = DEFAULT_CAPTURE_EXEC_REGEX_PATTERN,
+            default_missing_value = "always")]
+        capture_exec: Vec<regex::Regex>,
+
+        /// reg-exes that will signify which captured executables' output should be treated as batch SQL
+        #[arg(long,
+            // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
+            default_value = DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN,
+            default_missing_value = "always")]
+        captured_exec_sql: Vec<regex::Regex>,
+
+        /// emit the results as markdown, not a simple table
+        #[arg(long)]
+        markdown: bool,
+    },
 }
 
 /// Walks the device file system
@@ -166,99 +258,36 @@ pub enum NotebooksCommands {
     },
 }
 
-/// Admin / maintenance utilities
+/// Deno Task Shell utilities
 #[derive(Args)]
-pub struct AdminArgs {
+pub struct ShellArgs {
     #[command(subcommand)]
-    pub command: AdminCommands,
+    pub command: ShellCommands,
 }
 
 #[derive(Subcommand)]
-pub enum AdminCommands {
-    /// initialize an empty database with bootstrap.sql
-    Init {
-        /// target SQLite database
-        #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
-        state_db_fs_path: String,
-
-        /// remove the existing database first
+pub enum ShellCommands {
+    /// Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) returns JSON
+    Json {
+        /// the command that would work as a Deno Task
         #[arg(short, long)]
-        remove_existing_first: bool,
+        command: String,
 
-        /// add the current device in the empty database's device table
+        /// use this as the current working directory (CWD)
         #[arg(long)]
-        with_device: bool,
-    },
+        cwd: Option<String>,
 
-    /// merge multiple surveillance state databases into a single one
-    Merge {
-        /// one or more DB name globs to match and merge
-        #[arg(short, long, default_value = "*.db")]
-        candidates: Vec<String>,
-
-        /// one or more DB name globs to ignore if they match
-        #[arg(short = 'i', long)]
-        ignore_candidates: Vec<String>,
-
-        /// target SQLite database with merged content
-        #[arg(short='d', long, default_value = DEFAULT_MERGED_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_MERGED_STATEDB_FS_PATH")]
-        state_db_fs_path: String,
-
-        /// remove the existing database first
-        #[arg(short, long)]
-        remove_existing_first: bool,
-
-        /// only generate SQL and emit to STDOUT (no actual merge)
-        #[arg(long)]
-        sql_only: bool,
-    },
-
-    /// generate CLI help markdown
-    CliHelpMd,
-}
-
-/// Capturable Executables (CE) maintenance tools
-#[derive(Args)]
-pub struct CapturableExecArgs {
-    #[command(subcommand)]
-    pub command: CapturableExecCommands,
-}
-
-#[derive(Subcommand)]
-pub enum CapturableExecCommands {
-    /// list potential capturable executables
-    Ls {
-        /// one or more root paths to walk
-        #[arg(short, long, default_value = ".", default_missing_value = "always")]
-        root_path: Vec<String>,
-
-        /// reg-exes to use to ignore files in root-path(s)
-        #[arg(short, long, default_value = DEFAULT_FS_WALK_IGNORE_PATHS, default_missing_value = "always")]
-        ignore_entry: Vec<Regex>,
-
-        /// reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
-        #[arg(long,
-            // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
-            default_value = DEFAULT_CAPTURE_EXEC_REGEX_PATTERN,
-            default_missing_value = "always")]
-        capture_exec: Vec<regex::Regex>,
-
-        /// reg-exes that will signify which captured executables' output should be treated as batch SQL
-        #[arg(long,
-            // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
-            default_value = DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN,
-            default_missing_value = "always")]
-        captured_exec_sql: Vec<regex::Regex>,
-
-        /// emit the results as markdown, not a simple table
-        #[arg(long)]
-        markdown: bool,
+        /// emit stdout only, without the exec status code and stderr
+        #[arg(short, long, default_value = "false")]
+        stdout_only: bool,
     },
 }
 
 impl CliCommands {
     pub fn execute(&self, cli: &Cli) -> anyhow::Result<()> {
         match self {
+            CliCommands::Admin(args) => args.command.execute(cli, args),
+            CliCommands::CapturableExec(args) => args.command.execute(cli, args),
             CliCommands::FsWalk(args) => match fs_walk(cli, args) {
                 Ok(walk_session_id) => {
                     if args.stats || args.stats_json {
@@ -333,8 +362,7 @@ impl CliCommands {
                 Err(err) => Err(err),
             },
             CliCommands::Notebooks(args) => args.command.execute(cli, args),
-            CliCommands::Admin(args) => args.command.execute(cli, args),
-            CliCommands::CapturableExec(args) => args.command.execute(cli, args),
+            CliCommands::Shell(args) => args.command.execute(cli, args),
         }
     }
 }

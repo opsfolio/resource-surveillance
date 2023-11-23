@@ -18,6 +18,7 @@ mod frontmatter;
 mod fsresource;
 mod persist;
 mod resource;
+mod shell;
 
 fn main() -> anyhow::Result<()> {
     let cli = cmd::Cli::parse();
