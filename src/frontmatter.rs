@@ -71,8 +71,10 @@ pub fn frontmatter(text: &str) -> FrontmatterComponents {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use pretty_assertions::assert_eq;
     use serde_json::json;
+
+    use super::*;
 
     #[test]
     fn test_yaml_frontmatter() {

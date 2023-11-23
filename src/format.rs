@@ -122,6 +122,8 @@ pub fn to_sql_friendly_identifier(input: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::assert_eq;
+
     use super::*;
 
     /// Tests the `format_table` function with a simple set of headers and rows for Markdown output with space padding.

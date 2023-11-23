@@ -566,6 +566,8 @@ impl FileSysResourcesWalker {
 // For the unit test, we use the built-in testing framework
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::assert_eq;
+
     use super::*;
 
     #[test]
