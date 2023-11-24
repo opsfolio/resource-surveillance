@@ -892,7 +892,7 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
 
         let mut ins_ur_isfsp_stmt = tx.prepare(INS_UR_ISFSP_SQL).with_context(|| {
             format!(
-                "[ingest] unable to create `ins_ur_wsp_stmt` SQL {} in {}",
+                "[ingest] unable to create `ins_ur_isfsp_stmt` SQL {} in {}",
                 INS_UR_ISFSP_SQL, db_fs_path
             )
         })?;
@@ -911,7 +911,7 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
         let mut ins_ur_isfsp_entry_stmt =
             tx.prepare(INS_UR_ISFSP_ENTRY_SQL).with_context(|| {
                 format!(
-                    "[ingest] unable to create `ins_ur_fs_entry_stmt` SQL {} in {}",
+                    "[ingest] unable to create `ins_ur_isfsp_entry_stmt` SQL {} in {}",
                     INS_UR_ISFSP_ENTRY_SQL, db_fs_path
                 )
             })?;
