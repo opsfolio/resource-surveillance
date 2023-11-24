@@ -635,22 +635,22 @@ impl UniformResource<ContentResource> {
 
 #[derive(Serialize, Deserialize)]
 pub struct IngestBehavior {
-    pub root_paths: Vec<String>,
+    pub root_fs_paths: Vec<String>,
 
     #[serde(with = "serde_regex")]
-    pub ignore_regexs: Vec<regex::Regex>,
+    pub ignore_fs_entry_regexs: Vec<regex::Regex>,
 
     #[serde(with = "serde_regex")]
-    pub ingest_content: Vec<regex::Regex>,
+    pub ingest_content_fs_entry_regexs: Vec<regex::Regex>,
 
     #[serde(with = "serde_regex")]
-    pub compute_digests: Vec<regex::Regex>,
+    pub compute_digests_fs_entry_regexs: Vec<regex::Regex>,
 
     #[serde(with = "serde_regex")]
-    pub capturable_executables: Vec<regex::Regex>,
+    pub capturable_executables_fs_entry_regexs: Vec<regex::Regex>,
 
     #[serde(with = "serde_regex")]
-    pub captured_exec_sql: Vec<regex::Regex>,
+    pub captured_exec_sql_fs_entry_regexs: Vec<regex::Regex>,
 
     nature_bind: HashMap<String, String>,
 }
@@ -706,12 +706,12 @@ impl IngestBehavior {
         }
 
         IngestBehavior {
-            root_paths: args.root_fs_path.clone(),
-            ingest_content: args.surveil_fs_content.clone(),
-            compute_digests: args.compute_fs_content_digests.clone(),
-            ignore_regexs: args.ignore_fs_entry.clone(),
-            capturable_executables: args.capture_fs_exec.clone(),
-            captured_exec_sql: args.captured_fs_exec_sql.clone(),
+            root_fs_paths: args.root_fs_path.clone(),
+            ingest_content_fs_entry_regexs: args.surveil_fs_content.clone(),
+            compute_digests_fs_entry_regexs: args.compute_fs_content_digests.clone(),
+            ignore_fs_entry_regexs: args.ignore_fs_entry.clone(),
+            capturable_executables_fs_entry_regexs: args.capture_fs_exec.clone(),
+            captured_exec_sql_fs_entry_regexs: args.captured_fs_exec_sql.clone(),
             nature_bind,
         }
     }
@@ -725,7 +725,7 @@ impl IngestBehavior {
     }
 
     pub fn add_ignore_exact(&mut self, pattern: &str) {
-        self.ignore_regexs
+        self.ignore_fs_entry_regexs
             .push(regex::Regex::new(format!("^{}$", regex::escape(pattern)).as_str()).unwrap());
     }
 
@@ -806,7 +806,7 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
         UPDATE ur_ingest_session 
            SET ingest_finished_at = CURRENT_TIMESTAMP 
          WHERE ur_ingest_session_id = ?"};
-    const INS_UR_WSP_SQL: &str = indoc! {"
+    const INS_UR_ISFSP_SQL: &str = indoc! {"
         INSERT INTO ur_ingest_session_fs_path (ur_ingest_session_fs_path_id, ingest_session_id, root_path) 
                                   VALUES (ulid(), ?, ?) RETURNING ur_ingest_session_fs_path_id"};
     // in ins_ur_stmt the `DO UPDATE SET size_bytes = EXCLUDED.size_bytes` is a workaround to force uniform_resource_id when the row already exists
@@ -822,7 +822,7 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
                                    ON CONFLICT (uniform_resource_id, content_digest, nature, size_bytes) 
                                  DO UPDATE SET size_bytes = EXCLUDED.size_bytes
                                      RETURNING uniform_resource_transform_id"};
-    const INS_UR_FS_ENTRY_SQL: &str = indoc! {"
+    const INS_UR_ISFSP_ENTRY_SQL: &str = indoc! {"
         INSERT INTO ur_ingest_session_fs_path_entry (ur_ingest_session_fs_path_entry_id, ingest_session_id, ingest_fs_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn, ur_status, ur_diagnostics, captured_executable) 
                                            VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"};
 
@@ -890,10 +890,10 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
             .to_string_lossy()
             .to_string();
 
-        let mut ins_ur_wsp_stmt = tx.prepare(INS_UR_WSP_SQL).with_context(|| {
+        let mut ins_ur_isfsp_stmt = tx.prepare(INS_UR_ISFSP_SQL).with_context(|| {
             format!(
                 "[ingest] unable to create `ins_ur_wsp_stmt` SQL {} in {}",
-                INS_UR_WSP_SQL, db_fs_path
+                INS_UR_ISFSP_SQL, db_fs_path
             )
         })?;
         let mut ins_ur_stmt = tx.prepare(INS_UR_SQL).with_context(|| {
@@ -908,14 +908,15 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
                 INS_UR_TRANSFORM_SQL, db_fs_path
             )
         })?;
-        let mut ins_ur_fs_entry_stmt = tx.prepare(INS_UR_FS_ENTRY_SQL).with_context(|| {
-            format!(
-                "[ingest] unable to create `ins_ur_fs_entry_stmt` SQL {} in {}",
-                INS_UR_FS_ENTRY_SQL, db_fs_path
-            )
-        })?;
+        let mut ins_ur_isfsp_entry_stmt =
+            tx.prepare(INS_UR_ISFSP_ENTRY_SQL).with_context(|| {
+                format!(
+                    "[ingest] unable to create `ins_ur_fs_entry_stmt` SQL {} in {}",
+                    INS_UR_ISFSP_ENTRY_SQL, db_fs_path
+                )
+            })?;
 
-        for root_path in &fswb.root_paths {
+        for root_path in &fswb.root_fs_paths {
             let canonical_path_buf = std::fs::canonicalize(std::path::Path::new(&root_path))
                 .with_context(|| {
                     format!(
@@ -926,12 +927,12 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
             let canonical_path = canonical_path_buf.into_os_string().into_string().unwrap();
 
             let ins_ur_wsp_params = params![ingest_session_id, canonical_path];
-            let ingest_fs_path_id: String = ins_ur_wsp_stmt
+            let ingest_fs_path_id: String = ins_ur_isfsp_stmt
                 .query_row(ins_ur_wsp_params, |row| row.get(0))
                 .with_context(|| {
                     format!(
                         "[ingest] ins_ur_wsp_stmt {} with {} in {}",
-                        INS_UR_WSP_SQL, "TODO: ins_ur_wsp_params.join()", db_fs_path
+                        INS_UR_ISFSP_SQL, "TODO: ins_ur_wsp_params.join()", db_fs_path
                     )
                 })?;
             if cli.debug > 0 {
@@ -941,10 +942,10 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
             let rp: Vec<String> = vec![canonical_path.clone()];
             let walker = FileSysResourcesWalker::new(
                 &rp,
-                &fswb.ignore_regexs,
-                &fswb.ingest_content,
-                &fswb.capturable_executables,
-                &fswb.captured_exec_sql,
+                &fswb.ignore_fs_entry_regexs,
+                &fswb.ingest_content_fs_entry_regexs,
+                &fswb.capturable_executables_fs_entry_regexs,
+                &fswb.captured_exec_sql_fs_entry_regexs,
                 &fswb.nature_bind,
             )
             .with_context(|| {
@@ -1033,7 +1034,7 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
                                 file_basename,
                                 file_extn,
                             )) => {
-                                match ins_ur_fs_entry_stmt.execute(params![
+                                match ins_ur_isfsp_entry_stmt.execute(params![
                                     ingest_session_id,
                                     ingest_fs_path_id,
                                     uniform_resource_id,
@@ -1053,7 +1054,7 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
                                     Ok(_) => {}
                                     Err(err) => {
                                         eprintln!( "[ingest] unable to insert UR walk session path file system entry for {} in {}: {} ({})",
-                                        &inserted.uri, db_fs_path, err, INS_UR_FS_ENTRY_SQL
+                                        &inserted.uri, db_fs_path, err, INS_UR_ISFSP_ENTRY_SQL
                                         )
                                     }
                                 }
