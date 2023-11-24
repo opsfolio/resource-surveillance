@@ -9,6 +9,7 @@ use serde_regex;
 use walkdir::DirEntry;
 
 use crate::fsresource::*;
+use crate::fswalk::*;
 use crate::persist::*;
 use crate::resource::*;
 
@@ -652,7 +653,9 @@ pub struct IngestBehavior {
     #[serde(with = "serde_regex")]
     pub captured_exec_sql_fs_entry_regexs: Vec<regex::Regex>,
 
-    nature_bind: HashMap<String, String>,
+    pub code_notebooks_searched: Vec<String>,
+    pub code_notebook_cells_searched: Vec<String>,
+    pub nature_bind: HashMap<String, String>,
 }
 
 impl IngestBehavior {
@@ -705,6 +708,9 @@ impl IngestBehavior {
             nature_bind.insert("yaml".to_string(), "application/yaml".to_string());
         }
 
+        // the names in `args` are convenient for CLI usage but the struct
+        // field names in IngestBehavior should be longer and more descriptive
+        // since IngestBehavior is stored as activity in the database.
         IngestBehavior {
             root_fs_paths: args.root_fs_path.clone(),
             ingest_content_fs_entry_regexs: args.surveil_fs_content.clone(),
@@ -712,6 +718,8 @@ impl IngestBehavior {
             ignore_fs_entry_regexs: args.ignore_fs_entry.clone(),
             capturable_executables_fs_entry_regexs: args.capture_fs_exec.clone(),
             captured_exec_sql_fs_entry_regexs: args.captured_fs_exec_sql.clone(),
+            code_notebooks_searched: args.notebook.clone(),
+            code_notebook_cells_searched: args.cell.clone(),
             nature_bind,
         }
     }
@@ -727,6 +735,22 @@ impl IngestBehavior {
     pub fn add_ignore_exact(&mut self, pattern: &str) {
         self.ignore_fs_entry_regexs
             .push(regex::Regex::new(format!("^{}$", regex::escape(pattern)).as_str()).unwrap());
+    }
+
+    pub fn code_notebook_cells(&mut self, conn: &Connection) {
+        match select_notebooks_and_cells(
+            conn,
+            &self.code_notebooks_searched,
+            &self.code_notebook_cells_searched,
+        ) {
+            Ok(matched) => {
+                for row in matched {
+                    let (notebook, kernel, cell, _code) = row;
+                    println!("-- {notebook}::{cell} ({kernel})");
+                }
+            }
+            Err(err) => println!("IngestBehavior code_notebook_cells error: {}", err),
+        }
     }
 
     pub fn save(
@@ -781,6 +805,31 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
 
     execute_migrations(&tx, "ingest")
         .with_context(|| format!("[ingest] execute_migrations in {}", db_fs_path))?;
+
+    let state_db_init_sql_cfse = ClassifiableFileSysEntries::new(
+        empty_dir_entry_flags(),
+        &fsw_args.state_db_init_sql,
+        HashMap::default(),
+        false,
+    )
+    .with_context(|| {
+        format!(
+            "[AdminCommands::init] unable to create db_init_sql_cfse in {}",
+            db_fs_path
+        )
+    })?;
+    // TODO: add the executed files into the behaviors or other activity log!?
+    let executed = execute_globs_batch(&tx, &state_db_init_sql_cfse, &[".".to_string()], "ingest")
+        .with_context(|| {
+            format!(
+                "[ingest] execute_globs_batch {} in {}",
+                fsw_args.state_db_init_sql.join(", "),
+                db_fs_path
+            )
+        })?;
+    if cli.debug > 0 {
+        println!("Executed init SQL: {}", executed.join(", "))
+    }
 
     // insert the device or, if it exists, get its current ID and name
     let (device_id, device_name) = upserted_device(&tx, &crate::DEVICE).with_context(|| {
@@ -915,6 +964,8 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
                     INS_UR_ISFSP_ENTRY_SQL, db_fs_path
                 )
             })?;
+
+        fswb.code_notebook_cells(&tx);
 
         for root_path in &fswb.root_fs_paths {
             let canonical_path_buf = std::fs::canonicalize(std::path::Path::new(&root_path))

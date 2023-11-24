@@ -64,6 +64,7 @@ initialize an empty database with bootstrap.sql
 * `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
 
   Default value: `resource-surveillance.sqlite.db`
+* `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
 * `-r`, `--remove-existing-first` — remove the existing database first
 * `--with-device` — add the current device in the empty database's device table
 
@@ -84,6 +85,7 @@ merge multiple surveillance state databases into a single one
 * `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database with merged content
 
   Default value: `resource-surveillance-aggregated.sqlite.db`
+* `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
 * `-r`, `--remove-existing-first` — remove the existing database first
 * `--sql-only` — only generate SQL and emit to STDOUT (no actual merge)
 
@@ -160,10 +162,13 @@ Ingest content from device file system and other sources
 * `--captured-fs-exec-sql <CAPTURED_FS_EXEC_SQL>` — reg-exes that will signify which captured executables' output should be treated as batch SQL
 
   Default value: `surveilr-SQL`
+* `-n`, `--notebook <NOTEBOOK>` — search cells in these notebooks (include % for LIKE otherwise =)
+* `-c`, `--cell <CELL>` — use these cells' content as ingestion code (include % for LIKE otherwise =)
 * `-N`, `--nature-bind <NATURE_BIND>` — bind an unknown nature (file extension), the key, to a known nature the value "text=text/plain,yaml=application/yaml"
 * `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
 
   Default value: `resource-surveillance.sqlite.db`
+* `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
 * `--include-state-db-in-ingestion` — include the surveil database in the ingestion candidates
 * `--stats` — show stats as an ASCII table after completion
 * `--stats-json` — show stats in JSON after completion
@@ -187,6 +192,7 @@ Notebooks maintenance utilities
 * `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
 
   Default value: `resource-surveillance.sqlite.db`
+* `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
 
 
 

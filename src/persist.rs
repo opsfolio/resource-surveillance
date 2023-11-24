@@ -7,6 +7,7 @@ use rusqlite::{Connection, Result as RusqliteResult, ToSql};
 use ulid::Ulid;
 
 use super::device::Device;
+use super::fswalk::*;
 
 // TODO: every time a prepare_conn runs, allow passing in a Vector of files like
 // surveilr.init.sql as a source file that can help setup configurations and
@@ -421,6 +422,38 @@ pub fn execute_migrations(conn: &Connection, context: &str) -> RusqliteResult<()
             }
         },
     )
+}
+
+pub fn execute_globs_batch(
+    conn: &Connection,
+    cfse: &ClassifiableFileSysEntries<DirEntryFlags>,
+    walk_paths: &[String],
+    context: &str,
+) -> anyhow::Result<Vec<String>> {
+    let mut executed: Vec<String> = Vec::new();
+    cfse.walk(walk_paths, |_root_path, entry, _class| {
+        let path = entry.path();
+        match std::fs::read_to_string(path) {
+            Ok(sql) => match conn.execute_batch(&sql) {
+                Ok(_) => {
+                    executed.push(path.to_string_lossy().to_string());
+                }
+                Err(e) => {
+                    eprintln!(
+                        "[execute_globs_batch({})] Failed to execute SQL file: {}",
+                        context, e
+                    );
+                }
+            },
+            Err(e) => {
+                eprintln!(
+                    "[execute_globs_batch({})] Failed to read SQL file: {}",
+                    context, e
+                );
+            }
+        }
+    });
+    Ok(executed)
 }
 
 pub fn execute_batch(conn: &Connection, ec: &ExecutableCode) -> RusqliteResult<()> {

@@ -38,11 +38,11 @@ impl NotebooksCommands {
                 match select_notebooks_and_cells(&conn, notebooks, cells) {
                     Ok(matched) => {
                         for row in matched {
-                            let (notebook, kernel, cell, sql) = row;
+                            let (notebook, kernel, cell, code) = row;
                             if seps {
                                 println!("-- {notebook}::{cell} ({kernel})");
                             }
-                            println!("{sql}");
+                            println!("{code}");
                         }
                     }
                     Err(err) => println!("Notebooks cells command error: {}", err),

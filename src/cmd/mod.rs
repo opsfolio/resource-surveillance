@@ -44,6 +44,7 @@ pub struct Cli {
     pub command: CliCommands,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]
 pub enum CliCommands {
     Admin(AdminArgs),
@@ -68,6 +69,10 @@ pub enum AdminCommands {
         #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
         state_db_fs_path: String,
 
+        /// one or more globs to match as SQL files and batch execute them in alpha order
+        #[arg(short = 'I', long)]
+        state_db_init_sql: Vec<String>,
+
         /// remove the existing database first
         #[arg(short, long)]
         remove_existing_first: bool,
@@ -90,6 +95,10 @@ pub enum AdminCommands {
         /// target SQLite database with merged content
         #[arg(short='d', long, default_value = DEFAULT_MERGED_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_MERGED_STATEDB_FS_PATH")]
         state_db_fs_path: String,
+
+        /// one or more globs to match as SQL files and batch execute them in alpha order
+        #[arg(short = 'I', long)]
+        state_db_init_sql: Vec<String>,
 
         /// remove the existing database first
         #[arg(short, long)]
@@ -196,6 +205,14 @@ pub struct IngestArgs {
     )]
     pub captured_fs_exec_sql: Vec<regex::Regex>,
 
+    /// search cells in these notebooks (include % for LIKE otherwise =)
+    #[arg(short, long)]
+    pub notebook: Vec<String>,
+
+    /// use these cells' content as ingestion code (include % for LIKE otherwise =)
+    #[arg(short, long)]
+    pub cell: Vec<String>,
+
     /// bind an unknown nature (file extension), the key, to a known nature the value
     /// "text=text/plain,yaml=application/yaml"
     #[arg(short = 'N', long, value_parser=parse_key_val)]
@@ -204,6 +221,10 @@ pub struct IngestArgs {
     /// target SQLite database
     #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
     pub state_db_fs_path: String,
+
+    /// one or more globs to match as SQL files and batch execute them in alpha order
+    #[arg(short = 'I', long)]
+    state_db_init_sql: Vec<String>,
 
     /// include the surveil database in the ingestion candidates
     #[arg(long)]
@@ -228,6 +249,10 @@ pub struct NotebooksArgs {
     /// target SQLite database
     #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
     pub state_db_fs_path: Option<String>,
+
+    /// one or more globs to match as SQL files and batch execute them in alpha order
+    #[arg(short = 'I', long)]
+    state_db_init_sql: Vec<String>,
 
     #[command(subcommand)]
     pub command: NotebooksCommands,

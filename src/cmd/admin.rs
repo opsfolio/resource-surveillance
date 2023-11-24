@@ -1,7 +1,10 @@
+use std::collections::HashMap;
+
 use anyhow::Context;
 use rusqlite::Connection;
 
 use super::AdminCommands;
+use crate::fswalk::*;
 use crate::persist::*;
 
 // Implement methods for `AdminCommands`, ensure that whether the commands
@@ -11,17 +14,20 @@ impl AdminCommands {
         match self {
             AdminCommands::Init {
                 state_db_fs_path,
+                state_db_init_sql,
                 remove_existing_first,
                 with_device,
             } => self.init(
                 cli,
                 state_db_fs_path,
+                state_db_init_sql,
                 *remove_existing_first,
                 *with_device,
                 None,
             ),
             AdminCommands::Merge {
                 state_db_fs_path,
+                state_db_init_sql,
                 candidates,
                 ignore_candidates,
                 remove_existing_first,
@@ -29,6 +35,7 @@ impl AdminCommands {
             } => self.merge(
                 cli,
                 state_db_fs_path,
+                state_db_init_sql,
                 candidates,
                 ignore_candidates,
                 *remove_existing_first,
@@ -42,6 +49,7 @@ impl AdminCommands {
         &self,
         cli: &super::Cli,
         db_fs_path: &String,
+        db_init_sql_globs: &[String],
         remove_existing_first: bool,
         with_device: bool,
         sql_script: Option<&str>,
@@ -71,6 +79,26 @@ impl AdminCommands {
         execute_migrations(&conn, "AdminCommands::init").with_context(|| {
             format!("[AdminCommands::init] execute_migrations in {}", db_fs_path)
         })?;
+
+        let db_init_sql_cfse = ClassifiableFileSysEntries::new(
+            empty_dir_entry_flags(),
+            db_init_sql_globs,
+            HashMap::default(),
+            false,
+        )
+        .with_context(|| {
+            format!(
+                "[AdminCommands::init] unable to create db_init_sql_cfse in {}",
+                db_fs_path
+            )
+        })?;
+        execute_globs_batch(
+            &conn,
+            &db_init_sql_cfse,
+            &[".".to_string()],
+            "AdminCommands::init",
+        )
+        .with_context(|| format!("[AdminCommands::init] execute_migrations in {}", db_fs_path))?;
 
         if with_device {
             // insert the device or, if it exists, get its current ID and name
@@ -105,10 +133,12 @@ impl AdminCommands {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn merge(
         &self,
         cli: &super::Cli,
         state_db_fs_path: &String,
+        state_db_init_sql: &[String],
         candidates: &[String],
         ignore_candidates: &[String],
         remove_existing_first: bool,
@@ -167,6 +197,8 @@ impl AdminCommands {
         }
         sql_script.push('\n');
 
+        // TODO: read merge tables from CLI args or from SQLite directly, just be
+        //       careful to order them properly for foreign-key contraints
         let merge_tables = &[
             "device",
             "behavior",
@@ -202,6 +234,7 @@ impl AdminCommands {
             self.init(
                 cli,
                 state_db_fs_path,
+                state_db_init_sql,
                 remove_existing_first,
                 false,
                 Some(sql_script.as_str()),

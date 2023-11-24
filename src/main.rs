@@ -16,6 +16,7 @@ mod cmd;
 mod format;
 mod frontmatter;
 mod fsresource;
+mod fswalk;
 mod persist;
 mod resource;
 mod shell;
