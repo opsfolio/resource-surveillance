@@ -38,11 +38,11 @@ test: ensure-cargo-nextest
 
 # Run end-to-end tests
 test-e2e: 
-    rm -f ./e2e-test-state.sqlite.db && just sqla-sync && just run --debug fs-walk -d ./e2e-test-state.sqlite.db --stats --save-behavior behavior1
+    rm -f ./e2e-test-state.sqlite.db && just sqla-sync && just run --debug ingest -d ./e2e-test-state.sqlite.db --stats --save-behavior behavior1
 
 # Run end-to-end tests only in support/test-fixtures
 test-e2e-fixtures: 
-    rm -f ./e2e-test-state.sqlite.db && just sqla-sync && just run --debug fs-walk -d ./e2e-test-state.sqlite.db -r ./support/test-fixtures --stats
+    rm -f ./e2e-test-state.sqlite.db && just sqla-sync && just run --debug ingest -d ./e2e-test-state.sqlite.db -r ./support/test-fixtures --stats
 
 # Lint all the code
 lint:

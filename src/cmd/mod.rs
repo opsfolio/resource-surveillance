@@ -4,19 +4,19 @@ use clap::{Args, Parser, Subcommand};
 use regex::Regex;
 use rusqlite::{Connection, OpenFlags};
 
-use self::fswalk::fs_walk;
+use self::ingest::ingest;
 use crate::persist::*;
 
 pub mod admin;
 pub mod capexec;
-pub mod fswalk;
+pub mod ingest;
 pub mod notebooks;
 pub mod shell;
 
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 const DEFAULT_MERGED_STATEDB_FS_PATH: &str = "resource-surveillance-aggregated.sqlite.db";
 
-const DEFAULT_FS_WALK_IGNORE_PATHS: &str = r"/(\\.git|node_modules)/";
+const DEFAULT_INGEST_FS_IGNORE_PATHS: &str = r"/(\\.git|node_modules)/";
 const DEFAULT_CAPTURE_EXEC_REGEX_PATTERN: &str = r"surveilr\[(?P<nature>[^\]]*)\]";
 const DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN: &str = r"surveilr-SQL";
 
@@ -48,7 +48,7 @@ pub struct Cli {
 pub enum CliCommands {
     Admin(AdminArgs),
     CapturableExec(CapturableExecArgs),
-    FsWalk(FsWalkArgs),
+    Ingest(IngestArgs),
     Notebooks(NotebooksArgs),
     Shell(ShellArgs),
 }
@@ -115,27 +115,27 @@ pub struct CapturableExecArgs {
 pub enum CapturableExecCommands {
     /// list potential capturable executables
     Ls {
-        /// one or more root paths to walk
+        /// one or more root paths to ingest
         #[arg(short, long, default_value = ".", default_missing_value = "always")]
-        root_path: Vec<String>,
+        root_fs_path: Vec<String>,
 
         /// reg-exes to use to ignore files in root-path(s)
-        #[arg(short, long, default_value = DEFAULT_FS_WALK_IGNORE_PATHS, default_missing_value = "always")]
-        ignore_entry: Vec<Regex>,
+        #[arg(short, long, default_value = DEFAULT_INGEST_FS_IGNORE_PATHS, default_missing_value = "always")]
+        ignore_fs_entry: Vec<Regex>,
 
         /// reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
         #[arg(long,
             // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
             default_value = DEFAULT_CAPTURE_EXEC_REGEX_PATTERN,
             default_missing_value = "always")]
-        capture_exec: Vec<regex::Regex>,
+        capture_fs_exec: Vec<regex::Regex>,
 
         /// reg-exes that will signify which captured executables' output should be treated as batch SQL
         #[arg(long,
             // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
             default_value = DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN,
             default_missing_value = "always")]
-        captured_exec_sql: Vec<regex::Regex>,
+        captured_fs_exec_sql: Vec<regex::Regex>,
 
         /// emit the results as markdown, not a simple table
         #[arg(long)]
@@ -143,29 +143,29 @@ pub enum CapturableExecCommands {
     },
 }
 
-/// Walks the device file system
+/// Ingest content from device file system and other sources
 #[derive(Args)]
-pub struct FsWalkArgs {
+pub struct IngestArgs {
     /// the behavior name in `behavior` table
-    #[arg(short, long, env = "SURVEILR_FS_WALK_BEHAVIOR_NAME")]
+    #[arg(short, long, env = "SURVEILR_INGEST_BEHAVIOR_NAME")]
     pub behavior: Option<String>,
 
-    /// one or more root paths to walk
+    /// one or more root paths to ingest
     #[arg(short, long, default_value = ".", default_missing_value = "always")]
-    pub root_path: Vec<String>,
+    pub root_fs_path: Vec<String>,
 
     /// reg-exes to use to ignore files in root-path(s)
     #[arg(
         short,
         long,
-        default_value = DEFAULT_FS_WALK_IGNORE_PATHS,
+        default_value = DEFAULT_INGEST_FS_IGNORE_PATHS,
         default_missing_value = "always"
     )]
-    pub ignore_entry: Vec<Regex>,
+    pub ignore_fs_entry: Vec<Regex>,
 
     /// reg-exes to use to compute digests for
     #[arg(long, default_value = ".*", default_missing_value = "always")]
-    pub compute_digests: Vec<Regex>,
+    pub compute_fs_content_digests: Vec<Regex>,
 
     /// reg-exes to use to load content for entry instead of just walking
     #[arg(
@@ -176,7 +176,7 @@ pub struct FsWalkArgs {
             Regex::new(DEFAULT_CAPTURE_EXEC_REGEX_PATTERN).unwrap()],
         default_missing_value = "always"
     )]
-    pub surveil_content: Vec<Regex>,
+    pub surveil_fs_content: Vec<Regex>,
 
     /// reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
     #[arg(
@@ -185,7 +185,7 @@ pub struct FsWalkArgs {
         default_value = DEFAULT_CAPTURE_EXEC_REGEX_PATTERN,
         default_missing_value = "always"
     )]
-    pub capture_exec: Vec<regex::Regex>,
+    pub capture_fs_exec: Vec<regex::Regex>,
 
     /// reg-exes that will signify which captured executables' output should be treated as batch SQL
     #[arg(
@@ -194,7 +194,7 @@ pub struct FsWalkArgs {
         default_value = DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN,
         default_missing_value = "always"
     )]
-    pub captured_exec_sql: Vec<regex::Regex>,
+    pub captured_fs_exec_sql: Vec<regex::Regex>,
 
     /// bind an unknown nature (file extension), the key, to a known nature the value
     /// "text=text/plain,yaml=application/yaml"
@@ -205,9 +205,9 @@ pub struct FsWalkArgs {
     #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
     pub state_db_fs_path: String,
 
-    /// include the surveil database in the walk
+    /// include the surveil database in the ingestion candidates
     #[arg(long)]
-    pub include_state_db_in_walk: bool,
+    pub include_state_db_in_ingestion: bool,
 
     /// show stats as an ASCII table after completion
     #[arg(long)]
@@ -288,7 +288,7 @@ impl CliCommands {
         match self {
             CliCommands::Admin(args) => args.command.execute(cli, args),
             CliCommands::CapturableExec(args) => args.command.execute(cli, args),
-            CliCommands::FsWalk(args) => match fs_walk(cli, args) {
+            CliCommands::Ingest(args) => match ingest(cli, args) {
                 Ok(walk_session_id) => {
                     if args.stats || args.stats_json {
                         if let Ok(conn) = Connection::open_with_flags(
@@ -306,7 +306,7 @@ impl CliCommands {
 
                             if args.stats {
                                 let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
-                                fs_walk_session_stats(
+                                ingest_session_stats(
                                     &conn,
                                     |_index,
                                      root_path,
@@ -314,7 +314,7 @@ impl CliCommands {
                                      file_count,
                                      with_content_count,
                                      with_frontmatter_count| {
-                                        if args.root_path.len() < 2 {
+                                        if args.root_fs_path.len() < 2 {
                                             rows.push(vec![
                                                 file_extension,
                                                 file_count.to_string(),
@@ -337,7 +337,7 @@ impl CliCommands {
                                 .unwrap();
                                 println!(
                                     "{}",
-                                    if args.root_path.len() < 2 {
+                                    if args.root_fs_path.len() < 2 {
                                         crate::format::format_table(
                                             &["Extn", "Count", "Content", "Frontmatter"],
                                             &rows,

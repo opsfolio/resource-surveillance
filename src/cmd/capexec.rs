@@ -18,10 +18,10 @@ impl CapturableExecCommands {
     ) -> anyhow::Result<()> {
         match self {
             CapturableExecCommands::Ls {
-                root_path,
-                ignore_entry,
-                capture_exec,
-                captured_exec_sql,
+                root_fs_path: root_path,
+                ignore_fs_entry: ignore_entry,
+                capture_fs_exec: capture_exec,
+                captured_fs_exec_sql: captured_exec_sql,
                 markdown,
             } => {
                 if *markdown {
@@ -199,7 +199,7 @@ impl CapturableExecCommands {
                                     match cer.executable.capturable_exec_text_supplier.as_ref() {
                                         Some(capturable_supplier) => {
                                             let synthetic_stdin = json!({
-                                                "surveilr-fs-walk": {
+                                                "surveilr-ingest": {
                                                     "args": { "state_db_fs_path": "synthetic" },
                                                     "env": { "current_dir": std::env::current_dir().unwrap().to_string_lossy() },
                                                     "behavior": {},

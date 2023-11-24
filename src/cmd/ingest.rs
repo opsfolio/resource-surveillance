@@ -13,9 +13,9 @@ use crate::persist::*;
 use crate::resource::*;
 
 pub struct UniformResourceWriterState<'a, 'conn> {
-    fs_walk_args: &'a super::FsWalkArgs,
+    ingest_args: &'a super::IngestArgs,
     env_current_dir: &'a String,
-    fs_walk_behavior: &'a FsWalkBehavior,
+    ingest_behavior: &'a IngestBehavior,
     device_id: &'a String,
     walk_session_id: &'a String,
     walk_path_id: &'a String,
@@ -27,10 +27,10 @@ pub struct UniformResourceWriterState<'a, 'conn> {
 impl<'a, 'conn> UniformResourceWriterState<'a, 'conn> {
     fn capturable_exec_ctx(&self, entry: &mut UniformResourceWriterEntry) -> Option<String> {
         let ctx = json!({
-            "surveilr-fs-walk": {
-                "args": { "state_db_fs_path": self.fs_walk_args.state_db_fs_path },
+            "surveilr-ingest": {
+                "args": { "state_db_fs_path": self.ingest_args.state_db_fs_path },
                 "env": { "current_dir": self.env_current_dir },
-                "behavior": self.fs_walk_behavior,
+                "behavior": self.ingest_behavior,
                 "device": { "device_id": self.device_id },
                 "session": {
                     "walk-session-id": self.walk_session_id,
@@ -634,7 +634,7 @@ impl UniformResource<ContentResource> {
 // types;
 
 #[derive(Serialize, Deserialize)]
-pub struct FsWalkBehavior {
+pub struct IngestBehavior {
     pub root_paths: Vec<String>,
 
     #[serde(with = "serde_regex")]
@@ -655,10 +655,10 @@ pub struct FsWalkBehavior {
     nature_bind: HashMap<String, String>,
 }
 
-impl FsWalkBehavior {
+impl IngestBehavior {
     pub fn new(
         device_id: &String,
-        fsw_args: &super::FsWalkArgs,
+        fsw_args: &super::IngestArgs,
         conn: &Connection,
     ) -> anyhow::Result<(Self, Option<String>)> {
         if let Some(behavior_name) = &fsw_args.behavior {
@@ -675,23 +675,23 @@ impl FsWalkBehavior {
                 )
                 .with_context(|| {
                     format!(
-                        "[fs_walk] unable to read behavior '{}' from {} behavior table",
+                        "[IngestBehavior.new] unable to read behavior '{}' from {} behavior table",
                         behavior_name, fsw_args.state_db_fs_path
                     )
                 })?;
-            let fswb = FsWalkBehavior::from_json(&fswb_json).with_context(|| {
+            let fswb = IngestBehavior::from_json(&fswb_json).with_context(|| {
                 format!(
-                    "[fs_walk] unable to deserialize behavior {} in {}",
+                    "[IngestBehavior.new] unable to deserialize behavior {} in {}",
                     fswb_json, fsw_args.state_db_fs_path
                 )
             })?;
             Ok((fswb, Some(fswb_behavior_id)))
         } else {
-            Ok((FsWalkBehavior::from_fs_walk_args(fsw_args), None))
+            Ok((IngestBehavior::from_ingest_args(fsw_args), None))
         }
     }
 
-    pub fn from_fs_walk_args(args: &super::FsWalkArgs) -> Self {
+    pub fn from_ingest_args(args: &super::IngestArgs) -> Self {
         let mut nature_bind: HashMap<String, String> =
             if let Some(supplied_binds) = &args.nature_bind {
                 supplied_binds.clone()
@@ -705,13 +705,13 @@ impl FsWalkBehavior {
             nature_bind.insert("yaml".to_string(), "application/yaml".to_string());
         }
 
-        FsWalkBehavior {
-            root_paths: args.root_path.clone(),
-            ingest_content: args.surveil_content.clone(),
-            compute_digests: args.compute_digests.clone(),
-            ignore_regexs: args.ignore_entry.clone(),
-            capturable_executables: args.capture_exec.clone(),
-            captured_exec_sql: args.captured_exec_sql.clone(),
+        IngestBehavior {
+            root_paths: args.root_fs_path.clone(),
+            ingest_content: args.surveil_fs_content.clone(),
+            compute_digests: args.compute_fs_content_digests.clone(),
+            ignore_regexs: args.ignore_fs_entry.clone(),
+            capturable_executables: args.capture_fs_exec.clone(),
+            captured_exec_sql: args.captured_fs_exec_sql.clone(),
             nature_bind,
         }
     }
@@ -751,12 +751,17 @@ impl FsWalkBehavior {
                 ],
                 |row| row.get(0),
             )
-            .with_context(|| format!("[fs_walk] unable to save behavior '{}'", behavior_name))?;
+            .with_context(|| {
+                format!(
+                    "[IngestBehavior.save] unable to save behavior '{}'",
+                    behavior_name
+                )
+            })?;
         Ok(behavior_id)
     }
 }
 
-pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String> {
+pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> {
     let db_fs_path = &fsw_args.state_db_fs_path;
 
     if cli.debug > 0 {
@@ -764,23 +769,23 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
     }
 
     let mut conn = Connection::open(db_fs_path)
-        .with_context(|| format!("[fs_walk] SQLite database {}", db_fs_path))?;
+        .with_context(|| format!("[ingest] SQLite database {}", db_fs_path))?;
 
     prepare_conn(&conn)
-        .with_context(|| format!("[fs_walk] prepare SQLite connection for {}", db_fs_path))?;
+        .with_context(|| format!("[ingest] prepare SQLite connection for {}", db_fs_path))?;
 
     // putting everything inside a transaction improves performance significantly
     let tx = conn
         .transaction()
-        .with_context(|| format!("[fs_walk] SQLite transaction in {}", db_fs_path))?;
+        .with_context(|| format!("[ingest] SQLite transaction in {}", db_fs_path))?;
 
-    execute_migrations(&tx, "fs_walk")
-        .with_context(|| format!("[fs_walk] execute_migrations in {}", db_fs_path))?;
+    execute_migrations(&tx, "ingest")
+        .with_context(|| format!("[ingest] execute_migrations in {}", db_fs_path))?;
 
     // insert the device or, if it exists, get its current ID and name
     let (device_id, device_name) = upserted_device(&tx, &crate::DEVICE).with_context(|| {
         format!(
-            "[fs_walk] upserted_device {} in {}",
+            "[ingest] upserted_device {} in {}",
             crate::DEVICE.name,
             db_fs_path
         )
@@ -821,12 +826,12 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
         INSERT INTO ur_walk_session_path_fs_entry (ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn, ur_status, ur_diagnostics, captured_executable) 
                                            VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"};
 
-    let (mut fswb, mut behavior_id) = FsWalkBehavior::new(&device_id, fsw_args, &tx)
-        .with_context(|| format!("[fs_walk] behavior issue {}", db_fs_path))?;
+    let (mut fswb, mut behavior_id) = IngestBehavior::new(&device_id, fsw_args, &tx)
+        .with_context(|| format!("[ingest] behavior issue {}", db_fs_path))?;
 
-    if !fsw_args.include_state_db_in_walk {
+    if !fsw_args.include_state_db_in_ingestion {
         let canonical_db_fs_path = std::fs::canonicalize(std::path::Path::new(&db_fs_path))
-            .with_context(|| format!("[fs_walk] unable to canonicalize in {}", db_fs_path))?;
+            .with_context(|| format!("[ingest] unable to canonicalize in {}", db_fs_path))?;
         let canonical_db_fs_path = canonical_db_fs_path.to_string_lossy().to_string();
         let mut wal_path = std::path::PathBuf::from(&canonical_db_fs_path);
         let mut db_journal_path = std::path::PathBuf::from(&canonical_db_fs_path);
@@ -840,9 +845,7 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
     if let Some(save_behavior_name) = &fsw_args.save_behavior {
         let saved_bid = fswb
             .save(&tx, &device_id, save_behavior_name)
-            .with_context(|| {
-                format!("[fs_walk] saving {} in {}", save_behavior_name, db_fs_path)
-            })?;
+            .with_context(|| format!("[ingest] saving {} in {}", save_behavior_name, db_fs_path))?;
         if cli.debug > 0 {
             println!("Saved behavior: {} ({})", save_behavior_name, saved_bid);
         }
@@ -871,7 +874,7 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
         )
         .with_context(|| {
             format!(
-                "[fs_walk] inserting UR walk session using {} in {}",
+                "[ingest] inserting UR walk session using {} in {}",
                 INS_UR_WALK_SESSION_SQL, db_fs_path
             )
         })?;
@@ -889,25 +892,25 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
 
         let mut ins_ur_wsp_stmt = tx.prepare(INS_UR_WSP_SQL).with_context(|| {
             format!(
-                "[fs_walk] unable to create `ins_ur_wsp_stmt` SQL {} in {}",
+                "[ingest] unable to create `ins_ur_wsp_stmt` SQL {} in {}",
                 INS_UR_WSP_SQL, db_fs_path
             )
         })?;
         let mut ins_ur_stmt = tx.prepare(INS_UR_SQL).with_context(|| {
             format!(
-                "[fs_walk] unable to create `ins_ur_stmt` SQL {} in {}",
+                "[ingest] unable to create `ins_ur_stmt` SQL {} in {}",
                 INS_UR_SQL, db_fs_path
             )
         })?;
         let mut ins_ur_transform_stmt = tx.prepare(INS_UR_TRANSFORM_SQL).with_context(|| {
             format!(
-                "[fs_walk] unable to create `ins_ur_transform_stmt` SQL {} in {}",
+                "[ingest] unable to create `ins_ur_transform_stmt` SQL {} in {}",
                 INS_UR_TRANSFORM_SQL, db_fs_path
             )
         })?;
         let mut ins_ur_fs_entry_stmt = tx.prepare(INS_UR_FS_ENTRY_SQL).with_context(|| {
             format!(
-                "[fs_walk] unable to create `ins_ur_fs_entry_stmt` SQL {} in {}",
+                "[ingest] unable to create `ins_ur_fs_entry_stmt` SQL {} in {}",
                 INS_UR_FS_ENTRY_SQL, db_fs_path
             )
         })?;
@@ -916,7 +919,7 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
             let canonical_path_buf = std::fs::canonicalize(std::path::Path::new(&root_path))
                 .with_context(|| {
                     format!(
-                        "[fs_walk] unable to canonicalize {} in {}",
+                        "[ingest] unable to canonicalize {} in {}",
                         root_path, db_fs_path
                     )
                 })?;
@@ -927,7 +930,7 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
                 .query_row(ins_ur_wsp_params, |row| row.get(0))
                 .with_context(|| {
                     format!(
-                        "[fs_walk] ins_ur_wsp_stmt {} with {} in {}",
+                        "[ingest] ins_ur_wsp_stmt {} with {} in {}",
                         INS_UR_WSP_SQL, "TODO: ins_ur_wsp_params.join()", db_fs_path
                     )
                 })?;
@@ -946,14 +949,14 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
             )
             .with_context(|| {
                 format!(
-                    "[fs_walk] unable to walker for {} in {}",
+                    "[ingest] unable to walker for {} in {}",
                     canonical_path, db_fs_path
                 )
             })?;
 
             let mut urw_state = UniformResourceWriterState {
-                fs_walk_args: fsw_args,
-                fs_walk_behavior: &fswb,
+                ingest_args: fsw_args,
+                ingest_behavior: &fswb,
                 env_current_dir: &env_current_dir,
                 device_id: &device_id,
                 walk_session_id: &walk_session_id,
@@ -1049,7 +1052,7 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
                                 ]) {
                                     Ok(_) => {}
                                     Err(err) => {
-                                        eprintln!( "[fs_walk] unable to insert UR walk session path file system entry for {} in {}: {} ({})",
+                                        eprintln!( "[ingest] unable to insert UR walk session path file system entry for {} in {}: {} ({})",
                                         &inserted.uri, db_fs_path, err, INS_UR_FS_ENTRY_SQL
                                         )
                                     }
@@ -1057,7 +1060,7 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
                             }
                             None => {
                                 eprintln!(
-                                    "[fs_walk] error extracting path info for {} in {}",
+                                    "[ingest] error extracting path info for {} in {}",
                                     canonical_path, db_fs_path
                                 )
                             }
@@ -1075,14 +1078,14 @@ pub fn fs_walk(cli: &super::Cli, fsw_args: &super::FsWalkArgs) -> Result<String>
         Ok(_) => {}
         Err(err) => {
             eprintln!(
-                "[fs_walk] unable to execute SQL {} in {}: {}",
+                "[ingest] unable to execute SQL {} in {}: {}",
                 INS_UR_WALK_SESSION_FINISH_SQL, db_fs_path, err
             )
         }
     }
     // putting everything inside a transaction improves performance significantly
     tx.commit()
-        .with_context(|| format!("[fs_walk] unable to perform final commit in {}", db_fs_path))?;
+        .with_context(|| format!("[ingest] unable to perform final commit in {}", db_fs_path))?;
 
     Ok(walk_session_id)
 }

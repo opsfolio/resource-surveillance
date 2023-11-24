@@ -187,7 +187,7 @@ query_sql_single!(
 );
 
 query_sql_rows!(
-    fs_walk_session_stats,
+    ingest_session_stats,
     r"SELECT walk_session_root_path,
              file_extension,
              total_file_count AS file_count,

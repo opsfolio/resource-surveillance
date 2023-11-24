@@ -44,7 +44,7 @@ provides. Though [CLI Help](support/docs/CLI-help.md) is a good reference, it's
 best to depend on `surveilr --help` and `surveilr <command> --help` because it
 will more accurate for the latest version.
 
-## Creating `RSSD`s by walking the file system (`fs-walk`)
+## Creating `RSSD`s by "walking" the file system (`ingest`)
 
 Unless you set the `SURVEILR_STATEDB_FS_PATH` env var, the default _Resource
 Surveillance State Database_ ("RSSD") will be `resource-surveillance.sqlite.db`.
@@ -59,13 +59,13 @@ kind of _identifying_ or _differenting_ field(s) like `$(hostname)` into the
 $ export SURVEILR_STATEDB_FS_PATH="resource-surveillance-$(hostname).sqlite.db"
 ```
 
-Here's how you use the most common `fs-walk`patterns:
+Here's how you use the most common `ingest` patterns:
 
 ```base
-$ surveilr fs-walk --help                 # explain the `fs-walk` subcommand
-$ surveilr fs-walk                        # walk the current working directory (CWD)
-$ surveilr fs-walk -r /other -r /other2   # walk some other director(ies)
-$ surveilr fs-walk --stats                # walk the current working directory (CWD) show stats afterwards
+$ surveilr ingest --help                 # explain the `ingest` subcommand
+$ surveilr ingest                        # walk the current working directory (CWD)
+$ surveilr ingest -r /other -r /other2   # walk some other director(ies)
+$ surveilr ingest --stats                # walk the current working directory (CWD) show stats afterwards
 ```
 
 ## Merging multiple `RSSD`s into one using `surveilr` (`admin merge`)
@@ -122,19 +122,19 @@ device-specific `RSSD`s are required and `target.sqlite.db` is independent of
 
 ## Files as Resources vs. Capturable Executables as Resources
 
-When `fs-walk` command runs, it's main job is to find files and store them in
+When `ingest` command runs, it's main job is to find files and store them in
 `uniform_resource` table as records. If the content of a file is already stored
 in the file system this works well. However, sometimes we need to generate the
 content of a file (or group of files) and store the output of the generated
 files. That's where the idea of _Capturable Executables_ (`CEs`) comes in.
 
-CEs allow you to pass in arguments or behaviors to the `fs-walk` command that
+CEs allow you to pass in arguments or behaviors to the `ingest` command that
 allows certain patterns of files to be executed in a safe shell, and their
 STDOUT and STDERR captured and stored in `uniform_resource`. These scripts are
 referred to as _capturable executables_ or `CE`s and are influenced through
 _Processing Instructions_ (`PI`s) in file names.
 
-For example, if we want `fs-walk`, as it encounters a `abc.surveilr.sh` file to
+For example, if we want `ingest`, as it encounters a `abc.surveilr.sh` file to
 execute it, we can pass in `--capture_exec "surverilr[json]"` and it will
 execute the script, treat the output as JSON, and store it in
 `uniform_resource`. `surverilr[json]` becomes what is known as a `CE` Resource
@@ -162,7 +162,7 @@ This _Capturable Executables_ functionality is available:
 
 ```json
 {
-  "surveilr-fs-walk": {
+  "surveilr-ingest": {
     "args": {
       "state_db_fs_path": "./e2e-test-state.sqlite.db"
     },
@@ -201,7 +201,7 @@ Try to keep CEs individually testable as independent scripts. You can validate
 capturable executables by using `surveilr capturable-exec` subcommands.
 
 ```bash
-$ surveilr capturable-exec ls --help                    # see all the options (arguments are same as `fs-walk`)
+$ surveilr capturable-exec ls --help                    # see all the options (arguments are same as `ingest`)
 $ surveilr capturable-exec ls                           # scan for CEs and show a table of what's found
 $ surveilr capturable-exec ls --markdown > capturable-exec.md  # find CEs, try to execute them, store their output in a Markdown
 ```
@@ -221,7 +221,7 @@ Running `capturable-exec ls` should show something similar to this:
 
 Running `capturable-exec ls --markdown` generates a Markdown document that you
 can use to learn more about what `STDIN`, `STDOUT`, and `STDERR` streams will be
-created during `fs-walk`.
+created during `ingest`.
 
 ### Capturable Executables Examples
 
@@ -241,11 +241,11 @@ See these examples in `support/test-fixtures`:
 
 How to control the behavior of _Capturable Executables_ filenames:
 
-- `surveilr fs-walk --captured-exec-sql` Regexp(s) control which files are
+- `surveilr ingest --captured-fs-exec-sql` Regexp(s) control which files are
   considered capturable executables who output will be captured and executed as
   "SQL batch"
-- `surveilr fs-walk --capture-exec` Regexp(s) control which files are considered
-  capturable executables
+- `surveilr ingest --capture-fs-exec` Regexp(s) control which files are
+  considered capturable executables
 
 Full diagnostics of STDIN, STDOUT, STDERR, etc. are present in the
 `ur_session_path_fs_entry` row for all scripts as they're encountered. If you
@@ -312,7 +312,7 @@ $ surveilr notebooks cat --cell "%understand notebooks schema%"
 
 The output of the first one is a good way to help ChatGPT or other LLM to
 understand the `surveilr` service SQL schema (`device`, `uniform_resource`,
-`fs-walk`, etc) and ask it questions to generate SQL for you. The second one is
-a good way to help ChatGPT or other LLM to understand the `surveilr` notebooks
-schema and ask it questions to generate SQL specifically for the _notebooks_
-capability.
+`ingest`, etc) and ask it questions to generate SQL for you. The second one is a
+good way to help ChatGPT or other LLM to understand the `surveilr` notebooks
+schema and ask it questions to generate SQL specifically for the _code
+notebooks_ capability.

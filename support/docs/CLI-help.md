@@ -11,7 +11,7 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr admin cli-help-md`↴](#surveilr-admin-cli-help-md)
 * [`surveilr capturable-exec`↴](#surveilr-capturable-exec)
 * [`surveilr capturable-exec ls`↴](#surveilr-capturable-exec-ls)
-* [`surveilr fs-walk`↴](#surveilr-fs-walk)
+* [`surveilr ingest`↴](#surveilr-ingest)
 * [`surveilr notebooks`↴](#surveilr-notebooks)
 * [`surveilr notebooks cat`↴](#surveilr-notebooks-cat)
 * [`surveilr notebooks ls`↴](#surveilr-notebooks-ls)
@@ -26,7 +26,7 @@ This document contains the help content for the `surveilr` command-line program.
 
 * `admin` — Admin / maintenance utilities
 * `capturable-exec` — Capturable Executables (CE) maintenance tools
-* `fs-walk` — Walks the device file system
+* `ingest` — Ingest content from device file system and other sources
 * `notebooks` — Notebooks maintenance utilities
 * `shell` — Deno Task Shell utilities
 
@@ -117,54 +117,54 @@ list potential capturable executables
 
 ###### **Options:**
 
-* `-r`, `--root-path <ROOT_PATH>` — one or more root paths to walk
+* `-r`, `--root-fs-path <ROOT_FS_PATH>` — one or more root paths to ingest
 
   Default value: `.`
-* `-i`, `--ignore-entry <IGNORE_ENTRY>` — reg-exes to use to ignore files in root-path(s)
+* `-i`, `--ignore-fs-entry <IGNORE_FS_ENTRY>` — reg-exes to use to ignore files in root-path(s)
 
   Default value: `/(\\.git|node_modules)/`
-* `--capture-exec <CAPTURE_EXEC>` — reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
+* `--capture-fs-exec <CAPTURE_FS_EXEC>` — reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
 
   Default value: `surveilr\[(?P<nature>[^\]]*)\]`
-* `--captured-exec-sql <CAPTURED_EXEC_SQL>` — reg-exes that will signify which captured executables' output should be treated as batch SQL
+* `--captured-fs-exec-sql <CAPTURED_FS_EXEC_SQL>` — reg-exes that will signify which captured executables' output should be treated as batch SQL
 
   Default value: `surveilr-SQL`
 * `--markdown` — emit the results as markdown, not a simple table
 
 
 
-## `surveilr fs-walk`
+## `surveilr ingest`
 
-Walks the device file system
+Ingest content from device file system and other sources
 
-**Usage:** `surveilr fs-walk [OPTIONS]`
+**Usage:** `surveilr ingest [OPTIONS]`
 
 ###### **Options:**
 
 * `-b`, `--behavior <BEHAVIOR>` — the behavior name in `behavior` table
-* `-r`, `--root-path <ROOT_PATH>` — one or more root paths to walk
+* `-r`, `--root-fs-path <ROOT_FS_PATH>` — one or more root paths to ingest
 
   Default value: `.`
-* `-i`, `--ignore-entry <IGNORE_ENTRY>` — reg-exes to use to ignore files in root-path(s)
+* `-i`, `--ignore-fs-entry <IGNORE_FS_ENTRY>` — reg-exes to use to ignore files in root-path(s)
 
   Default value: `/(\\.git|node_modules)/`
-* `--compute-digests <COMPUTE_DIGESTS>` — reg-exes to use to compute digests for
+* `--compute-fs-content-digests <COMPUTE_FS_CONTENT_DIGESTS>` — reg-exes to use to compute digests for
 
   Default value: `.*`
-* `--surveil-content <SURVEIL_CONTENT>` — reg-exes to use to load content for entry instead of just walking
+* `--surveil-fs-content <SURVEIL_FS_CONTENT>` — reg-exes to use to load content for entry instead of just walking
 
   Default values: `\.(md|mdx|html|json|jsonc|tap|txt|text|toml|yaml)$`, `surveilr\[(?P<nature>[^\]]*)\]`
-* `--capture-exec <CAPTURE_EXEC>` — reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
+* `--capture-fs-exec <CAPTURE_FS_EXEC>` — reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
 
   Default value: `surveilr\[(?P<nature>[^\]]*)\]`
-* `--captured-exec-sql <CAPTURED_EXEC_SQL>` — reg-exes that will signify which captured executables' output should be treated as batch SQL
+* `--captured-fs-exec-sql <CAPTURED_FS_EXEC_SQL>` — reg-exes that will signify which captured executables' output should be treated as batch SQL
 
   Default value: `surveilr-SQL`
 * `-N`, `--nature-bind <NATURE_BIND>` — bind an unknown nature (file extension), the key, to a known nature the value "text=text/plain,yaml=application/yaml"
 * `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
 
   Default value: `resource-surveillance.sqlite.db`
-* `--include-state-db-in-walk` — include the surveil database in the walk
+* `--include-state-db-in-ingestion` — include the surveil database in the ingestion candidates
 * `--stats` — show stats as an ASCII table after completion
 * `--stats-json` — show stats in JSON after completion
 * `--save-behavior <SAVE_BEHAVIOR>` — save the options as a new behavior
