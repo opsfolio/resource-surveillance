@@ -188,15 +188,15 @@ query_sql_single!(
 
 query_sql_rows!(
     ingest_session_stats,
-    r"SELECT walk_session_root_path,
+    r"SELECT ingest_session_root_fs_path,
              file_extension,
              total_file_count AS file_count,
              file_count_with_content AS with_content_count,
              file_count_with_frontmatter AS with_frontmatter_count
-        FROM fs_content_walk_session_stats_latest
-       WHERE walk_session_id = ?",
-    walk_session_id: String;
-    walk_session_root_path: String,
+        FROM ingest_session_stats_latest
+       WHERE ingest_session_id = ?",
+    ingest_session_id: String;
+    ingest_session_root_fs_path: String,
     file_extension: String,
     file_count: usize,
     with_content_count: usize,
@@ -204,11 +204,11 @@ query_sql_rows!(
 );
 
 query_sql_rows_json!(
-    fs_content_walk_session_stats_latest,
+    ingest_session_stats_latest,
     r"SELECT *
-        FROM fs_content_walk_session_stats_latest
-       WHERE walk_session_id = ?",
-    walk_session_id: String
+        FROM ingest_session_stats_latest
+       WHERE ingest_session_id = ?",
+    ingest_session_id: String
 );
 
 /// Executes a query to select notebook and cell information from the `code_notebook_cell` table.

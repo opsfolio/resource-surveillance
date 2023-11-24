@@ -389,19 +389,19 @@ export class ConstructionSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
   }
 
   // note since `once_` pragma is not present, it will be run each time
-  v002_fsContentWalkSessionStatsViewDDL() {
+  v002_fsContentIngestSessionStatsViewDDL() {
     // deno-fmt-ignore
-    return this.nbh.viewDefn("fs_content_walk_session_stats")/* sql */`
+    return this.nbh.viewDefn("ingest_session_stats")/* sql */`
       WITH Summary AS (
           SELECT
               device.device_id AS device_id,
-              ur_walk_session.ur_walk_session_id AS walk_session_id,
-              ur_walk_session.walk_started_at AS walk_session_started_at,
-              ur_walk_session.walk_finished_at AS walk_session_finished_at,
-              COALESCE(ur_walk_session_path_fs_entry.file_extn, '') AS file_extension,
-              ur_walk_session_path.ur_walk_session_path_id as walk_session_path_id,
-              ur_walk_session_path.root_path AS walk_session_root_path,
-              COUNT(ur_walk_session_path_fs_entry.uniform_resource_id) AS total_file_count,
+              ur_ingest_session.ur_ingest_session_id AS ingest_session_id,
+              ur_ingest_session.ingest_started_at AS ingest_session_started_at,
+              ur_ingest_session.ingest_finished_at AS ingest_session_finished_at,
+              COALESCE(ur_ingest_session_fs_path_entry.file_extn, '') AS file_extension,
+              ur_ingest_session_fs_path.ur_ingest_session_fs_path_id as ingest_session_fs_path_id,
+              ur_ingest_session_fs_path.root_path AS ingest_session_root_fs_path,
+              COUNT(ur_ingest_session_fs_path_entry.uniform_resource_id) AS total_file_count,
               SUM(CASE WHEN uniform_resource.content IS NOT NULL THEN 1 ELSE 0 END) AS file_count_with_content,
               SUM(CASE WHEN uniform_resource.frontmatter IS NOT NULL THEN 1 ELSE 0 END) AS file_count_with_frontmatter,
               MIN(uniform_resource.size_bytes) AS min_file_size_bytes,
@@ -410,31 +410,31 @@ export class ConstructionSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
               MIN(uniform_resource.last_modified_at) AS oldest_file_last_modified_datetime,
               MAX(uniform_resource.last_modified_at) AS youngest_file_last_modified_datetime
           FROM
-              ur_walk_session
+              ur_ingest_session
           JOIN
-              device ON ur_walk_session.device_id = device.device_id
+              device ON ur_ingest_session.device_id = device.device_id
           LEFT JOIN
-              ur_walk_session_path ON ur_walk_session.ur_walk_session_id = ur_walk_session_path.walk_session_id
+              ur_ingest_session_fs_path ON ur_ingest_session.ur_ingest_session_id = ur_ingest_session_fs_path.ingest_session_id
           LEFT JOIN
-              ur_walk_session_path_fs_entry ON ur_walk_session_path.ur_walk_session_path_id = ur_walk_session_path_fs_entry.walk_path_id
+              ur_ingest_session_fs_path_entry ON ur_ingest_session_fs_path.ur_ingest_session_fs_path_id = ur_ingest_session_fs_path_entry.ingest_fs_path_id
           LEFT JOIN
-              uniform_resource ON ur_walk_session_path_fs_entry.uniform_resource_id = uniform_resource.uniform_resource_id
+              uniform_resource ON ur_ingest_session_fs_path_entry.uniform_resource_id = uniform_resource.uniform_resource_id
           GROUP BY
               device.device_id,
-              ur_walk_session.ur_walk_session_id,
-              ur_walk_session.walk_started_at,
-              ur_walk_session.walk_finished_at,
-              ur_walk_session_path_fs_entry.file_extn,
-              ur_walk_session_path.root_path
+              ur_ingest_session.ur_ingest_session_id,
+              ur_ingest_session.ingest_started_at,
+              ur_ingest_session.ingest_finished_at,
+              ur_ingest_session_fs_path_entry.file_extn,
+              ur_ingest_session_fs_path.root_path
       )
       SELECT
           device_id,
-          walk_session_id,
-          walk_session_started_at,
-          walk_session_finished_at,
+          ingest_session_id,
+          ingest_session_started_at,
+          ingest_session_finished_at,
           file_extension,
-          walk_session_path_id,
-          walk_session_root_path,
+          ingest_session_fs_path_id,
+          ingest_session_root_fs_path,
           total_file_count,
           file_count_with_content,
           file_count_with_frontmatter,
@@ -447,44 +447,44 @@ export class ConstructionSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
           Summary
       ORDER BY
           device_id,
-          walk_session_finished_at,
+          ingest_session_finished_at,
           file_extension;
       `;
   }
 
   // note since `once_` pragma is not present, it will be run each time
-  v002_fsContentWalkSessionStatsLatestViewDDL() {
+  v002_fsContentIngestSessionStatsLatestViewDDL() {
     // deno-fmt-ignore
-    return this.nbh.viewDefn("fs_content_walk_session_stats_latest")/* sql */`
-      SELECT fs.*
-        FROM fs_content_walk_session_stats AS fs
-        JOIN (  SELECT ur_walk_session.ur_walk_session_id AS latest_session_id
-                  FROM ur_walk_session
-              ORDER BY ur_walk_session.walk_finished_at DESC
+    return this.nbh.viewDefn("ingest_session_stats_latest")/* sql */`
+      SELECT iss.*
+        FROM ingest_session_stats AS iss
+        JOIN (  SELECT ur_ingest_session.ur_ingest_session_id AS latest_session_id
+                  FROM ur_ingest_session
+              ORDER BY ur_ingest_session.ingest_finished_at DESC
                  LIMIT 1) AS latest
-          ON fs.walk_session_id = latest.latest_session_id;`;
+          ON iss.ingest_session_id = latest.latest_session_id;`;
   }
 
-  v002_urWalkSessionIssueViewDDL() {
+  v002_urIngestSessionIssueViewDDL() {
     // deno-fmt-ignore
-    return this.nbh.viewDefn("ur_walk_session_issue")/* sql */`
+    return this.nbh.viewDefn("ur_ingest_session_issue")/* sql */`
         SELECT us.device_id,
-               us.ur_walk_session_id,
-               usp.ur_walk_session_path_id,
+               us.ur_ingest_session_id,
+               usp.ur_ingest_session_fs_path_id,
                usp.root_path,
-               ufs.ur_walk_session_path_fs_entry_id,
+               ufs.ur_ingest_session_fs_path_entry_id,
                ufs.file_path_abs,
                ufs.ur_status,
                ufs.ur_diagnostics
-          FROM ur_walk_session_path_fs_entry ufs
-          JOIN ur_walk_session_path usp ON ufs.walk_path_id = usp.ur_walk_session_path_id
-          JOIN ur_walk_session us ON usp.walk_session_id = us.ur_walk_session_id
+          FROM ur_ingest_session_fs_path_entry ufs
+          JOIN ur_ingest_session_fs_path usp ON ufs.ingest_fs_path_id = usp.ur_ingest_session_fs_path_id
+          JOIN ur_ingest_session us ON usp.ingest_session_id = us.ur_ingest_session_id
          WHERE ufs.ur_status IS NOT NULL
       GROUP BY us.device_id, 
-               us.ur_walk_session_id, 
-               usp.ur_walk_session_path_id, 
+               us.ur_ingest_session_id, 
+               usp.ur_ingest_session_fs_path_id, 
                usp.root_path, 
-               ufs.ur_walk_session_path_fs_entry_id, 
+               ufs.ur_ingest_session_fs_path_entry_id, 
                ufs.file_path_abs, 
                ufs.ur_status, 
                ufs.ur_diagnostics;`
@@ -753,8 +753,8 @@ export class SQLPageNotebook<EmitContext extends SQLa.SqlEmitContext>
         'list' as component,
         'Get started: where to go from here ?' as title,
         'Here are some useful links to get you started with SQLPage.' as description;
-      SELECT 'Content Walk Session Statistics' as title,
-        'fsc-walk-session-stats.sql' as link,
+      SELECT 'Content Ingestion Session Statistics' as title,
+        'ingest-session-stats.sql' as link,
         'TODO' as description,
         'green' as color,
         'download' as icon;
@@ -775,10 +775,10 @@ export class SQLPageNotebook<EmitContext extends SQLa.SqlEmitContext>
         'download' as icon;`;
   }
 
-  "fsc-walk-session-stats.sql"() {
+  "ingest-session-stats.sql"() {
     return this.nbh.SQL`
       SELECT 'table' as component, 1 as search, 1 as sort;
-      SELECT walk_datetime, file_extn, total_count, with_content, with_frontmatter, average_size from fs_content_walk_session_stats;`;
+      SELECT ingest_session_started_at, file_extn, total_count, with_content, with_frontmatter, average_size from ingest_session_stats;`;
   }
 
   "mime-types.sql"() {
@@ -1036,15 +1036,15 @@ export class LargeLanguageModelsPromptsNotebook<
       codeBlock`
         Understand the following structure of an SQLite database designed to store cybersecurity and compliance data for files in a file system.
         The database is designed to store devices in the 'device' table and entities called 'resources' stored in the immutable append-only 
-        'uniform_resource' table. Each time files are "walked" they are stored in sessions and link back to 'uniform_resource'. Because all
-        tables are generally append only and immutable it means that the walk_session_path_fs_entry table can be used for revision control
+        'uniform_resource' table. Each time files are "walked" they are stored in ingestion session and link back to 'uniform_resource'. Because all
+        tables are generally append only and immutable it means that the ingest_session_fs_path_entry table can be used for revision control
         and historical tracking of file changes.
         
         Use the following SQLite Schema to generate SQL queries that interact with these tables and once you understand them let me know so I can ask you for help:
         
         ${this.constrNB.v001_once_initialDDL().SQL(this.nbh.emitCtx)}
 
-        ${this.constrNB.v002_fsContentWalkSessionStatsViewDDL().SQL(this.nbh.emitCtx)
+        ${this.constrNB.v002_fsContentIngestSessionStatsViewDDL().SQL(this.nbh.emitCtx)
       }
       `;
   }

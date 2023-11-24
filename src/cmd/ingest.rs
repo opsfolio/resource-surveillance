@@ -17,8 +17,8 @@ pub struct UniformResourceWriterState<'a, 'conn> {
     env_current_dir: &'a String,
     ingest_behavior: &'a IngestBehavior,
     device_id: &'a String,
-    walk_session_id: &'a String,
-    walk_path_id: &'a String,
+    ingest_session_id: &'a String,
+    ingest_fs_path_id: &'a String,
     fsr_walker: &'a FileSysResourcesWalker,
     ins_ur_stmt: &'a mut rusqlite::Statement<'conn>,
     _ins_ur_transform_stmt: &'a mut rusqlite::Statement<'conn>,
@@ -33,8 +33,8 @@ impl<'a, 'conn> UniformResourceWriterState<'a, 'conn> {
                 "behavior": self.ingest_behavior,
                 "device": { "device_id": self.device_id },
                 "session": {
-                    "walk-session-id": self.walk_session_id,
-                    "walk-path-id": self.walk_path_id,
+                    "walk-session-id": self.ingest_session_id,
+                    "walk-path-id": self.ingest_fs_path_id,
                     "entry": { "path": entry.dir_entry.path().to_str().unwrap() },
                 },
             }
@@ -176,8 +176,8 @@ pub trait UniformResourceWriter<Resource> {
                 Ok(text) => match urw_state.ins_ur_stmt.query_row(
                     params![
                         urw_state.device_id,
-                        urw_state.walk_session_id,
-                        urw_state.walk_path_id,
+                        urw_state.ingest_session_id,
+                        urw_state.ingest_fs_path_id,
                         resource.uri,
                         resource.nature,
                         text.content_text(),
@@ -221,8 +221,8 @@ pub trait UniformResourceWriter<Resource> {
         match urw_state.ins_ur_stmt.query_row(
             params![
                 urw_state.device_id,
-                urw_state.walk_session_id,
-                urw_state.walk_path_id,
+                urw_state.ingest_session_id,
+                urw_state.ingest_fs_path_id,
                 resource.uri,
                 resource.nature,
                 bc.content_binary(),
@@ -257,8 +257,8 @@ impl UniformResourceWriter<ContentResource> for ContentResource {
         match urw_state.ins_ur_stmt.query_row(
             params![
                 urw_state.device_id,
-                urw_state.walk_session_id,
-                urw_state.walk_path_id,
+                urw_state.ingest_session_id,
+                urw_state.ingest_fs_path_id,
                 self.uri,
                 self.nature,
                 &None::<String>,   // not storing content
@@ -485,8 +485,8 @@ impl UniformResourceWriter<ContentResource> for MarkdownResource<ContentResource
                     match urw_state.ins_ur_stmt.query_row(
                         params![
                             urw_state.device_id,
-                            urw_state.walk_session_id,
-                            urw_state.walk_path_id,
+                            urw_state.ingest_session_id,
+                            urw_state.ingest_fs_path_id,
                             self.resource.uri,
                             self.resource.nature,
                             markdown_src.content_text(),
@@ -799,19 +799,19 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
     // it in persist::prepare_conn.
 
     // separate the SQL from the execute so we can use it in logging, errors, etc.
-    const INS_UR_WALK_SESSION_SQL: &str = indoc! {"
-        INSERT INTO ur_walk_session (ur_walk_session_id, device_id, behavior_id, behavior_json, walk_started_at) 
-                             VALUES (ulid(), ?, ?, ?, CURRENT_TIMESTAMP) RETURNING ur_walk_session_id"};
-    const INS_UR_WALK_SESSION_FINISH_SQL: &str = indoc! {"
-        UPDATE ur_walk_session 
-           SET walk_finished_at = CURRENT_TIMESTAMP 
-         WHERE ur_walk_session_id = ?"};
+    const INS_UR_INGEST_SESSION_SQL: &str = indoc! {"
+        INSERT INTO ur_ingest_session (ur_ingest_session_id, device_id, behavior_id, behavior_json, ingest_started_at) 
+                             VALUES (ulid(), ?, ?, ?, CURRENT_TIMESTAMP) RETURNING ur_ingest_session_id"};
+    const INS_UR_INGEST_SESSION_FINISH_SQL: &str = indoc! {"
+        UPDATE ur_ingest_session 
+           SET ingest_finished_at = CURRENT_TIMESTAMP 
+         WHERE ur_ingest_session_id = ?"};
     const INS_UR_WSP_SQL: &str = indoc! {"
-        INSERT INTO ur_walk_session_path (ur_walk_session_path_id, walk_session_id, root_path) 
-                                  VALUES (ulid(), ?, ?) RETURNING ur_walk_session_path_id"};
+        INSERT INTO ur_ingest_session_fs_path (ur_ingest_session_fs_path_id, ingest_session_id, root_path) 
+                                  VALUES (ulid(), ?, ?) RETURNING ur_ingest_session_fs_path_id"};
     // in ins_ur_stmt the `DO UPDATE SET size_bytes = EXCLUDED.size_bytes` is a workaround to force uniform_resource_id when the row already exists
     const INS_UR_SQL: &str = indoc! {"
-        INSERT INTO uniform_resource (uniform_resource_id, device_id, walk_session_id, walk_path_id, uri, nature, content, content_digest, size_bytes, last_modified_at, content_fm_body_attrs, frontmatter)
+        INSERT INTO uniform_resource (uniform_resource_id, device_id, ingest_session_id, ingest_fs_path_id, uri, nature, content, content_digest, size_bytes, last_modified_at, content_fm_body_attrs, frontmatter)
                               VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
                          ON CONFLICT (device_id, content_digest, uri, size_bytes, last_modified_at) 
                            DO UPDATE SET size_bytes = EXCLUDED.size_bytes
@@ -823,7 +823,7 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
                                  DO UPDATE SET size_bytes = EXCLUDED.size_bytes
                                      RETURNING uniform_resource_transform_id"};
     const INS_UR_FS_ENTRY_SQL: &str = indoc! {"
-        INSERT INTO ur_walk_session_path_fs_entry (ur_walk_session_path_fs_entry_id, walk_session_id, walk_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn, ur_status, ur_diagnostics, captured_executable) 
+        INSERT INTO ur_ingest_session_fs_path_entry (ur_ingest_session_fs_path_entry_id, ingest_session_id, ingest_fs_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn, ur_status, ur_diagnostics, captured_executable) 
                                            VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"};
 
     let (mut fswb, mut behavior_id) = IngestBehavior::new(&device_id, fsw_args, &tx)
@@ -858,9 +858,9 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
         );
     }
 
-    let walk_session_id: String = tx
+    let ingest_session_id: String = tx
         .query_row(
-            INS_UR_WALK_SESSION_SQL,
+            INS_UR_INGEST_SESSION_SQL,
             params![
                 device_id,
                 behavior_id,
@@ -875,11 +875,11 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
         .with_context(|| {
             format!(
                 "[ingest] inserting UR walk session using {} in {}",
-                INS_UR_WALK_SESSION_SQL, db_fs_path
+                INS_UR_INGEST_SESSION_SQL, db_fs_path
             )
         })?;
     if cli.debug > 0 {
-        println!("Walk Session: {walk_session_id}");
+        println!("Walk Session: {ingest_session_id}");
     }
 
     // We don't use an ORM and just use raw Rusqlite for highest performance.
@@ -925,8 +925,8 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
                 })?;
             let canonical_path = canonical_path_buf.into_os_string().into_string().unwrap();
 
-            let ins_ur_wsp_params = params![walk_session_id, canonical_path];
-            let walk_path_id: String = ins_ur_wsp_stmt
+            let ins_ur_wsp_params = params![ingest_session_id, canonical_path];
+            let ingest_fs_path_id: String = ins_ur_wsp_stmt
                 .query_row(ins_ur_wsp_params, |row| row.get(0))
                 .with_context(|| {
                     format!(
@@ -935,7 +935,7 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
                     )
                 })?;
             if cli.debug > 0 {
-                println!("  Walk Session Path: {root_path} ({walk_path_id})");
+                println!("  Walk Session Path: {root_path} ({ingest_fs_path_id})");
             }
 
             let rp: Vec<String> = vec![canonical_path.clone()];
@@ -959,8 +959,8 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
                 ingest_behavior: &fswb,
                 env_current_dir: &env_current_dir,
                 device_id: &device_id,
-                walk_session_id: &walk_session_id,
-                walk_path_id: &walk_path_id,
+                ingest_session_id: &ingest_session_id,
+                ingest_fs_path_id: &ingest_fs_path_id,
                 fsr_walker: &walker,
                 ins_ur_stmt: &mut ins_ur_stmt,
                 _ins_ur_transform_stmt: &mut ins_ur_transform_stmt,
@@ -1034,8 +1034,8 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
                                 file_extn,
                             )) => {
                                 match ins_ur_fs_entry_stmt.execute(params![
-                                    walk_session_id,
-                                    walk_path_id,
+                                    ingest_session_id,
+                                    ingest_fs_path_id,
                                     uniform_resource_id,
                                     file_path_abs.into_os_string().into_string().unwrap(),
                                     file_path_rel_parent.into_os_string().into_string().unwrap(),
@@ -1074,12 +1074,12 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
         }
     }
 
-    match tx.execute(INS_UR_WALK_SESSION_FINISH_SQL, params![walk_session_id]) {
+    match tx.execute(INS_UR_INGEST_SESSION_FINISH_SQL, params![ingest_session_id]) {
         Ok(_) => {}
         Err(err) => {
             eprintln!(
                 "[ingest] unable to execute SQL {} in {}: {}",
-                INS_UR_WALK_SESSION_FINISH_SQL, db_fs_path, err
+                INS_UR_INGEST_SESSION_FINISH_SQL, db_fs_path, err
             )
         }
     }
@@ -1087,5 +1087,5 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
     tx.commit()
         .with_context(|| format!("[ingest] unable to perform final commit in {}", db_fs_path))?;
 
-    Ok(walk_session_id)
+    Ok(ingest_session_id)
 }

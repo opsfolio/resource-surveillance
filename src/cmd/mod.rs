@@ -289,17 +289,16 @@ impl CliCommands {
             CliCommands::Admin(args) => args.command.execute(cli, args),
             CliCommands::CapturableExec(args) => args.command.execute(cli, args),
             CliCommands::Ingest(args) => match ingest(cli, args) {
-                Ok(walk_session_id) => {
+                Ok(ingest_session_id) => {
                     if args.stats || args.stats_json {
                         if let Ok(conn) = Connection::open_with_flags(
                             args.state_db_fs_path.clone(),
                             OpenFlags::SQLITE_OPEN_READ_WRITE,
                         ) {
                             if args.stats_json {
-                                if let Ok(stats) = fs_content_walk_session_stats_latest(
-                                    &conn,
-                                    walk_session_id.clone(),
-                                ) {
+                                if let Ok(stats) =
+                                    ingest_session_stats_latest(&conn, ingest_session_id.clone())
+                                {
                                     print!("{}", serde_json::to_string_pretty(&stats).unwrap())
                                 }
                             }
@@ -332,7 +331,7 @@ impl CliCommands {
                                         }
                                         Ok(())
                                     },
-                                    walk_session_id,
+                                    ingest_session_id,
                                 )
                                 .unwrap();
                                 println!(

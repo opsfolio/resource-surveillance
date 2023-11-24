@@ -25,11 +25,11 @@ $ cargo run -- --help                         # get CLI help, same as above
 $ just run admin cli-help-md                  # get CLI in Markdown and update this README.md manually
 $ cargo run -- --help-markdown > CLI-help.md  # get CLI in Markdown, same as above
 
-$ just run fs-walk --help                     # get CLI help for fs-walk subcommand
-$ just run --debug fs-walk                    # walk the current working directory (CWD) with debug messages
-$ just run fs-walk -r /other -r /other2       # walk some other director(ies)
-$ just run fs-walk -i .git/                   # walk CWD, ignore .git/ paths
-$ just run fs-walk -i .git/ -i target/        # walk CWD, ignore .git/ and target/ paths
+$ just run ingest --help                     # get CLI help for ingest subcommand
+$ just run --debug ingest                    # walk the current working directory (CWD) with debug messages
+$ just run ingest -r /other -r /other2       # walk some other director(ies)
+$ just run ingest -i .git/                   # walk CWD, ignore .git/ paths
+$ just run ingest -i .git/ -i target/        # walk CWD, ignore .git/ and target/ paths
 
 $ just sqla-sync                              # generate SQLa bootstrap and other SQL
                                              

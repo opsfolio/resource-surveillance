@@ -3,7 +3,7 @@
 ## Description
 
 Behaviors are configuration "presets" that can be used to drive  
-application operations at runtime. For example FS Walk behaviors  
+application operations at runtime. For example, ingest behaviors  
 include configs that indicate which files to ignore, which to  
 scan, when to load content, etc. This is more convenient than   
 creating   
@@ -39,21 +39,21 @@ CREATE TABLE "behavior" (
 
 ## Columns
 
-| Name                | Type      | Default           | Nullable | Children                              | Parents             | Comment                                                                                      |
-| ------------------- | --------- | ----------------- | -------- | ------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------- |
-| behavior_id         | ULID      |                   | false    | [ur_walk_session](ur_walk_session.md) |                     | {"isSqlDomainZodDescrMeta":true,"isUlid":true}                                               |
-| device_id           | ULID      |                   | false    |                                       | [device](device.md) | {"isSqlDomainZodDescrMeta":true,"isUlid":true}                                               |
-| behavior_name       | TEXT      |                   | false    |                                       |                     | Arbitrary but unique per-device behavior name (e.g. fs-walk::xyz)                            |
-| behavior_conf_json  | TEXT      |                   | false    |                                       |                     | Configuration, settings, parameters, etc. describing the behavior (JSON, behavior-dependent) |
-| assurance_schema_id | TEXT      |                   | true     |                                       |                     |                                                                                              |
-| governance          | TEXT      |                   | true     |                                       |                     | Descriptions or other "governance" details (JSON, behavior-dependent)                        |
-| created_at          | TIMESTAMP | CURRENT_TIMESTAMP | true     |                                       |                     |                                                                                              |
-| created_by          | TEXT      | 'UNKNOWN'         | true     |                                       |                     |                                                                                              |
-| updated_at          | TIMESTAMP |                   | true     |                                       |                     |                                                                                              |
-| updated_by          | TEXT      |                   | true     |                                       |                     |                                                                                              |
-| deleted_at          | TIMESTAMP |                   | true     |                                       |                     |                                                                                              |
-| deleted_by          | TEXT      |                   | true     |                                       |                     |                                                                                              |
-| activity_log        | TEXT      |                   | true     |                                       |                     | {"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}                                      |
+| Name                | Type      | Default           | Nullable | Children                                  | Parents             | Comment                                                                                      |
+| ------------------- | --------- | ----------------- | -------- | ----------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------- |
+| behavior_id         | ULID      |                   | false    | [ur_ingest_session](ur_ingest_session.md) |                     | {"isSqlDomainZodDescrMeta":true,"isUlid":true}                                               |
+| device_id           | ULID      |                   | false    |                                           | [device](device.md) | {"isSqlDomainZodDescrMeta":true,"isUlid":true}                                               |
+| behavior_name       | TEXT      |                   | false    |                                           |                     | Arbitrary but unique per-device behavior name (e.g. ingest::xyz)                             |
+| behavior_conf_json  | TEXT      |                   | false    |                                           |                     | Configuration, settings, parameters, etc. describing the behavior (JSON, behavior-dependent) |
+| assurance_schema_id | TEXT      |                   | true     |                                           |                     |                                                                                              |
+| governance          | TEXT      |                   | true     |                                           |                     | Descriptions or other "governance" details (JSON, behavior-dependent)                        |
+| created_at          | TIMESTAMP | CURRENT_TIMESTAMP | true     |                                           |                     |                                                                                              |
+| created_by          | TEXT      | 'UNKNOWN'         | true     |                                           |                     |                                                                                              |
+| updated_at          | TIMESTAMP |                   | true     |                                           |                     |                                                                                              |
+| updated_by          | TEXT      |                   | true     |                                           |                     |                                                                                              |
+| deleted_at          | TIMESTAMP |                   | true     |                                           |                     |                                                                                              |
+| deleted_by          | TEXT      |                   | true     |                                           |                     |                                                                                              |
+| activity_log        | TEXT      |                   | true     |                                           |                     | {"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}                                      |
 
 ## Constraints
 

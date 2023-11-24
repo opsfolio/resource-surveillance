@@ -170,11 +170,11 @@ impl AdminCommands {
         let merge_tables = &[
             "device",
             "behavior",
-            "ur_walk_session",
-            "ur_walk_session_path",
+            "ur_ingest_session",
+            "ur_ingest_session_fs_path",
             "uniform_resource",
             "uniform_resource_transform",
-            "ur_walk_session_path_fs_entry",
+            "ur_ingest_session_fs_path_entry",
         ];
         for db_path in &db_paths {
             for merge_table in merge_tables {

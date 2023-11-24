@@ -1,0 +1,94 @@
+# ur_ingest_session_fs_path_entry
+
+## Description
+
+Contains entries related to file system content ingestion paths. On multiple executions,  unlike uniform_resource, ur_ingest_session_fs_path_entry rows are always inserted and   references the uniform_resource primary key of its related content.  This method allows for a more efficient query of file version differences across  sessions. With SQL queries, you can detect which sessions have a file added or modified,   which sessions have a file deleted, and what the differences are in file contents  if they were modified across sessions.
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE TABLE "ur_ingest_session_fs_path_entry" (
+    "ur_ingest_session_fs_path_entry_id" ULID PRIMARY KEY NOT NULL,
+    "ingest_session_id" ULID NOT NULL,
+    "ingest_fs_path_id" ULID NOT NULL,
+    "uniform_resource_id" ULID,
+    "file_path_abs" TEXT NOT NULL,
+    "file_path_rel_parent" TEXT NOT NULL,
+    "file_path_rel" TEXT NOT NULL,
+    "file_basename" TEXT NOT NULL,
+    "file_extn" TEXT,
+    "captured_executable" TEXT CHECK(json_valid(captured_executable) OR captured_executable IS NULL),
+    "ur_status" TEXT,
+    "ur_diagnostics" TEXT CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL),
+    "ur_transformations" TEXT CHECK(json_valid(ur_transformations) OR ur_transformations IS NULL),
+    "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
+    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT DEFAULT 'UNKNOWN',
+    "updated_at" TIMESTAMP,
+    "updated_by" TEXT,
+    "deleted_at" TIMESTAMP,
+    "deleted_by" TEXT,
+    "activity_log" TEXT,
+    FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
+    FOREIGN KEY("ingest_fs_path_id") REFERENCES "ur_ingest_session_fs_path"("ur_ingest_session_fs_path_id"),
+    FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
+)
+```
+
+</details>
+
+## Columns
+
+| Name                               | Type      | Default           | Nullable | Parents                                                   | Comment                                                 |
+| ---------------------------------- | --------- | ----------------- | -------- | --------------------------------------------------------- | ------------------------------------------------------- |
+| ur_ingest_session_fs_path_entry_id | ULID      |                   | false    |                                                           | {"isSqlDomainZodDescrMeta":true,"isUlid":true}          |
+| ingest_session_id                  | ULID      |                   | false    | [ur_ingest_session](ur_ingest_session.md)                 | {"isSqlDomainZodDescrMeta":true,"isUlid":true}          |
+| ingest_fs_path_id                  | ULID      |                   | false    | [ur_ingest_session_fs_path](ur_ingest_session_fs_path.md) | {"isSqlDomainZodDescrMeta":true,"isUlid":true}          |
+| uniform_resource_id                | ULID      |                   | true     | [uniform_resource](uniform_resource.md)                   | {"isSqlDomainZodDescrMeta":true,"isUlid":true}          |
+| file_path_abs                      | TEXT      |                   | false    |                                                           |                                                         |
+| file_path_rel_parent               | TEXT      |                   | false    |                                                           |                                                         |
+| file_path_rel                      | TEXT      |                   | false    |                                                           |                                                         |
+| file_basename                      | TEXT      |                   | false    |                                                           |                                                         |
+| file_extn                          | TEXT      |                   | true     |                                                           |                                                         |
+| captured_executable                | TEXT      |                   | true     |                                                           | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |
+| ur_status                          | TEXT      |                   | true     |                                                           |                                                         |
+| ur_diagnostics                     | TEXT      |                   | true     |                                                           | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |
+| ur_transformations                 | TEXT      |                   | true     |                                                           | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |
+| elaboration                        | TEXT      |                   | true     |                                                           | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |
+| created_at                         | TIMESTAMP | CURRENT_TIMESTAMP | true     |                                                           |                                                         |
+| created_by                         | TEXT      | 'UNKNOWN'         | true     |                                                           |                                                         |
+| updated_at                         | TIMESTAMP |                   | true     |                                                           |                                                         |
+| updated_by                         | TEXT      |                   | true     |                                                           |                                                         |
+| deleted_at                         | TIMESTAMP |                   | true     |                                                           |                                                         |
+| deleted_by                         | TEXT      |                   | true     |                                                           |                                                         |
+| activity_log                       | TEXT      |                   | true     |                                                           | {"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true} |
+
+## Constraints
+
+| Name                                               | Type        | Definition                                                                                                                                             |
+| -------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ur_ingest_session_fs_path_entry_id                 | PRIMARY KEY | PRIMARY KEY (ur_ingest_session_fs_path_entry_id)                                                                                                       |
+| - (Foreign key ID: 0)                              | FOREIGN KEY | FOREIGN KEY (uniform_resource_id) REFERENCES uniform_resource (uniform_resource_id) ON UPDATE NO ACTION ON DELETE NO ACTION MATCH NONE                 |
+| - (Foreign key ID: 1)                              | FOREIGN KEY | FOREIGN KEY (ingest_fs_path_id) REFERENCES ur_ingest_session_fs_path (ur_ingest_session_fs_path_id) ON UPDATE NO ACTION ON DELETE NO ACTION MATCH NONE |
+| - (Foreign key ID: 2)                              | FOREIGN KEY | FOREIGN KEY (ingest_session_id) REFERENCES ur_ingest_session (ur_ingest_session_id) ON UPDATE NO ACTION ON DELETE NO ACTION MATCH NONE                 |
+| sqlite_autoindex_ur_ingest_session_fs_path_entry_1 | PRIMARY KEY | PRIMARY KEY (ur_ingest_session_fs_path_entry_id)                                                                                                       |
+| -                                                  | CHECK       | CHECK(json_valid(captured_executable) OR captured_executable IS NULL)                                                                                  |
+| -                                                  | CHECK       | CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL)                                                                                            |
+| -                                                  | CHECK       | CHECK(json_valid(ur_transformations) OR ur_transformations IS NULL)                                                                                    |
+| -                                                  | CHECK       | CHECK(json_valid(elaboration) OR elaboration IS NULL)                                                                                                  |
+
+## Indexes
+
+| Name                                                                  | Definition                                                                                                                                                      |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| idx_ur_ingest_session_fs_path_entry__ingest_session_id__file_path_abs | CREATE INDEX "idx_ur_ingest_session_fs_path_entry__ingest_session_id__file_path_abs" ON "ur_ingest_session_fs_path_entry"("ingest_session_id", "file_path_abs") |
+| sqlite_autoindex_ur_ingest_session_fs_path_entry_1                    | PRIMARY KEY (ur_ingest_session_fs_path_entry_id)                                                                                                                |
+
+## Relations
+
+![er](ur_ingest_session_fs_path_entry.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)

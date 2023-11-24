@@ -9,11 +9,11 @@ er:
 include:
   - device
   - behavior
-  - ur_walk_session
-  - ur_walk_session_path
+  - ur_ingest_session
+  - ur_ingest_session_fs_path
   - uniform_resource
   - uniform_resource_transform
-  - ur_walk_session_path_fs_entry
+  - ur_ingest_session_fs_path_entry
 name: Resource Surveillance State Schema
 comments:
   - table: device
@@ -37,7 +37,7 @@ comments:
     columnComments:
       behavior_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      behavior_name: 'Arbitrary but unique per-device behavior name (e.g. fs-walk::xyz)'
+      behavior_name: 'Arbitrary but unique per-device behavior name (e.g. ingest::xyz)'
       behavior_conf_json: >-
         Configuration, settings, parameters, etc. describing the behavior (JSON,
         behavior-dependent)
@@ -45,58 +45,64 @@ comments:
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: |-
       Behaviors are configuration "presets" that can be used to drive
-      application operations at runtime. For example FS Walk behaviors
+      application operations at runtime. For example, ingest behaviors
       include configs that indicate which files to ignore, which to
       scan, when to load content, etc. This is more convenient than 
       creating 
 
       behavior has a foreign key reference to the device table since
       behaviors might be device-specific.
-  - table: ur_walk_session
+  - table: ur_ingest_session
     columnComments:
-      ur_walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      ur_ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       behavior_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       behavior_json: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
-      walk_started_at: >-
+      ingest_started_at: >-
         {"isSqlDomainZodDescrMeta":true,"isDateSqlDomain":true,"isDateTime":true}
-      walk_finished_at: >-
+      ingest_finished_at: >-
         {"isSqlDomainZodDescrMeta":true,"isDateSqlDomain":true,"isDateTime":true}
       elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: >-
-      Immutable Walk Sessions represents any "discovery" or "walk" operation.
+      Immutable ingestion sessions represents any "discovery" or "walk"
+      operation.
 
       This could be a device file system scan or any other resource discovery
 
       session. Each time a discovery operation starts, a record is created. 
 
-      ur_walk_session has a foreign key reference to the device table so that
+      ur_ingest_session has a foreign key reference to the device table so that
       the
 
-      same device can be used for multiple walk sessions but also the walk
+      same device can be used for multiple ingest sessions but also the ingest
 
       sessions can be merged across workstations / servers for easier detection
 
       of changes and similaries between file systems on different devices.
-  - table: ur_walk_session_path
+  - table: ur_ingest_session_fs_path
     columnComments:
-      ur_walk_session_path_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      ur_ingest_session_fs_path_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
-    tableComment: |-
-      Immutable Walk Session path represents a discovery or "walk" path If
-      the session was file system scan, then root_path is the
+    tableComment: >-
+      Immutable ingest session file system path represents a discovery or "walk"
+      path. If
+
+      the session included a file system scan, then root_path is the
+
       root file system path that was scanned. If the session was discovering
+
       resources in another target then root_path would be
+
       representative of the target path (could be a URI).
   - table: uniform_resource
     columnComments:
       uniform_resource_id: uniform_resource ULID primary key
       device_id: which device row introduced this resource
-      walk_session_id: which ur_walk_session row introduced this resource
-      walk_path_id: which ur_walk_session_path row introduced this resource
+      ingest_session_id: which ur_ingest_session row introduced this resource
+      ingest_fs_path_id: which ur_ingest_session_fs_path row introduced this resource
       uri: >-
         the resource's URI (dependent on how it was acquired and on which
         device)
@@ -117,8 +123,8 @@ comments:
       Immutable resource and content information. On multiple executions,
       uniform_resource are inserted only if the the content (see unique 
       index for details). For historical logging, uniform_resource has foreign
-      key references to both ur_walk_session and ur_walk_session_path
-      tables to indicate which particular session and walk path the
+      key references to both ur_ingest_session and ur_ingest_session_fs_path
+      tables to indicate which particular session and ingestion path the
       resourced was inserted during.
   - table: uniform_resource_transform
     columnComments:
@@ -130,11 +136,11 @@ comments:
       elaboration: anything that doesn't fit in other columns (JSON)
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: uniform_resource transformed content
-  - table: ur_walk_session_path_fs_entry
+  - table: ur_ingest_session_fs_path_entry
     columnComments:
-      ur_walk_session_path_fs_entry_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      walk_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      walk_path_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      ur_ingest_session_fs_path_entry_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      ingest_fs_path_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       uniform_resource_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
       captured_executable: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       ur_diagnostics: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
@@ -142,10 +148,10 @@ comments:
       elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: >-
-      Contains entries related to file system content walk paths. On multiple
-      executions,
+      Contains entries related to file system content ingestion paths. On
+      multiple executions,
 
-      unlike uniform_resource, ur_walk_session_path_fs_entry rows are always
+      unlike uniform_resource, ur_ingest_session_fs_path_entry rows are always
       inserted and 
 
       references the uniform_resource primary key of its related content.

@@ -195,13 +195,13 @@ CREATE TABLE IF NOT EXISTS "behavior" (
     FOREIGN KEY("assurance_schema_id") REFERENCES "assurance_schema"("assurance_schema_id"),
     UNIQUE("device_id", "behavior_name")
 );
-CREATE TABLE IF NOT EXISTS "ur_walk_session" (
-    "ur_walk_session_id" ULID PRIMARY KEY NOT NULL,
+CREATE TABLE IF NOT EXISTS "ur_ingest_session" (
+    "ur_ingest_session_id" ULID PRIMARY KEY NOT NULL,
     "device_id" ULID NOT NULL,
     "behavior_id" ULID,
     "behavior_json" TEXT CHECK(json_valid(behavior_json) OR behavior_json IS NULL),
-    "walk_started_at" TIMESTAMP NOT NULL,
-    "walk_finished_at" TIMESTAMP,
+    "ingest_started_at" TIMESTAMP NOT NULL,
+    "ingest_finished_at" TIMESTAMP,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
@@ -214,9 +214,9 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session" (
     FOREIGN KEY("behavior_id") REFERENCES "behavior"("behavior_id"),
     UNIQUE("device_id", "created_at")
 );
-CREATE TABLE IF NOT EXISTS "ur_walk_session_path" (
-    "ur_walk_session_path_id" ULID PRIMARY KEY NOT NULL,
-    "walk_session_id" ULID NOT NULL,
+CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path" (
+    "ur_ingest_session_fs_path_id" ULID PRIMARY KEY NOT NULL,
+    "ingest_session_id" ULID NOT NULL,
     "root_path" TEXT NOT NULL,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -226,14 +226,14 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session_path" (
     "deleted_at" TIMESTAMP,
     "deleted_by" TEXT,
     "activity_log" TEXT,
-    FOREIGN KEY("walk_session_id") REFERENCES "ur_walk_session"("ur_walk_session_id"),
-    UNIQUE("walk_session_id", "root_path", "created_at")
+    FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
+    UNIQUE("ingest_session_id", "root_path", "created_at")
 );
 CREATE TABLE IF NOT EXISTS "uniform_resource" (
     "uniform_resource_id" ULID PRIMARY KEY NOT NULL,
     "device_id" ULID NOT NULL,
-    "walk_session_id" ULID NOT NULL,
-    "walk_path_id" ULID NOT NULL,
+    "ingest_session_id" ULID NOT NULL,
+    "ingest_fs_path_id" ULID NOT NULL,
     "uri" TEXT NOT NULL,
     "content_digest" TEXT NOT NULL,
     "content" BLOB,
@@ -251,8 +251,8 @@ CREATE TABLE IF NOT EXISTS "uniform_resource" (
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("device_id") REFERENCES "device"("device_id"),
-    FOREIGN KEY("walk_session_id") REFERENCES "ur_walk_session"("ur_walk_session_id"),
-    FOREIGN KEY("walk_path_id") REFERENCES "ur_walk_session_path"("ur_walk_session_path_id"),
+    FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
+    FOREIGN KEY("ingest_fs_path_id") REFERENCES "ur_ingest_session_fs_path"("ur_ingest_session_fs_path_id"),
     UNIQUE("device_id", "content_digest", "uri", "size_bytes", "last_modified_at")
 );
 CREATE TABLE IF NOT EXISTS "uniform_resource_transform" (
@@ -274,10 +274,10 @@ CREATE TABLE IF NOT EXISTS "uniform_resource_transform" (
     FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id"),
     UNIQUE("uniform_resource_id", "content_digest", "nature", "size_bytes")
 );
-CREATE TABLE IF NOT EXISTS "ur_walk_session_path_fs_entry" (
-    "ur_walk_session_path_fs_entry_id" ULID PRIMARY KEY NOT NULL,
-    "walk_session_id" ULID NOT NULL,
-    "walk_path_id" ULID NOT NULL,
+CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path_entry" (
+    "ur_ingest_session_fs_path_entry_id" ULID PRIMARY KEY NOT NULL,
+    "ingest_session_id" ULID NOT NULL,
+    "ingest_fs_path_id" ULID NOT NULL,
     "uniform_resource_id" ULID,
     "file_path_abs" TEXT NOT NULL,
     "file_path_rel_parent" TEXT NOT NULL,
@@ -296,33 +296,33 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session_path_fs_entry" (
     "deleted_at" TIMESTAMP,
     "deleted_by" TEXT,
     "activity_log" TEXT,
-    FOREIGN KEY("walk_session_id") REFERENCES "ur_walk_session"("ur_walk_session_id"),
-    FOREIGN KEY("walk_path_id") REFERENCES "ur_walk_session_path"("ur_walk_session_path_id"),
+    FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
+    FOREIGN KEY("ingest_fs_path_id") REFERENCES "ur_ingest_session_fs_path"("ur_ingest_session_fs_path_id"),
     FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
 );
 
 CREATE INDEX IF NOT EXISTS "idx_device__name__state" ON "device"("name", "state");
-CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path__walk_session_id__root_path" ON "ur_walk_session_path"("walk_session_id", "root_path");
+CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path__ingest_session_id__root_path" ON "ur_ingest_session_fs_path"("ingest_session_id", "root_path");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource__device_id__uri" ON "uniform_resource"("device_id", "uri");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource_transform__uniform_resource_id__content_digest" ON "uniform_resource_transform"("uniform_resource_id", "content_digest");
-CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path_fs_entry__walk_session_id__file_path_abs" ON "ur_walk_session_path_fs_entry"("walk_session_id", "file_path_abs");
-', '03969c5bd12130ea7544ece1bd3c4bc91944db4b', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path_entry__ingest_session_id__file_path_abs" ON "ur_ingest_session_fs_path_entry"("ingest_session_id", "file_path_abs");
+', 'c994bfef6a9a44a6504892d808cd1c179c244213', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v002_fsContentWalkSessionStatsViewDDL', NULL, 'DROP VIEW IF EXISTS "fs_content_walk_session_stats";
-CREATE VIEW IF NOT EXISTS "fs_content_walk_session_stats" AS
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v002_fsContentIngestSessionStatsViewDDL', NULL, 'DROP VIEW IF EXISTS "ingest_session_stats";
+CREATE VIEW IF NOT EXISTS "ingest_session_stats" AS
     WITH Summary AS (
         SELECT
             device.device_id AS device_id,
-            ur_walk_session.ur_walk_session_id AS walk_session_id,
-            ur_walk_session.walk_started_at AS walk_session_started_at,
-            ur_walk_session.walk_finished_at AS walk_session_finished_at,
-            COALESCE(ur_walk_session_path_fs_entry.file_extn, '''') AS file_extension,
-            ur_walk_session_path.ur_walk_session_path_id as walk_session_path_id,
-            ur_walk_session_path.root_path AS walk_session_root_path,
-            COUNT(ur_walk_session_path_fs_entry.uniform_resource_id) AS total_file_count,
+            ur_ingest_session.ur_ingest_session_id AS ingest_session_id,
+            ur_ingest_session.ingest_started_at AS ingest_session_started_at,
+            ur_ingest_session.ingest_finished_at AS ingest_session_finished_at,
+            COALESCE(ur_ingest_session_fs_path_entry.file_extn, '''') AS file_extension,
+            ur_ingest_session_fs_path.ur_ingest_session_fs_path_id as ingest_session_fs_path_id,
+            ur_ingest_session_fs_path.root_path AS ingest_session_root_fs_path,
+            COUNT(ur_ingest_session_fs_path_entry.uniform_resource_id) AS total_file_count,
             SUM(CASE WHEN uniform_resource.content IS NOT NULL THEN 1 ELSE 0 END) AS file_count_with_content,
             SUM(CASE WHEN uniform_resource.frontmatter IS NOT NULL THEN 1 ELSE 0 END) AS file_count_with_frontmatter,
             MIN(uniform_resource.size_bytes) AS min_file_size_bytes,
@@ -331,31 +331,31 @@ CREATE VIEW IF NOT EXISTS "fs_content_walk_session_stats" AS
             MIN(uniform_resource.last_modified_at) AS oldest_file_last_modified_datetime,
             MAX(uniform_resource.last_modified_at) AS youngest_file_last_modified_datetime
         FROM
-            ur_walk_session
+            ur_ingest_session
         JOIN
-            device ON ur_walk_session.device_id = device.device_id
+            device ON ur_ingest_session.device_id = device.device_id
         LEFT JOIN
-            ur_walk_session_path ON ur_walk_session.ur_walk_session_id = ur_walk_session_path.walk_session_id
+            ur_ingest_session_fs_path ON ur_ingest_session.ur_ingest_session_id = ur_ingest_session_fs_path.ingest_session_id
         LEFT JOIN
-            ur_walk_session_path_fs_entry ON ur_walk_session_path.ur_walk_session_path_id = ur_walk_session_path_fs_entry.walk_path_id
+            ur_ingest_session_fs_path_entry ON ur_ingest_session_fs_path.ur_ingest_session_fs_path_id = ur_ingest_session_fs_path_entry.ingest_fs_path_id
         LEFT JOIN
-            uniform_resource ON ur_walk_session_path_fs_entry.uniform_resource_id = uniform_resource.uniform_resource_id
+            uniform_resource ON ur_ingest_session_fs_path_entry.uniform_resource_id = uniform_resource.uniform_resource_id
         GROUP BY
             device.device_id,
-            ur_walk_session.ur_walk_session_id,
-            ur_walk_session.walk_started_at,
-            ur_walk_session.walk_finished_at,
-            ur_walk_session_path_fs_entry.file_extn,
-            ur_walk_session_path.root_path
+            ur_ingest_session.ur_ingest_session_id,
+            ur_ingest_session.ingest_started_at,
+            ur_ingest_session.ingest_finished_at,
+            ur_ingest_session_fs_path_entry.file_extn,
+            ur_ingest_session_fs_path.root_path
     )
     SELECT
         device_id,
-        walk_session_id,
-        walk_session_started_at,
-        walk_session_finished_at,
+        ingest_session_id,
+        ingest_session_started_at,
+        ingest_session_finished_at,
         file_extension,
-        walk_session_path_id,
-        walk_session_root_path,
+        ingest_session_fs_path_id,
+        ingest_session_root_fs_path,
         total_file_count,
         file_count_with_content,
         file_count_with_frontmatter,
@@ -368,48 +368,48 @@ CREATE VIEW IF NOT EXISTS "fs_content_walk_session_stats" AS
         Summary
     ORDER BY
         device_id,
-        walk_session_finished_at,
+        ingest_session_finished_at,
         file_extension;
-    ', '2a13ba110d9f0dda21cf7442e7c9c8cc1fb2b58b', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+    ', 'ca9ec3ec2b705d082408d3d96e7a23da881c1574', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v002_fsContentWalkSessionStatsLatestViewDDL', NULL, 'DROP VIEW IF EXISTS "fs_content_walk_session_stats_latest";
-CREATE VIEW IF NOT EXISTS "fs_content_walk_session_stats_latest" AS
-    SELECT fs.*
-      FROM fs_content_walk_session_stats AS fs
-      JOIN (  SELECT ur_walk_session.ur_walk_session_id AS latest_session_id
-                FROM ur_walk_session
-            ORDER BY ur_walk_session.walk_finished_at DESC
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v002_fsContentIngestSessionStatsLatestViewDDL', NULL, 'DROP VIEW IF EXISTS "ingest_session_stats_latest";
+CREATE VIEW IF NOT EXISTS "ingest_session_stats_latest" AS
+    SELECT iss.*
+      FROM ingest_session_stats AS iss
+      JOIN (  SELECT ur_ingest_session.ur_ingest_session_id AS latest_session_id
+                FROM ur_ingest_session
+            ORDER BY ur_ingest_session.ingest_finished_at DESC
                LIMIT 1) AS latest
-        ON fs.walk_session_id = latest.latest_session_id;', 'f2b7a41a567cab6a59d6dc57a223ec053d0f2276', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+        ON iss.ingest_session_id = latest.latest_session_id;', '627523d9f98383aeaab10b4be9b9a48651a4d635', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v002_urWalkSessionIssueViewDDL', NULL, 'DROP VIEW IF EXISTS "ur_walk_session_issue";
-CREATE VIEW IF NOT EXISTS "ur_walk_session_issue" AS
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v002_urIngestSessionIssueViewDDL', NULL, 'DROP VIEW IF EXISTS "ur_ingest_session_issue";
+CREATE VIEW IF NOT EXISTS "ur_ingest_session_issue" AS
       SELECT us.device_id,
-             us.ur_walk_session_id,
-             usp.ur_walk_session_path_id,
+             us.ur_ingest_session_id,
+             usp.ur_ingest_session_fs_path_id,
              usp.root_path,
-             ufs.ur_walk_session_path_fs_entry_id,
+             ufs.ur_ingest_session_fs_path_entry_id,
              ufs.file_path_abs,
              ufs.ur_status,
              ufs.ur_diagnostics
-        FROM ur_walk_session_path_fs_entry ufs
-        JOIN ur_walk_session_path usp ON ufs.walk_path_id = usp.ur_walk_session_path_id
-        JOIN ur_walk_session us ON usp.walk_session_id = us.ur_walk_session_id
+        FROM ur_ingest_session_fs_path_entry ufs
+        JOIN ur_ingest_session_fs_path usp ON ufs.ingest_fs_path_id = usp.ur_ingest_session_fs_path_id
+        JOIN ur_ingest_session us ON usp.ingest_session_id = us.ur_ingest_session_id
        WHERE ufs.ur_status IS NOT NULL
     GROUP BY us.device_id, 
-             us.ur_walk_session_id, 
-             usp.ur_walk_session_path_id, 
+             us.ur_ingest_session_id, 
+             usp.ur_ingest_session_fs_path_id, 
              usp.root_path, 
-             ufs.ur_walk_session_path_fs_entry_id, 
+             ufs.ur_ingest_session_fs_path_entry_id, 
              ufs.file_path_abs, 
              ufs.ur_status, 
-             ufs.ur_diagnostics;', '5b248ab0b7f6fafa0ad64a05d4327596e9df0039', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+             ufs.ur_diagnostics;', '9f42b62807bb7b660519daf3d203964e09576a57', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -691,8 +691,8 @@ CREATE TABLE IF NOT EXISTS "code_notebook_state" (
                    activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
 INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'LLM Prompt', 'LargeLanguageModelsPromptsNotebook', 'understand service schema', NULL, 'Understand the following structure of an SQLite database designed to store cybersecurity and compliance data for files in a file system.
 The database is designed to store devices in the ''device'' table and entities called ''resources'' stored in the immutable append-only 
-''uniform_resource'' table. Each time files are "walked" they are stored in sessions and link back to ''uniform_resource''. Because all
-tables are generally append only and immutable it means that the walk_session_path_fs_entry table can be used for revision control
+''uniform_resource'' table. Each time files are "walked" they are stored in ingestion session and link back to ''uniform_resource''. Because all
+tables are generally append only and immutable it means that the ingest_session_fs_path_entry table can be used for revision control
 and historical tracking of file changes.
 
 Use the following SQLite Schema to generate SQL queries that interact with these tables and once you understand them let me know so I can ask you for help:
@@ -732,13 +732,13 @@ CREATE TABLE IF NOT EXISTS "behavior" (
     FOREIGN KEY("assurance_schema_id") REFERENCES "assurance_schema"("assurance_schema_id"),
     UNIQUE("device_id", "behavior_name")
 );
-CREATE TABLE IF NOT EXISTS "ur_walk_session" (
-    "ur_walk_session_id" ULID PRIMARY KEY NOT NULL,
+CREATE TABLE IF NOT EXISTS "ur_ingest_session" (
+    "ur_ingest_session_id" ULID PRIMARY KEY NOT NULL,
     "device_id" ULID NOT NULL,
     "behavior_id" ULID,
     "behavior_json" TEXT CHECK(json_valid(behavior_json) OR behavior_json IS NULL),
-    "walk_started_at" TIMESTAMP NOT NULL,
-    "walk_finished_at" TIMESTAMP,
+    "ingest_started_at" TIMESTAMP NOT NULL,
+    "ingest_finished_at" TIMESTAMP,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
@@ -751,9 +751,9 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session" (
     FOREIGN KEY("behavior_id") REFERENCES "behavior"("behavior_id"),
     UNIQUE("device_id", "created_at")
 );
-CREATE TABLE IF NOT EXISTS "ur_walk_session_path" (
-    "ur_walk_session_path_id" ULID PRIMARY KEY NOT NULL,
-    "walk_session_id" ULID NOT NULL,
+CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path" (
+    "ur_ingest_session_fs_path_id" ULID PRIMARY KEY NOT NULL,
+    "ingest_session_id" ULID NOT NULL,
     "root_path" TEXT NOT NULL,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -763,14 +763,14 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session_path" (
     "deleted_at" TIMESTAMP,
     "deleted_by" TEXT,
     "activity_log" TEXT,
-    FOREIGN KEY("walk_session_id") REFERENCES "ur_walk_session"("ur_walk_session_id"),
-    UNIQUE("walk_session_id", "root_path", "created_at")
+    FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
+    UNIQUE("ingest_session_id", "root_path", "created_at")
 );
 CREATE TABLE IF NOT EXISTS "uniform_resource" (
     "uniform_resource_id" ULID PRIMARY KEY NOT NULL,
     "device_id" ULID NOT NULL,
-    "walk_session_id" ULID NOT NULL,
-    "walk_path_id" ULID NOT NULL,
+    "ingest_session_id" ULID NOT NULL,
+    "ingest_fs_path_id" ULID NOT NULL,
     "uri" TEXT NOT NULL,
     "content_digest" TEXT NOT NULL,
     "content" BLOB,
@@ -788,8 +788,8 @@ CREATE TABLE IF NOT EXISTS "uniform_resource" (
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("device_id") REFERENCES "device"("device_id"),
-    FOREIGN KEY("walk_session_id") REFERENCES "ur_walk_session"("ur_walk_session_id"),
-    FOREIGN KEY("walk_path_id") REFERENCES "ur_walk_session_path"("ur_walk_session_path_id"),
+    FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
+    FOREIGN KEY("ingest_fs_path_id") REFERENCES "ur_ingest_session_fs_path"("ur_ingest_session_fs_path_id"),
     UNIQUE("device_id", "content_digest", "uri", "size_bytes", "last_modified_at")
 );
 CREATE TABLE IF NOT EXISTS "uniform_resource_transform" (
@@ -811,10 +811,10 @@ CREATE TABLE IF NOT EXISTS "uniform_resource_transform" (
     FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id"),
     UNIQUE("uniform_resource_id", "content_digest", "nature", "size_bytes")
 );
-CREATE TABLE IF NOT EXISTS "ur_walk_session_path_fs_entry" (
-    "ur_walk_session_path_fs_entry_id" ULID PRIMARY KEY NOT NULL,
-    "walk_session_id" ULID NOT NULL,
-    "walk_path_id" ULID NOT NULL,
+CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path_entry" (
+    "ur_ingest_session_fs_path_entry_id" ULID PRIMARY KEY NOT NULL,
+    "ingest_session_id" ULID NOT NULL,
+    "ingest_fs_path_id" ULID NOT NULL,
     "uniform_resource_id" ULID,
     "file_path_abs" TEXT NOT NULL,
     "file_path_rel_parent" TEXT NOT NULL,
@@ -833,30 +833,30 @@ CREATE TABLE IF NOT EXISTS "ur_walk_session_path_fs_entry" (
     "deleted_at" TIMESTAMP,
     "deleted_by" TEXT,
     "activity_log" TEXT,
-    FOREIGN KEY("walk_session_id") REFERENCES "ur_walk_session"("ur_walk_session_id"),
-    FOREIGN KEY("walk_path_id") REFERENCES "ur_walk_session_path"("ur_walk_session_path_id"),
+    FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
+    FOREIGN KEY("ingest_fs_path_id") REFERENCES "ur_ingest_session_fs_path"("ur_ingest_session_fs_path_id"),
     FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
 );
 
 CREATE INDEX IF NOT EXISTS "idx_device__name__state" ON "device"("name", "state");
-CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path__walk_session_id__root_path" ON "ur_walk_session_path"("walk_session_id", "root_path");
+CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path__ingest_session_id__root_path" ON "ur_ingest_session_fs_path"("ingest_session_id", "root_path");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource__device_id__uri" ON "uniform_resource"("device_id", "uri");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource_transform__uniform_resource_id__content_digest" ON "uniform_resource_transform"("uniform_resource_id", "content_digest");
-CREATE INDEX IF NOT EXISTS "idx_ur_walk_session_path_fs_entry__walk_session_id__file_path_abs" ON "ur_walk_session_path_fs_entry"("walk_session_id", "file_path_abs");
+CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path_entry__ingest_session_id__file_path_abs" ON "ur_ingest_session_fs_path_entry"("ingest_session_id", "file_path_abs");
 
 
-DROP VIEW IF EXISTS "fs_content_walk_session_stats";
-CREATE VIEW IF NOT EXISTS "fs_content_walk_session_stats" AS
+DROP VIEW IF EXISTS "ingest_session_stats";
+CREATE VIEW IF NOT EXISTS "ingest_session_stats" AS
     WITH Summary AS (
         SELECT
             device.device_id AS device_id,
-            ur_walk_session.ur_walk_session_id AS walk_session_id,
-            ur_walk_session.walk_started_at AS walk_session_started_at,
-            ur_walk_session.walk_finished_at AS walk_session_finished_at,
-            COALESCE(ur_walk_session_path_fs_entry.file_extn, '''') AS file_extension,
-            ur_walk_session_path.ur_walk_session_path_id as walk_session_path_id,
-            ur_walk_session_path.root_path AS walk_session_root_path,
-            COUNT(ur_walk_session_path_fs_entry.uniform_resource_id) AS total_file_count,
+            ur_ingest_session.ur_ingest_session_id AS ingest_session_id,
+            ur_ingest_session.ingest_started_at AS ingest_session_started_at,
+            ur_ingest_session.ingest_finished_at AS ingest_session_finished_at,
+            COALESCE(ur_ingest_session_fs_path_entry.file_extn, '''') AS file_extension,
+            ur_ingest_session_fs_path.ur_ingest_session_fs_path_id as ingest_session_fs_path_id,
+            ur_ingest_session_fs_path.root_path AS ingest_session_root_fs_path,
+            COUNT(ur_ingest_session_fs_path_entry.uniform_resource_id) AS total_file_count,
             SUM(CASE WHEN uniform_resource.content IS NOT NULL THEN 1 ELSE 0 END) AS file_count_with_content,
             SUM(CASE WHEN uniform_resource.frontmatter IS NOT NULL THEN 1 ELSE 0 END) AS file_count_with_frontmatter,
             MIN(uniform_resource.size_bytes) AS min_file_size_bytes,
@@ -865,31 +865,31 @@ CREATE VIEW IF NOT EXISTS "fs_content_walk_session_stats" AS
             MIN(uniform_resource.last_modified_at) AS oldest_file_last_modified_datetime,
             MAX(uniform_resource.last_modified_at) AS youngest_file_last_modified_datetime
         FROM
-            ur_walk_session
+            ur_ingest_session
         JOIN
-            device ON ur_walk_session.device_id = device.device_id
+            device ON ur_ingest_session.device_id = device.device_id
         LEFT JOIN
-            ur_walk_session_path ON ur_walk_session.ur_walk_session_id = ur_walk_session_path.walk_session_id
+            ur_ingest_session_fs_path ON ur_ingest_session.ur_ingest_session_id = ur_ingest_session_fs_path.ingest_session_id
         LEFT JOIN
-            ur_walk_session_path_fs_entry ON ur_walk_session_path.ur_walk_session_path_id = ur_walk_session_path_fs_entry.walk_path_id
+            ur_ingest_session_fs_path_entry ON ur_ingest_session_fs_path.ur_ingest_session_fs_path_id = ur_ingest_session_fs_path_entry.ingest_fs_path_id
         LEFT JOIN
-            uniform_resource ON ur_walk_session_path_fs_entry.uniform_resource_id = uniform_resource.uniform_resource_id
+            uniform_resource ON ur_ingest_session_fs_path_entry.uniform_resource_id = uniform_resource.uniform_resource_id
         GROUP BY
             device.device_id,
-            ur_walk_session.ur_walk_session_id,
-            ur_walk_session.walk_started_at,
-            ur_walk_session.walk_finished_at,
-            ur_walk_session_path_fs_entry.file_extn,
-            ur_walk_session_path.root_path
+            ur_ingest_session.ur_ingest_session_id,
+            ur_ingest_session.ingest_started_at,
+            ur_ingest_session.ingest_finished_at,
+            ur_ingest_session_fs_path_entry.file_extn,
+            ur_ingest_session_fs_path.root_path
     )
     SELECT
         device_id,
-        walk_session_id,
-        walk_session_started_at,
-        walk_session_finished_at,
+        ingest_session_id,
+        ingest_session_started_at,
+        ingest_session_finished_at,
         file_extension,
-        walk_session_path_id,
-        walk_session_root_path,
+        ingest_session_fs_path_id,
+        ingest_session_root_fs_path,
         total_file_count,
         file_count_with_content,
         file_count_with_frontmatter,
@@ -902,10 +902,10 @@ CREATE VIEW IF NOT EXISTS "fs_content_walk_session_stats" AS
         Summary
     ORDER BY
         device_id,
-        walk_session_finished_at,
+        ingest_session_finished_at,
         file_extension;
     
-      ', '4b0e6dcb614d8683c47304a8370d64eee463f968', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', '1c9ce3a3100b7d23a78921ed5c7f9ece9b542aa0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -944,21 +944,21 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       governance: TEXT
   }
 
-  entity "ur_walk_session" as ur_walk_session {
-    * **ur_walk_session_id**: ULID
+  entity "ur_ingest_session" as ur_ingest_session {
+    * **ur_ingest_session_id**: ULID
     --
     * device_id: ULID
       behavior_id: ULID
       behavior_json: TEXT
-    * walk_started_at: TIMESTAMP
-      walk_finished_at: TIMESTAMP
+    * ingest_started_at: TIMESTAMP
+      ingest_finished_at: TIMESTAMP
       elaboration: TEXT
   }
 
-  entity "ur_walk_session_path" as ur_walk_session_path {
-    * **ur_walk_session_path_id**: ULID
+  entity "ur_ingest_session_fs_path" as ur_ingest_session_fs_path {
+    * **ur_ingest_session_fs_path_id**: ULID
     --
-    * walk_session_id: ULID
+    * ingest_session_id: ULID
     * root_path: TEXT
       elaboration: TEXT
   }
@@ -967,8 +967,8 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     * **uniform_resource_id**: ULID
     --
     * device_id: ULID
-    * walk_session_id: ULID
-    * walk_path_id: ULID
+    * ingest_session_id: ULID
+    * ingest_fs_path_id: ULID
     * uri: TEXT
     * content_digest: TEXT
       content: BLOB
@@ -992,11 +992,11 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       elaboration: TEXT
   }
 
-  entity "ur_walk_session_path_fs_entry" as ur_walk_session_path_fs_entry {
-    * **ur_walk_session_path_fs_entry_id**: ULID
+  entity "ur_ingest_session_fs_path_entry" as ur_ingest_session_fs_path_entry {
+    * **ur_ingest_session_fs_path_entry_id**: ULID
     --
-    * walk_session_id: ULID
-    * walk_path_id: ULID
+    * ingest_session_id: ULID
+    * ingest_fs_path_id: ULID
       uniform_resource_id: ULID
     * file_path_abs: TEXT
     * file_path_rel_parent: TEXT
@@ -1011,17 +1011,17 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   }
 
   device |o..o{ behavior
-  device |o..o{ ur_walk_session
-  behavior |o..o{ ur_walk_session
-  ur_walk_session |o..o{ ur_walk_session_path
+  device |o..o{ ur_ingest_session
+  behavior |o..o{ ur_ingest_session
+  ur_ingest_session |o..o{ ur_ingest_session_fs_path
   device |o..o{ uniform_resource
-  ur_walk_session |o..o{ uniform_resource
-  ur_walk_session_path |o..o{ uniform_resource
+  ur_ingest_session |o..o{ uniform_resource
+  ur_ingest_session_fs_path |o..o{ uniform_resource
   uniform_resource |o..o{ uniform_resource_transform
-  ur_walk_session |o..o{ ur_walk_session_path_fs_entry
-  ur_walk_session_path |o..o{ ur_walk_session_path_fs_entry
-  uniform_resource |o..o{ ur_walk_session_path_fs_entry
-@enduml', '6acb64bf8aa60fcc26aab41dafd2fc008218b2d8', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+  ur_ingest_session |o..o{ ur_ingest_session_fs_path_entry
+  ur_ingest_session_fs_path |o..o{ ur_ingest_session_fs_path_entry
+  uniform_resource |o..o{ ur_ingest_session_fs_path_entry
+@enduml', 'b87c2656d5eaa22e25a49772c34e00e03849c764', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,
@@ -1130,8 +1130,8 @@ INSERT INTO "sqlpage_files" ("path", "contents", "last_modified") VALUES ('index
   ''list'' as component,
   ''Get started: where to go from here ?'' as title,
   ''Here are some useful links to get you started with SQLPage.'' as description;
-SELECT ''Content Walk Session Statistics'' as title,
-  ''fsc-walk-session-stats.sql'' as link,
+SELECT ''Content Ingestion Session Statistics'' as title,
+  ''ingest-session-stats.sql'' as link,
   ''TODO'' as description,
   ''green'' as color,
   ''download'' as icon;
@@ -1150,8 +1150,8 @@ SELECT ''Information Schema'' as title,
   ''TODO'' as description,
   ''blue'' as color,
   ''download'' as icon;', (CURRENT_TIMESTAMP)) ON CONFLICT(path) DO UPDATE SET contents = EXCLUDED.contents, last_modified = CURRENT_TIMESTAMP;
-INSERT INTO "sqlpage_files" ("path", "contents", "last_modified") VALUES ('fsc-walk-session-stats.sql', 'SELECT ''table'' as component, 1 as search, 1 as sort;
-SELECT walk_datetime, file_extn, total_count, with_content, with_frontmatter, average_size from fs_content_walk_session_stats;', (CURRENT_TIMESTAMP)) ON CONFLICT(path) DO UPDATE SET contents = EXCLUDED.contents, last_modified = CURRENT_TIMESTAMP;
+INSERT INTO "sqlpage_files" ("path", "contents", "last_modified") VALUES ('ingest-session-stats.sql', 'SELECT ''table'' as component, 1 as search, 1 as sort;
+SELECT ingest_session_started_at, file_extn, total_count, with_content, with_frontmatter, average_size from ingest_session_stats;', (CURRENT_TIMESTAMP)) ON CONFLICT(path) DO UPDATE SET contents = EXCLUDED.contents, last_modified = CURRENT_TIMESTAMP;
 INSERT INTO "sqlpage_files" ("path", "contents", "last_modified") VALUES ('mime-types.sql', 'SELECT ''table'' as component, 1 as search, 1 as sort;
 SELECT name, file_extn, description from mime_type;', (CURRENT_TIMESTAMP)) ON CONFLICT(path) DO UPDATE SET contents = EXCLUDED.contents, last_modified = CURRENT_TIMESTAMP;
 INSERT INTO "sqlpage_files" ("path", "contents", "last_modified") VALUES ('notebooks.sql', 'SELECT ''table'' as component, ''Cell'' as markdown, 1 as search, 1 as sort;

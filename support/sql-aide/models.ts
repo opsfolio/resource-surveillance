@@ -310,7 +310,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     populateQS: (t, c, _cols, tableName) => {
       t.description = markdown`
           Behaviors are configuration "presets" that can be used to drive
-          application operations at runtime. For example FS Walk behaviors
+          application operations at runtime. For example, ingest behaviors
           include configs that indicate which files to ignore, which to
           scan, when to load content, etc. This is more convenient than 
           creating 
@@ -318,7 +318,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
           ${tableName} has a foreign key reference to the device table since
           behaviors might be device-specific.`;
       c.behavior_name.description =
-        `Arbitrary but unique per-device behavior name (e.g. fs-walk::xyz)`;
+        `Arbitrary but unique per-device behavior name (e.g. ingest::xyz)`;
       c.behavior_conf_json.description =
         `Configuration, settings, parameters, etc. describing the behavior (JSON, behavior-dependent)`;
       c.governance.description =
@@ -326,13 +326,13 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     },
   });
 
-  const urWalkSession = gm.textPkTable("ur_walk_session", {
-    ur_walk_session_id: gm.keys.ulidPrimaryKey(),
+  const urIngestSession = gm.textPkTable("ur_ingest_session", {
+    ur_ingest_session_id: gm.keys.ulidPrimaryKey(),
     device_id: device.references.device_id(),
     behavior_id: behavior.references.behavior_id().optional(),
     behavior_json: gd.jsonTextNullable(),
-    walk_started_at: gd.dateTime(),
-    walk_finished_at: gd.dateTimeNullable(),
+    ingest_started_at: gd.dateTime(),
+    ingest_finished_at: gd.dateTimeNullable(),
     elaboration: gd.jsonTextNullable(),
     ...gm.housekeeping.columns,
   }, {
@@ -345,20 +345,20 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     },
     populateQS: (t, _c, _cols, tableName) => {
       t.description = markdown`
-        Immutable Walk Sessions represents any "discovery" or "walk" operation.
+        Immutable ingestion sessions represents any "discovery" or "walk" operation.
         This could be a device file system scan or any other resource discovery
         session. Each time a discovery operation starts, a record is created. 
         ${tableName} has a foreign key reference to the device table so that the
-        same device can be used for multiple walk sessions but also the walk
+        same device can be used for multiple ingest sessions but also the ingest
         sessions can be merged across workstations / servers for easier detection
         of changes and similaries between file systems on different devices.`;
     },
   });
 
-  const urWalkSessionPath = gm.textPkTable("ur_walk_session_path", {
-    ur_walk_session_path_id: gm.keys.ulidPrimaryKey(),
-    walk_session_id: urWalkSession.references
-      .ur_walk_session_id(),
+  const urIngestSessionFsPath = gm.textPkTable("ur_ingest_session_fs_path", {
+    ur_ingest_session_fs_path_id: gm.keys.ulidPrimaryKey(),
+    ingest_session_id: urIngestSession.references
+      .ur_ingest_session_id(),
     root_path: gd.text(),
     elaboration: gd.jsonTextNullable(),
     ...gm.housekeeping.columns,
@@ -367,19 +367,19 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     constraints: (props, tableName) => {
       const c = SQLa.tableConstraints(tableName, props);
       return [
-        c.unique("walk_session_id", "root_path", "created_at"),
+        c.unique("ingest_session_id", "root_path", "created_at"),
       ];
     },
     indexes: (props, tableName) => {
       const tif = SQLa.tableIndexesFactory(tableName, props);
       return [
-        tif.index({ isIdempotent: true }, "walk_session_id", "root_path"),
+        tif.index({ isIdempotent: true }, "ingest_session_id", "root_path"),
       ];
     },
     populateQS: (t, _c, cols, _tableName) => {
       t.description = markdown`
-        Immutable Walk Session path represents a discovery or "walk" path If
-        the session was file system scan, then ${cols.root_path.identity} is the
+        Immutable ingest session file system path represents a discovery or "walk" path. If
+        the session included a file system scan, then ${cols.root_path.identity} is the
         root file system path that was scanned. If the session was discovering
         resources in another target then ${cols.root_path.identity} would be
         representative of the target path (could be a URI).`;
@@ -389,8 +389,9 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   const uniformResource = gm.textPkTable(UNIFORM_RESOURCE, {
     uniform_resource_id: gm.keys.ulidPrimaryKey(),
     device_id: device.references.device_id(),
-    walk_session_id: urWalkSession.references.ur_walk_session_id(),
-    walk_path_id: urWalkSessionPath.references.ur_walk_session_path_id(),
+    ingest_session_id: urIngestSession.references.ur_ingest_session_id(),
+    ingest_fs_path_id: urIngestSessionFsPath.references
+      .ur_ingest_session_fs_path_id(),
     uri: gd.text(),
     content_digest: gd.text(),
     content: gd.blobTextNullable(),
@@ -428,16 +429,16 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
         Immutable resource and content information. On multiple executions,
         ${tableName} are inserted only if the the content (see unique 
         index for details). For historical logging, ${tableName} has foreign
-        key references to both ${urWalkSession.tableName} and ${urWalkSessionPath.tableName}
-        tables to indicate which particular session and walk path the
+        key references to both ${urIngestSession.tableName} and ${urIngestSessionFsPath.tableName}
+        tables to indicate which particular session and ingestion path the
         resourced was inserted during.`;
       c.uniform_resource_id.description = `${tableName} ULID primary key`;
       c.device_id.description =
         `which ${device.tableName} row introduced this resource`;
-      c.walk_session_id.description =
-        `which ${urWalkSession.tableName} row introduced this resource`;
-      c.walk_path_id.description =
-        `which ${urWalkSessionPath.tableName} row introduced this resource`;
+      c.ingest_session_id.description =
+        `which ${urIngestSession.tableName} row introduced this resource`;
+      c.ingest_fs_path_id.description =
+        `which ${urIngestSessionFsPath.tableName} row introduced this resource`;
       c.uri.description =
         `the resource's URI (dependent on how it was acquired and on which device)`;
       c.content_digest.description =
@@ -508,13 +509,14 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     },
   );
 
-  const urWalkSessionPathFsEntry = gm.textPkTable(
-    "ur_walk_session_path_fs_entry",
+  const urIngestSessionFsPathEntry = gm.textPkTable(
+    "ur_ingest_session_fs_path_entry",
     {
-      ur_walk_session_path_fs_entry_id: gm.keys.ulidPrimaryKey(),
-      walk_session_id: urWalkSession.references
-        .ur_walk_session_id(),
-      walk_path_id: urWalkSessionPath.references.ur_walk_session_path_id(),
+      ur_ingest_session_fs_path_entry_id: gm.keys.ulidPrimaryKey(),
+      ingest_session_id: urIngestSession.references
+        .ur_ingest_session_id(),
+      ingest_fs_path_id: urIngestSessionFsPath.references
+        .ur_ingest_session_fs_path_id(),
       uniform_resource_id: uniformResource.references.uniform_resource_id()
         .optional(), // if a uniform_resource was prepared for this or already existed
       file_path_abs: gd.text(),
@@ -534,12 +536,16 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       indexes: (props, tableName) => {
         const tif = SQLa.tableIndexesFactory(tableName, props);
         return [
-          tif.index({ isIdempotent: true }, "walk_session_id", "file_path_abs"),
+          tif.index(
+            { isIdempotent: true },
+            "ingest_session_id",
+            "file_path_abs",
+          ),
         ];
       },
       populateQS: (t, _c, _cols, tableName) => {
         t.description = markdown`
-          Contains entries related to file system content walk paths. On multiple executions,
+          Contains entries related to file system content ingestion paths. On multiple executions,
           unlike ${uniformResource.tableName}, ${tableName} rows are always inserted and 
           references the ${uniformResource.tableName} primary key of its related content.
           This method allows for a more efficient query of file version differences across
@@ -554,20 +560,20 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     tables: [
       device,
       behavior,
-      urWalkSession,
-      urWalkSessionPath,
+      urIngestSession,
+      urIngestSessionFsPath,
       uniformResource,
       uniformResourceTransform,
-      urWalkSessionPathFsEntry,
+      urIngestSessionFsPathEntry,
     ],
     tableIndexes: [
       ...device.indexes,
       ...behavior.indexes,
-      ...urWalkSession.indexes,
-      ...urWalkSessionPath.indexes,
+      ...urIngestSession.indexes,
+      ...urIngestSessionFsPath.indexes,
       ...uniformResource.indexes,
       ...uniformResourceTransform.indexes,
-      ...urWalkSessionPathFsEntry.indexes,
+      ...urIngestSessionFsPathEntry.indexes,
     ],
   };
 
@@ -575,11 +581,11 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     codeNbModels,
     device,
     behavior,
-    urWalkSession,
-    urWalkSessionPath,
+    urIngestSession,
+    urIngestSessionFsPath,
     uniformResource,
     uniformResourceTransform,
-    urWalkSessionPathFsEntry,
+    urIngestSessionFsPathEntry,
     informationSchema,
   };
 }
