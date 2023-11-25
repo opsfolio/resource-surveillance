@@ -49,6 +49,8 @@ pub type FileSysPathQualifier = Box<dyn Fn(&Path, &str, &fs::File) -> bool>;
 pub type FileSysPathCapExecQualifier =
     Box<dyn Fn(&Path, &str, &fs::File) -> Option<CapturableExecutable>>;
 
+// TODO: remove #[allow(dead_code)] after code reviews
+#[allow(dead_code)]
 pub enum FileSysPathOption {
     No,
     Yes,
