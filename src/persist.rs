@@ -6,8 +6,8 @@ use rusqlite::functions::FunctionFlags;
 use rusqlite::{Connection, Result as RusqliteResult, ToSql};
 use ulid::Ulid;
 
+use super::classify::*;
 use super::device::Device;
-use super::fswalk::*;
 
 // TODO: every time a prepare_conn runs, allow passing in a Vector of files like
 // surveilr.init.sql as a source file that can help setup configurations and
@@ -424,9 +424,22 @@ pub fn execute_migrations(conn: &Connection, context: &str) -> RusqliteResult<()
     )
 }
 
+pub fn execute_globs_batch_cfse(
+    candidates_globs: &[String],
+) -> ClassifiableFileSysEntries<FileSysTypicalClass> {
+    let cfse: ClassifiableFileSysEntries<FileSysTypicalClass> = ClassifiableFileSysEntries::new(
+        empty_fs_typical_class(),
+        candidates_globs,
+        std::collections::HashMap::default(),
+        false,
+    )
+    .unwrap();
+    cfse
+}
+
 pub fn execute_globs_batch(
     conn: &Connection,
-    cfse: &ClassifiableFileSysEntries<DirEntryFlags>,
+    cfse: &ClassifiableFileSysEntries<FileSysTypicalClass>,
     walk_paths: &[String],
     context: &str,
 ) -> anyhow::Result<Vec<String>> {

@@ -9,7 +9,6 @@ use serde_regex;
 use walkdir::DirEntry;
 
 use crate::fsresource::*;
-use crate::fswalk::*;
 use crate::persist::*;
 use crate::resource::*;
 
@@ -806,27 +805,20 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
     execute_migrations(&tx, "ingest")
         .with_context(|| format!("[ingest] execute_migrations in {}", db_fs_path))?;
 
-    let state_db_init_sql_cfse = ClassifiableFileSysEntries::new(
-        empty_dir_entry_flags(),
-        &fsw_args.state_db_init_sql,
-        HashMap::default(),
-        false,
+    // TODO: add the executed files into the behaviors or other activity log!?
+    let executed = execute_globs_batch(
+        &tx,
+        &execute_globs_batch_cfse(&fsw_args.state_db_init_sql),
+        &[".".to_string()],
+        "ingest",
     )
     .with_context(|| {
         format!(
-            "[AdminCommands::init] unable to create db_init_sql_cfse in {}",
+            "[ingest] execute_globs_batch {} in {}",
+            fsw_args.state_db_init_sql.join(", "),
             db_fs_path
         )
     })?;
-    // TODO: add the executed files into the behaviors or other activity log!?
-    let executed = execute_globs_batch(&tx, &state_db_init_sql_cfse, &[".".to_string()], "ingest")
-        .with_context(|| {
-            format!(
-                "[ingest] execute_globs_batch {} in {}",
-                fsw_args.state_db_init_sql.join(", "),
-                db_fs_path
-            )
-        })?;
     if cli.debug > 0 {
         println!("Executed init SQL: {}", executed.join(", "))
     }

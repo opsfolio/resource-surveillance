@@ -1,10 +1,7 @@
-use std::collections::HashMap;
-
 use anyhow::Context;
 use rusqlite::Connection;
 
 use super::AdminCommands;
-use crate::fswalk::*;
 use crate::persist::*;
 
 // Implement methods for `AdminCommands`, ensure that whether the commands
@@ -80,21 +77,9 @@ impl AdminCommands {
             format!("[AdminCommands::init] execute_migrations in {}", db_fs_path)
         })?;
 
-        let db_init_sql_cfse = ClassifiableFileSysEntries::new(
-            empty_dir_entry_flags(),
-            db_init_sql_globs,
-            HashMap::default(),
-            false,
-        )
-        .with_context(|| {
-            format!(
-                "[AdminCommands::init] unable to create db_init_sql_cfse in {}",
-                db_fs_path
-            )
-        })?;
         execute_globs_batch(
             &conn,
-            &db_init_sql_cfse,
+            &execute_globs_batch_cfse(db_init_sql_globs),
             &[".".to_string()],
             "AdminCommands::init",
         )
