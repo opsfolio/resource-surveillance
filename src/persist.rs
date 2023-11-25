@@ -426,8 +426,8 @@ pub fn execute_migrations(conn: &Connection, context: &str) -> RusqliteResult<()
 
 pub fn execute_globs_batch_cfse(
     candidates_globs: &[String],
-) -> ClassifiableFileSysEntries<FileSysTypicalClass> {
-    let cfse: ClassifiableFileSysEntries<FileSysTypicalClass> = ClassifiableFileSysEntries::new(
+) -> IgnorableFileSysEntries<FileSysTypicalClass> {
+    let cfse: IgnorableFileSysEntries<FileSysTypicalClass> = IgnorableFileSysEntries::new(
         empty_fs_typical_class(),
         candidates_globs,
         std::collections::HashMap::default(),
@@ -439,7 +439,7 @@ pub fn execute_globs_batch_cfse(
 
 pub fn execute_globs_batch(
     conn: &Connection,
-    cfse: &ClassifiableFileSysEntries<FileSysTypicalClass>,
+    cfse: &IgnorableFileSysEntries<FileSysTypicalClass>,
     walk_paths: &[String],
     context: &str,
 ) -> anyhow::Result<Vec<String>> {
