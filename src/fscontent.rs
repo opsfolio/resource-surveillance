@@ -9,6 +9,7 @@ use sha1::{Digest, Sha1};
 use crate::capturable::*;
 use crate::frontmatter::frontmatter;
 use crate::resource::*;
+use crate::subprocess::*;
 
 #[derive(Debug, Clone)]
 pub struct FileBinaryContent {
@@ -118,10 +119,8 @@ pub fn fs_path_content_resource(
             (options.is_capturable_executable.as_ref().unwrap())(path, &nature, &file)
         {
             capturable_executable = Some(capturable.clone());
-            (
-                capturable_exec_text_supplier,
-                capturable_exec_binary_supplier,
-            ) = capturable.executable_content(uri);
+            capturable_exec_binary_supplier = capturable.executable_content_binary();
+            capturable_exec_text_supplier = capturable.executable_content_text();
         } else {
             capturable_executable = None;
             capturable_exec_binary_supplier = None;

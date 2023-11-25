@@ -23,6 +23,7 @@ mod fswalk;
 mod persist;
 mod resource;
 mod shell;
+mod subprocess;
 
 fn main() -> anyhow::Result<()> {
     let cli = cmd::Cli::parse();

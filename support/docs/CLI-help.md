@@ -11,6 +11,7 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr admin cli-help-md`↴](#surveilr-admin-cli-help-md)
 * [`surveilr capturable-exec`↴](#surveilr-capturable-exec)
 * [`surveilr capturable-exec ls`↴](#surveilr-capturable-exec-ls)
+* [`surveilr capturable-exec test`↴](#surveilr-capturable-exec-test)
 * [`surveilr ingest`↴](#surveilr-ingest)
 * [`surveilr notebooks`↴](#surveilr-notebooks)
 * [`surveilr notebooks cat`↴](#surveilr-notebooks-cat)
@@ -108,6 +109,7 @@ Capturable Executables (CE) maintenance tools
 ###### **Subcommands:**
 
 * `ls` — list potential capturable executables
+* `test` — test capturable executables
 
 
 
@@ -132,6 +134,24 @@ list potential capturable executables
 
   Default value: `surveilr-SQL`
 * `--markdown` — emit the results as markdown, not a simple table
+
+
+
+## `surveilr capturable-exec test`
+
+test capturable executables
+
+**Usage:** `surveilr capturable-exec test [OPTIONS] --fs-path <FS_PATH>`
+
+###### **Options:**
+
+* `-f`, `--fs-path <FS_PATH>`
+* `--capture-fs-exec <CAPTURE_FS_EXEC>` — reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
+
+  Default value: `surveilr\[(?P<nature>[^\]]*)\]`
+* `--captured-fs-exec-sql <CAPTURED_FS_EXEC_SQL>` — reg-exes that will signify which captured executables' output should be treated as batch SQL
+
+  Default value: `surveilr-SQL`
 
 
 

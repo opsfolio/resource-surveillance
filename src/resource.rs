@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use serde_json::Value as JsonValue;
 
 use crate::capturable::*;
+use crate::subprocess::*;
 
 pub trait BinaryContent {
     fn content_digest_hash(&self) -> &str;

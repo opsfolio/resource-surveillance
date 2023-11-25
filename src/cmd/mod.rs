@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use clap::{Args, Parser, Subcommand};
 use regex::Regex;
 use rusqlite::{Connection, OpenFlags};
+use serde::Serialize;
 
 use self::ingest::ingest;
 use crate::persist::*;
@@ -29,7 +30,7 @@ fn parse_key_val(s: &str) -> Result<(String, String), String> {
     Ok((parts[0].to_string(), parts[1].to_string()))
 }
 
-#[derive(Parser)]
+#[derive(Debug, Serialize, Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
     /// How to identify this device
@@ -45,7 +46,7 @@ pub struct Cli {
 }
 
 #[allow(clippy::large_enum_variant)]
-#[derive(Subcommand)]
+#[derive(Debug, Serialize, Subcommand)]
 pub enum CliCommands {
     Admin(AdminArgs),
     CapturableExec(CapturableExecArgs),
@@ -55,13 +56,13 @@ pub enum CliCommands {
 }
 
 /// Admin / maintenance utilities
-#[derive(Args)]
+#[derive(Debug, Serialize, Args)]
 pub struct AdminArgs {
     #[command(subcommand)]
     pub command: AdminCommands,
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Serialize, Subcommand)]
 pub enum AdminCommands {
     /// initialize an empty database with bootstrap.sql
     Init {
@@ -114,13 +115,13 @@ pub enum AdminCommands {
 }
 
 /// Capturable Executables (CE) maintenance tools
-#[derive(Args)]
+#[derive(Debug, Serialize, Args)]
 pub struct CapturableExecArgs {
     #[command(subcommand)]
     pub command: CapturableExecCommands,
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Serialize, Subcommand)]
 pub enum CapturableExecCommands {
     /// list potential capturable executables
     Ls {
@@ -129,10 +130,12 @@ pub enum CapturableExecCommands {
         root_fs_path: Vec<String>,
 
         /// reg-exes to use to ignore files in root-path(s)
+        #[serde(with = "serde_regex")]
         #[arg(short, long, default_value = DEFAULT_INGEST_FS_IGNORE_PATHS, default_missing_value = "always")]
         ignore_fs_entry: Vec<Regex>,
 
         /// reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
+        #[serde(with = "serde_regex")]
         #[arg(long,
             // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
             default_value = DEFAULT_CAPTURE_EXEC_REGEX_PATTERN,
@@ -140,6 +143,7 @@ pub enum CapturableExecCommands {
         capture_fs_exec: Vec<regex::Regex>,
 
         /// reg-exes that will signify which captured executables' output should be treated as batch SQL
+        #[serde(with = "serde_regex")]
         #[arg(long,
             // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
             default_value = DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN,
@@ -150,10 +154,32 @@ pub enum CapturableExecCommands {
         #[arg(long)]
         markdown: bool,
     },
+
+    /// test capturable executables
+    Test {
+        #[arg(short, long)]
+        fs_path: String,
+
+        /// reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
+        #[serde(with = "serde_regex")]
+        #[arg(long,
+            // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
+            default_value = DEFAULT_CAPTURE_EXEC_REGEX_PATTERN,
+            default_missing_value = "always")]
+        capture_fs_exec: Vec<Regex>,
+
+        /// reg-exes that will signify which captured executables' output should be treated as batch SQL
+        #[serde(with = "serde_regex")]
+        #[arg(long,
+            // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
+            default_value = DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN,
+            default_missing_value = "always")]
+        captured_fs_exec_sql: Vec<Regex>,
+    },
 }
 
 /// Ingest content from device file system and other sources
-#[derive(Args)]
+#[derive(Debug, Serialize, Args)]
 pub struct IngestArgs {
     /// the behavior name in `behavior` table
     #[arg(short, long, env = "SURVEILR_INGEST_BEHAVIOR_NAME")]
@@ -164,6 +190,7 @@ pub struct IngestArgs {
     pub root_fs_path: Vec<String>,
 
     /// reg-exes to use to ignore files in root-path(s)
+    #[serde(with = "serde_regex")]
     #[arg(
         short,
         long,
@@ -173,10 +200,12 @@ pub struct IngestArgs {
     pub ignore_fs_entry: Vec<Regex>,
 
     /// reg-exes to use to compute digests for
+    #[serde(with = "serde_regex")]
     #[arg(long, default_value = ".*", default_missing_value = "always")]
     pub compute_fs_content_digests: Vec<Regex>,
 
     /// reg-exes to use to load content for entry instead of just walking
+    #[serde(with = "serde_regex")]
     #[arg(
         long,
         default_values_t = [
@@ -188,15 +217,17 @@ pub struct IngestArgs {
     pub surveil_fs_content: Vec<Regex>,
 
     /// reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
+    #[serde(with = "serde_regex")]
     #[arg(
         long,
         // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
         default_value = DEFAULT_CAPTURE_EXEC_REGEX_PATTERN,
         default_missing_value = "always"
     )]
-    pub capture_fs_exec: Vec<regex::Regex>,
+    pub capture_fs_exec: Vec<Regex>,
 
     /// reg-exes that will signify which captured executables' output should be treated as batch SQL
+    #[serde(with = "serde_regex")]
     #[arg(
         long,
         // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
@@ -244,7 +275,7 @@ pub struct IngestArgs {
 }
 
 /// Notebooks maintenance utilities
-#[derive(Args)]
+#[derive(Debug, Serialize, Args)]
 pub struct NotebooksArgs {
     /// target SQLite database
     #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
@@ -258,7 +289,7 @@ pub struct NotebooksArgs {
     pub command: NotebooksCommands,
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Serialize, Subcommand)]
 pub enum NotebooksCommands {
     /// Notebooks' cells emit utilities
     Cat {
@@ -284,13 +315,13 @@ pub enum NotebooksCommands {
 }
 
 /// Deno Task Shell utilities
-#[derive(Args)]
+#[derive(Debug, Serialize, Args)]
 pub struct ShellArgs {
     #[command(subcommand)]
     pub command: ShellCommands,
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Serialize, Subcommand)]
 pub enum ShellCommands {
     /// Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) returns JSON
     Json {

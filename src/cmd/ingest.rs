@@ -306,7 +306,7 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
         // now try to execute the capturable executable and store its output
         match &self.executable.capturable_executable {
             Some(capturable_executable) => match capturable_executable {
-                CapturableExecutable::Text(nature, is_batched_sql) => {
+                CapturableExecutable::Text(_src, nature, is_batched_sql) => {
                     match self.executable.capturable_exec_text_supplier.as_ref() {
                         Some(capturable_supplier) => {
                             let stdin = urw_state.capturable_exec_ctx(entry);
@@ -401,14 +401,18 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
                         },
                     }
                 }
-                CapturableExecutable::RequestedButNoNature(re) => UniformResourceWriterResult {
-                    uri: self.executable.uri.clone(),
-                    action: UniformResourceWriterAction::CapturableExecNoNature(re.clone()),
-                },
-                CapturableExecutable::RequestedButNotExecutable => UniformResourceWriterResult {
-                    uri: self.executable.uri.clone(),
-                    action: UniformResourceWriterAction::CapturableExecNotExecutable(),
-                },
+                CapturableExecutable::RequestedButNoNature(_src, re) => {
+                    UniformResourceWriterResult {
+                        uri: self.executable.uri.clone(),
+                        action: UniformResourceWriterAction::CapturableExecNoNature(re.clone()),
+                    }
+                }
+                CapturableExecutable::RequestedButNotExecutable(_src) => {
+                    UniformResourceWriterResult {
+                        uri: self.executable.uri.clone(),
+                        action: UniformResourceWriterAction::CapturableExecNotExecutable(),
+                    }
+                }
             },
             None => UniformResourceWriterResult {
                 uri: self.executable.uri.clone(),
