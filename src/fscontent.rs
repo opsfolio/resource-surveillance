@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fs;
-use std::io::{Error as IoError, Read, Write};
+use std::io::{Error as IoError, Read};
 use std::path::Path;
 
 use chrono::{DateTime, Utc};
@@ -12,8 +12,8 @@ use crate::resource::*;
 
 #[derive(Debug, Clone)]
 pub struct FileBinaryContent {
-    hash: String,
-    binary: Vec<u8>,
+    pub hash: String,
+    pub binary: Vec<u8>,
 }
 
 impl BinaryContent for FileBinaryContent {
@@ -118,116 +118,10 @@ pub fn fs_path_content_resource(
             (options.is_capturable_executable.as_ref().unwrap())(path, &nature, &file)
         {
             capturable_executable = Some(capturable.clone());
-
-            if !matches!(capturable, CapturableExecutable::RequestedButNotExecutable) {
-                let uri_clone_cebs = uri.to_string(); // Clone for the first closure
-                capturable_exec_binary_supplier = Some(Box::new(
-                    move |stdin| -> Result<BinaryExecOutput, Box<dyn Error>> {
-                        let mut exec = subprocess::Exec::cmd(&uri_clone_cebs)
-                            .stdout(subprocess::Redirection::Pipe);
-
-                        if stdin.is_some() {
-                            exec = exec.stdin(subprocess::Redirection::Pipe);
-                        }
-
-                        let mut popen = exec.popen()?;
-
-                        if let Some(stdin_text) = stdin {
-                            if let Some(mut stdin_pipe) = popen.stdin.take() {
-                                stdin_pipe.write_all(stdin_text.as_bytes())?;
-                                stdin_pipe.flush()?;
-                                // `stdin_pipe` is dropped here when it goes out of scope, closing the stdin of the subprocess
-                            } // else: no one is listening to the stdin of the subprocess, so we can't pipe anything to it
-                        }
-
-                        let status = popen.wait()?;
-
-                        let mut output = popen.stdout.take().unwrap();
-                        let mut binary = Vec::new();
-                        output.read_to_end(&mut binary)?;
-
-                        let mut error_output = String::new();
-                        match &mut popen.stderr.take() {
-                            Some(stderr) => {
-                                stderr.read_to_string(&mut error_output)?;
-                            }
-                            None => {}
-                        }
-
-                        let hash = {
-                            let mut hasher = Sha1::new();
-                            hasher.update(&binary);
-                            format!("{:x}", hasher.finalize())
-                        };
-
-                        Ok((
-                            Box::new(FileBinaryContent { hash, binary }) as Box<dyn BinaryContent>,
-                            status,
-                            if !error_output.is_empty() {
-                                Some(error_output)
-                            } else {
-                                None
-                            },
-                        ))
-                    },
-                ));
-
-                let uri_clone_cets = uri.to_string(); // Clone for the second closure
-                capturable_exec_text_supplier = Some(Box::new(
-                    move |stdin| -> Result<TextExecOutput, Box<dyn Error>> {
-                        let mut exec = subprocess::Exec::cmd(&uri_clone_cets)
-                            .stdout(subprocess::Redirection::Pipe)
-                            .stderr(subprocess::Redirection::Pipe);
-
-                        if stdin.is_some() {
-                            exec = exec.stdin(subprocess::Redirection::Pipe);
-                        }
-
-                        let mut popen = exec.popen()?;
-
-                        if let Some(stdin_text) = stdin {
-                            if let Some(mut stdin_pipe) = popen.stdin.take() {
-                                stdin_pipe.write_all(stdin_text.as_bytes())?;
-                                stdin_pipe.flush()?;
-                                // `stdin_pipe` is dropped here when it goes out of scope, closing the stdin of the subprocess
-                            } // else: no one is listening to the stdin of the subprocess, so we can't pipe anything to it
-                        }
-
-                        let status = popen.wait()?;
-
-                        let mut output = String::new();
-                        popen.stdout.take().unwrap().read_to_string(&mut output)?;
-
-                        let mut error_output = String::new();
-                        match &mut popen.stderr.take() {
-                            Some(stderr) => {
-                                stderr.read_to_string(&mut error_output)?;
-                            }
-                            None => {}
-                        }
-
-                        let hash = {
-                            let mut hasher = Sha1::new();
-                            hasher.update(output.as_bytes());
-                            format!("{:x}", hasher.finalize())
-                        };
-
-                        Ok((
-                            Box::new(FileTextContent { hash, text: output })
-                                as Box<dyn TextContent>,
-                            status,
-                            if !error_output.is_empty() {
-                                Some(error_output)
-                            } else {
-                                None
-                            },
-                        ))
-                    },
-                ));
-            } else {
-                capturable_exec_binary_supplier = None;
-                capturable_exec_text_supplier = None;
-            }
+            (
+                capturable_exec_text_supplier,
+                capturable_exec_binary_supplier,
+            ) = capturable.executable_content(uri);
         } else {
             capturable_executable = None;
             capturable_exec_binary_supplier = None;
