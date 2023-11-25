@@ -123,3 +123,102 @@ pub trait UniformResourceSupplier<Resource> {
         rs: Resource,
     ) -> Result<Box<UniformResource<Resource>>, Box<dyn Error>>;
 }
+
+pub struct UniformResourceBuilder {
+    pub nature_bind: HashMap<String, String>,
+}
+
+impl UniformResourceSupplier<ContentResource> for UniformResourceBuilder {
+    fn uniform_resource(
+        &self,
+        resource: ContentResource,
+    ) -> Result<Box<UniformResource<ContentResource>>, Box<dyn Error>> {
+        if resource.capturable_executable.is_some() {
+            return Ok(Box::new(UniformResource::CapturableExec(
+                CapturableExecResource {
+                    executable: resource,
+                },
+            )));
+        }
+
+        // Based on the nature of the resource, we determine the type of UniformResource
+        if let Some(supplied_nature) = &resource.nature {
+            let mut candidate_nature = supplied_nature.as_str();
+            let try_alternate_nature = self.nature_bind.get(candidate_nature);
+            if let Some(alternate_bind) = try_alternate_nature {
+                candidate_nature = alternate_bind
+            }
+
+            match candidate_nature {
+                // Match different file extensions
+                "html" | "text/html" => {
+                    let html = HtmlResource {
+                        resource,
+                        // TODO parse using
+                        //      - https://github.com/y21/tl (performant but not spec compliant)
+                        //      - https://github.com/cloudflare/lol-html (more performant, spec compliant)
+                        //      - https://github.com/causal-agent/scraper or https://github.com/servo/html5ever directly
+                        // create HTML parser presets which can go through all stored HTML, running selectors and putting them into tables?
+                        head_meta: HashMap::new(),
+                    };
+                    Ok(Box::new(UniformResource::Html(html)))
+                }
+                "json" | "jsonc" | "application/json" => {
+                    if resource.uri.ends_with(".spdx.json") {
+                        let spdx_json = SoftwarePackageDxResource { resource };
+                        Ok(Box::new(UniformResource::SpdxJson(spdx_json)))
+                    } else {
+                        let json = JsonResource {
+                            resource,
+                            content: None, // TODO parse using serde
+                        };
+                        Ok(Box::new(UniformResource::Json(json)))
+                    }
+                }
+                "yml" | "application/yaml" => {
+                    let yaml = YamlResource {
+                        resource,
+                        content: None, // TODO parse using serde
+                    };
+                    Ok(Box::new(UniformResource::Yaml(yaml)))
+                }
+                "toml" | "application/toml" => {
+                    let toml = TomlResource {
+                        resource,
+                        content: None, // TODO parse using serde
+                    };
+                    Ok(Box::new(UniformResource::Toml(toml)))
+                }
+                "md" | "mdx" | "text/markdown" => {
+                    let markdown = MarkdownResource { resource };
+                    Ok(Box::new(UniformResource::Markdown(markdown)))
+                }
+                "txt" | "text/plain" => {
+                    let plain_text = PlainTextResource { resource };
+                    Ok(Box::new(UniformResource::PlainText(plain_text)))
+                }
+                "png" | "gif" | "tiff" | "jpg" | "jpeg" => {
+                    let image = ImageResource {
+                        resource,
+                        image_meta: HashMap::new(), // TODO add meta data, infer type from content
+                    };
+                    Ok(Box::new(UniformResource::Image(image)))
+                }
+                "svg" | "image/svg+xml" => {
+                    let svg = SvgResource { resource };
+                    Ok(Box::new(UniformResource::Svg(svg)))
+                }
+                "tap" => {
+                    let tap = TestAnythingResource { resource };
+                    Ok(Box::new(UniformResource::Tap(tap)))
+                }
+                _ => Ok(Box::new(UniformResource::Unknown(
+                    resource,
+                    try_alternate_nature.cloned(),
+                ))),
+            }
+        } else {
+            Err("Unable to obtain nature from supplied resource".into())
+        }
+    }
+}
