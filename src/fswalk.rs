@@ -1,5 +1,7 @@
 use globset::GlobSet;
+use is_executable::IsExecutable;
 
+use crate::capturable::*;
 use crate::classify::*;
 
 impl GlobSetClassifiable for ignore::DirEntry {
@@ -169,11 +171,43 @@ impl<Class> WalkableFileSysEntries<Class> {
 }
 
 pub struct FileSysTypicalClass {
-    pub is_executable: bool,
+    pub capturable_executable: Option<CapturableExecutable>,
 }
 
 pub fn empty_fs_typical_class() -> Box<dyn Fn() -> FileSysTypicalClass> {
     Box::new(|| FileSysTypicalClass {
-        is_executable: false,
+        capturable_executable: None,
+    })
+}
+
+/// Return a executable_classifier that will check a DirEntry path has proper file system
+/// permissions to execute a file but will not be treated as executable SQL.
+pub fn _fs_ignore_de_capturable_exec_classifier<Context>(
+) -> Classifier<ignore::DirEntry, FileSysTypicalClass, Context> {
+    Box::new(move |class, item, _ctx, _purpose| -> bool {
+        if item.path().is_executable() {
+            class.capturable_executable = Some(CapturableExecutable::Text(
+                item.path().to_string_lossy().to_string(),
+                String::from(""),
+                false,
+            ));
+        }
+        true
+    })
+}
+
+/// Return a executable_classifier that will check a DirEntry path has proper file system
+/// permissions to execute a file and will be treated as executable SQL.
+pub fn fs_ignore_de_capturable_exec_sql_classifier<Context>(
+) -> Classifier<ignore::DirEntry, FileSysTypicalClass, Context> {
+    Box::new(move |class, item, _ctx, _purpose| -> bool {
+        if item.path().is_executable() {
+            class.capturable_executable = Some(CapturableExecutable::Text(
+                item.path().to_string_lossy().to_string(),
+                String::from(""),
+                true,
+            ));
+        }
+        true
     })
 }

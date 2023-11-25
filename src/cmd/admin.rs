@@ -82,6 +82,7 @@ impl AdminCommands {
             &execute_globs_batch_cfse(db_init_sql_globs),
             &[".".to_string()],
             "AdminCommands::init",
+            cli.debug,
         )
         .with_context(|| format!("[AdminCommands::init] execute_migrations in {}", db_fs_path))?;
 

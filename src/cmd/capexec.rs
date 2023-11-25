@@ -335,7 +335,7 @@ impl CapturableExecCommands {
                 let mut emitted = 0;
 
                 if nature == "json" {
-                    match ce.executed_json(stdin.clone()) {
+                    match ce.executed_result_as_json(stdin.clone()) {
                         Ok((stdout_json, _nature, _is_batch_sql)) => {
                             println!("{}", serde_json::to_string_pretty(&stdout_json).unwrap())
                         }
@@ -347,7 +347,7 @@ impl CapturableExecCommands {
                 }
 
                 if nature == "surveilr-SQL" {
-                    match ce.executed_sql(stdin.clone()) {
+                    match ce.executed_result_as_sql(stdin.clone()) {
                         Ok((stdout_sql, _nature)) => {
                             println!("{}", stdout_sql)
                         }
@@ -359,7 +359,7 @@ impl CapturableExecCommands {
                 }
 
                 if emitted == 0 {
-                    match ce.executed_text(stdin.clone()) {
+                    match ce.executed_result_as_text(stdin.clone()) {
                         Ok((stdout_text, _nature, _is_batch_sql)) => {
                             println!("{}", stdout_text)
                         }

@@ -480,10 +480,13 @@ impl UniformResourceWriter<ContentResource> for MarkdownResource<ContentResource
                     let (_, fm_raw, fm_json_value, fm_body) = markdown_src.frontmatter();
                     if fm_json_value.is_ok() {
                         fm_json = Some(serde_json::to_string_pretty(&fm_json_value.ok()).unwrap());
+                        // this needs to be JSON parse'd first so that stringify later will work properly
+                        let attrs_json: serde_json::Value =
+                            serde_json::from_str(&fm_json.clone().unwrap()).unwrap();
                         let fm_attrs_value = serde_json::json!({
                             "frontMatter": fm_raw.unwrap(),
                             "body": fm_body,
-                            "attrs": fm_json.clone().unwrap()
+                            "attrs": attrs_json
                         });
                         fm_attrs = Some(serde_json::to_string_pretty(&fm_attrs_value).unwrap());
                     }
@@ -812,11 +815,12 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
         .with_context(|| format!("[ingest] execute_migrations in {}", db_fs_path))?;
 
     // TODO: add the executed files into the behaviors or other activity log!?
-    let executed = execute_globs_batch(
+    execute_globs_batch(
         &tx,
         &execute_globs_batch_cfse(&fsw_args.state_db_init_sql),
         &[".".to_string()],
         "ingest",
+        cli.debug,
     )
     .with_context(|| {
         format!(
@@ -825,9 +829,6 @@ pub fn ingest(cli: &super::Cli, fsw_args: &super::IngestArgs) -> Result<String> 
             db_fs_path
         )
     })?;
-    if cli.debug > 0 {
-        println!("Executed init SQL: {}", executed.join(", "))
-    }
 
     // insert the device or, if it exists, get its current ID and name
     let (device_id, device_name) = upserted_device(&tx, &crate::DEVICE).with_context(|| {

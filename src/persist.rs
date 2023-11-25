@@ -430,7 +430,13 @@ pub fn execute_globs_batch_cfse(
     let cfse: IgnorableFileSysEntries<FileSysTypicalClass> = IgnorableFileSysEntries::new(
         empty_fs_typical_class(),
         candidates_globs,
-        std::collections::HashMap::default(),
+        std::collections::HashMap::from([(
+            String::from("executable emitting batched SQL"),
+            (
+                vec!["*.sql.{ts,sh}".to_string()],
+                fs_ignore_de_capturable_exec_sql_classifier(),
+            ),
+        )]),
         false,
     )
     .unwrap();
@@ -442,30 +448,85 @@ pub fn execute_globs_batch(
     cfse: &IgnorableFileSysEntries<FileSysTypicalClass>,
     walk_paths: &[String],
     context: &str,
-) -> anyhow::Result<Vec<String>> {
-    let mut executed: Vec<String> = Vec::new();
-    cfse.walk(walk_paths, |_root_path, entry, _class| {
-        let path = entry.path();
-        match std::fs::read_to_string(path) {
-            Ok(sql) => match conn.execute_batch(&sql) {
-                Ok(_) => {
-                    executed.push(path.to_string_lossy().to_string());
-                }
-                Err(e) => {
+    verbose_level: u8,
+) -> anyhow::Result<Vec<(String, Option<String>, bool)>> {
+    let mut executed: Vec<(String, Option<String>, bool)> = Vec::new();
+    cfse.walk(walk_paths, |_root_path, entry, class| {
+        let (sql, is_captured_from_exec) = match &class.capturable_executable {
+            Some(ce) => match ce
+                .executed_result_as_sql(crate::subprocess::CapturableExecutableStdIn::None)
+            {
+                Ok((sql_from_captured_exec, _nature)) => (sql_from_captured_exec, true),
+                Err(err) => {
                     eprintln!(
-                        "[execute_globs_batch({})] Failed to execute SQL file: {}",
-                        context, e
+                        "Unable to execute {}:\n{}",
+                        entry.path().to_string_lossy(),
+                        err
                     );
+                    return;
                 }
             },
+            None => match std::fs::read_to_string(entry.path()) {
+                Ok(sql_from_file) => (sql_from_file, false),
+                Err(err) => {
+                    eprintln!(
+                        "[execute_globs_batch({})] Failed to read SQL file: {}",
+                        context, err
+                    );
+                    return;
+                }
+            },
+        };
+
+        match conn.execute_batch(&sql) {
+            Ok(_) => {
+                executed.push((
+                    entry.path().to_string_lossy().to_string(),
+                    Some(sql),
+                    is_captured_from_exec,
+                ));
+            }
             Err(e) => {
+                executed.push((
+                    entry.path().to_string_lossy().to_string(),
+                    None,
+                    is_captured_from_exec,
+                ));
                 eprintln!(
-                    "[execute_globs_batch({})] Failed to read SQL file: {}",
+                    "[execute_globs_batch({})] Failed to execute SQL file: {}",
                     context, e
                 );
             }
         }
     });
+
+    if verbose_level > 0 {
+        let emit: Vec<String> = executed
+            .iter()
+            .map(|i| {
+                format!(
+                    "{} ({} lines{})",
+                    i.0,
+                    if i.1.is_some() {
+                        i.1.clone().unwrap().lines().count()
+                    } else {
+                        0
+                    },
+                    if i.2 { "*" } else { "" } // * means it was a captured executable
+                )
+            })
+            .collect();
+        if !emit.is_empty() {
+            println!(
+                "[{}] executed SQL batches from: {}",
+                context,
+                emit.join(", ")
+            )
+        } else {
+            println!("[{}] did execute SQL batches, none requested", context,)
+        }
+    }
+
     Ok(executed)
 }
 

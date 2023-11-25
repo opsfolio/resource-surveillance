@@ -11,7 +11,7 @@ pub enum CapturableExecutable {
 }
 
 impl CapturableExecutable {
-    pub fn executed_text(
+    pub fn executed_result_as_text(
         &self,
         std_in: CapturableExecutableStdIn,
     ) -> anyhow::Result<(String, String, bool), serde_json::Value> {
@@ -59,7 +59,7 @@ impl CapturableExecutable {
         }
     }
 
-    pub fn executed_json(
+    pub fn executed_result_as_json(
         &self,
         std_in: CapturableExecutableStdIn,
     ) -> anyhow::Result<(serde_json::Value, String, bool), serde_json::Value> {
@@ -119,7 +119,7 @@ impl CapturableExecutable {
         }
     }
 
-    pub fn executed_sql(
+    pub fn executed_result_as_sql(
         &self,
         std_in: CapturableExecutableStdIn,
     ) -> anyhow::Result<(String, String), serde_json::Value> {
