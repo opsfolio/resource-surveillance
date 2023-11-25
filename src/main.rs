@@ -20,6 +20,7 @@ mod frontmatter;
 mod fscontent;
 mod fsresource;
 mod fswalk;
+mod ingest;
 mod persist;
 mod resource;
 mod shell;

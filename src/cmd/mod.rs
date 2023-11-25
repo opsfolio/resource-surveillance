@@ -2,11 +2,7 @@ use std::collections::HashMap;
 
 use clap::{Args, Parser, Subcommand};
 use regex::Regex;
-use rusqlite::{Connection, OpenFlags};
 use serde::Serialize;
-
-use self::ingest::ingest;
-use crate::persist::*;
 
 pub mod admin;
 pub mod capexec;
@@ -255,7 +251,7 @@ pub struct IngestArgs {
 
     /// one or more globs to match as SQL files and batch execute them in alpha order
     #[arg(short = 'I', long)]
-    state_db_init_sql: Vec<String>,
+    pub state_db_init_sql: Vec<String>,
 
     /// include the surveil database in the ingestion candidates
     #[arg(long)]
@@ -344,78 +340,7 @@ impl CliCommands {
         match self {
             CliCommands::Admin(args) => args.command.execute(cli, args),
             CliCommands::CapturableExec(args) => args.command.execute(cli, args),
-            CliCommands::Ingest(args) => match ingest(cli, args) {
-                Ok(ingest_session_id) => {
-                    if args.stats || args.stats_json {
-                        if let Ok(conn) = Connection::open_with_flags(
-                            args.state_db_fs_path.clone(),
-                            OpenFlags::SQLITE_OPEN_READ_WRITE,
-                        ) {
-                            if args.stats_json {
-                                if let Ok(stats) =
-                                    ingest_session_stats_latest(&conn, ingest_session_id.clone())
-                                {
-                                    print!("{}", serde_json::to_string_pretty(&stats).unwrap())
-                                }
-                            }
-
-                            if args.stats {
-                                let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
-                                ingest_session_stats(
-                                    &conn,
-                                    |_index,
-                                     root_path,
-                                     file_extension,
-                                     file_count,
-                                     with_content_count,
-                                     with_frontmatter_count| {
-                                        if args.root_fs_path.len() < 2 {
-                                            rows.push(vec![
-                                                file_extension,
-                                                file_count.to_string(),
-                                                with_content_count.to_string(),
-                                                with_frontmatter_count.to_string(),
-                                            ]);
-                                        } else {
-                                            rows.push(vec![
-                                                root_path,
-                                                file_extension,
-                                                file_count.to_string(),
-                                                with_content_count.to_string(),
-                                                with_frontmatter_count.to_string(),
-                                            ]);
-                                        }
-                                        Ok(())
-                                    },
-                                    ingest_session_id,
-                                )
-                                .unwrap();
-                                println!(
-                                    "{}",
-                                    if args.root_fs_path.len() < 2 {
-                                        crate::format::format_table(
-                                            &["Extn", "Count", "Content", "Frontmatter"],
-                                            &rows,
-                                        )
-                                    } else {
-                                        crate::format::format_table(
-                                            &["Path", "Extn", "Count", "Content", "Frontmatter"],
-                                            &rows,
-                                        )
-                                    }
-                                );
-                            }
-                        } else {
-                            println!(
-                                "Notebooks cells command requires a database: {}",
-                                args.state_db_fs_path
-                            );
-                        }
-                    }
-                    Ok(())
-                }
-                Err(err) => Err(err),
-            },
+            CliCommands::Ingest(args) => args.execute(cli),
             CliCommands::Notebooks(args) => args.command.execute(cli, args),
             CliCommands::Shell(args) => args.command.execute(cli, args),
         }
