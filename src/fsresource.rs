@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
-use is_executable::IsExecutable;
 use regex::RegexSet;
 use walkdir::WalkDir;
 
+use crate::capturable::*;
 use crate::fscontent::*;
 use crate::resource::*;
 
@@ -193,8 +193,11 @@ impl FileSysResourcesWalker {
         let ignore_paths = RegexSet::new(ignore_paths_regexs.iter().map(|r| r.as_str()))?;
         let inspect_content_paths =
             RegexSet::new(inspect_content_regexs.iter().map(|r| r.as_str()))?;
-        let capturable_executables = capturable_executables_regexs.to_vec();
-        let captured_exec_sql = RegexSet::new(captured_exec_sql_regexs.iter().map(|r| r.as_str()))?;
+        let cerr = CapturableExecutableRegexRules::new(
+            Some(capturable_executables_regexs),
+            Some(captured_exec_sql_regexs),
+        )
+        .unwrap();
 
         let resource_supplier = FileSysResourceSupplier::new(
             Box::new(move |path, _nature, _file| {
@@ -204,40 +207,7 @@ impl FileSysResourcesWalker {
             Box::new(move |path, _nature, _file| {
                 inspect_content_paths.is_match(path.to_str().unwrap())
             }),
-            Box::new(move |path, _nature, _file| {
-                let mut ce: Option<CapturableExecutable> = None;
-                let haystack = path.to_str().unwrap();
-
-                if captured_exec_sql.is_match(haystack) {
-                    ce = Some(CapturableExecutable::Text(
-                        String::from("surveilr-SQL"),
-                        true,
-                    ));
-                } else {
-                    for re in capturable_executables.iter() {
-                        if let Some(caps) = re.captures(haystack) {
-                            if let Some(nature) = caps.name("nature") {
-                                ce = Some(CapturableExecutable::Text(
-                                    String::from(nature.as_str()),
-                                    false,
-                                ));
-                                break;
-                            } else {
-                                ce = Some(CapturableExecutable::RequestedButNoNature(re.clone()));
-                                break;
-                            }
-                        }
-                    }
-                }
-                if ce.is_some() {
-                    if path.is_executable() {
-                        return ce;
-                    } else {
-                        return Some(CapturableExecutable::RequestedButNotExecutable);
-                    }
-                }
-                None
-            }),
+            Box::new(move |path, _nature, _file| cerr.capturable_executable(path)),
             nature_bind,
         );
 

@@ -8,6 +8,7 @@ use serde_json::json;
 use serde_regex;
 use walkdir::DirEntry;
 
+use crate::capturable::*;
 use crate::fscontent::*;
 use crate::fsresource::*;
 use crate::persist::*;

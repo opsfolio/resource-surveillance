@@ -5,8 +5,8 @@ use regex::Regex;
 use serde_json::json;
 
 use super::CapturableExecCommands;
+use crate::capturable::*;
 use crate::fsresource::*;
-use crate::resource::*;
 
 // Implement methods for `CapturableExecCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.

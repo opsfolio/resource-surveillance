@@ -6,8 +6,8 @@ use rusqlite::functions::FunctionFlags;
 use rusqlite::{Connection, Result as RusqliteResult, ToSql};
 use ulid::Ulid;
 
-use super::classify::*;
 use super::device::Device;
+use super::fswalk::*;
 
 // TODO: every time a prepare_conn runs, allow passing in a Vector of files like
 // surveilr.init.sql as a source file that can help setup configurations and

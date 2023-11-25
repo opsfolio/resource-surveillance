@@ -12,12 +12,14 @@ lazy_static! {
 #[macro_use]
 mod helpers;
 
+mod capturable;
 mod classify;
 mod cmd;
 mod format;
 mod frontmatter;
 mod fscontent;
 mod fsresource;
+mod fswalk;
 mod persist;
 mod resource;
 mod shell;

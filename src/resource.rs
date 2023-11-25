@@ -4,6 +4,8 @@ use std::error::Error;
 use chrono::{DateTime, Utc};
 use serde_json::Value as JsonValue;
 
+use crate::capturable::*;
+
 pub trait BinaryContent {
     fn content_digest_hash(&self) -> &str;
     fn content_binary(&self) -> &Vec<u8>;
@@ -37,13 +39,6 @@ pub type BinaryExecOutputSupplier =
 pub type TextExecOutput = (Box<dyn TextContent>, subprocess::ExitStatus, Option<String>);
 pub type TextExecOutputSupplier =
     Box<dyn Fn(Option<String>) -> Result<TextExecOutput, Box<dyn Error>>>;
-
-#[derive(Debug, Clone)]
-pub enum CapturableExecutable {
-    Text(String, bool),
-    RequestedButNoNature(regex::Regex),
-    RequestedButNotExecutable,
-}
 
 pub struct ContentResource {
     pub uri: String,

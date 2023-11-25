@@ -6,6 +6,7 @@ use std::path::Path;
 use chrono::{DateTime, Utc};
 use sha1::{Digest, Sha1};
 
+use crate::capturable::*;
 use crate::frontmatter::frontmatter;
 use crate::resource::*;
 
