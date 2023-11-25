@@ -8,6 +8,7 @@ use serde_json::json;
 use serde_regex;
 use walkdir::DirEntry;
 
+use crate::fscontent::*;
 use crate::fsresource::*;
 use crate::persist::*;
 use crate::resource::*;
@@ -352,7 +353,7 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
                                             capturable_exec_text_supplier: None,
                                         };
 
-                                        match urw_state.fsr_walker.uniform_resource_supplier.uniform_resource(output_res) {
+                                        match urw_state.fsr_walker.resource_supplier.uniform_resource(output_res) {
                                             Ok(output_ur) => {
                                                 let ur = *(output_ur);
                                                 let inserted_output = ur.insert( urw_state, entry);

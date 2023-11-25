@@ -1,16 +1,12 @@
 use std::collections::HashMap;
 use std::error::Error;
-use std::fs;
-use std::io::{Error as IoError, Read, Write};
 use std::path::{Path, PathBuf};
 
-use chrono::{DateTime, Utc};
 use is_executable::IsExecutable;
 use regex::RegexSet;
-use sha1::{Digest, Sha1};
 use walkdir::WalkDir;
 
-use crate::frontmatter::frontmatter;
+use crate::fscontent::*;
 use crate::resource::*;
 
 /// Extracts various path-related information from the given root path and entry.
@@ -54,285 +50,37 @@ pub fn extract_path_info(
     ))
 }
 
-#[derive(Debug, Clone)]
-pub struct FileBinaryContent {
-    hash: String,
-    binary: Vec<u8>,
-}
-
-impl BinaryContent for FileBinaryContent {
-    fn content_digest_hash(&self) -> &str {
-        &self.hash
-    }
-
-    fn content_binary(&self) -> &Vec<u8> {
-        &self.binary
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct FileTextContent {
-    pub hash: String,
-    pub text: String,
-}
-
-impl TextContent for FileTextContent {
-    fn content_digest_hash(&self) -> &str {
-        &self.hash
-    }
-
-    fn content_text(&self) -> &str {
-        &self.text
-    }
-
-    fn frontmatter(&self) -> FrontmatterComponents {
-        frontmatter(&self.text)
-    }
-}
-
-pub type FileSysResourceQualifier = Box<dyn Fn(&Path, &str, &fs::File) -> bool>;
-pub type FileSysExecutableQualifier =
-    Box<dyn Fn(&Path, &str, &fs::File) -> Option<CapturableExecutable>>;
-
 // Implementing the main logic
 pub struct FileSysResourceSupplier {
-    is_resource_ignored: FileSysResourceQualifier,
-    is_content_available: FileSysResourceQualifier,
-    is_capturable_executable: FileSysExecutableQualifier,
+    pub fspc_options: FileSysPathContentOptions,
+    pub nature_bind: HashMap<String, String>,
 }
 
 impl FileSysResourceSupplier {
     pub fn new(
-        is_resource_ignored: FileSysResourceQualifier,
-        is_content_available: FileSysResourceQualifier,
-        is_capturable_executable: FileSysExecutableQualifier,
+        is_resource_ignored: FileSysPathQualifier,
+        is_content_available: FileSysPathQualifier,
+        is_capturable_executable: FileSysPathCapExecQualifier,
+        nature_bind: &HashMap<String, String>,
     ) -> Self {
         Self {
-            is_resource_ignored,
-            is_content_available,
-            is_capturable_executable,
+            fspc_options: FileSysPathContentOptions {
+                is_ignored: FileSysPathOption::Check(is_resource_ignored),
+                has_content: FileSysPathOption::Check(is_content_available),
+                is_capturable_executable: Some(is_capturable_executable),
+            },
+            nature_bind: nature_bind.clone(),
         }
     }
 }
 
 impl ContentResourceSupplier<ContentResource> for FileSysResourceSupplier {
     fn content_resource(&self, uri: &str) -> ContentResourceSupplied<ContentResource> {
-        let path = match std::fs::canonicalize(uri) {
-            Ok(p) => p,
-            Err(_) => return ContentResourceSupplied::NotFound(uri.to_string()),
-        };
-        let path = &path;
-
-        let metadata = match fs::metadata(path) {
-            Ok(metadata) => metadata,
-            Err(_) => return ContentResourceSupplied::NotFound(uri.to_string()),
-        };
-
-        if !metadata.is_file() {
-            return ContentResourceSupplied::NotFile(uri.to_string());
-        }
-
-        let file = match fs::File::open(path) {
-            Ok(file) => file,
-            Err(_) => return ContentResourceSupplied::Error(Box::new(IoError::last_os_error())),
-        };
-
-        let nature = path
-            .extension()
-            .and_then(|s| s.to_str())
-            .map(|s| s.to_string())
-            .unwrap_or_default();
-
-        if (self.is_resource_ignored)(path, &nature, &file) {
-            return ContentResourceSupplied::Ignored(uri.to_string());
-        }
-
-        let file_size = metadata.len();
-        let created_at = metadata.created().ok().map(DateTime::<Utc>::from);
-        let last_modified_at = metadata.modified().ok().map(DateTime::<Utc>::from);
-        let content_binary_supplier: Option<BinaryContentSupplier>;
-        let content_text_supplier: Option<TextContentSupplier>;
-        let capturable_executable: Option<CapturableExecutable>;
-        let capturable_exec_binary_supplier: Option<BinaryExecOutputSupplier>;
-        let capturable_exec_text_supplier: Option<TextExecOutputSupplier>;
-
-        if let Some(capturable) = (self.is_capturable_executable)(path, &nature, &file) {
-            capturable_executable = Some(capturable.clone());
-
-            if !matches!(capturable, CapturableExecutable::RequestedButNotExecutable) {
-                let uri_clone_cebs = uri.to_string(); // Clone for the first closure
-                capturable_exec_binary_supplier = Some(Box::new(
-                    move |stdin| -> Result<BinaryExecOutput, Box<dyn Error>> {
-                        let mut exec = subprocess::Exec::cmd(&uri_clone_cebs)
-                            .stdout(subprocess::Redirection::Pipe);
-
-                        if stdin.is_some() {
-                            exec = exec.stdin(subprocess::Redirection::Pipe);
-                        }
-
-                        let mut popen = exec.popen()?;
-
-                        if let Some(stdin_text) = stdin {
-                            if let Some(mut stdin_pipe) = popen.stdin.take() {
-                                stdin_pipe.write_all(stdin_text.as_bytes())?;
-                                stdin_pipe.flush()?;
-                                // `stdin_pipe` is dropped here when it goes out of scope, closing the stdin of the subprocess
-                            } // else: no one is listening to the stdin of the subprocess, so we can't pipe anything to it
-                        }
-
-                        let status = popen.wait()?;
-
-                        let mut output = popen.stdout.take().unwrap();
-                        let mut binary = Vec::new();
-                        output.read_to_end(&mut binary)?;
-
-                        let mut error_output = String::new();
-                        match &mut popen.stderr.take() {
-                            Some(stderr) => {
-                                stderr.read_to_string(&mut error_output)?;
-                            }
-                            None => {}
-                        }
-
-                        let hash = {
-                            let mut hasher = Sha1::new();
-                            hasher.update(&binary);
-                            format!("{:x}", hasher.finalize())
-                        };
-
-                        Ok((
-                            Box::new(FileBinaryContent { hash, binary }) as Box<dyn BinaryContent>,
-                            status,
-                            if !error_output.is_empty() {
-                                Some(error_output)
-                            } else {
-                                None
-                            },
-                        ))
-                    },
-                ));
-
-                let uri_clone_cets = uri.to_string(); // Clone for the second closure
-                capturable_exec_text_supplier = Some(Box::new(
-                    move |stdin| -> Result<TextExecOutput, Box<dyn Error>> {
-                        let mut exec = subprocess::Exec::cmd(&uri_clone_cets)
-                            .stdout(subprocess::Redirection::Pipe)
-                            .stderr(subprocess::Redirection::Pipe);
-
-                        if stdin.is_some() {
-                            exec = exec.stdin(subprocess::Redirection::Pipe);
-                        }
-
-                        let mut popen = exec.popen()?;
-
-                        if let Some(stdin_text) = stdin {
-                            if let Some(mut stdin_pipe) = popen.stdin.take() {
-                                stdin_pipe.write_all(stdin_text.as_bytes())?;
-                                stdin_pipe.flush()?;
-                                // `stdin_pipe` is dropped here when it goes out of scope, closing the stdin of the subprocess
-                            } // else: no one is listening to the stdin of the subprocess, so we can't pipe anything to it
-                        }
-
-                        let status = popen.wait()?;
-
-                        let mut output = String::new();
-                        popen.stdout.take().unwrap().read_to_string(&mut output)?;
-
-                        let mut error_output = String::new();
-                        match &mut popen.stderr.take() {
-                            Some(stderr) => {
-                                stderr.read_to_string(&mut error_output)?;
-                            }
-                            None => {}
-                        }
-
-                        let hash = {
-                            let mut hasher = Sha1::new();
-                            hasher.update(output.as_bytes());
-                            format!("{:x}", hasher.finalize())
-                        };
-
-                        Ok((
-                            Box::new(FileTextContent { hash, text: output })
-                                as Box<dyn TextContent>,
-                            status,
-                            if !error_output.is_empty() {
-                                Some(error_output)
-                            } else {
-                                None
-                            },
-                        ))
-                    },
-                ));
-            } else {
-                capturable_exec_binary_supplier = None;
-                capturable_exec_text_supplier = None;
-            }
-        } else {
-            capturable_executable = None;
-            capturable_exec_binary_supplier = None;
-            capturable_exec_text_supplier = None;
-        }
-
-        if (self.is_content_available)(path, &nature, &file) {
-            let uri_clone_cbs = uri.to_string(); // Clone for the first closure
-            content_binary_supplier = Some(Box::new(
-                move || -> Result<Box<dyn BinaryContent>, Box<dyn Error>> {
-                    let mut binary = Vec::new();
-                    let mut file = fs::File::open(&uri_clone_cbs)?;
-                    file.read_to_end(&mut binary)?;
-
-                    let hash = {
-                        let mut hasher = Sha1::new();
-                        hasher.update(&binary);
-                        format!("{:x}", hasher.finalize())
-                    };
-
-                    Ok(Box::new(FileBinaryContent { hash, binary }) as Box<dyn BinaryContent>)
-                },
-            ));
-
-            let uri_clone_cts = uri.to_string(); // Clone for the second closure
-            content_text_supplier = Some(Box::new(
-                move || -> Result<Box<dyn TextContent>, Box<dyn Error>> {
-                    let mut text = String::new();
-                    let mut file = fs::File::open(&uri_clone_cts)?;
-                    file.read_to_string(&mut text)?;
-
-                    let hash = {
-                        let mut hasher = Sha1::new();
-                        hasher.update(&text);
-                        format!("{:x}", hasher.finalize())
-                    };
-
-                    Ok(Box::new(FileTextContent { hash, text }) as Box<dyn TextContent>)
-                },
-            ));
-        } else {
-            content_binary_supplier = None;
-            content_text_supplier = None;
-        }
-
-        ContentResourceSupplied::Resource(ContentResource {
-            uri: String::from(path.to_str().unwrap()),
-            nature: Some(nature),
-            size: Some(file_size),
-            created_at,
-            last_modified_at,
-            capturable_executable,
-            content_binary_supplier,
-            content_text_supplier,
-            capturable_exec_binary_supplier,
-            capturable_exec_text_supplier,
-        })
+        fs_path_content_resource(uri, &self.fspc_options)
     }
 }
 
-pub struct FileSysUniformResourceSupplier {
-    pub nature_bind: HashMap<String, String>,
-}
-
-impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier {
+impl UniformResourceSupplier<ContentResource> for FileSysResourceSupplier {
     fn uniform_resource(
         &self,
         resource: ContentResource,
@@ -430,7 +178,6 @@ impl UniformResourceSupplier<ContentResource> for FileSysUniformResourceSupplier
 pub struct FileSysResourcesWalker {
     pub root_paths: Vec<String>,
     pub resource_supplier: FileSysResourceSupplier,
-    pub uniform_resource_supplier: FileSysUniformResourceSupplier,
 }
 
 impl FileSysResourcesWalker {
@@ -491,16 +238,12 @@ impl FileSysResourcesWalker {
                 }
                 None
             }),
+            nature_bind,
         );
-
-        let uniform_resource_supplier = FileSysUniformResourceSupplier {
-            nature_bind: nature_bind.clone(),
-        };
 
         Ok(Self {
             root_paths: root_paths.to_owned(),
             resource_supplier,
-            uniform_resource_supplier,
         })
     }
 
@@ -517,7 +260,7 @@ impl FileSysResourcesWalker {
                 match self.resource_supplier.content_resource(&uri) {
                     ContentResourceSupplied::Resource(resource) => {
                         // Create a uniform resource for each valid resource.
-                        match self.uniform_resource_supplier.uniform_resource(resource) {
+                        match self.resource_supplier.uniform_resource(resource) {
                             Ok(uniform_resource) => encounter_resource(*uniform_resource),
                             Err(e) => return Err(e), // Handle error according to your policy
                         }
@@ -546,7 +289,7 @@ impl FileSysResourcesWalker {
                     let uri = entry.path().to_string_lossy().into_owned();
                     match self.resource_supplier.content_resource(&uri) {
                         ContentResourceSupplied::Resource(resource) => {
-                            match self.uniform_resource_supplier.uniform_resource(resource) {
+                            match self.resource_supplier.uniform_resource(resource) {
                                 Ok(uniform_resource) => {
                                     Some(Ok((entry.clone(), *uniform_resource)))
                                 }
@@ -560,46 +303,5 @@ impl FileSysResourcesWalker {
                     }
                 })
         })
-    }
-}
-
-// For the unit test, we use the built-in testing framework
-#[cfg(test)]
-mod tests {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn test_filesys_resource_supplier() {
-        // Set up a FileSysResourceSupplier with mock callbacks
-        let supplier = FileSysResourceSupplier::new(
-            Box::new(|_file, _nature, _metadata| false), // is_resource_ignored
-            Box::new(|_file, _nature, _metadata| true),  // is_content_available
-            Box::new(|_file, _nature, _metadata| None),  // is_capturable_executable
-        );
-
-        // Create a file for the test environment, writing some content
-        let test_file_path = "test.txt";
-        let test_data = b"Hello, world!";
-        fs::write(test_file_path, test_data).expect("Unable to write test file");
-
-        // Use the supplier to get a resource
-        let result = supplier.content_resource(test_file_path);
-
-        match result {
-            ContentResourceSupplied::Resource(res) => {
-                let cbin =
-                    (res.content_binary_supplier.unwrap())().expect("Error obtaining content");
-                assert_eq!(cbin.content_binary(), b"Hello, world!");
-                let ctext =
-                    (res.content_text_supplier.unwrap())().expect("Error obtaining content");
-                assert_eq!(ctext.content_text(), "Hello, world!");
-            }
-            _ => panic!("Unexpected result from resource()"),
-        }
-
-        // Clean up the file system
-        fs::remove_file(test_file_path).expect("Unable to delete test file");
     }
 }

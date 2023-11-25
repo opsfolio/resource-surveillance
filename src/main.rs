@@ -16,6 +16,7 @@ mod classify;
 mod cmd;
 mod format;
 mod frontmatter;
+mod fscontent;
 mod fsresource;
 mod persist;
 mod resource;

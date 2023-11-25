@@ -8,6 +8,18 @@ pub trait Classifiable {
     fn is_match(&self, globset: &GlobSet) -> bool;
 }
 
+pub enum ClassifiableContent<Class, T> {
+    Ignored(Class, String),
+    NotFound(Class, String),
+    NotFile(Class, String),
+    Resource(T, Class),
+    Error(Class, Box<dyn std::error::Error>),
+}
+
+pub trait ClassifiableContentSupplier<Resource, Class> {
+    fn content(&self) -> ClassifiableContent<Resource, Class>;
+}
+
 /// Type alias for the classifier function.
 ///
 /// `Target` - Type of item to be classified, must implement `Classifiable`.
