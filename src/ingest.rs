@@ -13,6 +13,39 @@ use crate::fsresource::*;
 use crate::persist::*;
 use crate::resource::*;
 
+// separate the SQL from the execute so we can use it in logging, errors, etc.
+const INS_UR_INGEST_SESSION_SQL: &str = indoc! {"
+        INSERT INTO ur_ingest_session (ur_ingest_session_id, device_id, behavior_id, behavior_json, ingest_started_at) 
+                             VALUES (ulid(), ?, ?, ?, CURRENT_TIMESTAMP) RETURNING ur_ingest_session_id"};
+
+const INS_UR_INGEST_SESSION_FINISH_SQL: &str = indoc! {"
+        UPDATE ur_ingest_session 
+           SET ingest_finished_at = CURRENT_TIMESTAMP 
+         WHERE ur_ingest_session_id = ?"};
+
+const INS_UR_ISFSP_SQL: &str = indoc! {"
+        INSERT INTO ur_ingest_session_fs_path (ur_ingest_session_fs_path_id, ingest_session_id, root_path) 
+                                  VALUES (ulid(), ?, ?) RETURNING ur_ingest_session_fs_path_id"};
+
+// in INS_UR_SQL the `DO UPDATE SET size_bytes = EXCLUDED.size_bytes` is a workaround to allow RETURNING uniform_resource_id when the row already exists
+const INS_UR_SQL: &str = indoc! {"
+        INSERT INTO uniform_resource (uniform_resource_id, device_id, ingest_session_id, ingest_fs_path_id, uri, nature, content, content_digest, size_bytes, last_modified_at, content_fm_body_attrs, frontmatter)
+                              VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+                         ON CONFLICT (device_id, content_digest, uri, size_bytes, last_modified_at) 
+                           DO UPDATE SET size_bytes = EXCLUDED.size_bytes
+                           RETURNING uniform_resource_id"};
+
+const INS_UR_TRANSFORM_SQL: &str = indoc! {"
+        INSERT INTO uniform_resource_transform (uniform_resource_transform_id, uniform_resource_id, uri, nature, content_digest, content, size_bytes)
+                                        VALUES (ulid(), ?, ?, ?, ?, ?, ?) 
+                                   ON CONFLICT (uniform_resource_id, content_digest, nature, size_bytes) 
+                                 DO UPDATE SET size_bytes = EXCLUDED.size_bytes
+                                     RETURNING uniform_resource_transform_id"};
+
+const INS_UR_ISFSP_ENTRY_SQL: &str = indoc! {"
+        INSERT INTO ur_ingest_session_fs_path_entry (ur_ingest_session_fs_path_entry_id, ingest_session_id, ingest_fs_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn, ur_status, ur_diagnostics, captured_executable) 
+                                           VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"};
+
 pub struct UniformResourceWriterState<'a, 'conn> {
     ingest_args: &'a crate::cmd::IngestArgs,
     env_current_dir: &'a String,
@@ -27,6 +60,11 @@ pub struct UniformResourceWriterState<'a, 'conn> {
 
 impl<'a, 'conn> UniformResourceWriterState<'a, 'conn> {
     fn capturable_exec_ctx(&self, entry: &mut UniformResourceWriterEntry) -> Option<String> {
+        let dir_entry = if entry.dir_entry.is_some() {
+            json!({ "path": entry.dir_entry.unwrap().path().to_string_lossy().to_string() })
+        } else {
+            json!(null)
+        };
         let ctx = json!({
             "surveilr-ingest": {
                 "args": { "state_db_fs_path": self.ingest_args.state_db_fs_path },
@@ -36,7 +74,7 @@ impl<'a, 'conn> UniformResourceWriterState<'a, 'conn> {
                 "session": {
                     "walk-session-id": self.ingest_session_id,
                     "walk-path-id": self.ingest_fs_path_id,
-                    "entry": { "path": entry.dir_entry.path().to_str().unwrap() },
+                    "dir-entry": dir_entry,
                 },
             }
         });
@@ -45,7 +83,7 @@ impl<'a, 'conn> UniformResourceWriterState<'a, 'conn> {
 }
 
 pub struct UniformResourceWriterEntry<'a> {
-    dir_entry: &'a DirEntry,
+    dir_entry: Option<&'a DirEntry>,
     tried_alternate_nature: Option<String>,
 }
 
@@ -305,7 +343,8 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
         // now try to execute the capturable executable and store its output
         match &self.executable.capturable_executable {
             Some(capturable_executable) => match capturable_executable {
-                CapturableExecutable::Text(_src, nature, is_batched_sql) => {
+                CapturableExecutable::TextFromExecutableUri(_, nature, is_batched_sql)
+                | CapturableExecutable::TextFromDenoTaskShellCmd(_, _, nature, is_batched_sql) => {
                     match self.executable.capturable_exec_text_supplier.as_ref() {
                         Some(capturable_supplier) => {
                             let stdin = urw_state.capturable_exec_ctx(entry);
@@ -845,34 +884,6 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestArgs) -> Resul
     // the ulid() function we're using below is not built into SQLite, we define
     // it in persist::prepare_conn.
 
-    // separate the SQL from the execute so we can use it in logging, errors, etc.
-    const INS_UR_INGEST_SESSION_SQL: &str = indoc! {"
-        INSERT INTO ur_ingest_session (ur_ingest_session_id, device_id, behavior_id, behavior_json, ingest_started_at) 
-                             VALUES (ulid(), ?, ?, ?, CURRENT_TIMESTAMP) RETURNING ur_ingest_session_id"};
-    const INS_UR_INGEST_SESSION_FINISH_SQL: &str = indoc! {"
-        UPDATE ur_ingest_session 
-           SET ingest_finished_at = CURRENT_TIMESTAMP 
-         WHERE ur_ingest_session_id = ?"};
-    const INS_UR_ISFSP_SQL: &str = indoc! {"
-        INSERT INTO ur_ingest_session_fs_path (ur_ingest_session_fs_path_id, ingest_session_id, root_path) 
-                                  VALUES (ulid(), ?, ?) RETURNING ur_ingest_session_fs_path_id"};
-    // in ins_ur_stmt the `DO UPDATE SET size_bytes = EXCLUDED.size_bytes` is a workaround to force uniform_resource_id when the row already exists
-    const INS_UR_SQL: &str = indoc! {"
-        INSERT INTO uniform_resource (uniform_resource_id, device_id, ingest_session_id, ingest_fs_path_id, uri, nature, content, content_digest, size_bytes, last_modified_at, content_fm_body_attrs, frontmatter)
-                              VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
-                         ON CONFLICT (device_id, content_digest, uri, size_bytes, last_modified_at) 
-                           DO UPDATE SET size_bytes = EXCLUDED.size_bytes
-                           RETURNING uniform_resource_id"};
-    const INS_UR_TRANSFORM_SQL: &str = indoc! {"
-        INSERT INTO uniform_resource_transform (uniform_resource_transform_id, uniform_resource_id, uri, nature, content_digest, content, size_bytes)
-                                        VALUES (ulid(), ?, ?, ?, ?, ?, ?) 
-                                   ON CONFLICT (uniform_resource_id, content_digest, nature, size_bytes) 
-                                 DO UPDATE SET size_bytes = EXCLUDED.size_bytes
-                                     RETURNING uniform_resource_transform_id"};
-    const INS_UR_ISFSP_ENTRY_SQL: &str = indoc! {"
-        INSERT INTO ur_ingest_session_fs_path_entry (ur_ingest_session_fs_path_entry_id, ingest_session_id, ingest_fs_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn, ur_status, ur_diagnostics, captured_executable) 
-                                           VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"};
-
     let (mut fswb, mut behavior_id) = IngestBehavior::new(&device_id, fsw_args, &tx)
         .with_context(|| format!("[ingest] behavior issue {}", db_fs_path))?;
 
@@ -1020,7 +1031,7 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestArgs) -> Resul
                 match resource_result {
                     Ok((entry, resource)) => {
                         let mut urw_entry = UniformResourceWriterEntry {
-                            dir_entry: &entry,
+                            dir_entry: Some(&entry),
                             tried_alternate_nature: None,
                         };
                         let inserted = resource.insert(&mut urw_state, &mut urw_entry);

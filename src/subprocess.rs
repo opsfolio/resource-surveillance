@@ -4,6 +4,11 @@ use std::io::{Read, Write};
 
 use crate::fscontent::*;
 use crate::resource::*;
+use tokio::runtime::Runtime;
+
+lazy_static::lazy_static! {
+    pub static ref RUNTIME: Runtime = Runtime::new().expect("Failed to create Tokio runtime for Capturable Executables");
+}
 
 pub type BinaryExecOutput = (
     Box<dyn BinaryContent>,
@@ -29,7 +34,7 @@ impl CapturableExecutableStdIn {
         CapturableExecutableStdIn::Json(value)
     }
 
-    pub fn std_in(&self) -> Option<String> {
+    pub fn text(&self) -> Option<String> {
         match self {
             CapturableExecutableStdIn::None => None,
             CapturableExecutableStdIn::Text(text) => Some(text.clone()),
@@ -37,6 +42,10 @@ impl CapturableExecutableStdIn {
                 Some(serde_json::to_string_pretty(&value).unwrap())
             }
         }
+    }
+
+    pub fn bytes(&self) -> Vec<u8> {
+        self.text().map(|s| s.into_bytes()).unwrap_or_default()
     }
 }
 
@@ -48,7 +57,7 @@ pub fn execution_result_text(
         .stdout(subprocess::Redirection::Pipe)
         .stderr(subprocess::Redirection::Pipe);
 
-    let stdin = std_in.std_in();
+    let stdin = std_in.text();
     if stdin.is_some() {
         exec = exec.stdin(subprocess::Redirection::Pipe);
     }
@@ -101,7 +110,7 @@ pub fn execution_result_binary(
         .stdout(subprocess::Redirection::Pipe)
         .stderr(subprocess::Redirection::Pipe);
 
-    let stdin = std_in.std_in();
+    let stdin = std_in.text();
     if stdin.is_some() {
         exec = exec.stdin(subprocess::Redirection::Pipe);
     }

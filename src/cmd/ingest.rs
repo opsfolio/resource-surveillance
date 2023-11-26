@@ -2,8 +2,6 @@ use rusqlite::{Connection, OpenFlags};
 
 use crate::persist::*;
 
-// Implement methods for `CapturableExecCommands`, ensure that whether the commands
-// are called from CLI or natively within Rust, all the calls remain ergonomic.
 impl super::IngestArgs {
     pub fn execute(&self, cli: &super::Cli) -> anyhow::Result<()> {
         match crate::ingest::ingest(cli, self) {
@@ -11,7 +9,7 @@ impl super::IngestArgs {
                 if self.stats || self.stats_json {
                     if let Ok(conn) = Connection::open_with_flags(
                         self.state_db_fs_path.clone(),
-                        OpenFlags::SQLITE_OPEN_READ_WRITE,
+                        OpenFlags::SQLITE_OPEN_READ_ONLY,
                     ) {
                         if self.stats_json {
                             if let Ok(stats) =

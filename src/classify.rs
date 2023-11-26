@@ -11,12 +11,16 @@ use regex::{Regex, RegexSet};
 pub type Classifier<Target, Class, Context> =
     Box<dyn Fn(&mut Class, &Target, &Context, &str) -> bool + Sync + Send>;
 
-/// Type alias for classifier initialization HashMaps.
-pub type ClassifiersInit<Target, Class, Context> =
+/// Type alias for classifier initialization HashMaps when each classfier is just a closure/fn.
+pub type ClassifiersFnInit<Target, Class, Context> =
+    HashMap<String, Classifier<Target, Class, Context>>;
+
+/// Type alias for classifier initialization HashMaps when each classfier has multi-text and associated closure/fn.
+pub type ClassifiersTextVecFnInit<Target, Class, Context> =
     HashMap<String, (Vec<String>, Classifier<Target, Class, Context>)>;
 
-/// Type alias for classifier initialization HashMaps.
-pub type ClassifiersInitSingle<Target, Class, Context> =
+/// Type alias for classifier initialization HashMaps when each classifier has a single ext and associated closure/fn.
+pub type ClassifiersTextFnInit<Target, Class, Context> =
     HashMap<String, (String, Classifier<Target, Class, Context>)>;
 
 /// Trait for items that can be classified based on GlobSet patterns.
@@ -51,7 +55,7 @@ where
     pub fn new(
         empty_class_fn: Box<dyn Fn() -> Class>,
         candidates_globs: &[String],
-        classifier_globs: ClassifiersInit<Target, Class, Context>,
+        classifier_globs: ClassifiersTextVecFnInit<Target, Class, Context>,
     ) -> anyhow::Result<Self, globset::Error> {
         let mut builder = GlobSetBuilder::new();
         for glob_pattern in candidates_globs {
@@ -138,7 +142,7 @@ where
     /// Creates a new `ClassificationRules` instance.
     pub fn new(
         empty_class_fn: Box<dyn Fn() -> Class>,
-        classifier_regexs: ClassifiersInitSingle<Target, Class, Context>,
+        classifier_regexs: ClassifiersTextFnInit<Target, Class, Context>,
     ) -> anyhow::Result<Self, regex::Error> {
         let classifiers: HashMap<String, (Regex, Classifier<Target, Class, Context>)> =
             classifier_regexs
@@ -204,7 +208,7 @@ where
     /// Creates a new `ClassificationRules` instance.
     pub fn new(
         empty_class_fn: Box<dyn Fn() -> Class>,
-        classifier_regexs: ClassifiersInit<Target, Class, Context>,
+        classifier_regexs: ClassifiersTextVecFnInit<Target, Class, Context>,
     ) -> anyhow::Result<Self, regex::Error> {
         let classifiers: HashMap<String, (RegexSet, Classifier<Target, Class, Context>)> =
             classifier_regexs
@@ -241,6 +245,51 @@ where
     }
 }
 
+/// Struct for managing closure-based classification rules. Unlike the
+/// GlobSetClassifier and other classifiers this object allows traversal
+/// over arbitrary number of named classification functions.
+///
+/// `Class` - Type to hold classification results.
+/// `Target` - Type of item to be classified.
+/// `Context` - Anything to pass into each classifier in case it needs more context.
+#[allow(dead_code)]
+pub struct FnClassificationRules<Target, Class, Context> {
+    pub empty_class_fn: Box<dyn Fn() -> Class>,
+    pub classifiers: ClassifiersFnInit<Target, Class, Context>,
+}
+
+#[allow(dead_code)]
+impl<Target, Class, Context> FnClassificationRules<Target, Class, Context> {
+    /// Creates a new `ClassificationRules` instance.
+    pub fn new(
+        empty_class_fn: Box<dyn Fn() -> Class>,
+        classifiers: ClassifiersFnInit<Target, Class, Context>,
+    ) -> anyhow::Result<Self, regex::Error> {
+        Ok(FnClassificationRules {
+            empty_class_fn,
+            classifiers,
+        })
+    }
+
+    /// Classifies a given item.
+    pub fn classify(&self, item: &Target, ctx: &Context) -> (Class, bool, usize) {
+        let mut class = (self.empty_class_fn)();
+        let mut interrupted = false;
+        let mut classified_count = 0;
+
+        for (key, classifier) in &self.classifiers {
+            let proceed = classifier(&mut class, item, ctx, key);
+            if !proceed {
+                interrupted = true;
+                break;
+            }
+            classified_count += 1;
+        }
+
+        (class, interrupted, classified_count)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -268,7 +317,7 @@ mod tests {
     }
 
     #[test]
-    fn test_executable_classification() {
+    fn test_globset_classification() {
         let empty_class_fn = Box::new(|| PathClassification {
             is_executable: false,
         });
@@ -293,5 +342,17 @@ mod tests {
         let non_executable_file = Path::new("document.txt");
         let (classification, _, _) = classification_rules.classify(non_executable_file, &true);
         assert!(!classification.is_executable);
+    }
+
+    fn _test_regexset_classification() {
+        // TODO
+    }
+
+    fn _test_regex_classification() {
+        // TODO
+    }
+
+    fn _test_fn_classification() {
+        // TODO
     }
 }

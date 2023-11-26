@@ -21,6 +21,7 @@ mod fscontent;
 mod fsresource;
 mod fswalk;
 mod ingest;
+// mod nbccontent;
 mod persist;
 mod resource;
 mod shell;

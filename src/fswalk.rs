@@ -34,7 +34,7 @@ impl<Class> IgnorableFileSysEntries<Class> {
     pub fn new(
         empty_class_fn: Box<dyn Fn() -> Class>,
         candidates_globs: &[String],
-        classifier_globs: ClassifiersInit<ignore::DirEntry, Class, String>,
+        classifier_globs: ClassifiersTextVecFnInit<ignore::DirEntry, Class, String>,
         include_hidden: bool,
     ) -> anyhow::Result<Self, globset::Error> {
         Ok(IgnorableFileSysEntries {
@@ -121,7 +121,7 @@ impl<Class> WalkableFileSysEntries<Class> {
     pub fn new(
         empty_class_fn: Box<dyn Fn() -> Class>,
         candidates_globs: &[String],
-        classifier_globs: ClassifiersInit<walkdir::DirEntry, Class, String>,
+        classifier_globs: ClassifiersTextVecFnInit<walkdir::DirEntry, Class, String>,
     ) -> anyhow::Result<Self, globset::Error> {
         Ok(WalkableFileSysEntries {
             rules: GlobSetClassificationRules::new(
@@ -186,7 +186,7 @@ pub fn _fs_ignore_de_capturable_exec_classifier<Context>(
 ) -> Classifier<ignore::DirEntry, FileSysTypicalClass, Context> {
     Box::new(move |class, item, _ctx, _purpose| -> bool {
         if item.path().is_executable() {
-            class.capturable_executable = Some(CapturableExecutable::Text(
+            class.capturable_executable = Some(CapturableExecutable::TextFromExecutableUri(
                 item.path().to_string_lossy().to_string(),
                 String::from(""),
                 false,
@@ -202,7 +202,7 @@ pub fn fs_ignore_de_capturable_exec_sql_classifier<Context>(
 ) -> Classifier<ignore::DirEntry, FileSysTypicalClass, Context> {
     Box::new(move |class, item, _ctx, _purpose| -> bool {
         if item.path().is_executable() {
-            class.capturable_executable = Some(CapturableExecutable::Text(
+            class.capturable_executable = Some(CapturableExecutable::TextFromExecutableUri(
                 item.path().to_string_lossy().to_string(),
                 String::from(""),
                 true,

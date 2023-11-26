@@ -9,8 +9,13 @@ use deno_task_shell::ShellCommand;
 use deno_task_shell::ShellPipeWriter;
 use deno_task_shell::ShellState;
 use serde_json::{json, Value};
+use sha1::{Digest, Sha1};
 use tokio::runtime::Runtime;
 use tokio::task::JoinHandle;
+
+use super::fscontent::*;
+use super::resource::*;
+use super::subprocess::*;
 
 pub struct ShellResult {
     pub status: i32,
@@ -18,8 +23,9 @@ pub struct ShellResult {
     pub stdout: String,
 }
 
+#[allow(dead_code)]
 impl ShellResult {
-    pub fn json(&mut self) -> Value {
+    pub fn json(&self) -> Value {
         let stdout_json = serde_json::from_str::<Value>(self.stdout.as_str());
         match stdout_json {
             Ok(json) => json!({
@@ -36,7 +42,7 @@ impl ShellResult {
         }
     }
 
-    pub fn json_text(&mut self, default_json_text: Option<String>) -> String {
+    pub fn json_text(&self, default_json_text: Option<String>) -> String {
         let json = self.json();
         serde_json::to_string_pretty(&json).unwrap_or(if let Some(default) = default_json_text {
             default
@@ -45,7 +51,7 @@ impl ShellResult {
         })
     }
 
-    pub fn stdout_json_text(&mut self, default_json_text: Option<String>) -> String {
+    pub fn stdout_json_text(&self, default_json_text: Option<String>) -> String {
         let stdout_json = serde_json::from_str::<Value>(self.stdout.as_str());
         match stdout_json {
             Ok(json) => serde_json::to_string_pretty(&json).unwrap_or(
@@ -180,6 +186,74 @@ impl ShellResultSupplier {
             }
         })
     }
+}
+
+/// Return a TextExecOutputSupplier for Deno Task Shell command text so that it can be used as a closure
+pub fn deno_task_shell_content_text(cmd_text: &str) -> TextExecOutputSupplier {
+    let cmd_text = cmd_text.to_string(); // Clone for closure's lifetime
+    Box::new(
+        move |stdin| -> Result<TextExecOutput, Box<dyn std::error::Error>> {
+            let mut srs = ShellResultSupplier::new(None);
+            let shell_result = srs.result(
+                &RUNTIME,
+                &cmd_text,
+                stdin.map(|s| s.into_bytes()).unwrap_or_default(),
+            );
+
+            let hash = {
+                let mut hasher = Sha1::new();
+                hasher.update(shell_result.stdout.as_bytes());
+                format!("{:x}", hasher.finalize())
+            };
+
+            Ok((
+                Box::new(FileTextContent {
+                    hash,
+                    text: shell_result.stdout,
+                }) as Box<dyn TextContent>,
+                subprocess::ExitStatus::Exited(shell_result.status as u32),
+                if !shell_result.stderr.is_empty() {
+                    Some(shell_result.stderr)
+                } else {
+                    None
+                },
+            ))
+        },
+    )
+}
+
+/// Return a BinaryExecOutputSupplier for Deno Task Shell command text so that it can be used as a closure
+pub fn deno_task_shell_content_binary(cmd_text: &str) -> BinaryExecOutputSupplier {
+    let cmd_text = cmd_text.to_string(); // Clone for closure's lifetime
+    Box::new(
+        move |stdin| -> Result<BinaryExecOutput, Box<dyn std::error::Error>> {
+            let mut srs = ShellResultSupplier::new(None);
+            let shell_result = srs.result(
+                &RUNTIME,
+                &cmd_text,
+                stdin.map(|s| s.into_bytes()).unwrap_or_default(),
+            );
+
+            let hash = {
+                let mut hasher = Sha1::new();
+                hasher.update(shell_result.stdout.as_bytes());
+                format!("{:x}", hasher.finalize())
+            };
+
+            Ok((
+                Box::new(FileBinaryContent {
+                    hash,
+                    binary: shell_result.stdout.into_bytes(),
+                }) as Box<dyn BinaryContent>,
+                subprocess::ExitStatus::Exited(shell_result.status as u32),
+                if !shell_result.stderr.is_empty() {
+                    Some(shell_result.stderr)
+                } else {
+                    None
+                },
+            ))
+        },
+    )
 }
 
 #[cfg(test)]

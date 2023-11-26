@@ -1,10 +1,5 @@
-use std::path::Path;
-
-use anyhow::Context;
-use tokio::runtime::Runtime;
-
 use super::ShellCommands;
-use crate::shell::ShellResultSupplier;
+use crate::capturable::*;
 
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
@@ -23,26 +18,24 @@ impl ShellCommands {
         &self,
         cli: &super::Cli,
         command: &str,
-        cwd: Option<&String>,
-        stdout_only: bool,
+        _cwd: Option<&String>,
+        _stdout_only: bool,
     ) -> anyhow::Result<()> {
         if cli.debug > 0 {
             println!("{:?}", command);
         }
 
-        let runtime = Runtime::new()
-            .with_context(|| "unable to create tokio Runtime in ShellCommands::result")?;
-        let mut srs = ShellResultSupplier::new(cwd.map(|cwd| Path::new(cwd).to_path_buf()));
-        let mut result = srs.result(&runtime, command, Default::default());
-
-        print!(
-            "{}",
-            if stdout_only {
-                result.stdout_json_text(None)
-            } else {
-                result.json_text(None)
-            }
+        let stdin = crate::subprocess::CapturableExecutableStdIn::None;
+        let ce = CapturableExecutable::TextFromDenoTaskShellCmd(
+            format!("cli://shell/result/{}", command),
+            command.to_string(),
+            String::from("json"),
+            false,
         );
+
+        let (json_value, _nature, _) = ce.executed_result_as_json(stdin).unwrap();
+        print!("{}", serde_json::to_string_pretty(&json_value).unwrap());
+
         Ok(())
     }
 }

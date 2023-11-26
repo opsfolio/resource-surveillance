@@ -78,7 +78,11 @@ impl CapturableExecCommands {
                     if let crate::resource::UniformResource::CapturableExec(cer) = ur {
                         match &cer.executable.capturable_executable {
                             Some(capturable_executable) => match capturable_executable {
-                                CapturableExecutable::Text(_src, nature, is_batched_sql) => {
+                                CapturableExecutable::TextFromExecutableUri(
+                                    _uri,
+                                    nature,
+                                    is_batched_sql,
+                                ) => {
                                     if *is_batched_sql {
                                         found.push(vec![
                                             dir_entry_path,
@@ -90,6 +94,26 @@ impl CapturableExecCommands {
                                             dir_entry_path,
                                             nature.clone(),
                                             String::from(""),
+                                        ])
+                                    }
+                                }
+                                CapturableExecutable::TextFromDenoTaskShellCmd(
+                                    _uri,
+                                    _src,
+                                    nature,
+                                    is_batched_sql,
+                                ) => {
+                                    if *is_batched_sql {
+                                        found.push(vec![
+                                            dir_entry_path,
+                                            String::from("batched SQL"),
+                                            String::from("Should never appear in this list since Deno Tasks are stored in memory or database"),
+                                        ])
+                                    } else {
+                                        found.push(vec![
+                                            dir_entry_path,
+                                            nature.clone(),
+                                            String::from("Should never appear in this list since Deno Tasks are stored in memory or database"),
                                         ])
                                     }
                                 }
@@ -197,7 +221,17 @@ impl CapturableExecCommands {
 
                         match &cer.executable.capturable_executable {
                             Some(capturable_executable) => match capturable_executable {
-                                CapturableExecutable::Text(_src, nature, is_batched_sql) => {
+                                CapturableExecutable::TextFromExecutableUri(
+                                    _,
+                                    nature,
+                                    is_batched_sql,
+                                )
+                                | CapturableExecutable::TextFromDenoTaskShellCmd(
+                                    _,
+                                    _,
+                                    nature,
+                                    is_batched_sql,
+                                ) => {
                                     markdown.push(format!("- Nature: `{}`\n", nature));
                                     markdown
                                         .push(format!("- Batched SQL?: `{}`\n", is_batched_sql));
@@ -320,14 +354,20 @@ impl CapturableExecCommands {
                     "args": args
                 }));
                 let (src, nature, is_batch_sql) = match &ce {
-                    CapturableExecutable::Text(src, nature, is_batch_sql) => {
-                        (src, nature, is_batch_sql)
+                    CapturableExecutable::TextFromExecutableUri(uri, nature, is_batch_sql) => {
+                        (uri, nature, is_batch_sql)
                     }
-                    CapturableExecutable::RequestedButNoNature(src, _) => {
-                        (src, &unknown_nature, &false)
+                    CapturableExecutable::TextFromDenoTaskShellCmd(
+                        _uri,
+                        src,
+                        nature,
+                        is_batch_sql,
+                    ) => (src, nature, is_batch_sql),
+                    CapturableExecutable::RequestedButNoNature(uri, _) => {
+                        (uri, &unknown_nature, &false)
                     }
-                    CapturableExecutable::RequestedButNotExecutable(src) => {
-                        (src, &unknown_nature, &false)
+                    CapturableExecutable::RequestedButNotExecutable(uri) => {
+                        (uri, &unknown_nature, &false)
                     }
                 };
                 println!("src: {}", src);

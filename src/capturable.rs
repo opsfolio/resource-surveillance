@@ -1,11 +1,13 @@
 use is_executable::IsExecutable;
 use regex::{Regex, RegexSet};
 
+use crate::shell::*;
 use crate::subprocess::*;
 
 #[derive(Debug, Clone)]
 pub enum CapturableExecutable {
-    Text(String, String, bool),
+    TextFromExecutableUri(String, String, bool),
+    TextFromDenoTaskShellCmd(String, String, String, bool),
     RequestedButNoNature(String, Regex),
     RequestedButNotExecutable(String),
 }
@@ -16,7 +18,7 @@ impl CapturableExecutable {
         std_in: CapturableExecutableStdIn,
     ) -> anyhow::Result<(String, String, bool), serde_json::Value> {
         match self {
-            CapturableExecutable::Text(src, nature, is_batched_sql) => {
+            CapturableExecutable::TextFromExecutableUri(src, nature, is_batched_sql) => {
                 match execution_result_text(src, std_in) {
                     Ok((stdout, status, stderr)) => {
                         if status.success() {
@@ -28,7 +30,7 @@ impl CapturableExecutable {
                         } else {
                             Err(serde_json::json!({
                                 "src": src,
-                                "issue": "[CapturableExecutable::Text.executed_text] invalid exit status",
+                                "issue": "[CapturableExecutable::TextFromExecutableUri.executed_text] invalid exit status",
                                 "remediation": "ensure that executable is called with proper arguments and input formats",
                                 "nature": nature,
                                 "exit-status": format!("{:?}", status),
@@ -39,10 +41,28 @@ impl CapturableExecutable {
                     }
                     Err(err) => Err(serde_json::json!({
                         "src": src,
-                        "issue": "[CapturableExecutable::Text.executed_text] execution error",
+                        "issue": "[CapturableExecutable::TextFromExecutableUri.executed_text] execution error",
                         "rust-err": format!("{:?}", err),
                         "nature": nature,
                     })),
+                }
+            }
+            CapturableExecutable::TextFromDenoTaskShellCmd(uri, src, nature, is_batched_sql) => {
+                let mut srs = ShellResultSupplier::new(None);
+                let shell_result = srs.result(&RUNTIME, src, std_in.bytes());
+                if shell_result.status == 0 {
+                    Ok((shell_result.stdout, nature.clone(), *is_batched_sql))
+                } else {
+                    Err(serde_json::json!({
+                        "uri": uri,
+                        "src": src,
+                        "issue": "[CapturableExecutable::TextFromDenoTaskShell.executed_text] invalid exit status",
+                        "remediation": "ensure that executable is called with proper arguments and input formats",
+                        "nature": nature,
+                        "exit-status": format!("{:?}", shell_result.status),
+                        "stdout": shell_result.stdout,
+                        "stderr": shell_result.stderr
+                    }))
                 }
             }
             CapturableExecutable::RequestedButNoNature(src, regex) => Err(serde_json::json!({
@@ -64,7 +84,7 @@ impl CapturableExecutable {
         std_in: CapturableExecutableStdIn,
     ) -> anyhow::Result<(serde_json::Value, String, bool), serde_json::Value> {
         match self {
-            CapturableExecutable::Text(src, nature, is_batched_sql) => {
+            CapturableExecutable::TextFromExecutableUri(src, nature, is_batched_sql) => {
                 match execution_result_text(src, std_in) {
                     Ok((stdout, status, stderr)) => {
                         if status.success() {
@@ -75,7 +95,7 @@ impl CapturableExecutable {
                                 Ok(value) => Ok((value, nature.clone(), *is_batched_sql)),
                                 Err(_) => Err(serde_json::json!({
                                     "src": src,
-                                    "issue": "[CapturableExecutable::Text.executed_json] unable to deserialize JSON",
+                                    "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_json] unable to deserialize JSON",
                                     "remediation": "ensure that executable is emitting JSON (e.g. `--json`)",
                                     "nature": nature,
                                     "is-batched-sql": is_batched_sql,
@@ -87,7 +107,7 @@ impl CapturableExecutable {
                         } else {
                             Err(serde_json::json!({
                                 "src": src,
-                                "issue": "[CapturableExecutable::Text.executed_json] invalid exit status",
+                                "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_json] invalid exit status",
                                 "remediation": "ensure that executable is called with proper arguments and input formats",
                                 "nature": nature,
                                 "is-batched-sql": is_batched_sql,
@@ -98,22 +118,55 @@ impl CapturableExecutable {
                     }
                     Err(err) => Err(serde_json::json!({
                         "src": src,
-                        "issue": "[CapturableExecutable::Text.executed_json] execution error",
+                        "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_json] execution error",
                         "rust-err": format!("{:?}", err),
                         "nature": nature,
                         "is-batched-sql": is_batched_sql,
                     })),
                 }
             }
+            CapturableExecutable::TextFromDenoTaskShellCmd(uri, src, nature, is_batched_sql) => {
+                let mut srs = ShellResultSupplier::new(None);
+                let shell_result = srs.result(&RUNTIME, src, std_in.bytes());
+                if shell_result.status == 0 {
+                    let value: serde_json::Result<serde_json::Value> =
+                        serde_json::from_str(&shell_result.stdout);
+                    match value {
+                        Ok(value) => Ok((value, nature.clone(), *is_batched_sql)),
+                        Err(_) => Err(serde_json::json!({
+                            "uri": uri,
+                            "src": src,
+                            "issue": "[CapturableExecutable::TextFromDenoTaskShell.executed_result_as_json] unable to deserialize JSON",
+                            "remediation": "ensure that executable is emitting JSON (e.g. `--json`)",
+                            "nature": nature,
+                            "is-batched-sql": is_batched_sql,
+                            "stdout": shell_result.stdout,
+                            "exit-status": format!("{:?}", shell_result.status),
+                            "stderr": shell_result.stderr
+                        })),
+                    }
+                } else {
+                    Err(serde_json::json!({
+                        "uri": uri,
+                        "src": src,
+                        "issue": "[CapturableExecutable::TextFromDenoTaskShell.executed_result_as_json] invalid exit status",
+                        "remediation": "ensure that executable is called with proper arguments and input formats",
+                        "nature": nature,
+                        "exit-status": format!("{:?}", shell_result.status),
+                        "stdout": shell_result.stdout,
+                        "stderr": shell_result.stderr
+                    }))
+                }
+            }
             CapturableExecutable::RequestedButNoNature(src, regex) => Err(serde_json::json!({
                 "src": src,
-                "issue": "[CapturableExecutable::RequestedButNoNature.executed_json] unable to determine nature",
+                "issue": "[CapturableExecutable::RequestedButNoNature.executed_result_as_json] unable to determine nature",
                 "remediation": "make sure that the regular expression has a `nature` named capture group",
                 "regex": format!("{:?}", regex),
             })),
             CapturableExecutable::RequestedButNotExecutable(src) => Err(serde_json::json!({
                 "src": src,
-                "issue": "[CapturableExecutable::RequestedButNotExecutable.executed_json] executable permissions not set",
+                "issue": "[CapturableExecutable::RequestedButNotExecutable.executed_result_as_json] executable permissions not set",
                 "remediation": "make sure that script has executable permissions set",
             })),
         }
@@ -124,7 +177,7 @@ impl CapturableExecutable {
         std_in: CapturableExecutableStdIn,
     ) -> anyhow::Result<(String, String), serde_json::Value> {
         match self {
-            CapturableExecutable::Text(src, nature, is_batched_sql) => {
+            CapturableExecutable::TextFromExecutableUri(src, nature, is_batched_sql) => {
                 if *is_batched_sql {
                     match execution_result_text(src, std_in) {
                         Ok((stdout, status, stderr)) => {
@@ -133,7 +186,7 @@ impl CapturableExecutable {
                             } else {
                                 Err(serde_json::json!({
                                     "src": src,
-                                    "issue": "[CapturableExecutable::Text.executed_sql] invalid exit status",
+                                    "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_sql] invalid exit status",
                                     "remediation": "ensure that executable is called with proper arguments and input formats",
                                     "nature": nature,
                                     "exit-status": format!("{:?}", status),
@@ -144,7 +197,7 @@ impl CapturableExecutable {
                         }
                         Err(err) => Err(serde_json::json!({
                             "src": src,
-                            "issue": "[CapturableExecutable::Text.executed_sql] execution error",
+                            "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_sql] execution error",
                             "rust-err": format!("{:?}", err),
                             "nature": nature,
                         })),
@@ -152,20 +205,47 @@ impl CapturableExecutable {
                 } else {
                     Err(serde_json::json!({
                         "src": src,
-                        "issue": "[CapturableExecutable::Text.executed_sql] is not classified as batch SQL",
+                        "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_sql] is not classified as batch SQL",
+                        "nature": nature,
+                    }))
+                }
+            }
+            CapturableExecutable::TextFromDenoTaskShellCmd(uri, src, nature, is_batched_sql) => {
+                let mut srs = ShellResultSupplier::new(None);
+                let shell_result = srs.result(&RUNTIME, src, std_in.bytes());
+                if *is_batched_sql {
+                    if shell_result.status == 0 {
+                        Ok((shell_result.stdout, nature.clone()))
+                    } else {
+                        Err(serde_json::json!({
+                            "uri": uri,
+                            "src": src,
+                            "issue": "[CapturableExecutable::TextFromDenoTaskShell.executed_result_as_sql] invalid exit status",
+                            "remediation": "ensure that executable is called with proper arguments and input formats",
+                            "nature": nature,
+                            "exit-status": format!("{:?}", shell_result.status),
+                            "stdout": shell_result.stdout,
+                            "stderr": shell_result.stderr
+                        }))
+                    }
+                } else {
+                    Err(serde_json::json!({
+                        "uri": uri,
+                        "src": src,
+                        "issue": "[CapturableExecutable::TextFromDenoTaskShell.executed_result_as_sql] is not classified as batch SQL",
                         "nature": nature,
                     }))
                 }
             }
             CapturableExecutable::RequestedButNoNature(src, regex) => Err(serde_json::json!({
                 "src": src,
-                "issue": "[CapturableExecutable::RequestedButNoNature.executed_sql] unable to determine nature",
+                "issue": "[CapturableExecutable::RequestedButNoNature.executed_result_as_sql] unable to determine nature",
                 "remediation": "make sure that the regular expression has a `nature` named capture group",
                 "regex": format!("{:?}", regex),
             })),
             CapturableExecutable::RequestedButNotExecutable(src) => Err(serde_json::json!({
                 "src": src,
-                "issue": "[CapturableExecutable::RequestedButNotExecutable.executed_sql] executable permissions not set",
+                "issue": "[CapturableExecutable::RequestedButNotExecutable.executed_result_as_sql] executable permissions not set",
                 "remediation": "make sure that script has executable permissions set",
             })),
         }
@@ -173,9 +253,14 @@ impl CapturableExecutable {
 
     pub fn executable_content_text(&self) -> Option<TextExecOutputSupplier> {
         match self {
-            CapturableExecutable::Text(src, _, _) => Some(executable_content_text(src)),
-            CapturableExecutable::RequestedButNoNature(src, _) => {
-                Some(executable_content_text(src))
+            CapturableExecutable::TextFromExecutableUri(uri, _, _) => {
+                Some(executable_content_text(uri))
+            }
+            CapturableExecutable::TextFromDenoTaskShellCmd(_uri, src, _, _) => {
+                Some(deno_task_shell_content_text(src))
+            }
+            CapturableExecutable::RequestedButNoNature(uri, _) => {
+                Some(executable_content_text(uri))
             }
             CapturableExecutable::RequestedButNotExecutable(_) => None,
         }
@@ -183,7 +268,12 @@ impl CapturableExecutable {
 
     pub fn executable_content_binary(&self) -> Option<BinaryExecOutputSupplier> {
         match self {
-            CapturableExecutable::Text(src, _, _) => Some(executable_content_binary(src)),
+            CapturableExecutable::TextFromExecutableUri(uri, _, _) => {
+                Some(executable_content_binary(uri))
+            }
+            CapturableExecutable::TextFromDenoTaskShellCmd(_uri, src, _, _) => {
+                Some(deno_task_shell_content_binary(src))
+            }
             CapturableExecutable::RequestedButNoNature(src, _) => {
                 Some(executable_content_binary(src))
             }
@@ -233,7 +323,7 @@ impl CapturableExecutableRegexRules {
         let haystack: &str = path.to_str().unwrap();
 
         if self.capturable_sql_set.is_match(haystack) {
-            ce = Some(CapturableExecutable::Text(
+            ce = Some(CapturableExecutable::TextFromExecutableUri(
                 haystack.to_string(),
                 String::from("surveilr-SQL"),
                 true,
@@ -242,7 +332,7 @@ impl CapturableExecutableRegexRules {
             for re in self.capturable_regexs.iter() {
                 if let Some(caps) = re.captures(haystack) {
                     if let Some(nature) = caps.name("nature") {
-                        ce = Some(CapturableExecutable::Text(
+                        ce = Some(CapturableExecutable::TextFromExecutableUri(
                             haystack.to_string(),
                             String::from(nature.as_str()),
                             false,
