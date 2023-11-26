@@ -176,9 +176,7 @@ impl FileSysResourcesWalker {
                     match self.resource_supplier.content_resource(&uri) {
                         ContentResourceSupplied::Resource(resource) => {
                             match self.resource_supplier.uniform_resource(resource) {
-                                Ok(uniform_resource) => {
-                                    Some(Ok((entry.clone(), *uniform_resource)))
-                                }
+                                Ok(uniform_resource) => Some(Ok((entry, *uniform_resource))),
                                 Err(e) => Some(Err(e)),
                             }
                         }
