@@ -13,11 +13,9 @@ lazy_static! {
 mod helpers;
 
 mod capturable;
-mod classify; // TODO remove in favor of rwalk
 mod cmd;
 mod format;
 mod frontmatter;
-mod fswalk; // TODO remove in favor of rwalk
 mod ingest;
 mod persist;
 mod resource;

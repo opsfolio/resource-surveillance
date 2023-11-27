@@ -854,8 +854,8 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestArgs) -> Resul
     // TODO: add the executed files into the behaviors or other activity log!?
     execute_globs_batch(
         &tx,
-        &execute_globs_batch_cfse(&fsw_args.state_db_init_sql),
         &[".".to_string()],
+        &fsw_args.state_db_init_sql,
         "ingest",
         cli.debug,
     )

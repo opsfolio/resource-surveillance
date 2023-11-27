@@ -2,12 +2,16 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use base64::Engine;
+use globset::Glob;
+use is_executable::IsExecutable; // adds path.is_executable
 use rusqlite::functions::FunctionFlags;
 use rusqlite::{Connection, Result as RusqliteResult, ToSql};
 use ulid::Ulid;
 
+extern crate globwalk;
+
+use super::capturable::*;
 use super::device::Device;
-use super::fswalk::*;
 
 // TODO: every time a prepare_conn runs, allow passing in a Vector of files like
 // surveilr.init.sql as a source file that can help setup configurations and
@@ -424,58 +428,62 @@ pub fn execute_migrations(conn: &Connection, context: &str) -> RusqliteResult<()
     )
 }
 
-pub fn execute_globs_batch_cfse(
-    candidates_globs: &[String],
-) -> IgnorableFileSysEntries<FileSysTypicalClass> {
-    let cfse: IgnorableFileSysEntries<FileSysTypicalClass> = IgnorableFileSysEntries::new(
-        empty_fs_typical_class(),
-        candidates_globs,
-        std::collections::HashMap::from([(
-            String::from("executable emitting batched SQL"),
-            (
-                vec!["*.sql.{ts,sh}".to_string()],
-                fs_ignore_de_capturable_exec_sql_classifier(),
-            ),
-        )]),
-        false,
-    )
-    .unwrap();
-    cfse
-}
-
 pub fn execute_globs_batch(
     conn: &Connection,
-    cfse: &IgnorableFileSysEntries<FileSysTypicalClass>,
     walk_paths: &[String],
+    candidates_globs: &[String],
     context: &str,
     verbose_level: u8,
 ) -> anyhow::Result<Vec<(String, Option<String>, bool)>> {
     let mut executed: Vec<(String, Option<String>, bool)> = Vec::new();
-    cfse.walk(walk_paths, |_root_path, entry, class| {
-        let (sql, is_captured_from_exec) = match &class.capturable_executable {
-            Some(ce) => match ce
-                .executed_result_as_sql(crate::subprocess::CapturableExecutableStdIn::None)
-            {
+
+    // prepare a single walker which will build a GlobWalker for each walk_path,
+    // and iterate through only valid DirEntries;
+    // TODO: this "eats" all errors without reporting
+    let entries = walk_paths
+        .iter()
+        .map(|bp: &String| {
+            globwalk::GlobWalkerBuilder::from_patterns(bp, candidates_globs)
+                .follow_links(true)
+                .build()
+        })
+        .filter_map(Result::ok)
+        .flatten()
+        .filter_map(Result::ok);
+
+    let capturables_glob = Glob::new("*.sql.{ts,sh}")?.compile_matcher();
+    for entry in entries {
+        let path = entry.path();
+        let uri = path.to_string_lossy().to_string();
+        let (sql, is_captured_from_exec) = if capturables_glob.is_match(path)
+            && path.is_executable()
+        {
+            let ce = CapturableExecutable::TextFromExecutableUri(
+                path.to_string_lossy().to_string(),
+                String::from("surveilr-SQL"), // arbitrary but useful "nature"
+                true,
+            );
+            match ce.executed_result_as_sql(crate::subprocess::CapturableExecutableStdIn::None) {
                 Ok((sql_from_captured_exec, _nature)) => (sql_from_captured_exec, true),
                 Err(err) => {
                     eprintln!(
-                        "Unable to execute {}:\n{}",
-                        entry.path().to_string_lossy(),
-                        err
+                        "[execute_globs_batch({})] Unable to execute {}:\n{}",
+                        context, uri, err
                     );
-                    return;
+                    continue;
                 }
-            },
-            None => match std::fs::read_to_string(entry.path()) {
+            }
+        } else {
+            match std::fs::read_to_string(path) {
                 Ok(sql_from_file) => (sql_from_file, false),
                 Err(err) => {
                     eprintln!(
-                        "[execute_globs_batch({})] Failed to read SQL file: {}",
-                        context, err
+                        "[execute_globs_batch({})] Failed to read SQL file {}: {}",
+                        context, uri, err
                     );
-                    return;
+                    continue;
                 }
-            },
+            }
         };
 
         match conn.execute_batch(&sql) {
@@ -498,7 +506,7 @@ pub fn execute_globs_batch(
                 );
             }
         }
-    });
+    }
 
     if verbose_level > 0 {
         let emit: Vec<String> = executed
@@ -523,7 +531,11 @@ pub fn execute_globs_batch(
                 emit.join(", ")
             )
         } else {
-            println!("[{}] did execute SQL batches, none requested", context,)
+            println!(
+                "[{}] did execute SQL batches, none requested/matched {}",
+                context,
+                candidates_globs.join(", ")
+            )
         }
     }
 

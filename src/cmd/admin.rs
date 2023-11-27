@@ -79,8 +79,8 @@ impl AdminCommands {
 
         execute_globs_batch(
             &conn,
-            &execute_globs_batch_cfse(db_init_sql_globs),
             &[".".to_string()],
+            db_init_sql_globs,
             "AdminCommands::init",
             cli.debug,
         )
