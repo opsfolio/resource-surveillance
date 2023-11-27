@@ -44,6 +44,21 @@ provides. Though [CLI Help](support/docs/CLI-help.md) is a good reference, it's
 best to depend on `surveilr --help` and `surveilr <command> --help` because it
 will more accurate for the latest version.
 
+## Checking what can be "walked" in the file system `walker`
+
+Before you do any ingestion into SQLite `RSSD`s, you can get some statistics on
+what will be ingested when you use the `ingest` command in the next section.
+
+```bash
+$ surveilr walker stats --help                 # explain the `stats` subcommand
+$ surveilr walker stats                        # walk the current working directory (CWD)
+$ surveilr walker stats -r /other -r /other2   # walk some other director(ies)
+```
+
+The `surveilr ingest` and `surveilr walker` commands both have similar
+arguments. The difference is that `surveilr walker` is a sort of "dry run" to
+check what will be ingested before you do the ingestion.
+
 ## Creating `RSSD`s by "walking" the file system (`ingest`)
 
 Unless you set the `SURVEILR_STATEDB_FS_PATH` env var, the default _Resource

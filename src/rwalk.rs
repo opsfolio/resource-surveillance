@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use std::env::current_dir;
 use std::error::Error;
 use std::fs;
+use std::fs::canonicalize;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -296,11 +296,16 @@ pub struct WalkPath {
 
 impl WalkPath {
     pub fn physical(physical_fs_root_path_orig: &str) -> Self {
-        let physical_fs_root_path = if physical_fs_root_path_orig == "." {
-            current_dir().unwrap().to_string_lossy().to_string()
+        let physical_fs_root_path: String;
+        if let Ok(canonical) = canonicalize(physical_fs_root_path_orig) {
+            physical_fs_root_path = canonical.to_string_lossy().to_string();
         } else {
-            physical_fs_root_path_orig.to_string()
-        };
+            eprintln!(
+                "Error canonicalizing {}, trying original",
+                physical_fs_root_path_orig
+            );
+            physical_fs_root_path = physical_fs_root_path_orig.to_string();
+        }
         let vfs_fs_root = VfsPath::new(PhysicalFS::new("/"));
         let mut to_visit = VecDeque::new();
         to_visit.push_back(vfs_fs_root.join(physical_fs_root_path.clone()).unwrap());
