@@ -5,13 +5,11 @@ use indoc::indoc;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use walkdir::DirEntry;
 
 use crate::capturable::*;
-use crate::fscontent::*;
-use crate::fsresource::*;
 use crate::persist::*;
 use crate::resource::*;
+use crate::rwalk::*;
 
 // separate the SQL from the execute so we can use it in logging, errors, etc.
 const INS_UR_INGEST_SESSION_SQL: &str = indoc! {"
@@ -53,15 +51,15 @@ pub struct UniformResourceWriterState<'a, 'conn> {
     device_id: &'a String,
     ingest_session_id: &'a String,
     ingest_fs_path_id: &'a String,
-    fsr_walker: &'a FileSysResourcesWalker,
+    rwalker: &'a ResourceWalker,
     ins_ur_stmt: &'a mut rusqlite::Statement<'conn>,
     _ins_ur_transform_stmt: &'a mut rusqlite::Statement<'conn>,
 }
 
 impl<'a, 'conn> UniformResourceWriterState<'a, 'conn> {
     fn capturable_exec_ctx(&self, entry: &mut UniformResourceWriterEntry) -> Option<String> {
-        let dir_entry = if entry.dir_entry.is_some() {
-            json!({ "path": entry.dir_entry.unwrap().path().to_string_lossy().to_string() })
+        let path = if entry.path.is_some() {
+            json!({ "path": entry.path.unwrap() })
         } else {
             json!(null)
         };
@@ -74,7 +72,7 @@ impl<'a, 'conn> UniformResourceWriterState<'a, 'conn> {
                 "session": {
                     "walk-session-id": self.ingest_session_id,
                     "walk-path-id": self.ingest_fs_path_id,
-                    "dir-entry": dir_entry,
+                    "dir-entry": path,
                 },
             }
         });
@@ -83,7 +81,7 @@ impl<'a, 'conn> UniformResourceWriterState<'a, 'conn> {
 }
 
 pub struct UniformResourceWriterEntry<'a> {
-    dir_entry: Option<&'a DirEntry>,
+    path: Option<&'a str>,
     tried_alternate_nature: Option<String>,
 }
 
@@ -383,7 +381,7 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
                                                 move || -> Result<Box<dyn TextContent>, Box<dyn std::error::Error>> {
                                                     // TODO: do we really need to make clone these, can't we just
                                                     // pass in self.executable.capturable_exec_text_supplier!?!?
-                                                    Ok(Box::new(FileTextContent { text: captured_text.clone(), hash: hash.clone() })
+                                                    Ok(Box::new(ResourceTextContent { text: captured_text.clone(), hash: hash.clone() })
                                                         as Box<dyn TextContent>)
                                                 },
                                             )),
@@ -392,7 +390,7 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
                                             capturable_exec_text_supplier: None,
                                         };
 
-                                        match urw_state.fsr_walker.resource_supplier.uniform_resource(output_res) {
+                                        match urw_state.rwalker.ur_builder.uniform_resource(output_res) {
                                             Ok(output_ur) => {
                                                 let ur = *(output_ur);
                                                 let inserted_output = ur.insert( urw_state, entry);
@@ -783,21 +781,22 @@ impl IngestBehavior {
             .push(regex::Regex::new(format!("^{}$", regex::escape(pattern)).as_str()).unwrap());
     }
 
-    pub fn code_notebook_cells(&mut self, conn: &Connection) {
-        match select_notebooks_and_cells(
-            conn,
-            &self.code_notebooks_searched,
-            &self.code_notebook_cells_searched,
-        ) {
-            Ok(matched) => {
-                for row in matched {
-                    let (notebook, kernel, cell, _code) = row;
-                    println!("-- {notebook}::{cell} ({kernel})");
-                }
-            }
-            Err(err) => println!("IngestBehavior code_notebook_cells error: {}", err),
-        }
-    }
+    // TODO: move this to rwalker.rs to unify all resource walkers
+    // pub fn code_notebook_cells(&mut self, conn: &Connection) {
+    //     match select_notebooks_and_cells(
+    //         conn,
+    //         &self.code_notebooks_searched,
+    //         &self.code_notebook_cells_searched,
+    //     ) {
+    //         Ok(matched) => {
+    //             for row in matched {
+    //                 let (notebook, kernel, cell, _code) = row;
+    //                 println!("-- {notebook}::{cell} ({kernel})");
+    //             }
+    //         }
+    //         Err(err) => println!("IngestBehavior code_notebook_cells error: {}", err),
+    //     }
+    // }
 
     pub fn save(
         &self,
@@ -974,8 +973,6 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestArgs) -> Resul
                 )
             })?;
 
-        fswb.code_notebook_cells(&tx);
-
         for root_path in &fswb.root_fs_paths {
             let canonical_path_buf = std::fs::canonicalize(std::path::Path::new(&root_path))
                 .with_context(|| {
@@ -1000,20 +997,15 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestArgs) -> Resul
             }
 
             let rp: Vec<String> = vec![canonical_path.clone()];
-            let walker = FileSysResourcesWalker::new(
-                &rp,
-                &fswb.ignore_fs_entry_regexs,
-                &fswb.ingest_content_fs_entry_regexs,
-                &fswb.capturable_executables_fs_entry_regexs,
-                &fswb.captured_exec_sql_fs_entry_regexs,
-                &fswb.nature_bind,
-            )
-            .with_context(|| {
-                format!(
-                    "[ingest] unable to walker for {} in {}",
-                    canonical_path, db_fs_path
-                )
-            })?;
+            let rw_options = ResourceWalkerOptions {
+                physical_fs_root_paths: rp,
+                acquire_content_regexs: fswb.ingest_content_fs_entry_regexs.to_vec(),
+                ignore_paths_regexs: fswb.ignore_fs_entry_regexs.to_vec(),
+                capturable_executables_regexs: fswb.capturable_executables_fs_entry_regexs.to_vec(),
+                captured_exec_sql_regexs: fswb.captured_exec_sql_fs_entry_regexs.to_vec(),
+                nature_bind: fswb.nature_bind.clone(),
+            };
+            let rwalker = ResourceWalker::new(&rw_options);
 
             let mut urw_state = UniformResourceWriterState {
                 ingest_args: fsw_args,
@@ -1022,16 +1014,16 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestArgs) -> Resul
                 device_id: &device_id,
                 ingest_session_id: &ingest_session_id,
                 ingest_fs_path_id: &ingest_fs_path_id,
-                fsr_walker: &walker,
+                rwalker: &rwalker,
                 ins_ur_stmt: &mut ins_ur_stmt,
                 _ins_ur_transform_stmt: &mut ins_ur_transform_stmt,
             };
 
-            for resource_result in walker.walk_resources_iter() {
+            for resource_result in rwalker.uniform_resources() {
                 match resource_result {
-                    Ok((entry, resource)) => {
+                    Ok(resource) => {
                         let mut urw_entry = UniformResourceWriterEntry {
-                            dir_entry: Some(&entry),
+                            path: Some(resource.uri()),
                             tried_alternate_nature: None,
                         };
                         let inserted = resource.insert(&mut urw_state, &mut urw_entry);

@@ -34,5 +34,6 @@ sysinfo = { version = "0.29.10", features = ["multithread", "rayon", "serde"] }
 tempfile = "3.8.1"
 tokio = { version = "1.34.0", features = ["full"] }
 toml = "0.8.8"
-walkdir = "2.4.0"
 ulid = { version = "1.1.0", features = ["rand", "std", "serde", "uuid"] }
+vfs = { version = "0.10.0", features = ["embedded-fs"] }
+walkdir = "2.4.0"

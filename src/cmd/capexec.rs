@@ -6,7 +6,8 @@ use serde_json::json;
 
 use super::CapturableExecCommands;
 use crate::capturable::*;
-use crate::fsresource::*;
+use crate::resource::*;
+use crate::rwalk::*;
 use crate::subprocess::CapturableExecutableStdIn;
 
 // Implement methods for `CapturableExecCommands`, ensure that whether the commands
@@ -59,21 +60,20 @@ impl CapturableExecCommands {
         captured_exec_sql: &[Regex],
         ignore_entries: &[Regex],
     ) -> anyhow::Result<()> {
-        let walker = FileSysResourcesWalker::new(
-            root_paths,
-            ignore_entries,
-            &[],
-            capture_exec,
-            captured_exec_sql,
-            &HashMap::new(),
-        )
-        .with_context(|| "[CapturableExecCommands::ls] unable to create fs walker")?;
+        let walker = ResourceWalker::new(&ResourceWalkerOptions {
+            physical_fs_root_paths: root_paths.to_vec(),
+            acquire_content_regexs: vec![],
+            ignore_paths_regexs: ignore_entries.to_vec(),
+            capturable_executables_regexs: capture_exec.to_vec(),
+            captured_exec_sql_regexs: captured_exec_sql.to_vec(),
+            nature_bind: HashMap::default(),
+        });
 
         let mut found: Vec<Vec<String>> = vec![];
-        for resource_result in walker.walk_resources_iter() {
+        for resource_result in walker.uniform_resources() {
             match resource_result {
-                Ok((dir_entry, ur)) => {
-                    let dir_entry_path = dir_entry.path().to_string_lossy().to_string();
+                Ok(ur) => {
+                    let path = ur.uri().clone();
 
                     if let crate::resource::UniformResource::CapturableExec(cer) = ur {
                         match &cer.executable.capturable_executable {
@@ -85,16 +85,12 @@ impl CapturableExecCommands {
                                 ) => {
                                     if *is_batched_sql {
                                         found.push(vec![
-                                            dir_entry_path,
+                                            path,
                                             String::from("batched SQL"),
                                             String::from(""),
                                         ])
                                     } else {
-                                        found.push(vec![
-                                            dir_entry_path,
-                                            nature.clone(),
-                                            String::from(""),
-                                        ])
+                                        found.push(vec![path, nature.clone(), String::from("")])
                                     }
                                 }
                                 CapturableExecutable::TextFromDenoTaskShellCmd(
@@ -105,13 +101,13 @@ impl CapturableExecCommands {
                                 ) => {
                                     if *is_batched_sql {
                                         found.push(vec![
-                                            dir_entry_path,
+                                            path,
                                             String::from("batched SQL"),
                                             String::from("Should never appear in this list since Deno Tasks are stored in memory or database"),
                                         ])
                                     } else {
                                         found.push(vec![
-                                            dir_entry_path,
+                                            path,
                                             nature.clone(),
                                             String::from("Should never appear in this list since Deno Tasks are stored in memory or database"),
                                         ])
@@ -119,14 +115,14 @@ impl CapturableExecCommands {
                                 }
                                 CapturableExecutable::RequestedButNoNature(_src, re) => {
                                     found.push(vec![
-                                        dir_entry_path,
+                                        path,
                                         String::from("No CE Nature in reg ex"),
                                         format!("{}", re.to_string()),
                                     ]);
                                 }
                                 CapturableExecutable::RequestedButNotExecutable(_src) => {
                                     found.push(vec![
-                                        dir_entry_path,
+                                        path,
                                         String::from("Executable Permission Not Set"),
                                         String::from("chmod +x required"),
                                     ]);
@@ -134,7 +130,7 @@ impl CapturableExecCommands {
                             },
                             None => {
                                 found.push(vec![
-                                    dir_entry_path,
+                                    path,
                                     String::from(
                                         "cer.executable.capturable_executable returned None",
                                     ),
@@ -144,8 +140,8 @@ impl CapturableExecCommands {
                         }
                     }
                 }
-                Err(e) => {
-                    eprintln!("Error processing a resource: {}", e);
+                Err(_) => {
+                    // unable to determine the kind of file, so it's not a capturable executable
                 }
             }
         }
@@ -168,15 +164,14 @@ impl CapturableExecCommands {
         captured_exec_sql: &[Regex],
         ignore_entries: &[Regex],
     ) -> anyhow::Result<()> {
-        let walker = FileSysResourcesWalker::new(
-            root_paths,
-            ignore_entries,
-            &[],
-            capture_exec,
-            captured_exec_sql,
-            &HashMap::new(),
-        )
-        .with_context(|| "[CapturableExecCommands::ls] unable to create fs walker")?;
+        let walker = ResourceWalker::new(&ResourceWalkerOptions {
+            physical_fs_root_paths: root_paths.to_vec(),
+            acquire_content_regexs: vec![],
+            ignore_paths_regexs: ignore_entries.to_vec(),
+            capturable_executables_regexs: capture_exec.to_vec(),
+            captured_exec_sql_regexs: captured_exec_sql.to_vec(),
+            nature_bind: HashMap::default(),
+        });
 
         let mut markdown: Vec<String> = vec!["# `surveilr` Capturable Executables\n\n".to_string()];
 
@@ -209,15 +204,13 @@ impl CapturableExecCommands {
         );
         markdown.push("\n".to_string());
 
-        for resource_result in walker.walk_resources_iter() {
+        for resource_result in walker.uniform_resources() {
             match resource_result {
-                Ok((dir_entry, ur)) => {
-                    if let crate::resource::UniformResource::CapturableExec(cer) = ur {
-                        markdown.push(format!(
-                            "## {}\n\n",
-                            dir_entry.file_name().to_string_lossy()
-                        ));
-                        markdown.push(format!("- `{}`\n", dir_entry.path().to_string_lossy()));
+                Ok(ur) => {
+                    if let crate::resource::UniformResource::CapturableExec(cer) = &ur {
+                        let path = ur.uri().clone();
+                        markdown.push(format!("## {}\n\n", path)); // TODO: replace with just the filename
+                                                                   // markdown.push(format!("- `{}`\n", path));
 
                         match &cer.executable.capturable_executable {
                             Some(capturable_executable) => match capturable_executable {
@@ -247,7 +240,7 @@ impl CapturableExecCommands {
                                                     "session": {
                                                         "walk-session-id":  "synthetic",
                                                         "walk-path-id":  "synthetic",
-                                                        "entry": { "path": dir_entry.path() },
+                                                        "entry": { "path": path },
                                                     },
                                                 }
                                             });
@@ -345,7 +338,7 @@ impl CapturableExecCommands {
     ) -> anyhow::Result<()> {
         let cerr = CapturableExecutableRegexRules::new(Some(capture_exec), Some(captured_exec_sql))
             .with_context(|| "unable to create CapturableExecutableRegexRules")?;
-        match cerr.capturable_executable(std::path::Path::new(fs_path)) {
+        match cerr.path_capturable_executable(std::path::Path::new(fs_path)) {
             Some(ce) => {
                 let unknown_nature = "UNKNOWN_NATURE".to_string();
                 // pass in synthetic JSON into STDIN since some scripts may try to consume stdin

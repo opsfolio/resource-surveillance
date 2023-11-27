@@ -2,8 +2,8 @@ use sha1::{Digest, Sha1};
 use std::error::Error;
 use std::io::{Read, Write};
 
-use crate::fscontent::*;
 use crate::resource::*;
+use crate::rwalk::*;
 use tokio::runtime::Runtime;
 
 lazy_static::lazy_static! {
@@ -92,7 +92,7 @@ pub fn execution_result_text(
     };
 
     Ok((
-        Box::new(FileTextContent { hash, text: output }) as Box<dyn TextContent>,
+        Box::new(ResourceTextContent { hash, text: output }) as Box<dyn TextContent>,
         status,
         if !error_output.is_empty() {
             Some(error_output)
@@ -146,7 +146,7 @@ pub fn execution_result_binary(
     };
 
     Ok((
-        Box::new(FileBinaryContent { hash, binary }) as Box<dyn BinaryContent>,
+        Box::new(ResourceBinaryContent { hash, binary }) as Box<dyn BinaryContent>,
         status,
         if !error_output.is_empty() {
             Some(error_output)

@@ -13,8 +13,8 @@ use sha1::{Digest, Sha1};
 use tokio::runtime::Runtime;
 use tokio::task::JoinHandle;
 
-use super::fscontent::*;
 use super::resource::*;
+use super::rwalk::*;
 use super::subprocess::*;
 
 pub struct ShellResult {
@@ -207,7 +207,7 @@ pub fn deno_task_shell_content_text(cmd_text: &str) -> TextExecOutputSupplier {
             };
 
             Ok((
-                Box::new(FileTextContent {
+                Box::new(ResourceTextContent {
                     hash,
                     text: shell_result.stdout,
                 }) as Box<dyn TextContent>,
@@ -241,7 +241,7 @@ pub fn deno_task_shell_content_binary(cmd_text: &str) -> BinaryExecOutputSupplie
             };
 
             Ok((
-                Box::new(FileBinaryContent {
+                Box::new(ResourceBinaryContent {
                     hash,
                     binary: shell_result.stdout.into_bytes(),
                 }) as Box<dyn BinaryContent>,

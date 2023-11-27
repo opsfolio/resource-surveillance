@@ -318,29 +318,29 @@ impl CapturableExecutableRegexRules {
         })
     }
 
-    pub fn capturable_executable(&self, path: &std::path::Path) -> Option<CapturableExecutable> {
+    // check if URI is executable based only on the filename pattern
+    pub fn uri_capturable_executable(&self, uri: &str) -> Option<CapturableExecutable> {
         let mut ce: Option<CapturableExecutable> = None;
-        let haystack: &str = path.to_str().unwrap();
 
-        if self.capturable_sql_set.is_match(haystack) {
+        if self.capturable_sql_set.is_match(uri) {
             ce = Some(CapturableExecutable::TextFromExecutableUri(
-                haystack.to_string(),
+                uri.to_string(),
                 String::from("surveilr-SQL"),
                 true,
             ));
         } else {
             for re in self.capturable_regexs.iter() {
-                if let Some(caps) = re.captures(haystack) {
+                if let Some(caps) = re.captures(uri) {
                     if let Some(nature) = caps.name("nature") {
                         ce = Some(CapturableExecutable::TextFromExecutableUri(
-                            haystack.to_string(),
+                            uri.to_string(),
                             String::from(nature.as_str()),
                             false,
                         ));
                         break;
                     } else {
                         ce = Some(CapturableExecutable::RequestedButNoNature(
-                            haystack.to_string(),
+                            uri.to_string(),
                             re.clone(),
                         ));
                         break;
@@ -348,15 +348,29 @@ impl CapturableExecutableRegexRules {
                 }
             }
         }
-        if ce.is_some() {
+        ce
+    }
+
+    // check if URI is executable based the filename pattern first, then physical FS validation of execute permission
+    pub fn path_capturable_executable(
+        &self,
+        path: &std::path::Path,
+    ) -> Option<CapturableExecutable> {
+        let uri_ce = self.uri_capturable_executable(path.to_str().unwrap());
+        if uri_ce.is_some() {
             if path.is_executable() {
-                return ce;
+                return uri_ce;
             } else {
                 return Some(CapturableExecutable::RequestedButNotExecutable(
-                    haystack.to_string(),
+                    path.to_string_lossy().to_string(),
                 ));
             }
         }
         None
+    }
+
+    // check if URI is executable based the filename pattern first, then physical FS validation of execute permission
+    pub fn smart_path_capturable_executable(&self, uri: &str) -> Option<CapturableExecutable> {
+        self.path_capturable_executable(std::path::Path::new(uri))
     }
 }

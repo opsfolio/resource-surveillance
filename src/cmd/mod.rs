@@ -8,12 +8,13 @@ pub mod admin;
 pub mod capexec;
 pub mod ingest;
 pub mod notebooks;
+pub mod rwalk;
 pub mod shell;
 
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 const DEFAULT_MERGED_STATEDB_FS_PATH: &str = "resource-surveillance-aggregated.sqlite.db";
 
-const DEFAULT_INGEST_FS_IGNORE_PATHS: &str = r"/(\\.git|node_modules)/";
+const DEFAULT_INGEST_FS_IGNORE_PATHS: &str = r"/(\.git|node_modules)/";
 const DEFAULT_CAPTURE_EXEC_REGEX_PATTERN: &str = r"surveilr\[(?P<nature>[^\]]*)\]";
 const DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN: &str = r"surveilr-SQL";
 
@@ -49,6 +50,7 @@ pub enum CliCommands {
     Ingest(IngestArgs),
     Notebooks(NotebooksArgs),
     Shell(ShellArgs),
+    Walker(WalkerArgs),
 }
 
 /// Admin / maintenance utilities
@@ -335,6 +337,19 @@ pub enum ShellCommands {
     },
 }
 
+/// Virtual File System (VFS) utilities
+#[derive(Debug, Serialize, Args)]
+pub struct WalkerArgs {
+    #[command(subcommand)]
+    pub command: WalkerCommands,
+}
+
+#[derive(Debug, Serialize, Subcommand)]
+pub enum WalkerCommands {
+    /// List the ingestable entries
+    Stats(IngestArgs),
+}
+
 impl CliCommands {
     pub fn execute(&self, cli: &Cli) -> anyhow::Result<()> {
         match self {
@@ -343,6 +358,7 @@ impl CliCommands {
             CliCommands::Ingest(args) => args.execute(cli),
             CliCommands::Notebooks(args) => args.command.execute(cli, args),
             CliCommands::Shell(args) => args.command.execute(cli, args),
+            CliCommands::Walker(args) => args.command.execute(cli, args),
         }
     }
 }

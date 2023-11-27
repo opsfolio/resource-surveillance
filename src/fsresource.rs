@@ -123,7 +123,7 @@ impl FileSysResourcesWalker {
             Box::new(move |path, _nature, _file| {
                 inspect_content_paths.is_match(path.to_str().unwrap())
             }),
-            Box::new(move |path, _nature, _file| cerr.capturable_executable(path)),
+            Box::new(move |path, _nature, _file| cerr.path_capturable_executable(path)),
             nature_bind,
         );
 

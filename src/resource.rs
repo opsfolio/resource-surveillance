@@ -42,6 +42,8 @@ pub struct ContentResource {
     pub capturable_exec_text_supplier: Option<TextExecOutputSupplier>,
 }
 
+#[allow(dead_code)]
+#[derive(Debug)]
 pub enum ContentResourceSupplied<T> {
     Ignored(String),
     NotFound(String),
@@ -122,6 +124,47 @@ pub trait UniformResourceSupplier<Resource> {
         &self,
         rs: Resource,
     ) -> Result<Box<UniformResource<Resource>>, Box<dyn Error>>;
+}
+
+pub trait UriNatureSupplier<Resource> {
+    fn uri(&self) -> &String;
+    fn nature(&self) -> &Option<String>;
+}
+
+impl UriNatureSupplier<ContentResource> for UniformResource<ContentResource> {
+    fn uri(&self) -> &String {
+        match self {
+            UniformResource::CapturableExec(cer) => &cer.executable.uri,
+            UniformResource::Html(html) => &html.resource.uri,
+            UniformResource::Image(img) => &img.resource.uri,
+            UniformResource::Json(json) => &json.resource.uri,
+            UniformResource::Markdown(md) => &md.resource.uri,
+            UniformResource::PlainText(txt) => &txt.resource.uri,
+            UniformResource::SpdxJson(spdx) => &spdx.resource.uri,
+            UniformResource::Svg(svg) => &svg.resource.uri,
+            UniformResource::Tap(tap) => &tap.resource.uri,
+            UniformResource::Toml(toml) => &toml.resource.uri,
+            UniformResource::Yaml(yaml) => &yaml.resource.uri,
+            UniformResource::Unknown(cr, _alternate) => &cr.uri,
+        }
+    }
+
+    fn nature(&self) -> &Option<String> {
+        match self {
+            crate::resource::UniformResource::CapturableExec(cer) => &cer.executable.nature,
+            crate::resource::UniformResource::Html(html) => &html.resource.nature,
+            crate::resource::UniformResource::Image(img) => &img.resource.nature,
+            crate::resource::UniformResource::Json(json) => &json.resource.nature,
+            crate::resource::UniformResource::Markdown(md) => &md.resource.nature,
+            crate::resource::UniformResource::PlainText(txt) => &txt.resource.nature,
+            crate::resource::UniformResource::SpdxJson(spdx) => &spdx.resource.nature,
+            crate::resource::UniformResource::Svg(svg) => &svg.resource.nature,
+            crate::resource::UniformResource::Tap(tap) => &tap.resource.nature,
+            crate::resource::UniformResource::Toml(toml) => &toml.resource.nature,
+            crate::resource::UniformResource::Yaml(yaml) => &yaml.resource.nature,
+            crate::resource::UniformResource::Unknown(_cr, _alternate) => &None::<String>,
+        }
+    }
 }
 
 pub struct UniformResourceBuilder {
@@ -218,7 +261,11 @@ impl UniformResourceSupplier<ContentResource> for UniformResourceBuilder {
                 ))),
             }
         } else {
-            Err("Unable to obtain nature from supplied resource".into())
+            Err(format!(
+                "Unable to obtain nature for {} from supplied resource",
+                resource.uri
+            )
+            .into())
         }
     }
 }

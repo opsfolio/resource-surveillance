@@ -13,17 +13,18 @@ lazy_static! {
 mod helpers;
 
 mod capturable;
-mod classify;
+mod classify; // TODO remove in favor of rwalk
 mod cmd;
 mod format;
 mod frontmatter;
-mod fscontent;
-mod fsresource;
-mod fswalk;
+// mod fscontent;
+// mod fsresource;
+mod fswalk; // TODO remove in favor of rwalk
 mod ingest;
 // mod nbccontent;
 mod persist;
 mod resource;
+mod rwalk;
 mod shell;
 mod subprocess;
 
