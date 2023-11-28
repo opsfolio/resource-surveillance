@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::env;
 
 use anyhow::Context;
 use regex::Regex;
@@ -74,6 +75,20 @@ impl CapturableExecCommands {
             match resource_result {
                 Ok(ur) => {
                     let path = ur.uri().clone();
+                    let mut relative_path = ur
+                        .uri()
+                        .strip_prefix(
+                            &env::current_dir()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string(),
+                        )
+                        .unwrap_or(ur.uri())
+                        .to_string();
+                    if path != relative_path {
+                        // if we computed a relative path, the strip_prefix would remove the current_dir but leave /
+                        relative_path.insert(0, '.')
+                    }
 
                     if let crate::resource::UniformResource::CapturableExec(cer) = ur {
                         match &cer.executable.capturable_executable {
@@ -85,12 +100,16 @@ impl CapturableExecCommands {
                                 ) => {
                                     if *is_batched_sql {
                                         found.push(vec![
-                                            path,
+                                            relative_path,
                                             String::from("batched SQL"),
                                             String::from(""),
                                         ])
                                     } else {
-                                        found.push(vec![path, nature.clone(), String::from("")])
+                                        found.push(vec![
+                                            relative_path,
+                                            nature.clone(),
+                                            String::from(""),
+                                        ])
                                     }
                                 }
                                 CapturableExecutable::TextFromDenoTaskShellCmd(
@@ -101,13 +120,13 @@ impl CapturableExecCommands {
                                 ) => {
                                     if *is_batched_sql {
                                         found.push(vec![
-                                            path,
+                                            relative_path,
                                             String::from("batched SQL"),
                                             String::from("Should never appear in this list since Deno Tasks are stored in memory or database"),
                                         ])
                                     } else {
                                         found.push(vec![
-                                            path,
+                                            relative_path,
                                             nature.clone(),
                                             String::from("Should never appear in this list since Deno Tasks are stored in memory or database"),
                                         ])
@@ -115,14 +134,14 @@ impl CapturableExecCommands {
                                 }
                                 CapturableExecutable::RequestedButNoNature(_src, re) => {
                                     found.push(vec![
-                                        path,
+                                        relative_path,
                                         String::from("No CE Nature in reg ex"),
                                         format!("{}", re.to_string()),
                                     ]);
                                 }
                                 CapturableExecutable::RequestedButNotExecutable(_src) => {
                                     found.push(vec![
-                                        path,
+                                        relative_path,
                                         String::from("Executable Permission Not Set"),
                                         String::from("chmod +x required"),
                                     ]);
@@ -130,7 +149,7 @@ impl CapturableExecCommands {
                             },
                             None => {
                                 found.push(vec![
-                                    path,
+                                    relative_path,
                                     String::from(
                                         "cer.executable.capturable_executable returned None",
                                     ),
@@ -149,7 +168,7 @@ impl CapturableExecCommands {
         if !found.is_empty() {
             println!(
                 "{}",
-                crate::format::format_table(&["Executable", "Nature", "Issue"], &found)
+                crate::format::as_ascii_table(&["Executable", "Nature", "Issue"], &found)
             );
         }
 

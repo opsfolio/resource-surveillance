@@ -53,12 +53,12 @@ impl super::IngestArgs {
                             println!(
                                 "{}",
                                 if self.root_fs_path.len() < 2 {
-                                    crate::format::format_table(
+                                    crate::format::as_ascii_table(
                                         &["Extn", "Count", "Content", "Frontmatter"],
                                         &rows,
                                     )
                                 } else {
-                                    crate::format::format_table(
+                                    crate::format::as_ascii_table(
                                         &["Path", "Extn", "Count", "Content", "Frontmatter"],
                                         &rows,
                                     )

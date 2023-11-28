@@ -70,7 +70,7 @@ impl NotebooksCommands {
                 .unwrap();
                 println!(
                     "{}",
-                    format_table(&["Notebook", "Kernel", "Cell", "Versions", "ID"], &rows)
+                    as_ascii_table(&["Notebook", "Kernel", "Cell", "Versions", "ID"], &rows)
                 );
             } else {
                 println!("Notebooks command requires a database: {}", db_fs_path);
@@ -96,7 +96,7 @@ impl NotebooksCommands {
                 println!("All cells that are candidates for migration (including duplicates)");
                 println!(
                     "{}",
-                    format_table(&["Notebook", "Cell", "Code Hash", "ID"], &rows)
+                    as_ascii_table(&["Notebook", "Cell", "Code Hash", "ID"], &rows)
                 );
 
                 let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
@@ -111,7 +111,7 @@ impl NotebooksCommands {
                 println!("All cells deemed to be migratable (unique rows)");
                 println!(
                     "{}",
-                    format_table(&["Notebook", "Cell", "Code Hash", "ID"], &rows)
+                    as_ascii_table(&["Notebook", "Cell", "Code Hash", "ID"], &rows)
                 );
 
                 let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
@@ -126,7 +126,7 @@ impl NotebooksCommands {
                 println!("All cells that should be migrated because they have not been executed");
                 println!(
                     "{}",
-                    format_table(&["Notebook", "Cell", "Code Hash", "ID"], &rows)
+                    as_ascii_table(&["Notebook", "Cell", "Code Hash", "ID"], &rows)
                 );
 
                 let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
@@ -159,7 +159,7 @@ impl NotebooksCommands {
                 println!("code_notebook_state");
                 println!(
                     "{}",
-                    format_table(
+                    as_ascii_table(
                         &[
                             "Notebook", "Kernel", "Cell", "From", "To", "Remarks", "When",
                             "Cell ID"

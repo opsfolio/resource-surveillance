@@ -1,5 +1,9 @@
 use std::collections::HashMap;
 
+use comfy_table::modifiers::UTF8_ROUND_CORNERS;
+use comfy_table::presets::UTF8_FULL;
+use comfy_table::*;
+
 use super::WalkerCommands;
 use crate::resource::*;
 use crate::rwalk::*;
@@ -26,68 +30,101 @@ impl WalkerCommands {
     fn stats(&self, _cli: &super::Cli, options: &ResourceWalkerOptions) -> anyhow::Result<()> {
         let walker = ResourceWalker::new(options);
 
-        println!("        All: {}", walker.all().count());
-        println!(
-            "    Ignored: {} ('{}')",
-            walker.ignored().count(),
-            options
-                .ignore_paths_regexs
-                .iter()
-                .map(|re| re.to_string())
-                .collect::<Vec<_>>()
-                .join(", ")
-        );
-        println!("  Available: {}", walker.not_ignored().count(),);
-        println!(
-            "Inspectable: {}",
-            walker
+        let mut table = Table::new();
+        table
+            .load_preset(UTF8_FULL)
+            .apply_modifier(UTF8_ROUND_CORNERS)
+            .set_content_arrangement(ContentArrangement::Dynamic)
+            .set_header(vec!["Statistic", "Value", "Rule(s)"]);
+        let column = table.column_mut(1).expect("Our table has two columns");
+        column.set_cell_alignment(CellAlignment::Right);
+
+        table.add_row(vec!["Walked", &walker.all().count().to_string()]);
+        table.add_row(vec![
+            Cell::new("Ignored").set_alignment(CellAlignment::Right),
+            Cell::new(walker.ignored().count().to_string()),
+            Cell::new(
+                options
+                    .ignore_paths_regexs
+                    .iter()
+                    .map(|re| re.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            ),
+        ]);
+        table.add_row(vec![
+            Cell::new("Available").set_alignment(CellAlignment::Right),
+            Cell::new(walker.not_ignored().count().to_string()),
+        ]);
+        table.add_row(vec![
+            "Inspectable",
+            &walker
                 .content_resources()
                 .filter(|crs| !matches!(crs, ContentResourceSupplied::Ignored(_)))
                 .count()
-        );
+                .to_string(),
+        ]);
+        table.add_row(vec![
+            "Uniformable",
+            &walker.uniform_resources().count().to_string(),
+        ]);
+        table.add_row(vec![
+            Cell::new("Ok").set_alignment(CellAlignment::Right),
+            Cell::new(
+                walker
+                    .uniform_resources()
+                    .filter(|ur| ur.is_ok())
+                    .count()
+                    .to_string(),
+            ),
+        ]);
+        table.add_row(vec![
+            Cell::new("Err").set_alignment(CellAlignment::Right),
+            Cell::new(
+                walker
+                    .uniform_resources()
+                    .filter(|ur| !ur.is_ok())
+                    .count()
+                    .to_string(),
+            ),
+        ]);
+        table.add_row(vec![
+            Cell::new("Cap Execs").set_alignment(CellAlignment::Right),
+            Cell::new(walker.capturable_executables().count().to_string()),
+            Cell::new(
+                options
+                    .capturable_executables_regexs
+                    .clone()
+                    .into_iter()
+                    .chain(options.captured_exec_sql_regexs.clone())
+                    .map(|re| re.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            ),
+        ]);
+        table.add_row(vec![
+            Cell::new("Contenful").set_alignment(CellAlignment::Right),
+            Cell::new(
+                walker
+                    .content_resources()
+                    .filter(|crs| match crs {
+                        ContentResourceSupplied::Resource(cr) => cr.content_text_supplier.is_some(),
+                        _ => false,
+                    })
+                    .count()
+                    .to_string(),
+            ),
+            Cell::new(
+                options
+                    .acquire_content_regexs
+                    .iter()
+                    .map(|re| re.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            ),
+        ]);
 
-        println!("-----");
-        println!("Uniformable: {}", walker.uniform_resources().count(),);
-        println!(
-            "         Ok: {}",
-            walker.uniform_resources().filter(|ur| ur.is_ok()).count(),
-        );
-        println!(
-            "        Err: {}",
-            walker.uniform_resources().filter(|ur| !ur.is_ok()).count(),
-        );
-        println!(
-            "  Cap Execs: {} ('{}' '{}')",
-            walker.capturable_executables().count(),
-            options
-                .capturable_executables_regexs
-                .iter()
-                .map(|re| re.to_string())
-                .collect::<Vec<_>>()
-                .join(", "),
-            options
-                .captured_exec_sql_regexs
-                .iter()
-                .map(|re| re.to_string())
-                .collect::<Vec<_>>()
-                .join(", ")
-        );
-        println!(
-            "  Contenful: {} ('{}')",
-            walker
-                .content_resources()
-                .filter(|crs| match crs {
-                    ContentResourceSupplied::Resource(cr) => cr.content_text_supplier.is_some(),
-                    _ => false,
-                })
-                .count(),
-            options
-                .acquire_content_regexs
-                .iter()
-                .map(|re| re.to_string())
-                .collect::<Vec<_>>()
-                .join(", ")
-        );
+        println!("{table}");
 
         let natures = walker
             .uniform_resources()
@@ -98,10 +135,25 @@ impl WalkerCommands {
                 acc
             });
 
-        println!("-----");
-        natures
-            .iter()
-            .for_each(|(nature, count)| println!("{}: {}", nature, count));
+        let mut table = Table::new();
+        table
+            .load_preset(UTF8_FULL)
+            .apply_modifier(UTF8_ROUND_CORNERS)
+            .set_content_arrangement(ContentArrangement::Dynamic)
+            .set_header(vec!["UR Nature", "Count"]);
+        let column = table.column_mut(1).expect("Our table has two columns");
+        column.set_cell_alignment(CellAlignment::Right);
+
+        let mut sorted_natures: Vec<_> = natures.iter().collect();
+        sorted_natures.sort_by_key(|&(k, _)| k);
+        for (nature, count) in sorted_natures {
+            table.add_row(vec![
+                Cell::new(nature.to_string()),
+                Cell::new(count.to_string()),
+            ]);
+        }
+
+        println!("\n{table}");
 
         Ok(())
     }
