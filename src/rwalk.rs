@@ -184,43 +184,14 @@ pub fn resource_content(
 }
 
 #[derive(Debug)]
-pub struct ResourceWalkerOptions {
-    pub physical_fs_root_paths: Vec<String>,
-    pub ignore_paths_regexs: Vec<regex::Regex>,
-    pub acquire_content_regexs: Vec<regex::Regex>,
-    pub capturable_executables_regexs: Vec<regex::Regex>,
-    pub captured_exec_sql_regexs: Vec<regex::Regex>,
-    pub nature_bind: HashMap<String, String>,
-}
-
 pub struct ResourceWalker {
     pub physical_fs_root_paths: Vec<String>,
-    pub ignore_paths: RegexSet,
-    pub acquire_content: RegexSet,
-    pub ce_rules: CapturableExecutableRegexRules,
-    pub ur_builder: UniformResourceBuilder,
 }
 
 impl ResourceWalker {
-    pub fn new(options: &ResourceWalkerOptions) -> ResourceWalker {
-        let ignore_paths =
-            RegexSet::new(options.ignore_paths_regexs.iter().map(|r| r.as_str())).unwrap();
-        let acquire_content =
-            RegexSet::new(options.acquire_content_regexs.iter().map(|r| r.as_str())).unwrap();
-        let ce_rules = CapturableExecutableRegexRules::new(
-            Some(&options.capturable_executables_regexs),
-            Some(&options.captured_exec_sql_regexs),
-        )
-        .unwrap();
-
+    pub fn new(options: &ResourceCollectionOptions) -> ResourceWalker {
         ResourceWalker {
             physical_fs_root_paths: options.physical_fs_root_paths.clone(),
-            ignore_paths,
-            acquire_content,
-            ce_rules,
-            ur_builder: UniformResourceBuilder {
-                nature_bind: options.nature_bind.clone(),
-            },
         }
     }
 
@@ -232,21 +203,65 @@ impl ResourceWalker {
 
         vfs_walk_dirs.into_iter().flatten()
     }
+}
 
-    pub fn ignored(&self) -> impl Iterator<Item = VfsPath> + '_ {
-        self.all()
+pub struct ResourceCollectionOptions {
+    pub physical_fs_root_paths: Vec<String>,
+    pub ignore_paths_regexs: Vec<regex::Regex>,
+    pub acquire_content_regexs: Vec<regex::Regex>,
+    pub capturable_executables_regexs: Vec<regex::Regex>,
+    pub captured_exec_sql_regexs: Vec<regex::Regex>,
+    pub nature_bind: HashMap<String, String>,
+}
+
+pub struct ResourceCollection {
+    pub walked: Vec<VfsPath>,
+    pub ignore_paths: RegexSet,
+    pub acquire_content: RegexSet,
+    pub ce_rules: CapturableExecutableRegexRules,
+    pub ur_builder: UniformResourceBuilder,
+}
+
+impl ResourceCollection {
+    pub fn new(options: &ResourceCollectionOptions) -> ResourceCollection {
+        let ignore_paths =
+            RegexSet::new(options.ignore_paths_regexs.iter().map(|r| r.as_str())).unwrap();
+        let acquire_content =
+            RegexSet::new(options.acquire_content_regexs.iter().map(|r| r.as_str())).unwrap();
+        let ce_rules = CapturableExecutableRegexRules::new(
+            Some(&options.capturable_executables_regexs),
+            Some(&options.captured_exec_sql_regexs),
+        )
+        .unwrap();
+
+        let walker = ResourceWalker::new(options);
+        ResourceCollection {
+            walked: walker.all().collect(),
+            ignore_paths,
+            acquire_content,
+            ce_rules,
+            ur_builder: UniformResourceBuilder {
+                nature_bind: options.nature_bind.clone(),
+            },
+        }
+    }
+
+    pub fn ignored(&self) -> impl Iterator<Item = &VfsPath> + '_ {
+        self.walked
+            .iter()
             .filter(|vp| self.ignore_paths.is_match(vp.as_str()))
     }
 
-    pub fn not_ignored(&self) -> impl Iterator<Item = VfsPath> + '_ {
-        self.all()
+    pub fn not_ignored(&self) -> impl Iterator<Item = &VfsPath> + '_ {
+        self.walked
+            .iter()
             .filter(|vp| !self.ignore_paths.is_match(vp.as_str()))
     }
 
     pub fn content_resources(
         &self,
     ) -> impl Iterator<Item = ContentResourceSupplied<ContentResource>> + '_ {
-        self.all().map(move |vp| {
+        self.walked.iter().map(move |vp| {
             let vp_str = vp.as_str();
             let eco = ResourceContentOptions {
                 is_ignored: self.ignore_paths.is_match(vp_str),
@@ -255,12 +270,13 @@ impl ResourceWalker {
                 capturable_executable: self.ce_rules.smart_path_capturable_executable(vp_str),
                 is_physical_fs: true,
             };
-            resource_content(&vp, &eco)
+            resource_content(vp, &eco)
         })
     }
 
     pub fn capturable_executables(&self) -> impl Iterator<Item = CapturableExecutable> + '_ {
-        self.all()
+        self.walked
+            .iter()
             // "smart" means to try the path name and ensure that file is executable on disk
             .filter_map(|vp| self.ce_rules.smart_path_capturable_executable(vp.as_str()))
     }

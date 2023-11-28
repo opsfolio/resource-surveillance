@@ -51,7 +51,7 @@ pub struct UniformResourceWriterState<'a, 'conn> {
     device_id: &'a String,
     ingest_session_id: &'a String,
     ingest_fs_path_id: &'a String,
-    rwalker: &'a ResourceWalker,
+    resources: &'a ResourceCollection,
     ins_ur_stmt: &'a mut rusqlite::Statement<'conn>,
     _ins_ur_transform_stmt: &'a mut rusqlite::Statement<'conn>,
 }
@@ -390,7 +390,7 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
                                             capturable_exec_text_supplier: None,
                                         };
 
-                                        match urw_state.rwalker.ur_builder.uniform_resource(output_res) {
+                                        match urw_state.resources.ur_builder.uniform_resource(output_res) {
                                             Ok(output_ur) => {
                                                 let ur = *(output_ur);
                                                 let inserted_output = ur.insert( urw_state, entry);
@@ -997,7 +997,7 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestArgs) -> Resul
             }
 
             let rp: Vec<String> = vec![canonical_path.clone()];
-            let rw_options = ResourceWalkerOptions {
+            let rw_options = ResourceCollectionOptions {
                 physical_fs_root_paths: rp,
                 acquire_content_regexs: fswb.ingest_content_fs_entry_regexs.to_vec(),
                 ignore_paths_regexs: fswb.ignore_fs_entry_regexs.to_vec(),
@@ -1005,8 +1005,8 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestArgs) -> Resul
                 captured_exec_sql_regexs: fswb.captured_exec_sql_fs_entry_regexs.to_vec(),
                 nature_bind: fswb.nature_bind.clone(),
             };
-            let rwalker = ResourceWalker::new(&rw_options);
 
+            let resources = ResourceCollection::new(&rw_options);
             let mut urw_state = UniformResourceWriterState {
                 ingest_args: fsw_args,
                 ingest_behavior: &fswb,
@@ -1014,12 +1014,12 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestArgs) -> Resul
                 device_id: &device_id,
                 ingest_session_id: &ingest_session_id,
                 ingest_fs_path_id: &ingest_fs_path_id,
-                rwalker: &rwalker,
+                resources: &resources,
                 ins_ur_stmt: &mut ins_ur_stmt,
                 _ins_ur_transform_stmt: &mut ins_ur_transform_stmt,
             };
 
-            for resource_result in rwalker.uniform_resources() {
+            for resource_result in resources.uniform_resources() {
                 match resource_result {
                     Ok(resource) => {
                         let mut urw_entry = UniformResourceWriterEntry {

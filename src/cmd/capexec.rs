@@ -61,7 +61,7 @@ impl CapturableExecCommands {
         captured_exec_sql: &[Regex],
         ignore_entries: &[Regex],
     ) -> anyhow::Result<()> {
-        let walker = ResourceWalker::new(&ResourceWalkerOptions {
+        let resources = ResourceCollection::new(&ResourceCollectionOptions {
             physical_fs_root_paths: root_paths.to_vec(),
             acquire_content_regexs: vec![],
             ignore_paths_regexs: ignore_entries.to_vec(),
@@ -71,7 +71,7 @@ impl CapturableExecCommands {
         });
 
         let mut found: Vec<Vec<String>> = vec![];
-        for resource_result in walker.uniform_resources() {
+        for resource_result in resources.uniform_resources() {
             match resource_result {
                 Ok(ur) => {
                     let path = ur.uri().clone();
@@ -183,7 +183,7 @@ impl CapturableExecCommands {
         captured_exec_sql: &[Regex],
         ignore_entries: &[Regex],
     ) -> anyhow::Result<()> {
-        let walker = ResourceWalker::new(&ResourceWalkerOptions {
+        let resources = ResourceCollection::new(&ResourceCollectionOptions {
             physical_fs_root_paths: root_paths.to_vec(),
             acquire_content_regexs: vec![],
             ignore_paths_regexs: ignore_entries.to_vec(),
@@ -223,7 +223,7 @@ impl CapturableExecCommands {
         );
         markdown.push("\n".to_string());
 
-        for resource_result in walker.uniform_resources() {
+        for resource_result in resources.uniform_resources() {
             match resource_result {
                 Ok(ur) => {
                     if let crate::resource::UniformResource::CapturableExec(cer) = &ur {
