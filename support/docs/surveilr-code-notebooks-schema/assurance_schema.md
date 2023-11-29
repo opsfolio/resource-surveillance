@@ -2,14 +2,14 @@
 
 ## Description
 
-A Notebook is a group of Cells. A kernel is a computational engine that executes the code contained in a notebook cell.   Each notebook is associated with a kernel of a specific programming language or code transformer which can interpret  code and produce a result. For example, a SQL notebook might use a SQLite kernel for running SQL code and an AI Prompt  might prepare AI prompts for LLMs.
+A Notebook is a group of Cells. A kernel is a computational engine that executes the code contained in a notebook cell.  Each notebook is associated with a kernel of a specific programming language or code transformer which can interpret  code and produce a result. For example, a SQL notebook might use a SQLite kernel for running SQL code and an AI Prompt  might prepare AI prompts for LLMs.
 
 <details>
 <summary><strong>Table Definition</strong></summary>
 
 ```sql
 CREATE TABLE "assurance_schema" (
-    "assurance_schema_id" TEXT PRIMARY KEY NOT NULL,
+    "assurance_schema_id" VARCHAR PRIMARY KEY NOT NULL,
     "assurance_type" TEXT NOT NULL,
     "code" TEXT NOT NULL,
     "code_json" TEXT CHECK(json_valid(code_json) OR code_json IS NULL),
@@ -30,7 +30,7 @@ CREATE TABLE "assurance_schema" (
 
 | Name                | Type      | Default           | Nullable | Comment                                                                                |
 | ------------------- | --------- | ----------------- | -------- | -------------------------------------------------------------------------------------- |
-| assurance_schema_id | TEXT      |                   | false    | assurance_schema primary key and internal label (not a ULID)                           |
+| assurance_schema_id | VARCHAR   |                   | false    | assurance_schema primary key and internal label (not a ULID)                           |
 | assurance_type      | TEXT      |                   | false    | 'JSON Schema', 'XML Schema', etc.                                                      |
 | code                | TEXT      |                   | false    | If the schema is other than JSON Schema, use this for the validation code              |
 | code_json           | TEXT      |                   | true     | If the schema is a JSON Schema or the assurance code has a JSON representation         |

@@ -480,13 +480,13 @@ export class ConstructionSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
           JOIN ur_ingest_session_fs_path usp ON ufs.ingest_fs_path_id = usp.ur_ingest_session_fs_path_id
           JOIN ur_ingest_session us ON usp.ingest_session_id = us.ur_ingest_session_id
          WHERE ufs.ur_status IS NOT NULL
-      GROUP BY us.device_id, 
-               us.ur_ingest_session_id, 
-               usp.ur_ingest_session_fs_path_id, 
-               usp.root_path, 
-               ufs.ur_ingest_session_fs_path_entry_id, 
-               ufs.file_path_abs, 
-               ufs.ur_status, 
+      GROUP BY us.device_id,
+               us.ur_ingest_session_id,
+               usp.ur_ingest_session_fs_path_id,
+               usp.root_path,
+               ufs.ur_ingest_session_fs_path_entry_id,
+               ufs.file_path_abs,
+               ufs.ur_status,
                ufs.ur_diagnostics;`
   }
 }
@@ -851,7 +851,7 @@ export class SQLPageNotebook<EmitContext extends SQLa.SqlEmitContext>
         const irs = await kernel.initRunState();
         const { model: gm, domains: gd, keys: gk } = nbh.modelsGovn;
         const sqlPageFiles = gm.table("sqlpage_files", {
-          path: gk.textPrimaryKey(),
+          path: gk.varcharPrimaryKey(),
           contents: gd.text(),
           last_modified: gd.createdAt(),
         }, {
@@ -1017,15 +1017,15 @@ export class LargeLanguageModelsPromptsNotebook<
         Understand the following structure of an SQLite database designed to store code notebooks and execution kernels. The database comprises three main tables: 'code_notebook_kernel', 'code_notebook_cell', and 'code_notebook_state'.
 
         1. 'code_notebook_kernel': This table stores information about various kernels or execution engines. Each record includes a unique kernel ID, kernel name, a description, MIME type, file extension, and other metadata such as creation and update timestamps.
-        
+
         2. 'code_notebook_cell': This table contains individual notebook cells. Each cell is linked to a kernel in the 'code_notebook_kernel' table via 'notebook_kernel_id'. It includes details like the cell's unique ID, notebook name, cell name, interpretable code, and relevant metadata.
-        
+
         3. 'code_notebook_state': This table tracks the state transitions of notebook cells. Each record links to a cell in the 'code_notebook_cell' table and includes information about the state transition, such as the previous and new states, transition reason, and timestamps.
-        
-        The relationships are as follows: Each cell in 'code_notebook_cell' is associated with a kernel in 'code_notebook_kernel'. The 'code_notebook_state' table tracks changes in the state of each cell, linking back to the 'code_notebook_cell' table. 
-        
+
+        The relationships are as follows: Each cell in 'code_notebook_cell' is associated with a kernel in 'code_notebook_kernel'. The 'code_notebook_state' table tracks changes in the state of each cell, linking back to the 'code_notebook_cell' table.
+
         Use the following SQLite Schema to generate SQL queries that interact with these tables and once you understand them let me know so I can ask you for help:
-        
+
         ${this.bootstrapNB.bootstrapDDL().SQL(this.nbh.emitCtx)}
       `;
   }
@@ -1035,13 +1035,13 @@ export class LargeLanguageModelsPromptsNotebook<
       // deno-fmt-ignore
       codeBlock`
         Understand the following structure of an SQLite database designed to store cybersecurity and compliance data for files in a file system.
-        The database is designed to store devices in the 'device' table and entities called 'resources' stored in the immutable append-only 
+        The database is designed to store devices in the 'device' table and entities called 'resources' stored in the immutable append-only
         'uniform_resource' table. Each time files are "walked" they are stored in ingestion session and link back to 'uniform_resource'. Because all
         tables are generally append only and immutable it means that the ingest_session_fs_path_entry table can be used for revision control
         and historical tracking of file changes.
-        
+
         Use the following SQLite Schema to generate SQL queries that interact with these tables and once you understand them let me know so I can ask you for help:
-        
+
         ${this.constrNB.v001_once_initialDDL().SQL(this.nbh.emitCtx)}
 
         ${this.constrNB.v002_fsContentIngestSessionStatsViewDDL().SQL(this.nbh.emitCtx)

@@ -9,8 +9,8 @@ Immutable ingest session file system path represents a discovery or "walk" path.
 
 ```sql
 CREATE TABLE "ur_ingest_session_fs_path" (
-    "ur_ingest_session_fs_path_id" ULID PRIMARY KEY NOT NULL,
-    "ingest_session_id" ULID NOT NULL,
+    "ur_ingest_session_fs_path_id" VARCHAR PRIMARY KEY NOT NULL,
+    "ingest_session_id" VARCHAR NOT NULL,
     "root_path" TEXT NOT NULL,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -31,8 +31,8 @@ CREATE TABLE "ur_ingest_session_fs_path" (
 
 | Name                         | Type      | Default           | Nullable | Children                                                                                                      | Parents                                   | Comment                                                 |
 | ---------------------------- | --------- | ----------------- | -------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------- |
-| ur_ingest_session_fs_path_id | ULID      |                   | false    | [uniform_resource](uniform_resource.md) [ur_ingest_session_fs_path_entry](ur_ingest_session_fs_path_entry.md) |                                           | {"isSqlDomainZodDescrMeta":true,"isUlid":true}          |
-| ingest_session_id            | ULID      |                   | false    |                                                                                                               | [ur_ingest_session](ur_ingest_session.md) | {"isSqlDomainZodDescrMeta":true,"isUlid":true}          |
+| ur_ingest_session_fs_path_id | VARCHAR   |                   | false    | [uniform_resource](uniform_resource.md) [ur_ingest_session_fs_path_entry](ur_ingest_session_fs_path_entry.md) |                                           | {"isSqlDomainZodDescrMeta":true,"isVarChar":true}       |
+| ingest_session_id            | VARCHAR   |                   | false    |                                                                                                               | [ur_ingest_session](ur_ingest_session.md) | {"isSqlDomainZodDescrMeta":true,"isVarChar":true}       |
 | root_path                    | TEXT      |                   | false    |                                                                                                               |                                           |                                                         |
 | elaboration                  | TEXT      |                   | true     |                                                                                                               |                                           | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |
 | created_at                   | TIMESTAMP | CURRENT_TIMESTAMP | true     |                                                                                                               |                                           |                                                         |

@@ -19,7 +19,7 @@
 <text text-anchor="start" x="243.0594" y="-418.3" font-family="Arial" font-size="14.00" fill="#666666">[table]</text>
 <polygon fill="none" stroke="#000000" points="46,-375.5 46,-405.5 288,-405.5 288,-375.5 46,-375.5"/>
 <text text-anchor="start" x="53" y="-386.9" font-family="Arial" font-size="14.00" fill="#000000">assurance_schema_id </text>
-<text text-anchor="start" x="196.927" y="-386.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="196.927" y="-386.9" font-family="Arial" font-size="14.00" fill="#666666">[VARCHAR]</text>
 <polygon fill="none" stroke="#000000" points="46,-345.5 46,-375.5 288,-375.5 288,-345.5 46,-345.5"/>
 <text text-anchor="start" x="53" y="-356.9" font-family="Arial" font-size="14.00" fill="#000000">assurance_type </text>
 <text text-anchor="start" x="155.7026" y="-356.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>

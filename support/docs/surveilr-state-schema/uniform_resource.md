@@ -3,7 +3,7 @@
 ## Description
 
 Immutable resource and content information. On multiple executions,  
-uniform_resource are inserted only if the the content (see unique   
+uniform_resource are inserted only if the the content (see unique  
 index for details). For historical logging, uniform_resource has foreign  
 key references to both ur_ingest_session and ur_ingest_session_fs_path  
 tables to indicate which particular session and ingestion path the  
@@ -14,10 +14,10 @@ resourced was inserted during.
 
 ```sql
 CREATE TABLE "uniform_resource" (
-    "uniform_resource_id" ULID PRIMARY KEY NOT NULL,
-    "device_id" ULID NOT NULL,
-    "ingest_session_id" ULID NOT NULL,
-    "ingest_fs_path_id" ULID NOT NULL,
+    "uniform_resource_id" VARCHAR PRIMARY KEY NOT NULL,
+    "device_id" VARCHAR NOT NULL,
+    "ingest_session_id" VARCHAR NOT NULL,
+    "ingest_fs_path_id" VARCHAR NOT NULL,
     "uri" TEXT NOT NULL,
     "content_digest" TEXT NOT NULL,
     "content" BLOB,
@@ -47,10 +47,10 @@ CREATE TABLE "uniform_resource" (
 
 | Name                  | Type      | Default           | Nullable | Children                                                                                                                          | Parents                                                   | Comment                                                                                                |
 | --------------------- | --------- | ----------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| uniform_resource_id   | ULID      |                   | false    | [uniform_resource_transform](uniform_resource_transform.md) [ur_ingest_session_fs_path_entry](ur_ingest_session_fs_path_entry.md) |                                                           | uniform_resource ULID primary key                                                                      |
-| device_id             | ULID      |                   | false    |                                                                                                                                   | [device](device.md)                                       | which device row introduced this resource                                                              |
-| ingest_session_id     | ULID      |                   | false    |                                                                                                                                   | [ur_ingest_session](ur_ingest_session.md)                 | which ur_ingest_session row introduced this resource                                                   |
-| ingest_fs_path_id     | ULID      |                   | false    |                                                                                                                                   | [ur_ingest_session_fs_path](ur_ingest_session_fs_path.md) | which ur_ingest_session_fs_path row introduced this resource                                           |
+| uniform_resource_id   | VARCHAR   |                   | false    | [uniform_resource_transform](uniform_resource_transform.md) [ur_ingest_session_fs_path_entry](ur_ingest_session_fs_path_entry.md) |                                                           | uniform_resource ULID primary key                                                                      |
+| device_id             | VARCHAR   |                   | false    |                                                                                                                                   | [device](device.md)                                       | which device row introduced this resource                                                              |
+| ingest_session_id     | VARCHAR   |                   | false    |                                                                                                                                   | [ur_ingest_session](ur_ingest_session.md)                 | which ur_ingest_session row introduced this resource                                                   |
+| ingest_fs_path_id     | VARCHAR   |                   | false    |                                                                                                                                   | [ur_ingest_session_fs_path](ur_ingest_session_fs_path.md) | which ur_ingest_session_fs_path row introduced this resource                                           |
 | uri                   | TEXT      |                   | false    |                                                                                                                                   |                                                           | the resource's URI (dependent on how it was acquired and on which device)                              |
 | content_digest        | TEXT      |                   | false    |                                                                                                                                   |                                                           | '-' when no hash was computed (not NULL); content_digest for symlinks will be the same as their target |
 | content               | BLOB      |                   | true     |                                                                                                                                   |                                                           | either NULL if no content was acquired or the actual blob/text of the content                          |

@@ -9,8 +9,8 @@ Each Notebook is divided into cells, which are individual units of interpretable
 
 ```sql
 CREATE TABLE "code_notebook_cell" (
-    "code_notebook_cell_id" TEXT PRIMARY KEY NOT NULL,
-    "notebook_kernel_id" TEXT NOT NULL,
+    "code_notebook_cell_id" VARCHAR PRIMARY KEY NOT NULL,
+    "notebook_kernel_id" VARCHAR NOT NULL,
     "notebook_name" TEXT NOT NULL,
     "cell_name" TEXT NOT NULL,
     "cell_governance" TEXT CHECK(json_valid(cell_governance) OR cell_governance IS NULL),
@@ -36,8 +36,8 @@ CREATE TABLE "code_notebook_cell" (
 
 | Name                    | Type      | Default           | Nullable | Children                                      | Parents                                         | Comment                                                                                           |
 | ----------------------- | --------- | ----------------- | -------- | --------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| code_notebook_cell_id   | TEXT      |                   | false    | [code_notebook_state](code_notebook_state.md) |                                                 | code_notebook_cell primary key                                                                    |
-| notebook_kernel_id      | TEXT      |                   | false    |                                               | [code_notebook_kernel](code_notebook_kernel.md) |                                                                                                   |
+| code_notebook_cell_id   | VARCHAR   |                   | false    | [code_notebook_state](code_notebook_state.md) |                                                 | code_notebook_cell primary key                                                                    |
+| notebook_kernel_id      | VARCHAR   |                   | false    |                                               | [code_notebook_kernel](code_notebook_kernel.md) | {"isSqlDomainZodDescrMeta":true,"isVarChar":true}                                                 |
 | notebook_name           | TEXT      |                   | false    |                                               |                                                 |                                                                                                   |
 | cell_name               | TEXT      |                   | false    |                                               |                                                 |                                                                                                   |
 | cell_governance         | TEXT      |                   | true     |                                               |                                                 | any idempotency, versioning, hash, branch, tag or other "governance" data (dependent on the cell) |

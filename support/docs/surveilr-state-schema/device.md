@@ -9,7 +9,7 @@ Identity, network segmentation, and sysinfo for devices on which uniform_resourc
 
 ```sql
 CREATE TABLE "device" (
-    "device_id" ULID PRIMARY KEY NOT NULL,
+    "device_id" VARCHAR PRIMARY KEY NOT NULL,
     "name" TEXT NOT NULL,
     "state" TEXT CHECK(json_valid(state)) NOT NULL,
     "boundary" TEXT NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE "device" (
 
 | Name          | Type      | Default           | Nullable | Children                                                                                                  | Comment                                                                                          |
 | ------------- | --------- | ----------------- | -------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| device_id     | ULID      |                   | false    | [behavior](behavior.md) [ur_ingest_session](ur_ingest_session.md) [uniform_resource](uniform_resource.md) | {"isSqlDomainZodDescrMeta":true,"isUlid":true}                                                   |
+| device_id     | VARCHAR   |                   | false    | [behavior](behavior.md) [ur_ingest_session](ur_ingest_session.md) [uniform_resource](uniform_resource.md) | {"isSqlDomainZodDescrMeta":true,"isVarChar":true}                                                |
 | name          | TEXT      |                   | false    |                                                                                                           | unique device identifier (defaults to hostname)                                                  |
 | state         | TEXT      |                   | false    |                                                                                                           | should be "SINGLETON" if only one state is allowed, or other tags if multiple states are allowed |
 | boundary      | TEXT      |                   | false    |                                                                                                           | can be IP address, VLAN, or any other device name differentiator                                 |

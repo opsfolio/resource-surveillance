@@ -66,7 +66,7 @@ export function codeNotebooksModels<
   const { keys: gk, domains: gd, model: gm } = modelsGovn;
 
   const assuranceSchema = gm.textPkTable("assurance_schema", {
-    assurance_schema_id: gk.textPrimaryKey(),
+    assurance_schema_id: gk.varcharPrimaryKey(),
     assurance_type: gd.text(),
     code: gd.text(),
     code_json: gd.jsonTextNullable(),
@@ -76,7 +76,7 @@ export function codeNotebooksModels<
     isIdempotent: true,
     populateQS: (t, c, _, tableName) => {
       t.description = markdown`
-        A Notebook is a group of Cells. A kernel is a computational engine that executes the code contained in a notebook cell. 
+        A Notebook is a group of Cells. A kernel is a computational engine that executes the code contained in a notebook cell.
         Each notebook is associated with a kernel of a specific programming language or code transformer which can interpret
         code and produce a result. For example, a SQL notebook might use a SQLite kernel for running SQL code and an AI Prompt
         might prepare AI prompts for LLMs.`;
@@ -93,7 +93,7 @@ export function codeNotebooksModels<
 
     qualitySystem: {
       description: markdown`
-          A Notebook is a group of Cells. A kernel is a computational engine that executes the code contained in a notebook cell. 
+          A Notebook is a group of Cells. A kernel is a computational engine that executes the code contained in a notebook cell.
           Each notebook is associated with a kernel of a specific programming language or code transformer which can interpret
           code and produce a result. For example, a SQL notebook might use a SQLite kernel for running SQL code and an AI Prompt
           might prepare AI prompts for LLMs.`,
@@ -101,7 +101,7 @@ export function codeNotebooksModels<
   });
 
   const codeNotebookKernel = gm.textPkTable("code_notebook_kernel", {
-    code_notebook_kernel_id: gk.textPrimaryKey(),
+    code_notebook_kernel_id: gk.varcharPrimaryKey(),
     kernel_name: gd.text(),
     description: gd.textNullable(),
     mime_type: gd.textNullable(),
@@ -119,7 +119,7 @@ export function codeNotebooksModels<
     },
     populateQS: (t, c, _, tableName) => {
       t.description = markdown`
-        A Notebook is a group of Cells. A kernel is a computational engine that executes the code contained in a notebook cell. 
+        A Notebook is a group of Cells. A kernel is a computational engine that executes the code contained in a notebook cell.
         Each notebook is associated with a kernel of a specific programming language or code transformer which can interpret
         code and produce a result. For example, a SQL notebook might use a SQLite kernel for running SQL code and an AI Prompt
         might prepare AI prompts for LLMs.`;
@@ -138,7 +138,7 @@ export function codeNotebooksModels<
 
     qualitySystem: {
       description: markdown`
-          A Notebook is a group of Cells. A kernel is a computational engine that executes the code contained in a notebook cell. 
+          A Notebook is a group of Cells. A kernel is a computational engine that executes the code contained in a notebook cell.
           Each notebook is associated with a kernel of a specific programming language or code transformer which can interpret
           code and produce a result. For example, a SQL notebook might use a SQLite kernel for running SQL code and an AI Prompt
           might prepare AI prompts for LLMs.`,
@@ -152,7 +152,7 @@ export function codeNotebooksModels<
   // You can pass in arguments using .parameter or `sql_parameters` table, like:
   //    echo ".parameter set X Y; $(sqlite3 xyz.db \"SELECT sql FROM code_notebook_cell where code_notebook_cell_id = 'init'\")" | sqlite3 xyz.db
   const codeNotebookCell = gm.textPkTable("code_notebook_cell", {
-    code_notebook_cell_id: gk.textPrimaryKey(),
+    code_notebook_cell_id: gk.varcharPrimaryKey(),
     notebook_kernel_id: codeNotebookKernel.references.code_notebook_kernel_id(),
     notebook_name: gd.text(),
     cell_name: gd.text(),
@@ -183,7 +183,7 @@ export function codeNotebooksModels<
   });
 
   const codeNotebookState = gm.textPkTable("code_notebook_state", {
-    code_notebook_state_id: gk.textPrimaryKey(),
+    code_notebook_state_id: gk.varcharPrimaryKey(),
     code_notebook_cell_id: codeNotebookCell.references
       .code_notebook_cell_id(),
     from_state: gd.text(),
@@ -203,8 +203,8 @@ export function codeNotebooksModels<
     },
     populateQS: (t, c, _, tableName) => {
       t.description = markdown`
-        Records the state of a notebook's cells' executions, computations, and results for Kernels that are stateful. 
-        For example, a SQL Notebook Cell that creates tables should only be run once (meaning it's statefule). 
+        Records the state of a notebook's cells' executions, computations, and results for Kernels that are stateful.
+        For example, a SQL Notebook Cell that creates tables should only be run once (meaning it's statefule).
         Other Kernels might store results for functions and output defined in one cell can be used in later cells.`;
       c.code_notebook_state_id.description = `${tableName} primary key`;
       c.code_notebook_cell_id.description =
@@ -254,7 +254,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   const UNIFORM_RESOURCE = "uniform_resource" as const;
 
   const device = gm.textPkTable("device", {
-    device_id: gm.keys.ulidPrimaryKey(),
+    device_id: gm.keys.varcharPrimaryKey(),
     name: gd.text(),
     state: gd.jsonText(),
     boundary: gd.text(),
@@ -291,7 +291,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   });
 
   const behavior = gm.textPkTable("behavior", {
-    behavior_id: gm.keys.ulidPrimaryKey(),
+    behavior_id: gm.keys.varcharPrimaryKey(),
     device_id: device.references.device_id(),
     behavior_name: gd.text(),
     behavior_conf_json: gd.jsonText(),
@@ -312,9 +312,9 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
           Behaviors are configuration "presets" that can be used to drive
           application operations at runtime. For example, ingest behaviors
           include configs that indicate which files to ignore, which to
-          scan, when to load content, etc. This is more convenient than 
-          creating 
-          
+          scan, when to load content, etc. This is more convenient than
+          creating
+
           ${tableName} has a foreign key reference to the device table since
           behaviors might be device-specific.`;
       c.behavior_name.description =
@@ -327,7 +327,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   });
 
   const urIngestSession = gm.textPkTable("ur_ingest_session", {
-    ur_ingest_session_id: gm.keys.ulidPrimaryKey(),
+    ur_ingest_session_id: gm.keys.varcharPrimaryKey(),
     device_id: device.references.device_id(),
     behavior_id: behavior.references.behavior_id().optional(),
     behavior_json: gd.jsonTextNullable(),
@@ -347,7 +347,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       t.description = markdown`
         Immutable ingestion sessions represents any "discovery" or "walk" operation.
         This could be a device file system scan or any other resource discovery
-        session. Each time a discovery operation starts, a record is created. 
+        session. Each time a discovery operation starts, a record is created.
         ${tableName} has a foreign key reference to the device table so that the
         same device can be used for multiple ingest sessions but also the ingest
         sessions can be merged across workstations / servers for easier detection
@@ -356,7 +356,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   });
 
   const urIngestSessionFsPath = gm.textPkTable("ur_ingest_session_fs_path", {
-    ur_ingest_session_fs_path_id: gm.keys.ulidPrimaryKey(),
+    ur_ingest_session_fs_path_id: gm.keys.varcharPrimaryKey(),
     ingest_session_id: urIngestSession.references
       .ur_ingest_session_id(),
     root_path: gd.text(),
@@ -387,7 +387,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   });
 
   const uniformResource = gm.textPkTable(UNIFORM_RESOURCE, {
-    uniform_resource_id: gm.keys.ulidPrimaryKey(),
+    uniform_resource_id: gm.keys.varcharPrimaryKey(),
     device_id: device.references.device_id(),
     ingest_session_id: urIngestSession.references.ur_ingest_session_id(),
     ingest_fs_path_id: urIngestSessionFsPath.references
@@ -427,7 +427,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     populateQS: (t, c, _cols, tableName) => {
       t.description = markdown`
         Immutable resource and content information. On multiple executions,
-        ${tableName} are inserted only if the the content (see unique 
+        ${tableName} are inserted only if the the content (see unique
         index for details). For historical logging, ${tableName} has foreign
         key references to both ${urIngestSession.tableName} and ${urIngestSessionFsPath.tableName}
         tables to indicate which particular session and ingestion path the
@@ -458,7 +458,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   const uniformResourceTransform = gm.textPkTable(
     `uniform_resource_transform`,
     {
-      uniform_resource_transform_id: gm.keys.ulidPrimaryKey(),
+      uniform_resource_transform_id: gm.keys.varcharPrimaryKey(),
       uniform_resource_id: uniformResource.references.uniform_resource_id(),
       uri: gd.text(),
       content_digest: gd.text(),
@@ -512,7 +512,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   const urIngestSessionFsPathEntry = gm.textPkTable(
     "ur_ingest_session_fs_path_entry",
     {
-      ur_ingest_session_fs_path_entry_id: gm.keys.ulidPrimaryKey(),
+      ur_ingest_session_fs_path_entry_id: gm.keys.varcharPrimaryKey(),
       ingest_session_id: urIngestSession.references
         .ur_ingest_session_id(),
       ingest_fs_path_id: urIngestSessionFsPath.references
@@ -546,10 +546,10 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       populateQS: (t, _c, _cols, tableName) => {
         t.description = markdown`
           Contains entries related to file system content ingestion paths. On multiple executions,
-          unlike ${uniformResource.tableName}, ${tableName} rows are always inserted and 
+          unlike ${uniformResource.tableName}, ${tableName} rows are always inserted and
           references the ${uniformResource.tableName} primary key of its related content.
           This method allows for a more efficient query of file version differences across
-          sessions. With SQL queries, you can detect which sessions have a file added or modified, 
+          sessions. With SQL queries, you can detect which sessions have a file added or modified,
           which sessions have a file deleted, and what the differences are in file contents
           if they were modified across sessions.`;
       },

@@ -2,17 +2,17 @@
 
 ## Description
 
-Contains entries related to file system content ingestion paths. On multiple executions,  unlike uniform_resource, ur_ingest_session_fs_path_entry rows are always inserted and   references the uniform_resource primary key of its related content.  This method allows for a more efficient query of file version differences across  sessions. With SQL queries, you can detect which sessions have a file added or modified,   which sessions have a file deleted, and what the differences are in file contents  if they were modified across sessions.
+Contains entries related to file system content ingestion paths. On multiple executions,  unlike uniform_resource, ur_ingest_session_fs_path_entry rows are always inserted and  references the uniform_resource primary key of its related content.  This method allows for a more efficient query of file version differences across  sessions. With SQL queries, you can detect which sessions have a file added or modified,  which sessions have a file deleted, and what the differences are in file contents  if they were modified across sessions.
 
 <details>
 <summary><strong>Table Definition</strong></summary>
 
 ```sql
 CREATE TABLE "ur_ingest_session_fs_path_entry" (
-    "ur_ingest_session_fs_path_entry_id" ULID PRIMARY KEY NOT NULL,
-    "ingest_session_id" ULID NOT NULL,
-    "ingest_fs_path_id" ULID NOT NULL,
-    "uniform_resource_id" ULID,
+    "ur_ingest_session_fs_path_entry_id" VARCHAR PRIMARY KEY NOT NULL,
+    "ingest_session_id" VARCHAR NOT NULL,
+    "ingest_fs_path_id" VARCHAR NOT NULL,
+    "uniform_resource_id" VARCHAR,
     "file_path_abs" TEXT NOT NULL,
     "file_path_rel_parent" TEXT NOT NULL,
     "file_path_rel" TEXT NOT NULL,
@@ -42,10 +42,10 @@ CREATE TABLE "ur_ingest_session_fs_path_entry" (
 
 | Name                               | Type      | Default           | Nullable | Parents                                                   | Comment                                                 |
 | ---------------------------------- | --------- | ----------------- | -------- | --------------------------------------------------------- | ------------------------------------------------------- |
-| ur_ingest_session_fs_path_entry_id | ULID      |                   | false    |                                                           | {"isSqlDomainZodDescrMeta":true,"isUlid":true}          |
-| ingest_session_id                  | ULID      |                   | false    | [ur_ingest_session](ur_ingest_session.md)                 | {"isSqlDomainZodDescrMeta":true,"isUlid":true}          |
-| ingest_fs_path_id                  | ULID      |                   | false    | [ur_ingest_session_fs_path](ur_ingest_session_fs_path.md) | {"isSqlDomainZodDescrMeta":true,"isUlid":true}          |
-| uniform_resource_id                | ULID      |                   | true     | [uniform_resource](uniform_resource.md)                   | {"isSqlDomainZodDescrMeta":true,"isUlid":true}          |
+| ur_ingest_session_fs_path_entry_id | VARCHAR   |                   | false    |                                                           | {"isSqlDomainZodDescrMeta":true,"isVarChar":true}       |
+| ingest_session_id                  | VARCHAR   |                   | false    | [ur_ingest_session](ur_ingest_session.md)                 | {"isSqlDomainZodDescrMeta":true,"isVarChar":true}       |
+| ingest_fs_path_id                  | VARCHAR   |                   | false    | [ur_ingest_session_fs_path](ur_ingest_session_fs_path.md) | {"isSqlDomainZodDescrMeta":true,"isVarChar":true}       |
+| uniform_resource_id                | VARCHAR   |                   | true     | [uniform_resource](uniform_resource.md)                   | {"isSqlDomainZodDescrMeta":true,"isVarChar":true}       |
 | file_path_abs                      | TEXT      |                   | false    |                                                           |                                                         |
 | file_path_rel_parent               | TEXT      |                   | false    |                                                           |                                                         |
 | file_path_rel                      | TEXT      |                   | false    |                                                           |                                                         |

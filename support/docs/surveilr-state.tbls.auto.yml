@@ -18,7 +18,7 @@ name: Resource Surveillance State Schema
 comments:
   - table: device
     columnComments:
-      device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      device_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
       name: unique device identifier (defaults to hostname)
       state: >-
         should be "SINGLETON" if only one state is allowed, or other tags if
@@ -35,28 +35,29 @@ comments:
       uniform_resource are found
   - table: behavior
     columnComments:
-      behavior_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      behavior_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      device_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
       behavior_name: 'Arbitrary but unique per-device behavior name (e.g. ingest::xyz)'
       behavior_conf_json: >-
         Configuration, settings, parameters, etc. describing the behavior (JSON,
         behavior-dependent)
+      assurance_schema_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
       governance: 'Descriptions or other "governance" details (JSON, behavior-dependent)'
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: |-
       Behaviors are configuration "presets" that can be used to drive
       application operations at runtime. For example, ingest behaviors
       include configs that indicate which files to ignore, which to
-      scan, when to load content, etc. This is more convenient than 
-      creating 
+      scan, when to load content, etc. This is more convenient than
+      creating
 
       behavior has a foreign key reference to the device table since
       behaviors might be device-specific.
   - table: ur_ingest_session
     columnComments:
-      ur_ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      device_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      behavior_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      ur_ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      device_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      behavior_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
       behavior_json: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       ingest_started_at: >-
         {"isSqlDomainZodDescrMeta":true,"isDateSqlDomain":true,"isDateTime":true}
@@ -70,7 +71,7 @@ comments:
 
       This could be a device file system scan or any other resource discovery
 
-      session. Each time a discovery operation starts, a record is created. 
+      session. Each time a discovery operation starts, a record is created.
 
       ur_ingest_session has a foreign key reference to the device table so that
       the
@@ -82,8 +83,8 @@ comments:
       of changes and similaries between file systems on different devices.
   - table: ur_ingest_session_fs_path
     columnComments:
-      ur_ingest_session_fs_path_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      ur_ingest_session_fs_path_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
       elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: >-
@@ -121,7 +122,7 @@ comments:
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: |-
       Immutable resource and content information. On multiple executions,
-      uniform_resource are inserted only if the the content (see unique 
+      uniform_resource are inserted only if the the content (see unique
       index for details). For historical logging, uniform_resource has foreign
       key references to both ur_ingest_session and ur_ingest_session_fs_path
       tables to indicate which particular session and ingestion path the
@@ -138,10 +139,10 @@ comments:
     tableComment: uniform_resource transformed content
   - table: ur_ingest_session_fs_path_entry
     columnComments:
-      ur_ingest_session_fs_path_entry_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      ingest_fs_path_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
-      uniform_resource_id: '{"isSqlDomainZodDescrMeta":true,"isUlid":true}'
+      ur_ingest_session_fs_path_entry_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      ingest_fs_path_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      uniform_resource_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
       captured_executable: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       ur_diagnostics: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       ur_transformations: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
@@ -152,7 +153,7 @@ comments:
       multiple executions,
 
       unlike uniform_resource, ur_ingest_session_fs_path_entry rows are always
-      inserted and 
+      inserted and
 
       references the uniform_resource primary key of its related content.
 
@@ -160,7 +161,7 @@ comments:
       across
 
       sessions. With SQL queries, you can detect which sessions have a file
-      added or modified, 
+      added or modified,
 
       which sessions have a file deleted, and what the differences are in file
       contents

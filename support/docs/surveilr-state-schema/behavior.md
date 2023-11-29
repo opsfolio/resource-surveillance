@@ -5,8 +5,8 @@
 Behaviors are configuration "presets" that can be used to drive  
 application operations at runtime. For example, ingest behaviors  
 include configs that indicate which files to ignore, which to  
-scan, when to load content, etc. This is more convenient than   
-creating   
+scan, when to load content, etc. This is more convenient than  
+creating  
   
 behavior has a foreign key reference to the device table since  
 behaviors might be device-specific.
@@ -16,11 +16,11 @@ behaviors might be device-specific.
 
 ```sql
 CREATE TABLE "behavior" (
-    "behavior_id" ULID PRIMARY KEY NOT NULL,
-    "device_id" ULID NOT NULL,
+    "behavior_id" VARCHAR PRIMARY KEY NOT NULL,
+    "device_id" VARCHAR NOT NULL,
     "behavior_name" TEXT NOT NULL,
     "behavior_conf_json" TEXT CHECK(json_valid(behavior_conf_json)) NOT NULL,
-    "assurance_schema_id" TEXT,
+    "assurance_schema_id" VARCHAR,
     "governance" TEXT CHECK(json_valid(governance) OR governance IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT 'UNKNOWN',
@@ -41,11 +41,11 @@ CREATE TABLE "behavior" (
 
 | Name                | Type      | Default           | Nullable | Children                                  | Parents             | Comment                                                                                      |
 | ------------------- | --------- | ----------------- | -------- | ----------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------- |
-| behavior_id         | ULID      |                   | false    | [ur_ingest_session](ur_ingest_session.md) |                     | {"isSqlDomainZodDescrMeta":true,"isUlid":true}                                               |
-| device_id           | ULID      |                   | false    |                                           | [device](device.md) | {"isSqlDomainZodDescrMeta":true,"isUlid":true}                                               |
+| behavior_id         | VARCHAR   |                   | false    | [ur_ingest_session](ur_ingest_session.md) |                     | {"isSqlDomainZodDescrMeta":true,"isVarChar":true}                                            |
+| device_id           | VARCHAR   |                   | false    |                                           | [device](device.md) | {"isSqlDomainZodDescrMeta":true,"isVarChar":true}                                            |
 | behavior_name       | TEXT      |                   | false    |                                           |                     | Arbitrary but unique per-device behavior name (e.g. ingest::xyz)                             |
 | behavior_conf_json  | TEXT      |                   | false    |                                           |                     | Configuration, settings, parameters, etc. describing the behavior (JSON, behavior-dependent) |
-| assurance_schema_id | TEXT      |                   | true     |                                           |                     |                                                                                              |
+| assurance_schema_id | VARCHAR   |                   | true     |                                           |                     | {"isSqlDomainZodDescrMeta":true,"isVarChar":true}                                            |
 | governance          | TEXT      |                   | true     |                                           |                     | Descriptions or other "governance" details (JSON, behavior-dependent)                        |
 | created_at          | TIMESTAMP | CURRENT_TIMESTAMP | true     |                                           |                     |                                                                                              |
 | created_by          | TEXT      | 'UNKNOWN'         | true     |                                           |                     |                                                                                              |
