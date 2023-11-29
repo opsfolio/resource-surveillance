@@ -2,15 +2,15 @@
 
 ## Description
 
-Records the state of a notebook's cells' executions, computations, and results for Kernels that are stateful.   For example, a SQL Notebook Cell that creates tables should only be run once (meaning it's statefule).   Other Kernels might store results for functions and output defined in one cell can be used in later cells.
+Records the state of a notebook's cells' executions, computations, and results for Kernels that are stateful.  For example, a SQL Notebook Cell that creates tables should only be run once (meaning it's statefule).  Other Kernels might store results for functions and output defined in one cell can be used in later cells.
 
 <details>
 <summary><strong>Table Definition</strong></summary>
 
 ```sql
 CREATE TABLE "code_notebook_state" (
-    "code_notebook_state_id" TEXT PRIMARY KEY NOT NULL,
-    "code_notebook_cell_id" TEXT NOT NULL,
+    "code_notebook_state_id" VARCHAR PRIMARY KEY NOT NULL,
+    "code_notebook_cell_id" VARCHAR NOT NULL,
     "from_state" TEXT NOT NULL,
     "to_state" TEXT NOT NULL,
     "transition_result" TEXT CHECK(json_valid(transition_result) OR transition_result IS NULL),
@@ -35,8 +35,8 @@ CREATE TABLE "code_notebook_state" (
 
 | Name                   | Type      | Default           | Nullable | Parents                                     | Comment                                                                   |
 | ---------------------- | --------- | ----------------- | -------- | ------------------------------------------- | ------------------------------------------------------------------------- |
-| code_notebook_state_id | TEXT      |                   | false    |                                             | code_notebook_state primary key                                           |
-| code_notebook_cell_id  | TEXT      |                   | false    | [code_notebook_cell](code_notebook_cell.md) | code_notebook_cell row this state describes                               |
+| code_notebook_state_id | VARCHAR   |                   | false    |                                             | code_notebook_state primary key                                           |
+| code_notebook_cell_id  | VARCHAR   |                   | false    | [code_notebook_cell](code_notebook_cell.md) | code_notebook_cell row this state describes                               |
 | from_state             | TEXT      |                   | false    |                                             | the previous state (set to "INITIAL" when it's the first transition)      |
 | to_state               | TEXT      |                   | false    |                                             | the current state; if no rows exist it means no state transition occurred |
 | transition_result      | TEXT      |                   | true     |                                             | if the result of state change is necessary for future use                 |

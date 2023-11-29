@@ -9,8 +9,8 @@ uniform_resource transformed content
 
 ```sql
 CREATE TABLE "uniform_resource_transform" (
-    "uniform_resource_transform_id" ULID PRIMARY KEY NOT NULL,
-    "uniform_resource_id" ULID NOT NULL,
+    "uniform_resource_transform_id" VARCHAR PRIMARY KEY NOT NULL,
+    "uniform_resource_id" VARCHAR NOT NULL,
     "uri" TEXT NOT NULL,
     "content_digest" TEXT NOT NULL,
     "content" BLOB,
@@ -35,8 +35,8 @@ CREATE TABLE "uniform_resource_transform" (
 
 | Name                          | Type      | Default           | Nullable | Parents                                 | Comment                                                 |
 | ----------------------------- | --------- | ----------------- | -------- | --------------------------------------- | ------------------------------------------------------- |
-| uniform_resource_transform_id | ULID      |                   | false    |                                         | uniform_resource_transform ULID primary key             |
-| uniform_resource_id           | ULID      |                   | false    | [uniform_resource](uniform_resource.md) | uniform_resource row ID of original content             |
+| uniform_resource_transform_id | VARCHAR   |                   | false    |                                         | uniform_resource_transform ULID primary key             |
+| uniform_resource_id           | VARCHAR   |                   | false    | [uniform_resource](uniform_resource.md) | uniform_resource row ID of original content             |
 | uri                           | TEXT      |                   | false    |                                         |                                                         |
 | content_digest                | TEXT      |                   | false    |                                         | transformed content hash                                |
 | content                       | BLOB      |                   | true     |                                         | transformed content                                     |

@@ -2,14 +2,14 @@
 
 ## Description
 
-A Notebook is a group of Cells. A kernel is a computational engine that executes the code contained in a notebook cell.   Each notebook is associated with a kernel of a specific programming language or code transformer which can interpret  code and produce a result. For example, a SQL notebook might use a SQLite kernel for running SQL code and an AI Prompt  might prepare AI prompts for LLMs.
+A Notebook is a group of Cells. A kernel is a computational engine that executes the code contained in a notebook cell.  Each notebook is associated with a kernel of a specific programming language or code transformer which can interpret  code and produce a result. For example, a SQL notebook might use a SQLite kernel for running SQL code and an AI Prompt  might prepare AI prompts for LLMs.
 
 <details>
 <summary><strong>Table Definition</strong></summary>
 
 ```sql
 CREATE TABLE "code_notebook_kernel" (
-    "code_notebook_kernel_id" TEXT PRIMARY KEY NOT NULL,
+    "code_notebook_kernel_id" VARCHAR PRIMARY KEY NOT NULL,
     "kernel_name" TEXT NOT NULL,
     "description" TEXT,
     "mime_type" TEXT,
@@ -33,7 +33,7 @@ CREATE TABLE "code_notebook_kernel" (
 
 | Name                    | Type      | Default           | Nullable | Children                                    | Comment                                                                                            |
 | ----------------------- | --------- | ----------------- | -------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| code_notebook_kernel_id | TEXT      |                   | false    | [code_notebook_cell](code_notebook_cell.md) | code_notebook_kernel primary key and internal label (not a ULID)                                   |
+| code_notebook_kernel_id | VARCHAR   |                   | false    | [code_notebook_cell](code_notebook_cell.md) | code_notebook_kernel primary key and internal label (not a ULID)                                   |
 | kernel_name             | TEXT      |                   | false    |                                             | the kernel name for human/display use cases                                                        |
 | description             | TEXT      |                   | true     |                                             | any further description of the kernel for human/display use cases                                  |
 | mime_type               | TEXT      |                   | true     |                                             | MIME type of this kernel's code in case it will be served                                          |

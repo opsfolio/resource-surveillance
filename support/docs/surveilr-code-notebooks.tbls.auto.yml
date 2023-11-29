@@ -29,7 +29,7 @@ comments:
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: >-
       A Notebook is a group of Cells. A kernel is a computational engine that
-      executes the code contained in a notebook cell. 
+      executes the code contained in a notebook cell.
 
       Each notebook is associated with a kernel of a specific programming
       language or code transformer which can interpret
@@ -52,7 +52,7 @@ comments:
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: >-
       A Notebook is a group of Cells. A kernel is a computational engine that
-      executes the code contained in a notebook cell. 
+      executes the code contained in a notebook cell.
 
       Each notebook is associated with a kernel of a specific programming
       language or code transformer which can interpret
@@ -64,6 +64,7 @@ comments:
   - table: code_notebook_cell
     columnComments:
       code_notebook_cell_id: code_notebook_cell primary key
+      notebook_kernel_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
       cell_governance: >-
         any idempotency, versioning, hash, branch, tag or other "governance"
         data (dependent on the cell)
@@ -96,10 +97,10 @@ comments:
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: >-
       Records the state of a notebook's cells' executions, computations, and
-      results for Kernels that are stateful. 
+      results for Kernels that are stateful.
 
       For example, a SQL Notebook Cell that creates tables should only be run
-      once (meaning it's statefule). 
+      once (meaning it's statefule).
 
       Other Kernels might store results for functions and output defined in one
       cell can be used in later cells.

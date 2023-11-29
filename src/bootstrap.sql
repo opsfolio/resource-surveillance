@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS "assurance_schema" (
-    "assurance_schema_id" TEXT PRIMARY KEY NOT NULL,
+    "assurance_schema_id" VARCHAR PRIMARY KEY NOT NULL,
     "assurance_type" TEXT NOT NULL,
     "code" TEXT NOT NULL,
     "code_json" TEXT CHECK(json_valid(code_json) OR code_json IS NULL),
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS "assurance_schema" (
     "activity_log" TEXT
 );
 CREATE TABLE IF NOT EXISTS "code_notebook_kernel" (
-    "code_notebook_kernel_id" TEXT PRIMARY KEY NOT NULL,
+    "code_notebook_kernel_id" VARCHAR PRIMARY KEY NOT NULL,
     "kernel_name" TEXT NOT NULL,
     "description" TEXT,
     "mime_type" TEXT,
@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS "code_notebook_kernel" (
     UNIQUE("kernel_name")
 );
 CREATE TABLE IF NOT EXISTS "code_notebook_cell" (
-    "code_notebook_cell_id" TEXT PRIMARY KEY NOT NULL,
-    "notebook_kernel_id" TEXT NOT NULL,
+    "code_notebook_cell_id" VARCHAR PRIMARY KEY NOT NULL,
+    "notebook_kernel_id" VARCHAR NOT NULL,
     "notebook_name" TEXT NOT NULL,
     "cell_name" TEXT NOT NULL,
     "cell_governance" TEXT CHECK(json_valid(cell_governance) OR cell_governance IS NULL),
@@ -50,8 +50,8 @@ CREATE TABLE IF NOT EXISTS "code_notebook_cell" (
     UNIQUE("notebook_name", "cell_name", "interpretable_code_hash")
 );
 CREATE TABLE IF NOT EXISTS "code_notebook_state" (
-    "code_notebook_state_id" TEXT PRIMARY KEY NOT NULL,
-    "code_notebook_cell_id" TEXT NOT NULL,
+    "code_notebook_state_id" VARCHAR PRIMARY KEY NOT NULL,
+    "code_notebook_cell_id" VARCHAR NOT NULL,
     "from_state" TEXT NOT NULL,
     "to_state" TEXT NOT NULL,
     "transition_result" TEXT CHECK(json_valid(transition_result) OR transition_result IS NULL),
@@ -79,7 +79,7 @@ INSERT INTO "code_notebook_kernel" ("code_notebook_kernel_id", "kernel_name", "d
 
 -- store all SQL that is potentially reusable in the database
 INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'BootstrapSqlNotebook', 'bootstrapDDL', NULL, 'CREATE TABLE IF NOT EXISTS "assurance_schema" (
-    "assurance_schema_id" TEXT PRIMARY KEY NOT NULL,
+    "assurance_schema_id" VARCHAR PRIMARY KEY NOT NULL,
     "assurance_type" TEXT NOT NULL,
     "code" TEXT NOT NULL,
     "code_json" TEXT CHECK(json_valid(code_json) OR code_json IS NULL),
@@ -93,7 +93,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     "activity_log" TEXT
 );
 CREATE TABLE IF NOT EXISTS "code_notebook_kernel" (
-    "code_notebook_kernel_id" TEXT PRIMARY KEY NOT NULL,
+    "code_notebook_kernel_id" VARCHAR PRIMARY KEY NOT NULL,
     "kernel_name" TEXT NOT NULL,
     "description" TEXT,
     "mime_type" TEXT,
@@ -110,8 +110,8 @@ CREATE TABLE IF NOT EXISTS "code_notebook_kernel" (
     UNIQUE("kernel_name")
 );
 CREATE TABLE IF NOT EXISTS "code_notebook_cell" (
-    "code_notebook_cell_id" TEXT PRIMARY KEY NOT NULL,
-    "notebook_kernel_id" TEXT NOT NULL,
+    "code_notebook_cell_id" VARCHAR PRIMARY KEY NOT NULL,
+    "notebook_kernel_id" VARCHAR NOT NULL,
     "notebook_name" TEXT NOT NULL,
     "cell_name" TEXT NOT NULL,
     "cell_governance" TEXT CHECK(json_valid(cell_governance) OR cell_governance IS NULL),
@@ -130,8 +130,8 @@ CREATE TABLE IF NOT EXISTS "code_notebook_cell" (
     UNIQUE("notebook_name", "cell_name", "interpretable_code_hash")
 );
 CREATE TABLE IF NOT EXISTS "code_notebook_state" (
-    "code_notebook_state_id" TEXT PRIMARY KEY NOT NULL,
-    "code_notebook_cell_id" TEXT NOT NULL,
+    "code_notebook_state_id" VARCHAR PRIMARY KEY NOT NULL,
+    "code_notebook_cell_id" VARCHAR NOT NULL,
     "from_state" TEXT NOT NULL,
     "to_state" TEXT NOT NULL,
     "transition_result" TEXT CHECK(json_valid(transition_result) OR transition_result IS NULL),
@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS "code_notebook_state" (
 );
 
 
-', '462f572072dd9c791b33439efac2ecac8dd5b0b1', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', 'd5467b378e45b513fe81238521bb7d8d9b1bdf0e', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -161,7 +161,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
 INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v001_once_initialDDL', NULL, 'CREATE TABLE IF NOT EXISTS "device" (
-    "device_id" ULID PRIMARY KEY NOT NULL,
+    "device_id" VARCHAR PRIMARY KEY NOT NULL,
     "name" TEXT NOT NULL,
     "state" TEXT CHECK(json_valid(state)) NOT NULL,
     "boundary" TEXT NOT NULL,
@@ -178,11 +178,11 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     UNIQUE("name", "state", "boundary")
 );
 CREATE TABLE IF NOT EXISTS "behavior" (
-    "behavior_id" ULID PRIMARY KEY NOT NULL,
-    "device_id" ULID NOT NULL,
+    "behavior_id" VARCHAR PRIMARY KEY NOT NULL,
+    "device_id" VARCHAR NOT NULL,
     "behavior_name" TEXT NOT NULL,
     "behavior_conf_json" TEXT CHECK(json_valid(behavior_conf_json)) NOT NULL,
-    "assurance_schema_id" TEXT,
+    "assurance_schema_id" VARCHAR,
     "governance" TEXT CHECK(json_valid(governance) OR governance IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
@@ -196,9 +196,9 @@ CREATE TABLE IF NOT EXISTS "behavior" (
     UNIQUE("device_id", "behavior_name")
 );
 CREATE TABLE IF NOT EXISTS "ur_ingest_session" (
-    "ur_ingest_session_id" ULID PRIMARY KEY NOT NULL,
-    "device_id" ULID NOT NULL,
-    "behavior_id" ULID,
+    "ur_ingest_session_id" VARCHAR PRIMARY KEY NOT NULL,
+    "device_id" VARCHAR NOT NULL,
+    "behavior_id" VARCHAR,
     "behavior_json" TEXT CHECK(json_valid(behavior_json) OR behavior_json IS NULL),
     "ingest_started_at" TIMESTAMP NOT NULL,
     "ingest_finished_at" TIMESTAMP,
@@ -215,8 +215,8 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session" (
     UNIQUE("device_id", "created_at")
 );
 CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path" (
-    "ur_ingest_session_fs_path_id" ULID PRIMARY KEY NOT NULL,
-    "ingest_session_id" ULID NOT NULL,
+    "ur_ingest_session_fs_path_id" VARCHAR PRIMARY KEY NOT NULL,
+    "ingest_session_id" VARCHAR NOT NULL,
     "root_path" TEXT NOT NULL,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -230,10 +230,10 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path" (
     UNIQUE("ingest_session_id", "root_path", "created_at")
 );
 CREATE TABLE IF NOT EXISTS "uniform_resource" (
-    "uniform_resource_id" ULID PRIMARY KEY NOT NULL,
-    "device_id" ULID NOT NULL,
-    "ingest_session_id" ULID NOT NULL,
-    "ingest_fs_path_id" ULID NOT NULL,
+    "uniform_resource_id" VARCHAR PRIMARY KEY NOT NULL,
+    "device_id" VARCHAR NOT NULL,
+    "ingest_session_id" VARCHAR NOT NULL,
+    "ingest_fs_path_id" VARCHAR NOT NULL,
     "uri" TEXT NOT NULL,
     "content_digest" TEXT NOT NULL,
     "content" BLOB,
@@ -256,8 +256,8 @@ CREATE TABLE IF NOT EXISTS "uniform_resource" (
     UNIQUE("device_id", "content_digest", "uri", "size_bytes", "last_modified_at")
 );
 CREATE TABLE IF NOT EXISTS "uniform_resource_transform" (
-    "uniform_resource_transform_id" ULID PRIMARY KEY NOT NULL,
-    "uniform_resource_id" ULID NOT NULL,
+    "uniform_resource_transform_id" VARCHAR PRIMARY KEY NOT NULL,
+    "uniform_resource_id" VARCHAR NOT NULL,
     "uri" TEXT NOT NULL,
     "content_digest" TEXT NOT NULL,
     "content" BLOB,
@@ -275,10 +275,10 @@ CREATE TABLE IF NOT EXISTS "uniform_resource_transform" (
     UNIQUE("uniform_resource_id", "content_digest", "nature", "size_bytes")
 );
 CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path_entry" (
-    "ur_ingest_session_fs_path_entry_id" ULID PRIMARY KEY NOT NULL,
-    "ingest_session_id" ULID NOT NULL,
-    "ingest_fs_path_id" ULID NOT NULL,
-    "uniform_resource_id" ULID,
+    "ur_ingest_session_fs_path_entry_id" VARCHAR PRIMARY KEY NOT NULL,
+    "ingest_session_id" VARCHAR NOT NULL,
+    "ingest_fs_path_id" VARCHAR NOT NULL,
+    "uniform_resource_id" VARCHAR,
     "file_path_abs" TEXT NOT NULL,
     "file_path_rel_parent" TEXT NOT NULL,
     "file_path_rel" TEXT NOT NULL,
@@ -306,7 +306,7 @@ CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path__ingest_session_id__ro
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource__device_id__uri" ON "uniform_resource"("device_id", "uri");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource_transform__uniform_resource_id__content_digest" ON "uniform_resource_transform"("uniform_resource_id", "content_digest");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path_entry__ingest_session_id__file_path_abs" ON "ur_ingest_session_fs_path_entry"("ingest_session_id", "file_path_abs");
-', 'c994bfef6a9a44a6504892d808cd1c179c244213', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', '9e6d70c79ee68d9e7291799dde31ec0b66097c9c', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -402,14 +402,14 @@ CREATE VIEW IF NOT EXISTS "ur_ingest_session_issue" AS
         JOIN ur_ingest_session_fs_path usp ON ufs.ingest_fs_path_id = usp.ur_ingest_session_fs_path_id
         JOIN ur_ingest_session us ON usp.ingest_session_id = us.ur_ingest_session_id
        WHERE ufs.ur_status IS NOT NULL
-    GROUP BY us.device_id, 
-             us.ur_ingest_session_id, 
-             usp.ur_ingest_session_fs_path_id, 
-             usp.root_path, 
-             ufs.ur_ingest_session_fs_path_entry_id, 
-             ufs.file_path_abs, 
-             ufs.ur_status, 
-             ufs.ur_diagnostics;', '9f42b62807bb7b660519daf3d203964e09576a57', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+    GROUP BY us.device_id,
+             us.ur_ingest_session_id,
+             usp.ur_ingest_session_fs_path_id,
+             usp.root_path,
+             ufs.ur_ingest_session_fs_path_entry_id,
+             ufs.file_path_abs,
+             ufs.ur_status,
+             ufs.ur_diagnostics;', 'b934543905a1d902331fa2ded1791e219144f483', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -607,12 +607,12 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
 
 3. ''code_notebook_state'': This table tracks the state transitions of notebook cells. Each record links to a cell in the ''code_notebook_cell'' table and includes information about the state transition, such as the previous and new states, transition reason, and timestamps.
 
-The relationships are as follows: Each cell in ''code_notebook_cell'' is associated with a kernel in ''code_notebook_kernel''. The ''code_notebook_state'' table tracks changes in the state of each cell, linking back to the ''code_notebook_cell'' table. 
+The relationships are as follows: Each cell in ''code_notebook_cell'' is associated with a kernel in ''code_notebook_kernel''. The ''code_notebook_state'' table tracks changes in the state of each cell, linking back to the ''code_notebook_cell'' table.
 
 Use the following SQLite Schema to generate SQL queries that interact with these tables and once you understand them let me know so I can ask you for help:
 
 CREATE TABLE IF NOT EXISTS "assurance_schema" (
-    "assurance_schema_id" TEXT PRIMARY KEY NOT NULL,
+    "assurance_schema_id" VARCHAR PRIMARY KEY NOT NULL,
     "assurance_type" TEXT NOT NULL,
     "code" TEXT NOT NULL,
     "code_json" TEXT CHECK(json_valid(code_json) OR code_json IS NULL),
@@ -626,7 +626,7 @@ CREATE TABLE IF NOT EXISTS "assurance_schema" (
     "activity_log" TEXT
 );
 CREATE TABLE IF NOT EXISTS "code_notebook_kernel" (
-    "code_notebook_kernel_id" TEXT PRIMARY KEY NOT NULL,
+    "code_notebook_kernel_id" VARCHAR PRIMARY KEY NOT NULL,
     "kernel_name" TEXT NOT NULL,
     "description" TEXT,
     "mime_type" TEXT,
@@ -643,8 +643,8 @@ CREATE TABLE IF NOT EXISTS "code_notebook_kernel" (
     UNIQUE("kernel_name")
 );
 CREATE TABLE IF NOT EXISTS "code_notebook_cell" (
-    "code_notebook_cell_id" TEXT PRIMARY KEY NOT NULL,
-    "notebook_kernel_id" TEXT NOT NULL,
+    "code_notebook_cell_id" VARCHAR PRIMARY KEY NOT NULL,
+    "notebook_kernel_id" VARCHAR NOT NULL,
     "notebook_name" TEXT NOT NULL,
     "cell_name" TEXT NOT NULL,
     "cell_governance" TEXT CHECK(json_valid(cell_governance) OR cell_governance IS NULL),
@@ -663,8 +663,8 @@ CREATE TABLE IF NOT EXISTS "code_notebook_cell" (
     UNIQUE("notebook_name", "cell_name", "interpretable_code_hash")
 );
 CREATE TABLE IF NOT EXISTS "code_notebook_state" (
-    "code_notebook_state_id" TEXT PRIMARY KEY NOT NULL,
-    "code_notebook_cell_id" TEXT NOT NULL,
+    "code_notebook_state_id" VARCHAR PRIMARY KEY NOT NULL,
+    "code_notebook_cell_id" VARCHAR NOT NULL,
     "from_state" TEXT NOT NULL,
     "to_state" TEXT NOT NULL,
     "transition_result" TEXT CHECK(json_valid(transition_result) OR transition_result IS NULL),
@@ -684,13 +684,13 @@ CREATE TABLE IF NOT EXISTS "code_notebook_state" (
 
 
 
-      ', '8c96a6667bc2dc4ca8df2b210292ed07609703f9', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', '43f5aa0f274dacd9df5d0fd9f9643c3e2a1dc624', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
                    activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
 INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'LLM Prompt', 'LargeLanguageModelsPromptsNotebook', 'understand service schema', NULL, 'Understand the following structure of an SQLite database designed to store cybersecurity and compliance data for files in a file system.
-The database is designed to store devices in the ''device'' table and entities called ''resources'' stored in the immutable append-only 
+The database is designed to store devices in the ''device'' table and entities called ''resources'' stored in the immutable append-only
 ''uniform_resource'' table. Each time files are "walked" they are stored in ingestion session and link back to ''uniform_resource''. Because all
 tables are generally append only and immutable it means that the ingest_session_fs_path_entry table can be used for revision control
 and historical tracking of file changes.
@@ -698,7 +698,7 @@ and historical tracking of file changes.
 Use the following SQLite Schema to generate SQL queries that interact with these tables and once you understand them let me know so I can ask you for help:
 
 CREATE TABLE IF NOT EXISTS "device" (
-    "device_id" ULID PRIMARY KEY NOT NULL,
+    "device_id" VARCHAR PRIMARY KEY NOT NULL,
     "name" TEXT NOT NULL,
     "state" TEXT CHECK(json_valid(state)) NOT NULL,
     "boundary" TEXT NOT NULL,
@@ -715,11 +715,11 @@ CREATE TABLE IF NOT EXISTS "device" (
     UNIQUE("name", "state", "boundary")
 );
 CREATE TABLE IF NOT EXISTS "behavior" (
-    "behavior_id" ULID PRIMARY KEY NOT NULL,
-    "device_id" ULID NOT NULL,
+    "behavior_id" VARCHAR PRIMARY KEY NOT NULL,
+    "device_id" VARCHAR NOT NULL,
     "behavior_name" TEXT NOT NULL,
     "behavior_conf_json" TEXT CHECK(json_valid(behavior_conf_json)) NOT NULL,
-    "assurance_schema_id" TEXT,
+    "assurance_schema_id" VARCHAR,
     "governance" TEXT CHECK(json_valid(governance) OR governance IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
@@ -733,9 +733,9 @@ CREATE TABLE IF NOT EXISTS "behavior" (
     UNIQUE("device_id", "behavior_name")
 );
 CREATE TABLE IF NOT EXISTS "ur_ingest_session" (
-    "ur_ingest_session_id" ULID PRIMARY KEY NOT NULL,
-    "device_id" ULID NOT NULL,
-    "behavior_id" ULID,
+    "ur_ingest_session_id" VARCHAR PRIMARY KEY NOT NULL,
+    "device_id" VARCHAR NOT NULL,
+    "behavior_id" VARCHAR,
     "behavior_json" TEXT CHECK(json_valid(behavior_json) OR behavior_json IS NULL),
     "ingest_started_at" TIMESTAMP NOT NULL,
     "ingest_finished_at" TIMESTAMP,
@@ -752,8 +752,8 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session" (
     UNIQUE("device_id", "created_at")
 );
 CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path" (
-    "ur_ingest_session_fs_path_id" ULID PRIMARY KEY NOT NULL,
-    "ingest_session_id" ULID NOT NULL,
+    "ur_ingest_session_fs_path_id" VARCHAR PRIMARY KEY NOT NULL,
+    "ingest_session_id" VARCHAR NOT NULL,
     "root_path" TEXT NOT NULL,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -767,10 +767,10 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path" (
     UNIQUE("ingest_session_id", "root_path", "created_at")
 );
 CREATE TABLE IF NOT EXISTS "uniform_resource" (
-    "uniform_resource_id" ULID PRIMARY KEY NOT NULL,
-    "device_id" ULID NOT NULL,
-    "ingest_session_id" ULID NOT NULL,
-    "ingest_fs_path_id" ULID NOT NULL,
+    "uniform_resource_id" VARCHAR PRIMARY KEY NOT NULL,
+    "device_id" VARCHAR NOT NULL,
+    "ingest_session_id" VARCHAR NOT NULL,
+    "ingest_fs_path_id" VARCHAR NOT NULL,
     "uri" TEXT NOT NULL,
     "content_digest" TEXT NOT NULL,
     "content" BLOB,
@@ -793,8 +793,8 @@ CREATE TABLE IF NOT EXISTS "uniform_resource" (
     UNIQUE("device_id", "content_digest", "uri", "size_bytes", "last_modified_at")
 );
 CREATE TABLE IF NOT EXISTS "uniform_resource_transform" (
-    "uniform_resource_transform_id" ULID PRIMARY KEY NOT NULL,
-    "uniform_resource_id" ULID NOT NULL,
+    "uniform_resource_transform_id" VARCHAR PRIMARY KEY NOT NULL,
+    "uniform_resource_id" VARCHAR NOT NULL,
     "uri" TEXT NOT NULL,
     "content_digest" TEXT NOT NULL,
     "content" BLOB,
@@ -812,10 +812,10 @@ CREATE TABLE IF NOT EXISTS "uniform_resource_transform" (
     UNIQUE("uniform_resource_id", "content_digest", "nature", "size_bytes")
 );
 CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path_entry" (
-    "ur_ingest_session_fs_path_entry_id" ULID PRIMARY KEY NOT NULL,
-    "ingest_session_id" ULID NOT NULL,
-    "ingest_fs_path_id" ULID NOT NULL,
-    "uniform_resource_id" ULID,
+    "ur_ingest_session_fs_path_entry_id" VARCHAR PRIMARY KEY NOT NULL,
+    "ingest_session_id" VARCHAR NOT NULL,
+    "ingest_fs_path_id" VARCHAR NOT NULL,
+    "uniform_resource_id" VARCHAR,
     "file_path_abs" TEXT NOT NULL,
     "file_path_rel_parent" TEXT NOT NULL,
     "file_path_rel" TEXT NOT NULL,
@@ -905,7 +905,7 @@ CREATE VIEW IF NOT EXISTS "ingest_session_stats" AS
         ingest_session_finished_at,
         file_extension;
     
-      ', '1c9ce3a3100b7d23a78921ed5c7f9ece9b542aa0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', 'd81115a87b59a09607e457b9f699dac3a06649c7', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -924,7 +924,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   }
 
   entity "device" as device {
-    * **device_id**: ULID
+    * **device_id**: VARCHAR
     --
     * name: TEXT
     * state: TEXT
@@ -935,20 +935,20 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   }
 
   entity "behavior" as behavior {
-    * **behavior_id**: ULID
+    * **behavior_id**: VARCHAR
     --
-    * device_id: ULID
+    * device_id: VARCHAR
     * behavior_name: TEXT
     * behavior_conf_json: TEXT
-      assurance_schema_id: TEXT
+      assurance_schema_id: VARCHAR
       governance: TEXT
   }
 
   entity "ur_ingest_session" as ur_ingest_session {
-    * **ur_ingest_session_id**: ULID
+    * **ur_ingest_session_id**: VARCHAR
     --
-    * device_id: ULID
-      behavior_id: ULID
+    * device_id: VARCHAR
+      behavior_id: VARCHAR
       behavior_json: TEXT
     * ingest_started_at: TIMESTAMP
       ingest_finished_at: TIMESTAMP
@@ -956,19 +956,19 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   }
 
   entity "ur_ingest_session_fs_path" as ur_ingest_session_fs_path {
-    * **ur_ingest_session_fs_path_id**: ULID
+    * **ur_ingest_session_fs_path_id**: VARCHAR
     --
-    * ingest_session_id: ULID
+    * ingest_session_id: VARCHAR
     * root_path: TEXT
       elaboration: TEXT
   }
 
   entity "uniform_resource" as uniform_resource {
-    * **uniform_resource_id**: ULID
+    * **uniform_resource_id**: VARCHAR
     --
-    * device_id: ULID
-    * ingest_session_id: ULID
-    * ingest_fs_path_id: ULID
+    * device_id: VARCHAR
+    * ingest_session_id: VARCHAR
+    * ingest_fs_path_id: VARCHAR
     * uri: TEXT
     * content_digest: TEXT
       content: BLOB
@@ -981,9 +981,9 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   }
 
   entity "uniform_resource_transform" as uniform_resource_transform {
-    * **uniform_resource_transform_id**: ULID
+    * **uniform_resource_transform_id**: VARCHAR
     --
-    * uniform_resource_id: ULID
+    * uniform_resource_id: VARCHAR
     * uri: TEXT
     * content_digest: TEXT
       content: BLOB
@@ -993,11 +993,11 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   }
 
   entity "ur_ingest_session_fs_path_entry" as ur_ingest_session_fs_path_entry {
-    * **ur_ingest_session_fs_path_entry_id**: ULID
+    * **ur_ingest_session_fs_path_entry_id**: VARCHAR
     --
-    * ingest_session_id: ULID
-    * ingest_fs_path_id: ULID
-      uniform_resource_id: ULID
+    * ingest_session_id: VARCHAR
+    * ingest_fs_path_id: VARCHAR
+      uniform_resource_id: VARCHAR
     * file_path_abs: TEXT
     * file_path_rel_parent: TEXT
     * file_path_rel: TEXT
@@ -1021,7 +1021,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   ur_ingest_session |o..o{ ur_ingest_session_fs_path_entry
   ur_ingest_session_fs_path |o..o{ ur_ingest_session_fs_path_entry
   uniform_resource |o..o{ ur_ingest_session_fs_path_entry
-@enduml', 'b87c2656d5eaa22e25a49772c34e00e03849c764', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', '64f77bf649adf227bd2f7eacfa7ea89535419f36', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,
@@ -1039,7 +1039,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   }
 
   entity "assurance_schema" as assurance_schema {
-    * **assurance_schema_id**: TEXT
+    * **assurance_schema_id**: VARCHAR
     --
     * assurance_type: TEXT
     * code: TEXT
@@ -1055,7 +1055,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   }
 
   entity "code_notebook_kernel" as code_notebook_kernel {
-    * **code_notebook_kernel_id**: TEXT
+    * **code_notebook_kernel_id**: VARCHAR
     --
     * kernel_name: TEXT
       description: TEXT
@@ -1073,9 +1073,9 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   }
 
   entity "code_notebook_cell" as code_notebook_cell {
-    * **code_notebook_cell_id**: TEXT
+    * **code_notebook_cell_id**: VARCHAR
     --
-    * notebook_kernel_id: TEXT
+    * notebook_kernel_id: VARCHAR
     * notebook_name: TEXT
     * cell_name: TEXT
       cell_governance: TEXT
@@ -1093,9 +1093,9 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   }
 
   entity "code_notebook_state" as code_notebook_state {
-    * **code_notebook_state_id**: TEXT
+    * **code_notebook_state_id**: VARCHAR
     --
-    * code_notebook_cell_id: TEXT
+    * code_notebook_cell_id: VARCHAR
     * from_state: TEXT
     * to_state: TEXT
       transition_result: TEXT
@@ -1113,7 +1113,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
 
   code_notebook_kernel |o..o{ code_notebook_cell
   code_notebook_cell |o..o{ code_notebook_state
-@enduml', 'de749b44284019413053f78449e7f6ed54a3bb25', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', '01c0bd47bb8a280723738c121ba158fab85ce68e', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,
@@ -1122,7 +1122,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
 
 -- insert SQLPage content for diagnostics and web server
 CREATE TABLE IF NOT EXISTS "sqlpage_files" (
-    "path" TEXT PRIMARY KEY NOT NULL,
+    "path" VARCHAR PRIMARY KEY NOT NULL,
     "contents" TEXT NOT NULL,
     "last_modified" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
