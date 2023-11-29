@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::ASCII_MARKDOWN;
-use comfy_table::presets::UTF8_FULL;
+use comfy_table::presets::UTF8_FULL_CONDENSED;
 use comfy_table::*;
 
 pub fn as_ascii_table<T, U, V, W>(headers: T, rows: U) -> String
@@ -15,7 +15,7 @@ where
 {
     let mut table = Table::new();
     table
-        .load_preset(UTF8_FULL)
+        .load_preset(UTF8_FULL_CONDENSED)
         .apply_modifier(UTF8_ROUND_CORNERS)
         .set_content_arrangement(ContentArrangement::Dynamic)
         .set_header(headers);

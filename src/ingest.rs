@@ -998,7 +998,6 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestArgs) -> Resul
 
             let rp: Vec<String> = vec![canonical_path.clone()];
             let rw_options = ResourceCollectionOptions {
-                physical_fs_root_paths: rp,
                 acquire_content_regexs: fswb.ingest_content_fs_entry_regexs.to_vec(),
                 ignore_paths_regexs: fswb.ignore_fs_entry_regexs.to_vec(),
                 capturable_executables_regexs: fswb.capturable_executables_fs_entry_regexs.to_vec(),
@@ -1006,7 +1005,7 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestArgs) -> Resul
                 nature_bind: fswb.nature_bind.clone(),
             };
 
-            let resources = ResourceCollection::new(&rw_options);
+            let resources = ResourceCollection::from_smart_ignore(&rp, &rw_options, false);
             let mut urw_state = UniformResourceWriterState {
                 ingest_args: fsw_args,
                 ingest_behavior: &fswb,

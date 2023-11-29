@@ -61,14 +61,17 @@ impl CapturableExecCommands {
         captured_exec_sql: &[Regex],
         ignore_entries: &[Regex],
     ) -> anyhow::Result<()> {
-        let resources = ResourceCollection::new(&ResourceCollectionOptions {
-            physical_fs_root_paths: root_paths.to_vec(),
-            acquire_content_regexs: vec![],
-            ignore_paths_regexs: ignore_entries.to_vec(),
-            capturable_executables_regexs: capture_exec.to_vec(),
-            captured_exec_sql_regexs: captured_exec_sql.to_vec(),
-            nature_bind: HashMap::default(),
-        });
+        let resources = ResourceCollection::from_smart_ignore(
+            root_paths,
+            &ResourceCollectionOptions {
+                acquire_content_regexs: vec![],
+                ignore_paths_regexs: ignore_entries.to_vec(),
+                capturable_executables_regexs: capture_exec.to_vec(),
+                captured_exec_sql_regexs: captured_exec_sql.to_vec(),
+                nature_bind: HashMap::default(),
+            },
+            false,
+        );
 
         let mut found: Vec<Vec<String>> = vec![];
         for resource_result in resources.uniform_resources() {
@@ -183,14 +186,17 @@ impl CapturableExecCommands {
         captured_exec_sql: &[Regex],
         ignore_entries: &[Regex],
     ) -> anyhow::Result<()> {
-        let resources = ResourceCollection::new(&ResourceCollectionOptions {
-            physical_fs_root_paths: root_paths.to_vec(),
-            acquire_content_regexs: vec![],
-            ignore_paths_regexs: ignore_entries.to_vec(),
-            capturable_executables_regexs: capture_exec.to_vec(),
-            captured_exec_sql_regexs: captured_exec_sql.to_vec(),
-            nature_bind: HashMap::default(),
-        });
+        let resources = ResourceCollection::from_smart_ignore(
+            root_paths,
+            &ResourceCollectionOptions {
+                acquire_content_regexs: vec![],
+                ignore_paths_regexs: ignore_entries.to_vec(),
+                capturable_executables_regexs: capture_exec.to_vec(),
+                captured_exec_sql_regexs: captured_exec_sql.to_vec(),
+                nature_bind: HashMap::default(),
+            },
+            false,
+        );
 
         let mut markdown: Vec<String> = vec!["# `surveilr` Capturable Executables\n\n".to_string()];
 

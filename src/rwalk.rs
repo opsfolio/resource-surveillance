@@ -2,25 +2,17 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::fs::canonicalize;
+use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 
 use regex::RegexSet;
 use sha1::{Digest, Sha1};
-use std::collections::VecDeque;
-use vfs::{FileSystem as VirtualFileSystem, PhysicalFS, VfsFileType, VfsPath};
 
 use crate::capturable::*;
 use crate::frontmatter::frontmatter;
 use crate::resource::*;
 use crate::subprocess::*;
-
-type VfsIdentity = String;
-
-lazy_static::lazy_static! {
-    pub static ref VFS_PHYSICAL_CWD: PhysicalFS = PhysicalFS::new(".");
-    pub static ref VFS_CATALOG: HashMap<VfsIdentity, &'static dyn VirtualFileSystem> = HashMap::default();
-}
 
 #[derive(Debug, Clone)]
 pub struct ResourceBinaryContent {
@@ -66,41 +58,28 @@ pub struct ResourceContentOptions {
     pub capturable_executable: Option<CapturableExecutable>,
 }
 
-pub fn resource_content(
-    path: &VfsPath,
-    options: &ResourceContentOptions,
-) -> ContentResourceSupplied<ContentResource> {
-    let uri = path.as_str();
-    if options.is_ignored {
-        return ContentResourceSupplied::Ignored(uri.to_string());
-    }
+#[derive(Debug)]
+pub struct ResourceContentMetaData {
+    pub is_file: bool,
+    pub is_dir: bool,
+    pub file_size: u64,
+    pub created_at: Option<chrono::prelude::DateTime<chrono::prelude::Utc>>,
+    pub last_modified_at: Option<chrono::prelude::DateTime<chrono::prelude::Utc>>,
+}
 
-    let metadata = match path.metadata() {
-        Ok(metadata) => metadata,
-        Err(_) => return ContentResourceSupplied::NotFound(uri.to_string()),
-    };
+impl ResourceContentMetaData {
+    pub fn from_fs_path(fs_path: &Path) -> anyhow::Result<ResourceContentMetaData> {
+        let is_file: bool;
+        let is_dir: bool;
+        let file_size: u64;
+        let created_at: Option<chrono::prelude::DateTime<chrono::prelude::Utc>>;
+        let last_modified_at: Option<chrono::prelude::DateTime<chrono::prelude::Utc>>;
 
-    match metadata.file_type {
-        vfs::VfsFileType::File => {}
-        vfs::VfsFileType::Directory => return ContentResourceSupplied::NotFile(uri.to_string()),
-    };
-
-    // typically the nature is a the file's extension
-    let nature = uri.rsplit_once('.').map(|(_, ext)| ext.to_string());
-
-    let file_size = metadata.len;
-    let created_at; // TODO; figure out how to get the created stamp
-    let last_modified_at; // TODO; figure out how to get the created stamp
-    let content_binary_supplier: Option<BinaryContentSupplier>;
-    let content_text_supplier: Option<TextContentSupplier>;
-    let capturable_executable: Option<CapturableExecutable>;
-    let capturable_exec_binary_supplier: Option<BinaryExecOutputSupplier>;
-    let capturable_exec_text_supplier: Option<TextExecOutputSupplier>;
-
-    if options.is_physical_fs {
-        let fs_path = std::path::Path::new(uri);
         match fs::metadata(fs_path) {
             Ok(metadata) => {
+                is_file = metadata.is_file();
+                is_dir = metadata.is_dir();
+                file_size = metadata.len();
                 created_at = metadata
                     .created()
                     .ok()
@@ -110,77 +89,269 @@ pub fn resource_content(
                     .ok()
                     .map(chrono::DateTime::<chrono::Utc>::from);
             }
-            Err(_) => {
-                created_at = None;
-                last_modified_at = None;
+            Err(err) => {
+                let context = format!("ResourceContentMetaData::from_fs_path({:?})", fs_path,);
+                return Err(anyhow::Error::new(err).context(context));
             }
         }
-    } else {
-        created_at = None;
-        last_modified_at = None;
+
+        Ok(ResourceContentMetaData {
+            is_file,
+            is_dir,
+            file_size,
+            created_at,
+            last_modified_at,
+        })
     }
 
-    if let Some(capturable) = &options.capturable_executable {
-        capturable_executable = Some(capturable.clone());
-        capturable_exec_binary_supplier = capturable.executable_content_binary();
-        capturable_exec_text_supplier = capturable.executable_content_text();
-    } else {
-        capturable_executable = None;
-        capturable_exec_binary_supplier = None;
-        capturable_exec_text_supplier = None;
-    }
+    pub fn from_vfs_path(vfs_path: &vfs::VfsPath) -> anyhow::Result<ResourceContentMetaData> {
+        let is_file: bool;
+        let is_dir: bool;
 
-    if options.acquire_content {
-        let path_clone_cbs = path.clone();
-        content_binary_supplier = Some(Box::new(
-            move || -> Result<Box<dyn BinaryContent>, Box<dyn Error>> {
-                let mut binary = Vec::new();
-                let mut file = path_clone_cbs.open_file()?;
-                file.read_to_end(&mut binary)?;
-
-                let hash = {
-                    let mut hasher = Sha1::new();
-                    hasher.update(&binary);
-                    format!("{:x}", hasher.finalize())
+        let metadata = match vfs_path.metadata() {
+            Ok(metadata) => {
+                match metadata.file_type {
+                    vfs::VfsFileType::File => {
+                        is_file = true;
+                        is_dir = false;
+                    }
+                    vfs::VfsFileType::Directory => {
+                        is_file = false;
+                        is_dir = true;
+                    }
                 };
+                metadata
+            }
+            Err(err) => {
+                let context = format!("ResourceContentMetaData::from_vfs_path({:?})", vfs_path);
+                return Err(anyhow::Error::new(err).context(context));
+            }
+        };
 
-                Ok(Box::new(ResourceBinaryContent { hash, binary }) as Box<dyn BinaryContent>)
-            },
-        ));
+        Ok(ResourceContentMetaData {
+            is_file,
+            is_dir,
+            file_size: metadata.len,
+            created_at: None,
+            last_modified_at: None,
+        })
+    }
+}
 
-        let path_clone_cts = path.clone();
-        content_text_supplier = Some(Box::new(
-            move || -> Result<Box<dyn TextContent>, Box<dyn Error>> {
-                let mut text = String::new();
-                let mut file = path_clone_cts.open_file()?;
-                file.read_to_string(&mut text)?;
+pub struct ResourceContentSuppliers {
+    pub text: Option<TextContentSupplier>,
+    pub binary: Option<BinaryContentSupplier>,
+}
 
-                let hash = {
-                    let mut hasher = Sha1::new();
-                    hasher.update(&text);
-                    format!("{:x}", hasher.finalize())
-                };
+impl ResourceContentSuppliers {
+    pub fn from_fs_path(
+        fs_path: &Path,
+        options: &ResourceContentOptions,
+    ) -> ResourceContentSuppliers {
+        let binary: Option<BinaryContentSupplier>;
+        let text: Option<TextContentSupplier>;
 
-                Ok(Box::new(ResourceTextContent { hash, text }) as Box<dyn TextContent>)
-            },
-        ));
-    } else {
-        content_binary_supplier = None;
-        content_text_supplier = None;
+        if options.acquire_content {
+            let path_cbs = fs_path.to_string_lossy().to_string(); // Clone for the first closure
+            binary = Some(Box::new(
+                move || -> Result<Box<dyn BinaryContent>, Box<dyn Error>> {
+                    let mut binary = Vec::new();
+                    let mut file = fs::File::open(&path_cbs)?;
+                    file.read_to_end(&mut binary)?;
+
+                    let hash = {
+                        let mut hasher = Sha1::new();
+                        hasher.update(&binary);
+                        format!("{:x}", hasher.finalize())
+                    };
+
+                    Ok(Box::new(ResourceBinaryContent { hash, binary }) as Box<dyn BinaryContent>)
+                },
+            ));
+
+            let path_cts = fs_path.to_string_lossy().to_string(); // Clone for the second closure
+            text = Some(Box::new(
+                move || -> Result<Box<dyn TextContent>, Box<dyn Error>> {
+                    let mut text = String::new();
+                    let mut file = fs::File::open(&path_cts)?;
+                    file.read_to_string(&mut text)?;
+
+                    let hash = {
+                        let mut hasher = Sha1::new();
+                        hasher.update(&text);
+                        format!("{:x}", hasher.finalize())
+                    };
+
+                    Ok(Box::new(ResourceTextContent { hash, text }) as Box<dyn TextContent>)
+                },
+            ));
+        } else {
+            binary = None;
+            text = None;
+        }
+
+        ResourceContentSuppliers { binary, text }
     }
 
-    ContentResourceSupplied::Resource(ContentResource {
-        uri: uri.to_string(),
-        nature,
-        size: Some(file_size),
-        created_at,
-        last_modified_at,
-        capturable_executable,
-        content_binary_supplier,
-        content_text_supplier,
-        capturable_exec_binary_supplier,
-        capturable_exec_text_supplier,
-    })
+    pub fn from_vfs_path(
+        vfs_path: &vfs::VfsPath,
+        options: &ResourceContentOptions,
+    ) -> ResourceContentSuppliers {
+        let binary: Option<BinaryContentSupplier>;
+        let text: Option<TextContentSupplier>;
+
+        if options.acquire_content {
+            let path_clone_cbs = vfs_path.clone();
+            binary = Some(Box::new(
+                move || -> Result<Box<dyn BinaryContent>, Box<dyn Error>> {
+                    let mut binary = Vec::new();
+                    let mut file = path_clone_cbs.open_file()?;
+                    file.read_to_end(&mut binary)?;
+
+                    let hash = {
+                        let mut hasher = Sha1::new();
+                        hasher.update(&binary);
+                        format!("{:x}", hasher.finalize())
+                    };
+
+                    Ok(Box::new(ResourceBinaryContent { hash, binary }) as Box<dyn BinaryContent>)
+                },
+            ));
+
+            let path_clone_cts = vfs_path.clone();
+            text = Some(Box::new(
+                move || -> Result<Box<dyn TextContent>, Box<dyn Error>> {
+                    let mut text = String::new();
+                    let mut file = path_clone_cts.open_file()?;
+                    file.read_to_string(&mut text)?;
+
+                    let hash = {
+                        let mut hasher = Sha1::new();
+                        hasher.update(&text);
+                        format!("{:x}", hasher.finalize())
+                    };
+
+                    Ok(Box::new(ResourceTextContent { hash, text }) as Box<dyn TextContent>)
+                },
+            ));
+        } else {
+            text = None;
+            binary = None;
+        }
+
+        ResourceContentSuppliers { text, binary }
+    }
+}
+
+pub enum ResourceWalkerEntry {
+    WalkDir(walkdir::DirEntry),
+    SmartIgnore(ignore::DirEntry),
+    Vfs(vfs::VfsPath),
+}
+
+impl ResourceWalkerEntry {
+    fn uri(&self) -> String {
+        match self {
+            ResourceWalkerEntry::WalkDir(de) => de.path().to_string_lossy().to_string(),
+            ResourceWalkerEntry::SmartIgnore(de) => de.path().to_string_lossy().to_string(),
+            ResourceWalkerEntry::Vfs(path) => path.as_str().to_string(),
+        }
+    }
+
+    fn _path(&self) -> Option<&Path> {
+        match self {
+            ResourceWalkerEntry::WalkDir(de) => Some(de.path()),
+            ResourceWalkerEntry::SmartIgnore(de) => Some(de.path()),
+            ResourceWalkerEntry::Vfs(_path) => None,
+        }
+    }
+
+    pub fn meta_data(&self) -> anyhow::Result<ResourceContentMetaData> {
+        match self {
+            ResourceWalkerEntry::WalkDir(de) => ResourceContentMetaData::from_fs_path(de.path()),
+            ResourceWalkerEntry::SmartIgnore(de) => {
+                ResourceContentMetaData::from_fs_path(de.path())
+            }
+            ResourceWalkerEntry::Vfs(path) => ResourceContentMetaData::from_vfs_path(path),
+        }
+    }
+
+    pub fn content_suppliers(&self, options: &ResourceContentOptions) -> ResourceContentSuppliers {
+        match self {
+            ResourceWalkerEntry::WalkDir(de) => {
+                ResourceContentSuppliers::from_fs_path(de.path(), options)
+            }
+            ResourceWalkerEntry::SmartIgnore(de) => {
+                ResourceContentSuppliers::from_fs_path(de.path(), options)
+            }
+            ResourceWalkerEntry::Vfs(path) => {
+                ResourceContentSuppliers::from_vfs_path(path, options)
+            }
+        }
+    }
+
+    pub fn capturable_executable(
+        &self,
+        ce_rules: &CapturableExecutableRegexRules,
+    ) -> Option<CapturableExecutable> {
+        match self {
+            ResourceWalkerEntry::WalkDir(de) => ce_rules.path_capturable_executable(de.path()),
+            ResourceWalkerEntry::SmartIgnore(de) => ce_rules.path_capturable_executable(de.path()),
+            ResourceWalkerEntry::Vfs(path) => ce_rules.uri_capturable_executable(path.as_str()),
+        }
+    }
+
+    pub fn resource_content(
+        &self,
+        options: &ResourceContentOptions,
+    ) -> ContentResourceSupplied<ContentResource> {
+        let uri = self.uri();
+        if options.is_ignored {
+            return ContentResourceSupplied::Ignored(uri);
+        }
+
+        let metadata = match self.meta_data() {
+            Ok(metadata) => {
+                if !metadata.is_file {
+                    return ContentResourceSupplied::NotFile(uri);
+                }
+                metadata
+            }
+            Err(_) => return ContentResourceSupplied::NotFound(uri),
+        };
+
+        // typically the nature is a the file's extension
+        let nature = uri.rsplit_once('.').map(|(_, ext)| ext.to_string());
+
+        let capturable_executable: Option<CapturableExecutable>;
+        let capturable_exec_binary_supplier: Option<BinaryExecOutputSupplier>;
+        let capturable_exec_text_supplier: Option<TextExecOutputSupplier>;
+
+        if let Some(capturable) = &options.capturable_executable {
+            capturable_executable = Some(capturable.clone());
+            capturable_exec_binary_supplier = capturable.executable_content_binary();
+            capturable_exec_text_supplier = capturable.executable_content_text();
+        } else {
+            capturable_executable = None;
+            capturable_exec_binary_supplier = None;
+            capturable_exec_text_supplier = None;
+        }
+
+        let content_suppliers = self.content_suppliers(options);
+
+        ContentResourceSupplied::Resource(ContentResource {
+            uri: uri.to_string(),
+            nature,
+            size: Some(metadata.file_size),
+            created_at: metadata.created_at,
+            last_modified_at: metadata.last_modified_at,
+            capturable_executable,
+            content_binary_supplier: content_suppliers.binary,
+            content_text_supplier: content_suppliers.text,
+            capturable_exec_binary_supplier,
+            capturable_exec_text_supplier,
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -188,25 +359,7 @@ pub struct ResourceWalker {
     pub physical_fs_root_paths: Vec<String>,
 }
 
-impl ResourceWalker {
-    pub fn new(options: &ResourceCollectionOptions) -> ResourceWalker {
-        ResourceWalker {
-            physical_fs_root_paths: options.physical_fs_root_paths.clone(),
-        }
-    }
-
-    pub fn all(&self) -> impl Iterator<Item = VfsPath> + '_ {
-        let mut vfs_walk_dirs: Vec<WalkPath> = vec![];
-        for root_path in &self.physical_fs_root_paths {
-            vfs_walk_dirs.push(WalkPath::physical(root_path));
-        }
-
-        vfs_walk_dirs.into_iter().flatten()
-    }
-}
-
 pub struct ResourceCollectionOptions {
-    pub physical_fs_root_paths: Vec<String>,
     pub ignore_paths_regexs: Vec<regex::Regex>,
     pub acquire_content_regexs: Vec<regex::Regex>,
     pub capturable_executables_regexs: Vec<regex::Regex>,
@@ -215,7 +368,7 @@ pub struct ResourceCollectionOptions {
 }
 
 pub struct ResourceCollection {
-    pub walked: Vec<VfsPath>,
+    pub walked: Vec<ResourceWalkerEntry>,
     pub ignore_paths: RegexSet,
     pub acquire_content: RegexSet,
     pub ce_rules: CapturableExecutableRegexRules,
@@ -223,7 +376,10 @@ pub struct ResourceCollection {
 }
 
 impl ResourceCollection {
-    pub fn new(options: &ResourceCollectionOptions) -> ResourceCollection {
+    pub fn new(
+        walked: Vec<ResourceWalkerEntry>,
+        options: &ResourceCollectionOptions,
+    ) -> ResourceCollection {
         let ignore_paths =
             RegexSet::new(options.ignore_paths_regexs.iter().map(|r| r.as_str())).unwrap();
         let acquire_content =
@@ -234,9 +390,8 @@ impl ResourceCollection {
         )
         .unwrap();
 
-        let walker = ResourceWalker::new(options);
         ResourceCollection {
-            walked: walker.all().collect(),
+            walked,
             ignore_paths,
             acquire_content,
             ce_rules,
@@ -246,31 +401,96 @@ impl ResourceCollection {
         }
     }
 
-    pub fn ignored(&self) -> impl Iterator<Item = &VfsPath> + '_ {
-        self.walked
+    // create a physical file system mapped via VFS, mainly for testing and experimental use
+    pub fn from_vfs_physical_fs(
+        fs_root_paths: &[String],
+        options: &ResourceCollectionOptions,
+    ) -> ResourceCollection {
+        let physical_fs = vfs::PhysicalFS::new("/");
+        let vfs_fs_root = vfs::VfsPath::new(physical_fs);
+
+        let vfs_iter = fs_root_paths
             .iter()
-            .filter(|vp| self.ignore_paths.is_match(vp.as_str()))
+            .flat_map(move |physical_fs_root_path_orig| {
+                let physical_fs_root_path: String;
+                if let Ok(canonical) = canonicalize(physical_fs_root_path_orig.clone()) {
+                    physical_fs_root_path = canonical.to_string_lossy().to_string();
+                } else {
+                    eprintln!(
+                        "Error canonicalizing {}, trying original",
+                        physical_fs_root_path_orig
+                    );
+                    physical_fs_root_path = physical_fs_root_path_orig.to_string();
+                }
+
+                let path = vfs_fs_root.join(physical_fs_root_path).unwrap();
+                path.walk_dir().unwrap().flatten()
+            });
+
+        ResourceCollection::new(vfs_iter.map(ResourceWalkerEntry::Vfs).collect(), options)
     }
 
-    pub fn not_ignored(&self) -> impl Iterator<Item = &VfsPath> + '_ {
+    // create a ignore::Walk instance which is a "smart" ignore because it honors .gitigore and .ignore
+    // files in the walk path as well as the ignore and other directives passed in via options
+    pub fn from_smart_ignore(
+        fs_root_paths: &[String],
+        options: &ResourceCollectionOptions,
+        include_hidden: bool,
+    ) -> ResourceCollection {
+        let vfs_iter = fs_root_paths.iter().flat_map(move |root_path| {
+            let ignorable_walk = if include_hidden {
+                ignore::WalkBuilder::new(root_path).hidden(false).build()
+            } else {
+                ignore::Walk::new(root_path)
+            };
+            ignorable_walk.into_iter().flatten()
+        });
+
+        ResourceCollection::new(
+            vfs_iter.map(ResourceWalkerEntry::SmartIgnore).collect(),
+            options,
+        )
+    }
+
+    // create a traditional walkdir::WalkDir which only ignore files based on file names rules passed in
+    pub fn from_walk_dir(
+        fs_root_paths: &[String],
+        options: &ResourceCollectionOptions,
+    ) -> ResourceCollection {
+        let vfs_iter = fs_root_paths.iter().flat_map(move |fs_root_path| {
+            walkdir::WalkDir::new(fs_root_path).into_iter().flatten()
+        });
+
+        ResourceCollection::new(
+            vfs_iter.map(ResourceWalkerEntry::WalkDir).collect(),
+            options,
+        )
+    }
+
+    pub fn ignored(&self) -> impl Iterator<Item = &ResourceWalkerEntry> + '_ {
         self.walked
             .iter()
-            .filter(|vp| !self.ignore_paths.is_match(vp.as_str()))
+            .filter(|rwe| self.ignore_paths.is_match(&rwe.uri()))
+    }
+
+    pub fn not_ignored(&self) -> impl Iterator<Item = &ResourceWalkerEntry> + '_ {
+        self.walked
+            .iter()
+            .filter(|rwe| !self.ignore_paths.is_match(&rwe.uri()))
     }
 
     pub fn content_resources(
         &self,
     ) -> impl Iterator<Item = ContentResourceSupplied<ContentResource>> + '_ {
-        self.walked.iter().map(move |vp| {
-            let vp_str = vp.as_str();
+        self.walked.iter().map(move |rwe| {
+            let uri = rwe.uri();
             let eco = ResourceContentOptions {
-                is_ignored: self.ignore_paths.is_match(vp_str),
-                acquire_content: self.acquire_content.is_match(vp_str),
-                // "smart" means to try the path name and ensure that file is executable on disk
-                capturable_executable: self.ce_rules.smart_path_capturable_executable(vp_str),
+                is_ignored: self.ignore_paths.is_match(&uri),
+                acquire_content: self.acquire_content.is_match(&uri),
+                capturable_executable: rwe.capturable_executable(&self.ce_rules),
                 is_physical_fs: true,
             };
-            resource_content(vp, &eco)
+            rwe.resource_content(&eco)
         })
     }
 
@@ -278,7 +498,7 @@ impl ResourceCollection {
         self.walked
             .iter()
             // "smart" means to try the path name and ensure that file is executable on disk
-            .filter_map(|vp| self.ce_rules.smart_path_capturable_executable(vp.as_str()))
+            .filter_map(|rwe| rwe.capturable_executable(&self.ce_rules))
     }
 
     pub fn uniform_resources(
@@ -297,99 +517,6 @@ impl ResourceCollection {
             | ContentResourceSupplied::NotFile(_)
             | ContentResourceSupplied::NotFound(_) => None, // these will be filtered via `filter_map`
         })
-    }
-}
-
-// TODO vfs library supports path.walk_dir so see if it's worth using that instead
-
-pub struct WalkPath {
-    pub physical_fs_root_path: String,
-    pub vfs_fs_root_path: VfsPath,
-    pub to_visit: VecDeque<VfsPath>,
-    pub max_depth: Option<usize>,
-    pub current_depth: usize,
-}
-
-impl WalkPath {
-    pub fn physical(physical_fs_root_path_orig: &str) -> Self {
-        let physical_fs_root_path: String;
-        if let Ok(canonical) = canonicalize(physical_fs_root_path_orig) {
-            physical_fs_root_path = canonical.to_string_lossy().to_string();
-        } else {
-            eprintln!(
-                "Error canonicalizing {}, trying original",
-                physical_fs_root_path_orig
-            );
-            physical_fs_root_path = physical_fs_root_path_orig.to_string();
-        }
-        let vfs_fs_root = VfsPath::new(PhysicalFS::new("/"));
-        let mut to_visit = VecDeque::new();
-        to_visit.push_back(vfs_fs_root.join(physical_fs_root_path.clone()).unwrap());
-
-        WalkPath {
-            physical_fs_root_path,
-            vfs_fs_root_path: vfs_fs_root,
-            to_visit,
-            max_depth: None,
-            current_depth: 0,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn max_depth(&mut self, depth: usize) -> &mut Self {
-        self.max_depth = Some(depth);
-        self
-    }
-
-    #[allow(dead_code)]
-    pub fn build(self) -> WalkPath {
-        self
-    }
-}
-
-impl Iterator for WalkPath {
-    type Item = VfsPath;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some(path) = self.to_visit.pop_front() {
-            if let Ok(metadata) = path.metadata() {
-                let is_dir = matches!(metadata.file_type, VfsFileType::Directory);
-
-                if is_dir {
-                    // Increment depth
-                    self.current_depth += 1;
-
-                    // Check for depth limit and whether we should descend into this directory
-                    let should_descend =
-                        self.max_depth.map_or(true, |max| self.current_depth <= max);
-
-                    if should_descend {
-                        if let Ok(entries) = path.read_dir() {
-                            for entry in entries {
-                                self.to_visit.push_back(entry);
-                            }
-                        }
-                    }
-
-                    // Decrement depth
-                    self.current_depth -= 1;
-
-                    // If not descending, return this directory path
-                    if !should_descend {
-                        return Some(path);
-                    }
-                } else {
-                    // It's a file or a non-directory path, return it
-                    return Some(path);
-                }
-            } else {
-                // If metadata can't be obtained, still return the path
-                return Some(path);
-            }
-        }
-
-        // If the loop exits because `to_visit` is empty, return None
-        None
     }
 }
 

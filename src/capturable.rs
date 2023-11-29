@@ -368,9 +368,4 @@ impl CapturableExecutableRegexRules {
         }
         None
     }
-
-    // check if URI is executable based the filename pattern first, then physical FS validation of execute permission
-    pub fn smart_path_capturable_executable(&self, uri: &str) -> Option<CapturableExecutable> {
-        self.path_capturable_executable(std::path::Path::new(uri))
-    }
 }
