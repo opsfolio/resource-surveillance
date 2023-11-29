@@ -309,7 +309,7 @@ pub struct EncounterableResourceOptions {
 }
 
 #[derive(Debug)]
-pub struct EncounterableResourceMetaData {
+pub struct EncounteredResourceMetaData {
     pub is_file: bool,
     pub is_dir: bool,
     pub file_size: u64,
@@ -317,8 +317,8 @@ pub struct EncounterableResourceMetaData {
     pub last_modified_at: Option<chrono::prelude::DateTime<chrono::prelude::Utc>>,
 }
 
-impl EncounterableResourceMetaData {
-    pub fn from_fs_path(fs_path: &Path) -> anyhow::Result<EncounterableResourceMetaData> {
+impl EncounteredResourceMetaData {
+    pub fn from_fs_path(fs_path: &Path) -> anyhow::Result<EncounteredResourceMetaData> {
         let is_file: bool;
         let is_dir: bool;
         let file_size: u64;
@@ -345,7 +345,7 @@ impl EncounterableResourceMetaData {
             }
         }
 
-        Ok(EncounterableResourceMetaData {
+        Ok(EncounteredResourceMetaData {
             is_file,
             is_dir,
             file_size,
@@ -354,7 +354,7 @@ impl EncounterableResourceMetaData {
         })
     }
 
-    pub fn from_vfs_path(vfs_path: &vfs::VfsPath) -> anyhow::Result<EncounterableResourceMetaData> {
+    pub fn from_vfs_path(vfs_path: &vfs::VfsPath) -> anyhow::Result<EncounteredResourceMetaData> {
         let is_file: bool;
         let is_dir: bool;
 
@@ -378,7 +378,7 @@ impl EncounterableResourceMetaData {
             }
         };
 
-        Ok(EncounterableResourceMetaData {
+        Ok(EncounteredResourceMetaData {
             is_file,
             is_dir,
             file_size: metadata.len,
@@ -388,16 +388,16 @@ impl EncounterableResourceMetaData {
     }
 }
 
-pub struct ResourceContentSuppliers {
+pub struct EncounteredResourceContentSuppliers {
     pub text: Option<TextContentSupplier>,
     pub binary: Option<BinaryContentSupplier>,
 }
 
-impl ResourceContentSuppliers {
+impl EncounteredResourceContentSuppliers {
     pub fn from_fs_path(
         fs_path: &Path,
         options: &EncounterableResourceOptions,
-    ) -> ResourceContentSuppliers {
+    ) -> EncounteredResourceContentSuppliers {
         let binary: Option<BinaryContentSupplier>;
         let text: Option<TextContentSupplier>;
 
@@ -440,13 +440,13 @@ impl ResourceContentSuppliers {
             text = None;
         }
 
-        ResourceContentSuppliers { binary, text }
+        EncounteredResourceContentSuppliers { binary, text }
     }
 
     pub fn from_vfs_path(
         vfs_path: &vfs::VfsPath,
         options: &EncounterableResourceOptions,
-    ) -> ResourceContentSuppliers {
+    ) -> EncounteredResourceContentSuppliers {
         let binary: Option<BinaryContentSupplier>;
         let text: Option<TextContentSupplier>;
 
@@ -489,7 +489,7 @@ impl ResourceContentSuppliers {
             binary = None;
         }
 
-        ResourceContentSuppliers { text, binary }
+        EncounteredResourceContentSuppliers { text, binary }
     }
 }
 
@@ -524,31 +524,31 @@ impl EncounterableResource {
         }
     }
 
-    pub fn meta_data(&self) -> anyhow::Result<EncounterableResourceMetaData> {
+    pub fn meta_data(&self) -> anyhow::Result<EncounteredResourceMetaData> {
         match self {
             EncounterableResource::WalkDir(de) => {
-                EncounterableResourceMetaData::from_fs_path(de.path())
+                EncounteredResourceMetaData::from_fs_path(de.path())
             }
             EncounterableResource::SmartIgnore(de) => {
-                EncounterableResourceMetaData::from_fs_path(de.path())
+                EncounteredResourceMetaData::from_fs_path(de.path())
             }
-            EncounterableResource::Vfs(path) => EncounterableResourceMetaData::from_vfs_path(path),
+            EncounterableResource::Vfs(path) => EncounteredResourceMetaData::from_vfs_path(path),
         }
     }
 
     pub fn content_suppliers(
         &self,
         options: &EncounterableResourceOptions,
-    ) -> ResourceContentSuppliers {
+    ) -> EncounteredResourceContentSuppliers {
         match self {
             EncounterableResource::WalkDir(de) => {
-                ResourceContentSuppliers::from_fs_path(de.path(), options)
+                EncounteredResourceContentSuppliers::from_fs_path(de.path(), options)
             }
             EncounterableResource::SmartIgnore(de) => {
-                ResourceContentSuppliers::from_fs_path(de.path(), options)
+                EncounteredResourceContentSuppliers::from_fs_path(de.path(), options)
             }
             EncounterableResource::Vfs(path) => {
-                ResourceContentSuppliers::from_vfs_path(path, options)
+                EncounteredResourceContentSuppliers::from_vfs_path(path, options)
             }
         }
     }
@@ -566,7 +566,7 @@ impl EncounterableResource {
         }
     }
 
-    pub fn encountered_resource(
+    pub fn encountered(
         &self,
         options: &EncounterableResourceOptions,
     ) -> EncounteredResource<ContentResource> {
@@ -621,7 +621,7 @@ impl EncounterableResource {
 
 #[derive(Debug)]
 
-pub struct ResourceCollectionOptions {
+pub struct ResourcesCollectionOptions {
     pub ignore_paths_regexs: Vec<regex::Regex>,
     pub ingest_content_regexs: Vec<regex::Regex>,
     pub capturable_executables_regexs: Vec<regex::Regex>,
@@ -629,19 +629,19 @@ pub struct ResourceCollectionOptions {
     pub nature_bind: HashMap<String, String>,
 }
 
-pub struct ResourceCollection {
-    pub walked: Vec<EncounterableResource>,
+pub struct ResourcesCollection {
+    pub encounterable: Vec<EncounterableResource>,
     pub ignore_paths_regex_set: RegexSet,
     pub ingest_content_regex_set: RegexSet,
     pub ce_rules: CapturableExecutableRegexRules,
     pub ur_builder: UniformResourceBuilder,
 }
 
-impl ResourceCollection {
+impl ResourcesCollection {
     pub fn new(
-        walked: Vec<EncounterableResource>,
-        options: &ResourceCollectionOptions,
-    ) -> ResourceCollection {
+        encounterable: Vec<EncounterableResource>,
+        options: &ResourcesCollectionOptions,
+    ) -> ResourcesCollection {
         let ignore_paths =
             RegexSet::new(options.ignore_paths_regexs.iter().map(|r| r.as_str())).unwrap();
         let acquire_content =
@@ -652,8 +652,8 @@ impl ResourceCollection {
         )
         .unwrap();
 
-        ResourceCollection {
-            walked,
+        ResourcesCollection {
+            encounterable,
             ignore_paths_regex_set: ignore_paths,
             ingest_content_regex_set: acquire_content,
             ce_rules,
@@ -666,8 +666,8 @@ impl ResourceCollection {
     // create a physical file system mapped via VFS, mainly for testing and experimental use
     pub fn from_vfs_physical_fs(
         fs_root_paths: &[String],
-        options: &ResourceCollectionOptions,
-    ) -> ResourceCollection {
+        options: &ResourcesCollectionOptions,
+    ) -> ResourcesCollection {
         let physical_fs = vfs::PhysicalFS::new("/");
         let vfs_fs_root = vfs::VfsPath::new(physical_fs);
 
@@ -689,16 +689,16 @@ impl ResourceCollection {
                 path.walk_dir().unwrap().flatten()
             });
 
-        ResourceCollection::new(vfs_iter.map(EncounterableResource::Vfs).collect(), options)
+        ResourcesCollection::new(vfs_iter.map(EncounterableResource::Vfs).collect(), options)
     }
 
     // create a ignore::Walk instance which is a "smart" ignore because it honors .gitigore and .ignore
     // files in the walk path as well as the ignore and other directives passed in via options
     pub fn from_smart_ignore(
         fs_root_paths: &[String],
-        options: &ResourceCollectionOptions,
+        options: &ResourcesCollectionOptions,
         include_hidden: bool,
-    ) -> ResourceCollection {
+    ) -> ResourcesCollection {
         let vfs_iter = fs_root_paths.iter().flat_map(move |root_path| {
             let ignorable_walk = if include_hidden {
                 ignore::WalkBuilder::new(root_path).hidden(false).build()
@@ -708,7 +708,7 @@ impl ResourceCollection {
             ignorable_walk.into_iter().flatten()
         });
 
-        ResourceCollection::new(
+        ResourcesCollection::new(
             vfs_iter.map(EncounterableResource::SmartIgnore).collect(),
             options,
         )
@@ -717,46 +717,44 @@ impl ResourceCollection {
     // create a traditional walkdir::WalkDir which only ignore files based on file names rules passed in
     pub fn from_walk_dir(
         fs_root_paths: &[String],
-        options: &ResourceCollectionOptions,
-    ) -> ResourceCollection {
+        options: &ResourcesCollectionOptions,
+    ) -> ResourcesCollection {
         let vfs_iter = fs_root_paths
             .iter()
             .flat_map(move |root_path| walkdir::WalkDir::new(root_path).into_iter().flatten());
 
-        ResourceCollection::new(
+        ResourcesCollection::new(
             vfs_iter.map(EncounterableResource::WalkDir).collect(),
             options,
         )
     }
 
     pub fn ignored(&self) -> impl Iterator<Item = &EncounterableResource> + '_ {
-        self.walked
+        self.encounterable
             .iter()
             .filter(|er| self.ignore_paths_regex_set.is_match(&er.uri()))
     }
 
     pub fn not_ignored(&self) -> impl Iterator<Item = &EncounterableResource> + '_ {
-        self.walked
+        self.encounterable
             .iter()
             .filter(|er| !self.ignore_paths_regex_set.is_match(&er.uri()))
     }
 
-    pub fn encountered_resources(
-        &self,
-    ) -> impl Iterator<Item = EncounteredResource<ContentResource>> + '_ {
-        self.walked.iter().map(move |er| {
+    pub fn encountered(&self) -> impl Iterator<Item = EncounteredResource<ContentResource>> + '_ {
+        self.encounterable.iter().map(move |er| {
             let uri = er.uri();
             let ero = EncounterableResourceOptions {
                 is_ignored: self.ignore_paths_regex_set.is_match(&uri),
                 acquire_content: self.ingest_content_regex_set.is_match(&uri),
                 capturable_executable: er.capturable_executable(&self.ce_rules),
             };
-            er.encountered_resource(&ero)
+            er.encountered(&ero)
         })
     }
 
     pub fn capturable_executables(&self) -> impl Iterator<Item = CapturableExecutable> + '_ {
-        self.walked
+        self.encounterable
             .iter()
             // "smart" means to try the path name and ensure that file is executable on disk
             .filter_map(|rwe| rwe.capturable_executable(&self.ce_rules))
@@ -766,18 +764,17 @@ impl ResourceCollection {
         &self,
     ) -> impl Iterator<Item = anyhow::Result<UniformResource<ContentResource>, Box<dyn Error>>> + '_
     {
-        self.encountered_resources()
-            .filter_map(move |crs| match crs {
-                EncounteredResource::Resource(resource) => {
-                    match self.ur_builder.uniform_resource(resource) {
-                        Ok(uniform_resource) => Some(Ok(*uniform_resource)),
-                        Err(e) => Some(Err(e)), // error will be returned
-                    }
+        self.encountered().filter_map(move |crs| match crs {
+            EncounteredResource::Resource(resource) => {
+                match self.ur_builder.uniform_resource(resource) {
+                    Ok(uniform_resource) => Some(Ok(*uniform_resource)),
+                    Err(e) => Some(Err(e)), // error will be returned
                 }
-                EncounteredResource::Ignored(_)
-                | EncounteredResource::NotFile(_)
-                | EncounteredResource::NotFound(_) => None, // these will be filtered via `filter_map`
-            })
+            }
+            EncounteredResource::Ignored(_)
+            | EncounteredResource::NotFile(_)
+            | EncounteredResource::NotFound(_) => None, // these will be filtered via `filter_map`
+        })
     }
 }
 

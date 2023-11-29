@@ -60,9 +60,9 @@ impl CapturableExecCommands {
         captured_exec_sql: &[Regex],
         ignore_entries: &[Regex],
     ) -> anyhow::Result<()> {
-        let resources = ResourceCollection::from_smart_ignore(
+        let resources = ResourcesCollection::from_smart_ignore(
             root_paths,
-            &ResourceCollectionOptions {
+            &ResourcesCollectionOptions {
                 ingest_content_regexs: vec![],
                 ignore_paths_regexs: ignore_entries.to_vec(),
                 capturable_executables_regexs: capture_exec.to_vec(),
@@ -185,9 +185,9 @@ impl CapturableExecCommands {
         captured_exec_sql: &[Regex],
         ignore_entries: &[Regex],
     ) -> anyhow::Result<()> {
-        let resources = ResourceCollection::from_smart_ignore(
+        let resources = ResourcesCollection::from_smart_ignore(
             root_paths,
-            &ResourceCollectionOptions {
+            &ResourcesCollectionOptions {
                 ingest_content_regexs: vec![],
                 ignore_paths_regexs: ignore_entries.to_vec(),
                 capturable_executables_regexs: capture_exec.to_vec(),

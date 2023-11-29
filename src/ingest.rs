@@ -50,7 +50,7 @@ pub struct UniformResourceWriterState<'a, 'conn> {
     device_id: &'a String,
     ingest_session_id: &'a String,
     ingest_fs_path_id: &'a String,
-    resources: &'a ResourceCollection,
+    resources: &'a ResourcesCollection,
     ins_ur_stmt: &'a mut rusqlite::Statement<'conn>,
     _ins_ur_transform_stmt: &'a mut rusqlite::Statement<'conn>,
 }
@@ -996,7 +996,7 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestArgs) -> Resul
             }
 
             let rp: Vec<String> = vec![canonical_path.clone()];
-            let rw_options = ResourceCollectionOptions {
+            let rw_options = ResourcesCollectionOptions {
                 ingest_content_regexs: fswb.ingest_content_fs_entry_regexs.to_vec(),
                 ignore_paths_regexs: fswb.ignore_fs_entry_regexs.to_vec(),
                 capturable_executables_regexs: fswb.capturable_executables_fs_entry_regexs.to_vec(),
@@ -1004,7 +1004,7 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestArgs) -> Resul
                 nature_bind: fswb.nature_bind.clone(),
             };
 
-            let resources = ResourceCollection::from_smart_ignore(&rp, &rw_options, false);
+            let resources = ResourcesCollection::from_smart_ignore(&rp, &rw_options, false);
             let mut urw_state = UniformResourceWriterState {
                 ingest_args: fsw_args,
                 ingest_behavior: &fswb,

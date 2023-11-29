@@ -15,7 +15,7 @@ impl WalkerCommands {
             WalkerCommands::Stats(ls_args) => self.stats(
                 cli,
                 &ls_args.root_fs_path,
-                &ResourceCollectionOptions {
+                &ResourcesCollectionOptions {
                     ingest_content_regexs: ls_args.surveil_fs_content.to_vec(),
                     ignore_paths_regexs: ls_args.ignore_fs_entry.to_vec(),
                     capturable_executables_regexs: ls_args.capture_fs_exec.to_vec(),
@@ -30,11 +30,11 @@ impl WalkerCommands {
         &self,
         _cli: &super::Cli,
         root_fs_path: &[String],
-        options: &ResourceCollectionOptions,
+        options: &ResourcesCollectionOptions,
     ) -> anyhow::Result<()> {
-        let wd_resources = ResourceCollection::from_walk_dir(root_fs_path, options);
-        let si_resources = ResourceCollection::from_smart_ignore(root_fs_path, options, false);
-        let vfs_pfs_resources = ResourceCollection::from_vfs_physical_fs(root_fs_path, options);
+        let wd_resources = ResourcesCollection::from_walk_dir(root_fs_path, options);
+        let si_resources = ResourcesCollection::from_smart_ignore(root_fs_path, options, false);
+        let vfs_pfs_resources = ResourcesCollection::from_vfs_physical_fs(root_fs_path, options);
 
         let mut table = Table::new();
         table
@@ -57,9 +57,9 @@ impl WalkerCommands {
 
         table.add_row(vec![
             Cell::new("Encounterable Resources"),
-            Cell::new(&wd_resources.walked.len().to_string()),
-            Cell::new(&si_resources.walked.len().to_string()),
-            Cell::new(&vfs_pfs_resources.walked.len().to_string()),
+            Cell::new(&wd_resources.encounterable.len().to_string()),
+            Cell::new(&si_resources.encounterable.len().to_string()),
+            Cell::new(&vfs_pfs_resources.encounterable.len().to_string()),
             Cell::new("Files surveilr could potentially handle"),
         ]);
         table.add_row(vec![
@@ -86,17 +86,17 @@ impl WalkerCommands {
         table.add_row(vec![
             "Encountered Resources",
             &wd_resources
-                .encountered_resources()
+                .encountered()
                 .filter(|crs| !matches!(crs, EncounteredResource::Ignored(_)))
                 .count()
                 .to_string(),
             &si_resources
-                .encountered_resources()
+                .encountered()
                 .filter(|crs| !matches!(crs, EncounteredResource::Ignored(_)))
                 .count()
                 .to_string(),
             &vfs_pfs_resources
-                .encountered_resources()
+                .encountered()
                 .filter(|crs| !matches!(crs, EncounteredResource::Ignored(_)))
                 .count()
                 .to_string(),
@@ -235,7 +235,7 @@ impl WalkerCommands {
             Cell::new("Content text suppliers"),
             Cell::new(
                 wd_resources
-                    .encountered_resources()
+                    .encountered()
                     .filter(|crs| match crs {
                         EncounteredResource::Resource(cr) => cr.content_text_supplier.is_some(),
                         _ => false,
@@ -245,7 +245,7 @@ impl WalkerCommands {
             ),
             Cell::new(
                 si_resources
-                    .encountered_resources()
+                    .encountered()
                     .filter(|crs| match crs {
                         EncounteredResource::Resource(cr) => cr.content_text_supplier.is_some(),
                         _ => false,
@@ -255,7 +255,7 @@ impl WalkerCommands {
             ),
             Cell::new(
                 vfs_pfs_resources
-                    .encountered_resources()
+                    .encountered()
                     .filter(|crs| match crs {
                         EncounteredResource::Resource(cr) => cr.content_text_supplier.is_some(),
                         _ => false,
