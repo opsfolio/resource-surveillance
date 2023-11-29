@@ -9,7 +9,6 @@ use serde_json::json;
 use crate::capturable::*;
 use crate::persist::*;
 use crate::resource::*;
-use crate::rwalk::*;
 
 // separate the SQL from the execute so we can use it in logging, errors, etc.
 const INS_UR_INGEST_SESSION_SQL: &str = indoc! {"
@@ -998,7 +997,7 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestArgs) -> Resul
 
             let rp: Vec<String> = vec![canonical_path.clone()];
             let rw_options = ResourceCollectionOptions {
-                acquire_content_regexs: fswb.ingest_content_fs_entry_regexs.to_vec(),
+                ingest_content_regexs: fswb.ingest_content_fs_entry_regexs.to_vec(),
                 ignore_paths_regexs: fswb.ignore_fs_entry_regexs.to_vec(),
                 capturable_executables_regexs: fswb.capturable_executables_fs_entry_regexs.to_vec(),
                 captured_exec_sql_regexs: fswb.captured_exec_sql_fs_entry_regexs.to_vec(),

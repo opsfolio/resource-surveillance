@@ -3,7 +3,6 @@ use std::error::Error;
 use std::io::{Read, Write};
 
 use crate::resource::*;
-use crate::rwalk::*;
 use tokio::runtime::Runtime;
 
 lazy_static::lazy_static! {

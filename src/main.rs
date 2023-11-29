@@ -19,7 +19,6 @@ mod frontmatter;
 mod ingest;
 mod persist;
 mod resource;
-mod rwalk;
 mod shell;
 mod subprocess;
 

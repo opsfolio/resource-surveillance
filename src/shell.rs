@@ -14,7 +14,6 @@ use tokio::runtime::Runtime;
 use tokio::task::JoinHandle;
 
 use super::resource::*;
-use super::rwalk::*;
 use super::subprocess::*;
 
 pub struct ShellResult {

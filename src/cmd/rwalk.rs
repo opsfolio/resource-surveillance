@@ -6,7 +6,6 @@ use comfy_table::*;
 
 use super::WalkerCommands;
 use crate::resource::*;
-use crate::rwalk::*;
 
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
@@ -17,7 +16,7 @@ impl WalkerCommands {
                 cli,
                 &ls_args.root_fs_path,
                 &ResourceCollectionOptions {
-                    acquire_content_regexs: ls_args.surveil_fs_content.to_vec(),
+                    ingest_content_regexs: ls_args.surveil_fs_content.to_vec(),
                     ignore_paths_regexs: ls_args.ignore_fs_entry.to_vec(),
                     capturable_executables_regexs: ls_args.capture_fs_exec.to_vec(),
                     captured_exec_sql_regexs: ls_args.captured_fs_exec_sql.to_vec(),
@@ -57,10 +56,11 @@ impl WalkerCommands {
             .set_cell_alignment(CellAlignment::Right);
 
         table.add_row(vec![
-            Cell::new("Walked"),
+            Cell::new("Encounterable Resources"),
             Cell::new(&wd_resources.walked.len().to_string()),
             Cell::new(&si_resources.walked.len().to_string()),
             Cell::new(&vfs_pfs_resources.walked.len().to_string()),
+            Cell::new("Files surveilr could potentially handle"),
         ]);
         table.add_row(vec![
             Cell::new("Ignored via filename Regex"),
@@ -84,20 +84,20 @@ impl WalkerCommands {
             Cell::new("All files not ignored via filename Regex"),
         ]);
         table.add_row(vec![
-            "Inspectable",
+            "Encountered Resources",
             &wd_resources
-                .content_resources()
-                .filter(|crs| !matches!(crs, ContentResourceSupplied::Ignored(_)))
+                .encountered_resources()
+                .filter(|crs| !matches!(crs, EncounteredResource::Ignored(_)))
                 .count()
                 .to_string(),
             &si_resources
-                .content_resources()
-                .filter(|crs| !matches!(crs, ContentResourceSupplied::Ignored(_)))
+                .encountered_resources()
+                .filter(|crs| !matches!(crs, EncounteredResource::Ignored(_)))
                 .count()
                 .to_string(),
             &vfs_pfs_resources
-                .content_resources()
-                .filter(|crs| !matches!(crs, ContentResourceSupplied::Ignored(_)))
+                .encountered_resources()
+                .filter(|crs| !matches!(crs, EncounteredResource::Ignored(_)))
                 .count()
                 .to_string(),
             "Files surveilr knows how to handle",
@@ -235,9 +235,9 @@ impl WalkerCommands {
             Cell::new("Content text suppliers"),
             Cell::new(
                 wd_resources
-                    .content_resources()
+                    .encountered_resources()
                     .filter(|crs| match crs {
-                        ContentResourceSupplied::Resource(cr) => cr.content_text_supplier.is_some(),
+                        EncounteredResource::Resource(cr) => cr.content_text_supplier.is_some(),
                         _ => false,
                     })
                     .count()
@@ -245,9 +245,9 @@ impl WalkerCommands {
             ),
             Cell::new(
                 si_resources
-                    .content_resources()
+                    .encountered_resources()
                     .filter(|crs| match crs {
-                        ContentResourceSupplied::Resource(cr) => cr.content_text_supplier.is_some(),
+                        EncounteredResource::Resource(cr) => cr.content_text_supplier.is_some(),
                         _ => false,
                     })
                     .count()
@@ -255,9 +255,9 @@ impl WalkerCommands {
             ),
             Cell::new(
                 vfs_pfs_resources
-                    .content_resources()
+                    .encountered_resources()
                     .filter(|crs| match crs {
-                        ContentResourceSupplied::Resource(cr) => cr.content_text_supplier.is_some(),
+                        EncounteredResource::Resource(cr) => cr.content_text_supplier.is_some(),
                         _ => false,
                     })
                     .count()
@@ -265,7 +265,7 @@ impl WalkerCommands {
             ),
             Cell::new(
                 options
-                    .acquire_content_regexs
+                    .ingest_content_regexs
                     .iter()
                     .map(|re| re.to_string())
                     .collect::<Vec<_>>()
@@ -281,7 +281,7 @@ impl WalkerCommands {
                 *acc.entry(nature.clone()).or_insert(0) += count;
                 acc
             });
-        let si_natures = wd_uniform_resources
+        let si_natures = si_uniform_resources
             .iter()
             .filter(|ur| !matches!(ur, UniformResource::Unknown(_, _)))
             .map(|ur| (ur.nature().clone().unwrap_or("UNKNOWN".to_string()), 1))
@@ -289,7 +289,7 @@ impl WalkerCommands {
                 *acc.entry(nature.clone()).or_insert(0) += count;
                 acc
             });
-        let vps_pfs_natures = wd_uniform_resources
+        let vps_pfs_natures = vfs_pfs_uniform_resources
             .iter()
             .filter(|ur| !matches!(ur, UniformResource::Unknown(_, _)))
             .map(|ur| (ur.nature().clone().unwrap_or("UNKNOWN".to_string()), 1))
@@ -319,14 +319,14 @@ impl WalkerCommands {
                 )
                 .set_alignment(CellAlignment::Right),
                 Cell::new(
-                    wd_natures
+                    si_natures
                         .get(nature)
                         .map(|v| v.to_string())
                         .unwrap_or_else(String::new),
                 )
                 .set_alignment(CellAlignment::Right),
                 Cell::new(
-                    wd_natures
+                    vps_pfs_natures
                         .get(nature)
                         .map(|v| v.to_string())
                         .unwrap_or_else(String::new),

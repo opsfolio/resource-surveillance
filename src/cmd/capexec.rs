@@ -8,7 +8,6 @@ use serde_json::json;
 use super::CapturableExecCommands;
 use crate::capturable::*;
 use crate::resource::*;
-use crate::rwalk::*;
 use crate::subprocess::CapturableExecutableStdIn;
 
 // Implement methods for `CapturableExecCommands`, ensure that whether the commands
@@ -64,7 +63,7 @@ impl CapturableExecCommands {
         let resources = ResourceCollection::from_smart_ignore(
             root_paths,
             &ResourceCollectionOptions {
-                acquire_content_regexs: vec![],
+                ingest_content_regexs: vec![],
                 ignore_paths_regexs: ignore_entries.to_vec(),
                 capturable_executables_regexs: capture_exec.to_vec(),
                 captured_exec_sql_regexs: captured_exec_sql.to_vec(),
@@ -189,7 +188,7 @@ impl CapturableExecCommands {
         let resources = ResourceCollection::from_smart_ignore(
             root_paths,
             &ResourceCollectionOptions {
-                acquire_content_regexs: vec![],
+                ingest_content_regexs: vec![],
                 ignore_paths_regexs: ignore_entries.to_vec(),
                 capturable_executables_regexs: capture_exec.to_vec(),
                 captured_exec_sql_regexs: captured_exec_sql.to_vec(),
