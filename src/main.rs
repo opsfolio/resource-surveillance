@@ -12,7 +12,6 @@ lazy_static! {
 #[macro_use]
 mod helpers;
 
-mod capturable;
 mod cmd;
 mod format;
 mod frontmatter;
@@ -20,7 +19,6 @@ mod ingest;
 mod persist;
 mod resource;
 mod shell;
-mod subprocess;
 
 fn main() -> anyhow::Result<()> {
     let cli = cmd::Cli::parse();

@@ -7,12 +7,12 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
+use is_executable::IsExecutable;
 use regex::RegexSet;
 use serde_json::Value as JsonValue;
 use sha1::{Digest, Sha1};
 
-use crate::capturable::*;
-use crate::subprocess::*;
+use crate::shell::*;
 
 use crate::frontmatter::frontmatter;
 
@@ -44,15 +44,13 @@ pub struct ContentResource {
     pub size: Option<u64>,
     pub created_at: Option<DateTime<Utc>>,
     pub last_modified_at: Option<DateTime<Utc>>,
-    pub capturable_executable: Option<CapturableExecutable>,
     pub content_binary_supplier: Option<BinaryContentSupplier>,
     pub content_text_supplier: Option<TextContentSupplier>,
-    pub capturable_exec_binary_supplier: Option<BinaryExecOutputSupplier>,
-    pub capturable_exec_text_supplier: Option<TextExecOutputSupplier>,
 }
 
 pub struct CapturableExecResource<Resource> {
-    pub executable: Resource,
+    pub resource: Resource,
+    pub executable: CapturableExecutable,
 }
 
 pub struct HtmlResource<Resource> {
@@ -129,7 +127,7 @@ pub trait UriNatureSupplier<Resource> {
 impl UriNatureSupplier<ContentResource> for UniformResource<ContentResource> {
     fn uri(&self) -> &String {
         match self {
-            UniformResource::CapturableExec(cer) => &cer.executable.uri,
+            UniformResource::CapturableExec(cer) => &cer.resource.uri,
             UniformResource::Html(html) => &html.resource.uri,
             UniformResource::Image(img) => &img.resource.uri,
             UniformResource::Json(json) => &json.resource.uri,
@@ -146,7 +144,7 @@ impl UriNatureSupplier<ContentResource> for UniformResource<ContentResource> {
 
     fn nature(&self) -> &Option<String> {
         match self {
-            crate::resource::UniformResource::CapturableExec(cer) => &cer.executable.nature,
+            crate::resource::UniformResource::CapturableExec(cer) => &cer.resource.nature,
             crate::resource::UniformResource::Html(html) => &html.resource.nature,
             crate::resource::UniformResource::Image(img) => &img.resource.nature,
             crate::resource::UniformResource::Json(json) => &json.resource.nature,
@@ -158,109 +156,6 @@ impl UriNatureSupplier<ContentResource> for UniformResource<ContentResource> {
             crate::resource::UniformResource::Toml(toml) => &toml.resource.nature,
             crate::resource::UniformResource::Yaml(yaml) => &yaml.resource.nature,
             crate::resource::UniformResource::Unknown(_cr, _alternate) => &None::<String>,
-        }
-    }
-}
-
-pub struct UniformResourceBuilder {
-    pub nature_bind: HashMap<String, String>,
-}
-
-impl UniformResourceSupplier<ContentResource> for UniformResourceBuilder {
-    fn uniform_resource(
-        &self,
-        resource: ContentResource,
-    ) -> Result<Box<UniformResource<ContentResource>>, Box<dyn Error>> {
-        if resource.capturable_executable.is_some() {
-            return Ok(Box::new(UniformResource::CapturableExec(
-                CapturableExecResource {
-                    executable: resource,
-                },
-            )));
-        }
-
-        // Based on the nature of the resource, we determine the type of UniformResource
-        if let Some(supplied_nature) = &resource.nature {
-            let mut candidate_nature = supplied_nature.as_str();
-            let try_alternate_nature = self.nature_bind.get(candidate_nature);
-            if let Some(alternate_bind) = try_alternate_nature {
-                candidate_nature = alternate_bind
-            }
-
-            match candidate_nature {
-                // Match different file extensions
-                "html" | "text/html" => {
-                    let html = HtmlResource {
-                        resource,
-                        // TODO parse using
-                        //      - https://github.com/y21/tl (performant but not spec compliant)
-                        //      - https://github.com/cloudflare/lol-html (more performant, spec compliant)
-                        //      - https://github.com/causal-agent/scraper or https://github.com/servo/html5ever directly
-                        // create HTML parser presets which can go through all stored HTML, running selectors and putting them into tables?
-                        head_meta: HashMap::new(),
-                    };
-                    Ok(Box::new(UniformResource::Html(html)))
-                }
-                "json" | "jsonc" | "application/json" => {
-                    if resource.uri.ends_with(".spdx.json") {
-                        let spdx_json = SoftwarePackageDxResource { resource };
-                        Ok(Box::new(UniformResource::SpdxJson(spdx_json)))
-                    } else {
-                        let json = JsonResource {
-                            resource,
-                            content: None, // TODO parse using serde
-                        };
-                        Ok(Box::new(UniformResource::Json(json)))
-                    }
-                }
-                "yml" | "application/yaml" => {
-                    let yaml = YamlResource {
-                        resource,
-                        content: None, // TODO parse using serde
-                    };
-                    Ok(Box::new(UniformResource::Yaml(yaml)))
-                }
-                "toml" | "application/toml" => {
-                    let toml = TomlResource {
-                        resource,
-                        content: None, // TODO parse using serde
-                    };
-                    Ok(Box::new(UniformResource::Toml(toml)))
-                }
-                "md" | "mdx" | "text/markdown" => {
-                    let markdown = MarkdownResource { resource };
-                    Ok(Box::new(UniformResource::Markdown(markdown)))
-                }
-                "txt" | "text/plain" => {
-                    let plain_text = PlainTextResource { resource };
-                    Ok(Box::new(UniformResource::PlainText(plain_text)))
-                }
-                "png" | "gif" | "tiff" | "jpg" | "jpeg" => {
-                    let image = ImageResource {
-                        resource,
-                        image_meta: HashMap::new(), // TODO add meta data, infer type from content
-                    };
-                    Ok(Box::new(UniformResource::Image(image)))
-                }
-                "svg" | "image/svg+xml" => {
-                    let svg = SvgResource { resource };
-                    Ok(Box::new(UniformResource::Svg(svg)))
-                }
-                "tap" => {
-                    let tap = TestAnythingResource { resource };
-                    Ok(Box::new(UniformResource::Tap(tap)))
-                }
-                _ => Ok(Box::new(UniformResource::Unknown(
-                    resource,
-                    try_alternate_nature.cloned(),
-                ))),
-            }
-        } else {
-            Err(format!(
-                "Unable to obtain nature for {} from supplied resource",
-                resource.uri
-            )
-            .into())
         }
     }
 }
@@ -301,11 +196,9 @@ impl TextContent for ResourceTextContent {
     }
 }
 
-#[derive(Debug)]
 pub struct EncounterableResourceOptions {
     pub is_ignored: bool,
     pub acquire_content: bool,
-    pub capturable_executable: Option<CapturableExecutable>,
 }
 
 #[derive(Debug)]
@@ -499,16 +392,22 @@ pub enum EncounterableResource {
     Vfs(vfs::VfsPath),
 }
 
-#[derive(Debug)]
 pub enum EncounteredResource<T> {
     Ignored(String),
     NotFound(String),
     NotFile(String),
     Resource(T),
+    CapturableExec(T, CapturableExecutable),
+}
+
+impl ShellExecutive for EncounterableResource {
+    fn execute(&self, std_in: ShellStdIn) -> anyhow::Result<ShellResult> {
+        execute_subprocess(self.uri(), std_in)
+    }
 }
 
 impl EncounterableResource {
-    fn uri(&self) -> String {
+    pub fn uri(&self) -> String {
         match self {
             EncounterableResource::WalkDir(de) => de.path().to_string_lossy().to_string(),
             EncounterableResource::SmartIgnore(de) => de.path().to_string_lossy().to_string(),
@@ -516,7 +415,7 @@ impl EncounterableResource {
         }
     }
 
-    fn _path(&self) -> Option<&Path> {
+    pub fn _path(&self) -> Option<&Path> {
         match self {
             EncounterableResource::WalkDir(de) => Some(de.path()),
             EncounterableResource::SmartIgnore(de) => Some(de.path()),
@@ -587,21 +486,6 @@ impl EncounterableResource {
 
         // typically the nature is a the file's extension
         let nature = uri.rsplit_once('.').map(|(_, ext)| ext.to_string());
-
-        let capturable_executable: Option<CapturableExecutable>;
-        let capturable_exec_binary_supplier: Option<BinaryExecOutputSupplier>;
-        let capturable_exec_text_supplier: Option<TextExecOutputSupplier>;
-
-        if let Some(capturable) = &options.capturable_executable {
-            capturable_executable = Some(capturable.clone());
-            capturable_exec_binary_supplier = capturable.executable_content_binary();
-            capturable_exec_text_supplier = capturable.executable_content_text();
-        } else {
-            capturable_executable = None;
-            capturable_exec_binary_supplier = None;
-            capturable_exec_text_supplier = None;
-        }
-
         let content_suppliers = self.content_suppliers(options);
 
         EncounteredResource::Resource(ContentResource {
@@ -610,17 +494,276 @@ impl EncounterableResource {
             size: Some(metadata.file_size),
             created_at: metadata.created_at,
             last_modified_at: metadata.last_modified_at,
-            capturable_executable,
             content_binary_supplier: content_suppliers.binary,
             content_text_supplier: content_suppliers.text,
-            capturable_exec_binary_supplier,
-            capturable_exec_text_supplier,
         })
     }
 }
 
-#[derive(Debug)]
+pub enum CapturableExecutable {
+    UriShellExecutive(Box<dyn ShellExecutive>, String, String, bool),
+    RequestedButNoNature(String, regex::Regex),
+    RequestedButNotExecutable(String),
+}
 
+impl CapturableExecutable {
+    pub fn uri(&self) -> &str {
+        match self {
+            CapturableExecutable::UriShellExecutive(_, uri, _, _)
+            | CapturableExecutable::RequestedButNoNature(uri, _)
+            | CapturableExecutable::RequestedButNotExecutable(uri) => uri.as_str(),
+        }
+    }
+
+    pub fn executed_result_as_text(
+        &self,
+        std_in: ShellStdIn,
+    ) -> anyhow::Result<(String, String, bool), serde_json::Value> {
+        match self {
+            CapturableExecutable::UriShellExecutive(executive, _, nature, is_batched_sql) => {
+                match executive.execute(std_in) {
+                    Ok(shell_result) => {
+                        if shell_result.success() {
+                            Ok((shell_result.stdout, nature.clone(), *is_batched_sql))
+                        } else {
+                            Err(serde_json::json!({
+                                "src": self.uri(),
+                                "issue": "[CapturableExecutable::TextFromExecutableUri.executed_text] invalid exit status",
+                                "remediation": "ensure that executable is called with proper arguments and input formats",
+                                "nature": nature,
+                                "exit-status": format!("{:?}", shell_result.status),
+                                "stdout": shell_result.stdout,
+                                "stderr": shell_result.stderr
+                            }))
+                        }
+                    }
+                    Err(err) => Err(serde_json::json!({
+                        "src": self.uri(),
+                        "issue": "[CapturableExecutable::TextFromExecutableUri.executed_text] execution error",
+                        "rust-err": format!("{:?}", err),
+                        "nature": nature,
+                    })),
+                }
+            }
+            CapturableExecutable::RequestedButNoNature(src, regex) => Err(serde_json::json!({
+                "src": src,
+                "issue": "[CapturableExecutable::RequestedButNoNature.executed_sql] unable to determine nature",
+                "remediation": "make sure that the regular expression has a `nature` named capture group",
+                "regex": format!("{:?}", regex),
+            })),
+            CapturableExecutable::RequestedButNotExecutable(src) => Err(serde_json::json!({
+                "src": src,
+                "issue": "[CapturableExecutable::RequestedButNotExecutable.executed_sql] executable permissions not set",
+                "remediation": "make sure that script has executable permissions set",
+            })),
+        }
+    }
+
+    pub fn executed_result_as_json(
+        &self,
+        std_in: ShellStdIn,
+    ) -> anyhow::Result<(serde_json::Value, String, bool), serde_json::Value> {
+        match self {
+            CapturableExecutable::UriShellExecutive(executive, _, nature, is_batched_sql) => {
+                match executive.execute(std_in) {
+                    Ok(shell_result) => {
+                        if shell_result.success() {
+                            let captured_text = shell_result.stdout;
+                            let value: serde_json::Result<serde_json::Value> =
+                                serde_json::from_str(&captured_text);
+                            match value {
+                                Ok(value) => Ok((value, nature.clone(), *is_batched_sql)),
+                                Err(_) => Err(serde_json::json!({
+                                    "src": self.uri(),
+                                    "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_json] unable to deserialize JSON",
+                                    "remediation": "ensure that executable is emitting JSON (e.g. `--json`)",
+                                    "nature": nature,
+                                    "is-batched-sql": is_batched_sql,
+                                    "stdout": captured_text,
+                                    "exit-status": format!("{:?}", shell_result.status),
+                                    "stderr": shell_result.stderr
+                                })),
+                            }
+                        } else {
+                            Err(serde_json::json!({
+                                "src": self.uri(),
+                                "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_json] invalid exit status",
+                                "remediation": "ensure that executable is called with proper arguments and input formats",
+                                "nature": nature,
+                                "is-batched-sql": is_batched_sql,
+                                "exit-status": format!("{:?}", shell_result.status),
+                                "stderr": shell_result.stderr
+                            }))
+                        }
+                    }
+                    Err(err) => Err(serde_json::json!({
+                        "src": self.uri(),
+                        "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_json] execution error",
+                        "rust-err": format!("{:?}", err),
+                        "nature": nature,
+                        "is-batched-sql": is_batched_sql,
+                    })),
+                }
+            }
+            CapturableExecutable::RequestedButNoNature(src, regex) => Err(serde_json::json!({
+                "src": src,
+                "issue": "[CapturableExecutable::RequestedButNoNature.executed_result_as_json] unable to determine nature",
+                "remediation": "make sure that the regular expression has a `nature` named capture group",
+                "regex": format!("{:?}", regex),
+            })),
+            CapturableExecutable::RequestedButNotExecutable(src) => Err(serde_json::json!({
+                "src": src,
+                "issue": "[CapturableExecutable::RequestedButNotExecutable.executed_result_as_json] executable permissions not set",
+                "remediation": "make sure that script has executable permissions set",
+            })),
+        }
+    }
+
+    pub fn executed_result_as_sql(
+        &self,
+        std_in: ShellStdIn,
+    ) -> anyhow::Result<(String, String), serde_json::Value> {
+        match self {
+            CapturableExecutable::UriShellExecutive(executive, _, nature, is_batched_sql) => {
+                if *is_batched_sql {
+                    match executive.execute(std_in) {
+                        Ok(shell_result) => {
+                            if shell_result.status.success() {
+                                Ok((shell_result.stdout, nature.clone()))
+                            } else {
+                                Err(serde_json::json!({
+                                    "src": self.uri(),
+                                    "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_sql] invalid exit status",
+                                    "remediation": "ensure that executable is called with proper arguments and input formats",
+                                    "nature": nature,
+                                    "exit-status": format!("{:?}", shell_result.status),
+                                    "stdout": shell_result.stdout,
+                                    "stderr": shell_result.stderr
+                                }))
+                            }
+                        }
+                        Err(err) => Err(serde_json::json!({
+                            "src": self.uri(),
+                            "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_sql] execution error",
+                            "rust-err": format!("{:?}", err),
+                            "nature": nature,
+                        })),
+                    }
+                } else {
+                    Err(serde_json::json!({
+                        "src": self.uri(),
+                        "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_sql] is not classified as batch SQL",
+                        "nature": nature,
+                    }))
+                }
+            }
+            CapturableExecutable::RequestedButNoNature(src, regex) => Err(serde_json::json!({
+                "src": src,
+                "issue": "[CapturableExecutable::RequestedButNoNature.executed_result_as_sql] unable to determine nature",
+                "remediation": "make sure that the regular expression has a `nature` named capture group",
+                "regex": format!("{:?}", regex),
+            })),
+            CapturableExecutable::RequestedButNotExecutable(src) => Err(serde_json::json!({
+                "src": src,
+                "issue": "[CapturableExecutable::RequestedButNotExecutable.executed_result_as_sql] executable permissions not set",
+                "remediation": "make sure that script has executable permissions set",
+            })),
+        }
+    }
+}
+
+const DEFAULT_CAPTURE_EXEC_REGEX_PATTERN: &str = r"surveilr\[(?P<nature>[^\]]*)\]";
+const DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN: &str = r"surveilr-SQL";
+
+pub trait CapturableExecutableSupplier {
+    fn shell_executive(&self) -> Box<dyn ShellExecutive>;
+}
+
+#[derive(Debug, Clone)]
+pub struct CapturableExecutableRegexRules {
+    pub capturable_regexs: Vec<regex::Regex>,
+    pub capturable_sql_set: RegexSet,
+}
+
+impl CapturableExecutableRegexRules {
+    pub fn new(
+        capturable_executables_regexs: Option<&[regex::Regex]>,
+        captured_exec_sql_regexs: Option<&[regex::Regex]>,
+    ) -> anyhow::Result<Self> {
+        // Constructor can fail due to RegexSet::new
+        let is_capturable = match capturable_executables_regexs {
+            Some(capturable_executables_regexs) => capturable_executables_regexs.to_vec(),
+            None => vec![regex::Regex::new(DEFAULT_CAPTURE_EXEC_REGEX_PATTERN)?],
+        };
+        let is_capturable_sql = match captured_exec_sql_regexs {
+            Some(captured_exec_sql_regexs) => {
+                RegexSet::new(captured_exec_sql_regexs.iter().map(|r| r.as_str()))?
+            }
+            None => RegexSet::new([DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN])?,
+        };
+
+        Ok(CapturableExecutableRegexRules {
+            capturable_regexs: is_capturable,
+            capturable_sql_set: is_capturable_sql,
+        })
+    }
+
+    // check if URI is executable based only on the filename pattern
+    pub fn uri_capturable_executable(&self, uri: &str) -> Option<CapturableExecutable> {
+        let mut ce: Option<CapturableExecutable> = None;
+
+        let executable_file_uri = uri.to_string();
+        if self.capturable_sql_set.is_match(uri) {
+            ce = Some(CapturableExecutable::UriShellExecutive(
+                Box::new(executable_file_uri.clone()), // String has the `ShellExecutive` trait
+                executable_file_uri,
+                String::from("surveilr-SQL"),
+                true,
+            ));
+        } else {
+            for re in self.capturable_regexs.iter() {
+                if let Some(caps) = re.captures(uri) {
+                    if let Some(nature) = caps.name("nature") {
+                        ce = Some(CapturableExecutable::UriShellExecutive(
+                            Box::new(executable_file_uri.clone()), // String has the `ShellExecutive` trait
+                            executable_file_uri,
+                            String::from(nature.as_str()),
+                            false,
+                        ));
+                        break;
+                    } else {
+                        ce = Some(CapturableExecutable::RequestedButNoNature(
+                            executable_file_uri,
+                            re.clone(),
+                        ));
+                        break;
+                    }
+                }
+            }
+        }
+        ce
+    }
+
+    // check if URI is executable based the filename pattern first, then physical FS validation of execute permission
+    pub fn path_capturable_executable(
+        &self,
+        path: &std::path::Path,
+    ) -> Option<CapturableExecutable> {
+        let uri_ce = self.uri_capturable_executable(path.to_str().unwrap());
+        if uri_ce.is_some() {
+            if path.is_executable() {
+                return uri_ce;
+            } else {
+                return Some(CapturableExecutable::RequestedButNotExecutable(
+                    path.to_string_lossy().to_string(),
+                ));
+            }
+        }
+        None
+    }
+}
+
+#[derive(Debug)]
 pub struct ResourcesCollectionOptions {
     pub ignore_paths_regexs: Vec<regex::Regex>,
     pub ingest_content_regexs: Vec<regex::Regex>,
@@ -634,7 +777,7 @@ pub struct ResourcesCollection {
     pub ignore_paths_regex_set: RegexSet,
     pub ingest_content_regex_set: RegexSet,
     pub ce_rules: CapturableExecutableRegexRules,
-    pub ur_builder: UniformResourceBuilder,
+    pub nature_bind: HashMap<String, String>,
 }
 
 impl ResourcesCollection {
@@ -657,9 +800,7 @@ impl ResourcesCollection {
             ignore_paths_regex_set: ignore_paths,
             ingest_content_regex_set: acquire_content,
             ce_rules,
-            ur_builder: UniformResourceBuilder {
-                nature_bind: options.nature_bind.clone(),
-            },
+            nature_bind: options.nature_bind.clone(),
         }
     }
 
@@ -747,9 +888,43 @@ impl ResourcesCollection {
             let ero = EncounterableResourceOptions {
                 is_ignored: self.ignore_paths_regex_set.is_match(&uri),
                 acquire_content: self.ingest_content_regex_set.is_match(&uri),
-                capturable_executable: er.capturable_executable(&self.ce_rules),
             };
-            er.encountered(&ero)
+            let initial_guess = er.encountered(&ero);
+
+            match &initial_guess {
+                EncounteredResource::Resource(cr) => {
+                    if let Some(executable) = match er {
+                        EncounterableResource::WalkDir(de) => {
+                            // this strictly checks that path is executable
+                            self.ce_rules.path_capturable_executable(de.path())
+                        }
+                        EncounterableResource::SmartIgnore(de) => {
+                            // this strictly checks that path is executable
+                            self.ce_rules.path_capturable_executable(de.path())
+                        }
+                        EncounterableResource::Vfs(path) => {
+                            // this only checks that naming rules are satisfied
+                            self.ce_rules.uri_capturable_executable(path.as_str())
+                        }
+                    } {
+                        EncounteredResource::CapturableExec(
+                            ContentResource {
+                                uri: cr.uri.clone(),
+                                nature: cr.nature.clone(),
+                                size: cr.size,
+                                created_at: cr.created_at,
+                                last_modified_at: cr.last_modified_at,
+                                content_binary_supplier: None, // TODO: figure out how to clone this
+                                content_text_supplier: None,   // TODO: figure out how to clone this
+                            },
+                            executable,
+                        )
+                    } else {
+                        initial_guess
+                    }
+                }
+                _ => initial_guess,
+            }
         })
     }
 
@@ -764,17 +939,113 @@ impl ResourcesCollection {
         &self,
     ) -> impl Iterator<Item = anyhow::Result<UniformResource<ContentResource>, Box<dyn Error>>> + '_
     {
-        self.encountered().filter_map(move |crs| match crs {
-            EncounteredResource::Resource(resource) => {
-                match self.ur_builder.uniform_resource(resource) {
-                    Ok(uniform_resource) => Some(Ok(*uniform_resource)),
-                    Err(e) => Some(Err(e)), // error will be returned
+        self.encountered()
+            .filter_map(move |er: EncounteredResource<ContentResource>| match er {
+                EncounteredResource::Resource(resource) => {
+                    match self.uniform_resource(resource) {
+                        Ok(uniform_resource) => Some(Ok(*uniform_resource)),
+                        Err(e) => Some(Err(e)), // error will be returned
+                    }
                 }
+                EncounteredResource::CapturableExec(resource, executable) => Some(Ok(
+                    UniformResource::CapturableExec(CapturableExecResource {
+                        resource,
+                        executable,
+                    }),
+                )),
+                EncounteredResource::Ignored(_)
+                | EncounteredResource::NotFile(_)
+                | EncounteredResource::NotFound(_) => None, // these will be filtered via `filter_map`
+            })
+    }
+
+    pub fn uniform_resource(
+        &self,
+        cr: ContentResource,
+    ) -> Result<Box<UniformResource<ContentResource>>, Box<dyn Error>> {
+        // Based on the nature of the resource, we determine the type of UniformResource
+        if let Some(supplied_nature) = &cr.nature {
+            let mut candidate_nature = supplied_nature.as_str();
+            let try_alternate_nature = self.nature_bind.get(candidate_nature);
+            if let Some(alternate_bind) = try_alternate_nature {
+                candidate_nature = alternate_bind
             }
-            EncounteredResource::Ignored(_)
-            | EncounteredResource::NotFile(_)
-            | EncounteredResource::NotFound(_) => None, // these will be filtered via `filter_map`
-        })
+
+            match candidate_nature {
+                // Match different file extensions
+                "html" | "text/html" => {
+                    let html = HtmlResource {
+                        resource: cr,
+                        // TODO parse using
+                        //      - https://github.com/y21/tl (performant but not spec compliant)
+                        //      - https://github.com/cloudflare/lol-html (more performant, spec compliant)
+                        //      - https://github.com/causal-agent/scraper or https://github.com/servo/html5ever directly
+                        // create HTML parser presets which can go through all stored HTML, running selectors and putting them into tables?
+                        head_meta: HashMap::new(),
+                    };
+                    Ok(Box::new(UniformResource::Html(html)))
+                }
+                "json" | "jsonc" | "application/json" => {
+                    if cr.uri.ends_with(".spdx.json") {
+                        let spdx_json = SoftwarePackageDxResource { resource: cr };
+                        Ok(Box::new(UniformResource::SpdxJson(spdx_json)))
+                    } else {
+                        let json = JsonResource {
+                            resource: cr,
+                            content: None, // TODO parse using serde
+                        };
+                        Ok(Box::new(UniformResource::Json(json)))
+                    }
+                }
+                "yml" | "application/yaml" => {
+                    let yaml = YamlResource {
+                        resource: cr,
+                        content: None, // TODO parse using serde
+                    };
+                    Ok(Box::new(UniformResource::Yaml(yaml)))
+                }
+                "toml" | "application/toml" => {
+                    let toml = TomlResource {
+                        resource: cr,
+                        content: None, // TODO parse using serde
+                    };
+                    Ok(Box::new(UniformResource::Toml(toml)))
+                }
+                "md" | "mdx" | "text/markdown" => {
+                    let markdown = MarkdownResource { resource: cr };
+                    Ok(Box::new(UniformResource::Markdown(markdown)))
+                }
+                "txt" | "text/plain" => {
+                    let plain_text = PlainTextResource { resource: cr };
+                    Ok(Box::new(UniformResource::PlainText(plain_text)))
+                }
+                "png" | "gif" | "tiff" | "jpg" | "jpeg" => {
+                    let image = ImageResource {
+                        resource: cr,
+                        image_meta: HashMap::new(), // TODO add meta data, infer type from content
+                    };
+                    Ok(Box::new(UniformResource::Image(image)))
+                }
+                "svg" | "image/svg+xml" => {
+                    let svg = SvgResource { resource: cr };
+                    Ok(Box::new(UniformResource::Svg(svg)))
+                }
+                "tap" => {
+                    let tap = TestAnythingResource { resource: cr };
+                    Ok(Box::new(UniformResource::Tap(tap)))
+                }
+                _ => Ok(Box::new(UniformResource::Unknown(
+                    cr,
+                    try_alternate_nature.cloned(),
+                ))),
+            }
+        } else {
+            Err(format!(
+                "Unable to obtain nature for {} from supplied resource",
+                cr.uri
+            )
+            .into())
+        }
     }
 }
 

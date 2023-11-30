@@ -10,8 +10,8 @@ use ulid::Ulid;
 
 extern crate globwalk;
 
-use super::capturable::*;
 use super::device::Device;
+use super::resource::*;
 
 // TODO: every time a prepare_conn runs, allow passing in a Vector of files like
 // surveilr.init.sql as a source file that can help setup configurations and
@@ -455,36 +455,37 @@ pub fn execute_globs_batch(
     for entry in entries {
         let path = entry.path();
         let uri = path.to_string_lossy().to_string();
-        let (sql, is_captured_from_exec) = if capturables_glob.is_match(path)
-            && path.is_executable()
-        {
-            let ce = CapturableExecutable::TextFromExecutableUri(
-                path.to_string_lossy().to_string(),
-                String::from("surveilr-SQL"), // arbitrary but useful "nature"
-                true,
-            );
-            match ce.executed_result_as_sql(crate::subprocess::CapturableExecutableStdIn::None) {
-                Ok((sql_from_captured_exec, _nature)) => (sql_from_captured_exec, true),
-                Err(err) => {
-                    eprintln!(
-                        "[execute_globs_batch({})] Unable to execute {}:\n{}",
-                        context, uri, err
-                    );
-                    continue;
+        let (sql, is_captured_from_exec) =
+            if capturables_glob.is_match(path) && path.is_executable() {
+                let command = path.to_string_lossy().to_string();
+                let ce = CapturableExecutable::UriShellExecutive(
+                    Box::new(command.clone()), // `String` has ShellExecutive trait
+                    command,
+                    String::from("surveilr-SQL"), // arbitrary but useful "nature"
+                    true,
+                );
+                match ce.executed_result_as_sql(crate::shell::ShellStdIn::None) {
+                    Ok((sql_from_captured_exec, _nature)) => (sql_from_captured_exec, true),
+                    Err(err) => {
+                        eprintln!(
+                            "[execute_globs_batch({})] Unable to execute {}:\n{}",
+                            context, uri, err
+                        );
+                        continue;
+                    }
                 }
-            }
-        } else {
-            match std::fs::read_to_string(path) {
-                Ok(sql_from_file) => (sql_from_file, false),
-                Err(err) => {
-                    eprintln!(
-                        "[execute_globs_batch({})] Failed to read SQL file {}: {}",
-                        context, uri, err
-                    );
-                    continue;
+            } else {
+                match std::fs::read_to_string(path) {
+                    Ok(sql_from_file) => (sql_from_file, false),
+                    Err(err) => {
+                        eprintln!(
+                            "[execute_globs_batch({})] Failed to read SQL file {}: {}",
+                            context, uri, err
+                        );
+                        continue;
+                    }
                 }
-            }
-        };
+            };
 
         match conn.execute_batch(&sql) {
             Ok(_) => {

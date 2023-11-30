@@ -1,5 +1,6 @@
 use super::ShellCommands;
-use crate::capturable::*;
+use crate::resource::*;
+use crate::shell::*;
 
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
@@ -25,10 +26,10 @@ impl ShellCommands {
             println!("{:?}", command);
         }
 
-        let stdin = crate::subprocess::CapturableExecutableStdIn::None;
-        let ce = CapturableExecutable::TextFromDenoTaskShellCmd(
+        let stdin = crate::shell::ShellStdIn::None;
+        let ce = CapturableExecutable::UriShellExecutive(
+            Box::new(DenoTaskShellExecutive::new(command.to_string())),
             format!("cli://shell/result/{}", command),
-            command.to_string(),
             String::from("json"),
             false,
         );

@@ -6,9 +6,8 @@ use regex::Regex;
 use serde_json::json;
 
 use super::CapturableExecCommands;
-use crate::capturable::*;
 use crate::resource::*;
-use crate::subprocess::CapturableExecutableStdIn;
+use crate::shell::ShellStdIn;
 
 // Implement methods for `CapturableExecCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
@@ -93,69 +92,39 @@ impl CapturableExecCommands {
                     }
 
                     if let crate::resource::UniformResource::CapturableExec(cer) = ur {
-                        match &cer.executable.capturable_executable {
-                            Some(capturable_executable) => match capturable_executable {
-                                CapturableExecutable::TextFromExecutableUri(
-                                    _uri,
-                                    nature,
-                                    is_batched_sql,
-                                ) => {
-                                    if *is_batched_sql {
-                                        found.push(vec![
-                                            relative_path,
-                                            String::from("batched SQL"),
-                                            String::from(""),
-                                        ])
-                                    } else {
-                                        found.push(vec![
-                                            relative_path,
-                                            nature.clone(),
-                                            String::from(""),
-                                        ])
-                                    }
-                                }
-                                CapturableExecutable::TextFromDenoTaskShellCmd(
-                                    _uri,
-                                    _src,
-                                    nature,
-                                    is_batched_sql,
-                                ) => {
-                                    if *is_batched_sql {
-                                        found.push(vec![
-                                            relative_path,
-                                            String::from("batched SQL"),
-                                            String::from("Should never appear in this list since Deno Tasks are stored in memory or database"),
-                                        ])
-                                    } else {
-                                        found.push(vec![
-                                            relative_path,
-                                            nature.clone(),
-                                            String::from("Should never appear in this list since Deno Tasks are stored in memory or database"),
-                                        ])
-                                    }
-                                }
-                                CapturableExecutable::RequestedButNoNature(_src, re) => {
+                        match &cer.executable {
+                            CapturableExecutable::UriShellExecutive(
+                                _executive,
+                                _uri,
+                                nature,
+                                is_batched_sql,
+                            ) => {
+                                if *is_batched_sql {
                                     found.push(vec![
                                         relative_path,
-                                        String::from("No CE Nature in reg ex"),
-                                        format!("{}", re.to_string()),
-                                    ]);
-                                }
-                                CapturableExecutable::RequestedButNotExecutable(_src) => {
+                                        String::from("batched SQL"),
+                                        String::from(""),
+                                    ])
+                                } else {
                                     found.push(vec![
                                         relative_path,
-                                        String::from("Executable Permission Not Set"),
-                                        String::from("chmod +x required"),
-                                    ]);
+                                        nature.clone(),
+                                        String::from(""),
+                                    ])
                                 }
-                            },
-                            None => {
+                            }
+                            CapturableExecutable::RequestedButNoNature(_src, re) => {
                                 found.push(vec![
                                     relative_path,
-                                    String::from(
-                                        "cer.executable.capturable_executable returned None",
-                                    ),
-                                    String::from("needs investigation"),
+                                    String::from("No CE Nature in reg ex"),
+                                    format!("{}", re.to_string()),
+                                ]);
+                            }
+                            CapturableExecutable::RequestedButNotExecutable(_src) => {
+                                found.push(vec![
+                                    relative_path,
+                                    String::from("Executable Permission Not Set"),
+                                    String::from("chmod +x required"),
                                 ]);
                             }
                         }
@@ -236,105 +205,69 @@ impl CapturableExecCommands {
                         markdown.push(format!("## {}\n\n", path)); // TODO: replace with just the filename
                                                                    // markdown.push(format!("- `{}`\n", path));
 
-                        match &cer.executable.capturable_executable {
-                            Some(capturable_executable) => match capturable_executable {
-                                CapturableExecutable::TextFromExecutableUri(
-                                    _,
-                                    nature,
-                                    is_batched_sql,
-                                )
-                                | CapturableExecutable::TextFromDenoTaskShellCmd(
-                                    _,
-                                    _,
-                                    nature,
-                                    is_batched_sql,
-                                ) => {
-                                    markdown.push(format!("- Nature: `{}`\n", nature));
-                                    markdown
-                                        .push(format!("- Batched SQL?: `{}`\n", is_batched_sql));
+                        match &cer.executable {
+                            CapturableExecutable::UriShellExecutive(
+                                executive,
+                                _,
+                                nature,
+                                is_batched_sql,
+                            ) => {
+                                markdown.push(format!("- Nature: `{}`\n", nature));
+                                markdown.push(format!("- Batched SQL?: `{}`\n", is_batched_sql));
 
-                                    match cer.executable.capturable_exec_text_supplier.as_ref() {
-                                        Some(capturable_supplier) => {
-                                            let synthetic_stdin = json!({
-                                                "surveilr-ingest": {
-                                                    "args": { "state_db_fs_path": "synthetic" },
-                                                    "env": { "current_dir": std::env::current_dir().unwrap().to_string_lossy() },
-                                                    "behavior": {},
-                                                    "device": { "device_id": "synthetic" },
-                                                    "session": {
-                                                        "walk-session-id":  "synthetic",
-                                                        "walk-path-id":  "synthetic",
-                                                        "entry": { "path": path },
-                                                    },
-                                                }
-                                            });
-                                            let synthetic_stdin =
-                                                serde_json::to_string_pretty(&synthetic_stdin)
-                                                    .unwrap();
+                                let synthetic_stdin = json!({
+                                    "surveilr-ingest": {
+                                        "args": { "state_db_fs_path": "synthetic" },
+                                        "env": { "current_dir": std::env::current_dir().unwrap().to_string_lossy() },
+                                        "behavior": {},
+                                        "device": { "device_id": "synthetic" },
+                                        "session": {
+                                            "walk-session-id":  "synthetic",
+                                            "walk-path-id":  "synthetic",
+                                            "entry": { "path": path },
+                                        },
+                                    }
+                                });
 
-                                            match capturable_supplier(Some(synthetic_stdin.clone()))
-                                            {
-                                                Ok((capture_src, exit_status, stderr)) => {
-                                                    markdown
-                                                        .push(format!("- `{:?}`\n\n", exit_status));
+                                match executive.execute(ShellStdIn::Json(synthetic_stdin.clone())) {
+                                    Ok(shell_result) => {
+                                        markdown.push(format!("- `{:?}`\n\n", shell_result.status));
 
-                                                    markdown.push("\nSTDOUT\n".to_string());
-                                                    markdown.push(format!("```{}\n", nature));
-                                                    markdown.push(format!(
-                                                        "{}\n",
-                                                        capture_src.content_text()
-                                                    ));
-                                                    markdown.push("```\n".to_string());
-                                                    markdown.push(format!(
-                                                        "> {}\n\n",
-                                                        capture_src.content_digest_hash()
-                                                    ));
+                                        markdown.push("\nSTDOUT\n".to_string());
+                                        markdown.push(format!("```{}\n", nature));
+                                        markdown.push(format!("{}\n", shell_result.stdout));
+                                        markdown.push("```\n".to_string());
+                                        markdown
+                                            .push(format!("> {}\n\n", shell_result.stdout_hash()));
 
-                                                    if let Some(stderr) = stderr {
-                                                        markdown.push("STDERR\n".to_string());
-                                                        markdown.push("```\n".to_string());
-                                                        markdown.push(format!("{}\n", stderr));
-                                                        markdown.push("```\n\n".to_string());
-                                                    }
-
-                                                    markdown.push(
-                                                        "Synthetic STDIN (for testing the execution)\n"
-                                                            .to_string(),
-                                                    );
-                                                    markdown.push("```json\n".to_string());
-                                                    markdown.push(format!(
-                                                        "{}\n",
-                                                        synthetic_stdin.clone()
-                                                    ));
-                                                    markdown.push("```\n".to_string());
-                                                }
-                                                Err(err) => {
-                                                    markdown.push("\nRust Error\n".to_string());
-                                                    markdown.push("```\n".to_string());
-                                                    markdown.push(format!("{:?}\n", err));
-                                                    markdown.push("```\n".to_string());
-                                                }
-                                            }
+                                        if !shell_result.stderr.is_empty() {
+                                            markdown.push("STDERR\n".to_string());
+                                            markdown.push("```\n".to_string());
+                                            markdown.push(format!("{}\n", shell_result.stderr));
+                                            markdown.push("```\n\n".to_string());
                                         }
-                                        None => {
-                                            markdown.push(format!("- {}\n", "No CE Supplier"));
-                                        }
+
+                                        markdown.push(
+                                            "Synthetic STDIN (for testing the execution)\n"
+                                                .to_string(),
+                                        );
+                                        markdown.push("```json\n".to_string());
+                                        markdown.push(format!("{}\n", synthetic_stdin.clone()));
+                                        markdown.push("```\n".to_string());
+                                    }
+                                    Err(err) => {
+                                        markdown.push("\nRust Error\n".to_string());
+                                        markdown.push("```\n".to_string());
+                                        markdown.push(format!("{:?}\n", err));
+                                        markdown.push("```\n".to_string());
                                     }
                                 }
-                                CapturableExecutable::RequestedButNoNature(_src, re) => {
-                                    markdown
-                                        .push(format!("- {} {}\n", "No CE Nature in reg ex", re));
-                                }
-                                CapturableExecutable::RequestedButNotExecutable(_src) => {
-                                    markdown
-                                        .push(format!("- {}\n", "Executable Permission Not Set"));
-                                }
-                            },
-                            None => {
-                                markdown.push(format!(
-                                    "- {}\n",
-                                    "cer.executable.capturable_executable returned None"
-                                ));
+                            }
+                            CapturableExecutable::RequestedButNoNature(_src, re) => {
+                                markdown.push(format!("- {} {}\n", "No CE Nature in reg ex", re));
+                            }
+                            CapturableExecutable::RequestedButNotExecutable(_src) => {
+                                markdown.push(format!("- {}\n", "Executable Permission Not Set"));
                             }
                         }
                     }
@@ -366,25 +299,19 @@ impl CapturableExecCommands {
             Some(ce) => {
                 let unknown_nature = "UNKNOWN_NATURE".to_string();
                 // pass in synthetic JSON into STDIN since some scripts may try to consume stdin
-                let stdin = CapturableExecutableStdIn::from_json(serde_json::json!({
+                let stdin = ShellStdIn::Json(serde_json::json!({
                     "cli": cli,
                     "args": args
                 }));
                 let (src, nature, is_batch_sql) = match &ce {
-                    CapturableExecutable::TextFromExecutableUri(uri, nature, is_batch_sql) => {
-                        (uri, nature, is_batch_sql)
+                    CapturableExecutable::UriShellExecutive(_, uri, nature, is_batch_sql) => {
+                        (uri.clone(), nature, is_batch_sql)
                     }
-                    CapturableExecutable::TextFromDenoTaskShellCmd(
-                        _uri,
-                        src,
-                        nature,
-                        is_batch_sql,
-                    ) => (src, nature, is_batch_sql),
                     CapturableExecutable::RequestedButNoNature(uri, _) => {
-                        (uri, &unknown_nature, &false)
+                        (uri.clone(), &unknown_nature, &false)
                     }
                     CapturableExecutable::RequestedButNotExecutable(uri) => {
-                        (uri, &unknown_nature, &false)
+                        (uri.clone(), &unknown_nature, &false)
                     }
                 };
                 println!("src: {}", src);
@@ -392,31 +319,17 @@ impl CapturableExecCommands {
                 let mut emitted = 0;
 
                 if nature == "json" {
-                    match ce.executed_result_as_json(stdin.clone()) {
-                        Ok((stdout_json, _nature, _is_batch_sql)) => {
-                            println!("{}", serde_json::to_string_pretty(&stdout_json).unwrap())
-                        }
-                        Err(error_json) => {
-                            eprintln!("{}", serde_json::to_string_pretty(&error_json).unwrap())
-                        }
-                    }
+                    println!("{:?}", ce.executed_result_as_json(stdin.clone()));
                     emitted += 1;
                 }
 
                 if nature == "surveilr-SQL" {
-                    match ce.executed_result_as_sql(stdin.clone()) {
-                        Ok((stdout_sql, _nature)) => {
-                            println!("{}", stdout_sql)
-                        }
-                        Err(error_json) => {
-                            eprintln!("{}", serde_json::to_string_pretty(&error_json).unwrap())
-                        }
-                    }
+                    println!("{:?}", ce.executed_result_as_sql(stdin.clone()));
                     emitted += 1;
                 }
 
                 if emitted == 0 {
-                    match ce.executed_result_as_text(stdin.clone()) {
+                    match ce.executed_result_as_text(stdin) {
                         Ok((stdout_text, _nature, _is_batch_sql)) => {
                             println!("{}", stdout_text)
                         }

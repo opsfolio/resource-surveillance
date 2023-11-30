@@ -1,39 +1,75 @@
 use std::collections::HashMap;
+use std::io::{Read, Write};
 use std::path::PathBuf;
-use std::rc::Rc;
 
 use deno_task_shell::execute_with_pipes;
 use deno_task_shell::parser::parse;
 use deno_task_shell::pipe;
-use deno_task_shell::ShellCommand;
 use deno_task_shell::ShellPipeWriter;
 use deno_task_shell::ShellState;
 use serde_json::{json, Value};
 use sha1::{Digest, Sha1};
+use subprocess::ExitStatus;
 use tokio::runtime::Runtime;
 use tokio::task::JoinHandle;
 
-use super::resource::*;
-use super::subprocess::*;
+lazy_static::lazy_static! {
+    pub static ref RUNTIME: Runtime = Runtime::new().expect("Failed to create Tokio runtime for Capturable Executables");
+}
 
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub enum ShellStdIn {
+    None,
+    Text(String),
+    Json(serde_json::Value),
+}
+
+impl ShellStdIn {
+    pub fn json(&self) -> Option<serde_json::Value> {
+        match self {
+            ShellStdIn::None => None,
+            ShellStdIn::Text(text) => Some(serde_json::from_str(text.as_str()).unwrap()),
+            ShellStdIn::Json(value) => Some(value.clone()),
+        }
+    }
+
+    pub fn text(&self) -> Option<String> {
+        match self {
+            ShellStdIn::None => None,
+            ShellStdIn::Text(text) => Some(text.clone()),
+            ShellStdIn::Json(value) => Some(serde_json::to_string_pretty(&value).unwrap()),
+        }
+    }
+
+    pub fn bytes(&self) -> Vec<u8> {
+        self.text().map(|s| s.into_bytes()).unwrap_or_default()
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct ShellResult {
-    pub status: i32,
+    pub status: ExitStatus,
     pub stderr: String,
     pub stdout: String,
 }
 
 #[allow(dead_code)]
 impl ShellResult {
+    pub fn success(&self) -> bool {
+        matches!(self.status, ExitStatus::Exited(0))
+    }
+
     pub fn json(&self) -> Value {
         let stdout_json = serde_json::from_str::<Value>(self.stdout.as_str());
         match stdout_json {
             Ok(json) => json!({
-                "status": self.status,
+                "status": format!("{:?}", self.status),
                 "stderr": self.stderr,
                 "stdout": json
             }),
             Err(err) => json!({
-                "status": self.status,
+                "status": format!("{:?}", self.status),
                 "stderr": self.stderr,
                 "stdout": self.stdout,
                 "json-error": err.to_string()
@@ -69,6 +105,65 @@ impl ShellResult {
             }
         }
     }
+
+    pub fn stdout_hash(&self) -> String {
+        let mut hasher = Sha1::new();
+        hasher.update(self.stdout.as_bytes());
+        format!("{:x}", hasher.finalize())
+    }
+}
+
+pub fn execute_subprocess(
+    command: impl AsRef<std::ffi::OsStr>,
+    std_in: ShellStdIn,
+) -> anyhow::Result<ShellResult> {
+    let mut exec = subprocess::Exec::cmd(command)
+        .stdout(subprocess::Redirection::Pipe)
+        .stderr(subprocess::Redirection::Pipe);
+
+    let stdin = std_in.text();
+    if stdin.is_some() {
+        exec = exec.stdin(subprocess::Redirection::Pipe);
+    }
+
+    let mut popen = exec.popen()?;
+
+    if let Some(stdin_text) = stdin {
+        if let Some(mut stdin_pipe) = popen.stdin.take() {
+            stdin_pipe.write_all(stdin_text.as_bytes())?;
+            stdin_pipe.flush()?;
+            // `stdin_pipe` is dropped here when it goes out of scope, closing the stdin of the subprocess
+        } // else: no one is listening to the stdin of the subprocess, so we can't pipe anything to it
+    }
+
+    let status = popen.wait()?;
+
+    let mut output = String::new();
+    popen.stdout.take().unwrap().read_to_string(&mut output)?;
+
+    let mut error_output = String::new();
+    match &mut popen.stderr.take() {
+        Some(stderr) => {
+            stderr.read_to_string(&mut error_output)?;
+        }
+        None => {}
+    }
+
+    Ok(ShellResult {
+        status,
+        stdout: output,
+        stderr: error_output,
+    })
+}
+
+pub trait ShellExecutive {
+    fn execute(&self, stdin: ShellStdIn) -> anyhow::Result<ShellResult>;
+}
+
+impl ShellExecutive for String {
+    fn execute(&self, stdin: ShellStdIn) -> anyhow::Result<ShellResult> {
+        execute_subprocess(self, stdin)
+    }
 }
 
 /// `ShellResultSupplier` provides a mechanism to execute shell commands and
@@ -78,21 +173,21 @@ impl ShellResult {
 /// It manages environment variables and can work with custom commands and
 /// temporary directories. The primary method `result` executes a given shell
 /// command and returns the exit code, stdout, and stderr outputs.
-pub struct ShellResultSupplier {
+pub struct DenoTaskShellExecutive {
+    // the parseable Deno Task Shell command text to execute
+    command: String,
     // Environment variables to be used for commands.
     env_vars: HashMap<String, String>,
-    // Custom commands that can be used instead of the system shell commands.
-    custom_commands: HashMap<String, Rc<dyn ShellCommand>>,
-    // An optional working directory to execute commands in.
+    // An optional working directory to execute commands in (defaults to env::current_dir).
     cwd: PathBuf,
 }
 
-impl ShellResultSupplier {
+impl DenoTaskShellExecutive {
     /// Creates a new instance of `ShellResultSupplier` with default settings.
     ///
     /// It initializes environment variables from the current process environment.
     /// Custom commands and temporary directory are not set by default.
-    pub fn new(cwd: Option<PathBuf>) -> Self {
+    pub fn new(command: String) -> Self {
         let env_vars = std::env::vars()
             .map(|(key, value)| {
                 // For some very strange reason, key will sometimes be cased as "Path"
@@ -107,25 +202,20 @@ impl ShellResultSupplier {
             })
             .collect();
 
-        let cwd = if let Some(cwd) = cwd {
-            cwd
-        } else {
-            std::env::temp_dir()
-        };
-
         Self {
-            cwd,
+            command,
+            cwd: std::env::current_dir().unwrap_or(std::env::temp_dir()),
             env_vars,
-            custom_commands: Default::default(),
         }
     }
 
-    pub fn get_output_writer_and_handle(&self) -> (ShellPipeWriter, JoinHandle<String>) {
-        let (reader, writer) = pipe();
-        let handle = reader.pipe_to_string_handle();
-        (writer, handle)
+    pub fn _cwd(&mut self, path: &std::path::Path) -> &mut Self {
+        self.cwd = path.to_path_buf();
+        self
     }
+}
 
+impl ShellExecutive for DenoTaskShellExecutive {
     /// Executes a Deno task shell portable shell pipeline with the given stdin
     /// bytes and returns the results.
     ///
@@ -151,26 +241,25 @@ impl ShellResultSupplier {
     /// let (exit_code, stdout, stderr) = supplier.result("echo Hello", Default::default());
     /// assert_eq!(stdout, "Hello\n");
     /// ```
-    pub fn result(
-        &mut self,
-        runtime: &Runtime,
-        command: &str,
-        stdin_bytes: Vec<u8>,
-    ) -> ShellResult {
-        runtime.block_on(async {
-            let list = parse(command).unwrap();
+    fn execute(&self, ce_stdin: ShellStdIn) -> anyhow::Result<ShellResult> {
+        fn get_output_writer_and_handle() -> (ShellPipeWriter, JoinHandle<String>) {
+            let (reader, writer) = pipe();
+            let handle = reader.pipe_to_string_handle();
+            (writer, handle)
+        }
+
+        RUNTIME.block_on(async {
+            let list = parse(&self.command).unwrap();
+
             let (stdin, mut stdin_writer) = pipe();
-            stdin_writer.write_all(&stdin_bytes).unwrap();
+            stdin_writer.write_all(&ce_stdin.bytes()).unwrap();
             drop(stdin_writer); // prevent a deadlock by dropping the writer
-            let (stdout, stdout_handle) = self.get_output_writer_and_handle();
-            let (stderr, stderr_handle) = self.get_output_writer_and_handle();
+
+            let (stdout, stdout_handle) = get_output_writer_and_handle();
+            let (stderr, stderr_handle) = get_output_writer_and_handle();
 
             let local_set = tokio::task::LocalSet::new();
-            let state = ShellState::new(
-                self.env_vars.clone(),
-                &self.cwd,
-                self.custom_commands.drain().collect(),
-            );
+            let state = ShellState::new(self.env_vars.clone(), &self.cwd, Default::default());
             let status = local_set
                 .run_until(execute_with_pipes(list, state, stdin, stdout, stderr))
                 .await;
@@ -178,98 +267,31 @@ impl ShellResultSupplier {
             let stderr = stderr_handle.await.unwrap();
             let stdout = stdout_handle.await.unwrap();
 
-            ShellResult {
-                status,
+            Ok(ShellResult {
+                status: ExitStatus::Exited(status as u32),
                 stderr,
                 stdout,
-            }
+            })
         })
     }
-}
-
-/// Return a TextExecOutputSupplier for Deno Task Shell command text so that it can be used as a closure
-pub fn deno_task_shell_content_text(cmd_text: &str) -> TextExecOutputSupplier {
-    let cmd_text = cmd_text.to_string(); // Clone for closure's lifetime
-    Box::new(
-        move |stdin| -> Result<TextExecOutput, Box<dyn std::error::Error>> {
-            let mut srs = ShellResultSupplier::new(None);
-            let shell_result = srs.result(
-                &RUNTIME,
-                &cmd_text,
-                stdin.map(|s| s.into_bytes()).unwrap_or_default(),
-            );
-
-            let hash = {
-                let mut hasher = Sha1::new();
-                hasher.update(shell_result.stdout.as_bytes());
-                format!("{:x}", hasher.finalize())
-            };
-
-            Ok((
-                Box::new(ResourceTextContent {
-                    hash,
-                    text: shell_result.stdout,
-                }) as Box<dyn TextContent>,
-                subprocess::ExitStatus::Exited(shell_result.status as u32),
-                if !shell_result.stderr.is_empty() {
-                    Some(shell_result.stderr)
-                } else {
-                    None
-                },
-            ))
-        },
-    )
-}
-
-/// Return a BinaryExecOutputSupplier for Deno Task Shell command text so that it can be used as a closure
-pub fn deno_task_shell_content_binary(cmd_text: &str) -> BinaryExecOutputSupplier {
-    let cmd_text = cmd_text.to_string(); // Clone for closure's lifetime
-    Box::new(
-        move |stdin| -> Result<BinaryExecOutput, Box<dyn std::error::Error>> {
-            let mut srs = ShellResultSupplier::new(None);
-            let shell_result = srs.result(
-                &RUNTIME,
-                &cmd_text,
-                stdin.map(|s| s.into_bytes()).unwrap_or_default(),
-            );
-
-            let hash = {
-                let mut hasher = Sha1::new();
-                hasher.update(shell_result.stdout.as_bytes());
-                format!("{:x}", hasher.finalize())
-            };
-
-            Ok((
-                Box::new(ResourceBinaryContent {
-                    hash,
-                    binary: shell_result.stdout.into_bytes(),
-                }) as Box<dyn BinaryContent>,
-                subprocess::ExitStatus::Exited(shell_result.status as u32),
-                if !shell_result.stderr.is_empty() {
-                    Some(shell_result.stderr)
-                } else {
-                    None
-                },
-            ))
-        },
-    )
 }
 
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
-    use tokio::runtime::Runtime;
 
-    use super::ShellResultSupplier;
+    use crate::shell::ShellExecutive;
+
+    use super::DenoTaskShellExecutive;
+    use super::ShellStdIn;
 
     #[test]
     fn test_command_execution() {
-        let mut shell_result_supplier = ShellResultSupplier::new(None);
-        let runtime = Runtime::new().unwrap(); // Create a new Tokio runtime
-        let command = r#"echo "Hello, world!" | cat"#;
-        let result = shell_result_supplier.result(&runtime, command, vec![]);
+        let shell_result_supplier =
+            DenoTaskShellExecutive::new(r#"echo "Hello, world!" | cat"#.to_string());
+        let result = shell_result_supplier.execute(ShellStdIn::None).unwrap();
 
-        assert_eq!(result.status, 0); // Assuming 0 is the success code
+        assert_eq!(result.status, subprocess::ExitStatus::Exited(0)); // Assuming 0 is the success code
         assert_eq!(result.stderr, ""); // Assuming no error message for a successful command
         assert_eq!(result.stdout.trim(), "Hello, world!");
     }
@@ -277,14 +299,12 @@ mod tests {
     #[test]
     fn test_environment_variable_handling() {
         // Set an environment variable and check if it's correctly passed
-        let mut shell_result_supplier = ShellResultSupplier::new(None);
+        let mut shell_result_supplier = DenoTaskShellExecutive::new("echo $TEST_VAR".to_string());
         shell_result_supplier
             .env_vars
             .insert("TEST_VAR".to_string(), "123".to_string());
-        let command = "echo $TEST_VAR"; // Use appropriate syntax for your shell
 
-        let runtime = Runtime::new().unwrap(); // Create a new Tokio runtime
-        let result = shell_result_supplier.result(&runtime, command, vec![]);
+        let result = shell_result_supplier.execute(ShellStdIn::None).unwrap();
         assert_eq!(result.stdout.trim(), "123");
     }
 
