@@ -470,6 +470,16 @@ impl UniformResourceWriter<ContentResource> for JsonResource<ContentResource> {
     }
 }
 
+impl UniformResourceWriter<ContentResource> for JsonableTextResource<ContentResource> {
+    fn insert(
+        &self,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
+        entry: &mut UniformResourceWriterEntry,
+    ) -> UniformResourceWriterResult {
+        self.insert_text(urw_state, &self.resource, entry)
+    }
+}
+
 impl UniformResourceWriter<ContentResource> for MarkdownResource<ContentResource> {
     fn insert(
         &self,
@@ -548,7 +558,7 @@ impl UniformResourceWriter<ContentResource> for PlainTextResource<ContentResourc
     }
 }
 
-impl UniformResourceWriter<ContentResource> for SoftwarePackageDxResource<ContentResource> {
+impl UniformResourceWriter<ContentResource> for SourceCodeResource<ContentResource> {
     fn insert(
         &self,
         urw_state: &mut UniformResourceWriterState<'_, '_>,
@@ -558,37 +568,7 @@ impl UniformResourceWriter<ContentResource> for SoftwarePackageDxResource<Conten
     }
 }
 
-impl UniformResourceWriter<ContentResource> for SvgResource<ContentResource> {
-    fn insert(
-        &self,
-        urw_state: &mut UniformResourceWriterState<'_, '_>,
-        entry: &mut UniformResourceWriterEntry,
-    ) -> UniformResourceWriterResult {
-        self.insert_text(urw_state, &self.resource, entry)
-    }
-}
-
-impl UniformResourceWriter<ContentResource> for TestAnythingResource<ContentResource> {
-    fn insert(
-        &self,
-        urw_state: &mut UniformResourceWriterState<'_, '_>,
-        entry: &mut UniformResourceWriterEntry,
-    ) -> UniformResourceWriterResult {
-        self.insert_text(urw_state, &self.resource, entry)
-    }
-}
-
-impl UniformResourceWriter<ContentResource> for TomlResource<ContentResource> {
-    fn insert(
-        &self,
-        urw_state: &mut UniformResourceWriterState<'_, '_>,
-        entry: &mut UniformResourceWriterEntry,
-    ) -> UniformResourceWriterResult {
-        self.insert_text(urw_state, &self.resource, entry)
-    }
-}
-
-impl UniformResourceWriter<ContentResource> for YamlResource<ContentResource> {
+impl UniformResourceWriter<ContentResource> for XmlResource<ContentResource> {
     fn insert(
         &self,
         urw_state: &mut UniformResourceWriterState<'_, '_>,
@@ -599,23 +579,6 @@ impl UniformResourceWriter<ContentResource> for YamlResource<ContentResource> {
 }
 
 impl UniformResource<ContentResource> {
-    fn _uri(&self) -> &str {
-        match self {
-            UniformResource::CapturableExec(capturable) => capturable.resource.uri.as_str(),
-            UniformResource::Html(html) => html.resource.uri.as_str(),
-            UniformResource::Json(json) => json.resource.uri.as_str(),
-            UniformResource::Image(img) => img.resource.uri.as_str(),
-            UniformResource::Markdown(md) => md.resource.uri.as_str(),
-            UniformResource::PlainText(txt) => txt.resource.uri.as_str(),
-            UniformResource::SpdxJson(spdx) => spdx.resource.uri.as_str(),
-            UniformResource::Svg(svg) => svg.resource.uri.as_str(),
-            UniformResource::Tap(tap) => tap.resource.uri.as_str(),
-            UniformResource::Toml(toml) => toml.resource.uri.as_str(),
-            UniformResource::Yaml(yaml) => yaml.resource.uri.as_str(),
-            UniformResource::Unknown(unknown, _) => unknown.uri.as_str(),
-        }
-    }
-
     fn insert(
         &self,
         urw_state: &mut UniformResourceWriterState<'_, '_>,
@@ -625,14 +588,12 @@ impl UniformResource<ContentResource> {
             UniformResource::CapturableExec(capturable) => capturable.insert(urw_state, entry),
             UniformResource::Html(html) => html.insert(urw_state, entry),
             UniformResource::Json(json) => json.insert(urw_state, entry),
+            UniformResource::JsonableText(jtr) => jtr.insert(urw_state, entry),
             UniformResource::Image(img) => img.insert(urw_state, entry),
             UniformResource::Markdown(md) => md.insert(urw_state, entry),
             UniformResource::PlainText(txt) => txt.insert(urw_state, entry),
-            UniformResource::SpdxJson(spdx) => spdx.insert(urw_state, entry),
-            UniformResource::Svg(svg) => svg.insert(urw_state, entry),
-            UniformResource::Tap(tap) => tap.insert(urw_state, entry),
-            UniformResource::Toml(toml) => toml.insert(urw_state, entry),
-            UniformResource::Yaml(yaml) => yaml.insert(urw_state, entry),
+            UniformResource::SourceCode(sc) => sc.insert(urw_state, entry),
+            UniformResource::Xml(xml) => xml.insert(urw_state, entry),
             UniformResource::Unknown(unknown, tried_alternate_nature) => {
                 if let Some(tried_alternate_nature) = tried_alternate_nature {
                     entry.tried_alternate_nature = Some(tried_alternate_nature.clone());

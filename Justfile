@@ -46,7 +46,7 @@ test-e2e-fixtures:
 
 # Lint all the code
 lint:
-    @cargo clippy
+    @cargo clippy --verbose -- -D warnings
 
 # Create the release build and prepare for tagging
 release:

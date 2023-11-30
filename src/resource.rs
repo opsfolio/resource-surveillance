@@ -37,7 +37,6 @@ pub trait TextContent {
 
 pub type BinaryContentSupplier = Box<dyn Fn() -> Result<Box<dyn BinaryContent>, Box<dyn Error>>>;
 pub type TextContentSupplier = Box<dyn Fn() -> Result<Box<dyn TextContent>, Box<dyn Error>>>;
-pub type JsonValueSupplier = Box<dyn Fn() -> Result<Box<JsonValue>, Box<dyn Error>>>;
 
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -102,48 +101,65 @@ pub struct CapturableExecResource<Resource> {
     pub executable: CapturableExecutable,
 }
 
+pub struct PlainTextResource<Resource> {
+    pub resource: Resource,
+}
+
 pub struct HtmlResource<Resource> {
     pub resource: Resource,
-    pub head_meta: HashMap<String, String>,
 }
 
 pub struct ImageResource<Resource> {
     pub resource: Resource,
-    pub image_meta: HashMap<String, String>,
+}
+
+pub enum JsonFormat {
+    Json,
+    JsonWithComments,
+    Unknown,
 }
 
 pub struct JsonResource<Resource> {
     pub resource: Resource,
-    pub content: Option<JsonValueSupplier>, // The actual JSON content
+    pub format: JsonFormat,
+}
+
+pub enum JsonableTextSchema {
+    TestAnythingProtocol,
+    Toml,
+    Yaml,
+    Unknown,
+}
+
+pub struct JsonableTextResource<Resource> {
+    pub resource: Resource,
+    pub schema: JsonableTextSchema,
 }
 
 pub struct MarkdownResource<Resource> {
     pub resource: Resource,
 }
 
-pub struct PlainTextResource<Resource> {
-    pub resource: Resource,
+pub enum SourceCodeInterpreter {
+    TypeScript,
+    JavaScript,
+    Rust,
+    Unknown,
 }
 
-pub struct SoftwarePackageDxResource<Resource> {
+pub struct SourceCodeResource<Resource> {
     pub resource: Resource,
+    pub interpreter: SourceCodeInterpreter,
 }
 
-pub struct SvgResource<Resource> {
-    pub resource: Resource,
+pub enum XmlSchema {
+    Svg,
+    Unknown,
 }
 
-pub struct TestAnythingResource<Resource> {
+pub struct XmlResource<Resource> {
     pub resource: Resource,
-}
-pub struct TomlResource<Resource> {
-    pub resource: Resource,
-    pub content: Option<JsonValueSupplier>, // transformed to JSON content
-}
-
-pub struct YamlResource<Resource> {
-    pub resource: Resource,
-    pub content: Option<JsonValueSupplier>, // transformed to JSON content
+    pub schema: XmlSchema,
 }
 
 pub enum UniformResource<Resource> {
@@ -151,13 +167,11 @@ pub enum UniformResource<Resource> {
     Html(HtmlResource<Resource>),
     Image(ImageResource<Resource>),
     Json(JsonResource<Resource>),
+    JsonableText(JsonableTextResource<Resource>),
     Markdown(MarkdownResource<Resource>),
     PlainText(PlainTextResource<Resource>),
-    SpdxJson(SoftwarePackageDxResource<Resource>), // TODO: SPDX comes in 5 flavors (see https://spdx.dev/learn/overview/)
-    Svg(SvgResource<Resource>),
-    Tap(TestAnythingResource<Resource>),
-    Toml(TomlResource<Resource>),
-    Yaml(YamlResource<Resource>),
+    SourceCode(SourceCodeResource<Resource>),
+    Xml(XmlResource<Resource>),
     Unknown(Resource, Option<String>),
 }
 
@@ -180,13 +194,11 @@ impl UriNatureSupplier<ContentResource> for UniformResource<ContentResource> {
             UniformResource::Html(html) => &html.resource.uri,
             UniformResource::Image(img) => &img.resource.uri,
             UniformResource::Json(json) => &json.resource.uri,
+            UniformResource::JsonableText(json) => &json.resource.uri,
             UniformResource::Markdown(md) => &md.resource.uri,
             UniformResource::PlainText(txt) => &txt.resource.uri,
-            UniformResource::SpdxJson(spdx) => &spdx.resource.uri,
-            UniformResource::Svg(svg) => &svg.resource.uri,
-            UniformResource::Tap(tap) => &tap.resource.uri,
-            UniformResource::Toml(toml) => &toml.resource.uri,
-            UniformResource::Yaml(yaml) => &yaml.resource.uri,
+            UniformResource::SourceCode(sc) => &sc.resource.uri,
+            UniformResource::Xml(xml) => &xml.resource.uri,
             UniformResource::Unknown(cr, _alternate) => &cr.uri,
         }
     }
@@ -197,13 +209,11 @@ impl UriNatureSupplier<ContentResource> for UniformResource<ContentResource> {
             crate::resource::UniformResource::Html(html) => &html.resource.nature,
             crate::resource::UniformResource::Image(img) => &img.resource.nature,
             crate::resource::UniformResource::Json(json) => &json.resource.nature,
+            crate::resource::UniformResource::JsonableText(jsonable) => &jsonable.resource.nature,
             crate::resource::UniformResource::Markdown(md) => &md.resource.nature,
             crate::resource::UniformResource::PlainText(txt) => &txt.resource.nature,
-            crate::resource::UniformResource::SpdxJson(spdx) => &spdx.resource.nature,
-            crate::resource::UniformResource::Svg(svg) => &svg.resource.nature,
-            crate::resource::UniformResource::Tap(tap) => &tap.resource.nature,
-            crate::resource::UniformResource::Toml(toml) => &toml.resource.nature,
-            crate::resource::UniformResource::Yaml(yaml) => &yaml.resource.nature,
+            UniformResource::SourceCode(sc) => &sc.resource.nature,
+            crate::resource::UniformResource::Xml(xml) => &xml.resource.nature,
             crate::resource::UniformResource::Unknown(_cr, _alternate) => &None::<String>,
         }
     }
@@ -1039,35 +1049,46 @@ impl ResourcesCollection {
                         //      - https://github.com/cloudflare/lol-html (more performant, spec compliant)
                         //      - https://github.com/causal-agent/scraper or https://github.com/servo/html5ever directly
                         // create HTML parser presets which can go through all stored HTML, running selectors and putting them into tables?
-                        head_meta: HashMap::new(),
                     };
                     Ok(Box::new(UniformResource::Html(html)))
                 }
                 "json" | "jsonc" | "application/json" => {
-                    if cr.uri.ends_with(".spdx.json") {
-                        let spdx_json = SoftwarePackageDxResource { resource: cr };
-                        Ok(Box::new(UniformResource::SpdxJson(spdx_json)))
-                    } else {
-                        let json = JsonResource {
-                            resource: cr,
-                            content: None, // TODO parse using serde
-                        };
-                        Ok(Box::new(UniformResource::Json(json)))
-                    }
-                }
-                "yml" | "application/yaml" => {
-                    let yaml = YamlResource {
-                        resource: cr,
-                        content: None, // TODO parse using serde
+                    let format = match candidate_nature {
+                        "json" | "application/json" => JsonFormat::Json,
+                        "jsonc" => JsonFormat::JsonWithComments,
+                        _ => JsonFormat::Unknown,
                     };
-                    Ok(Box::new(UniformResource::Yaml(yaml)))
-                }
-                "toml" | "application/toml" => {
-                    let toml = TomlResource {
+                    let json = JsonResource {
                         resource: cr,
-                        content: None, // TODO parse using serde
+                        format,
                     };
-                    Ok(Box::new(UniformResource::Toml(toml)))
+                    Ok(Box::new(UniformResource::Json(json)))
+                }
+                "tap" | "toml" | "application/toml" | "yml" | "application/yaml" => {
+                    let format = match candidate_nature {
+                        "tap" => JsonableTextSchema::TestAnythingProtocol,
+                        "toml" | "application/toml" => JsonableTextSchema::Toml,
+                        "yml" | "application/yaml" => JsonableTextSchema::Yaml,
+                        _ => JsonableTextSchema::Unknown,
+                    };
+                    let yaml = JsonableTextResource {
+                        resource: cr,
+                        schema: format,
+                    };
+                    Ok(Box::new(UniformResource::JsonableText(yaml)))
+                }
+                "js" | "rs" | "ts" => {
+                    let interpreter = match candidate_nature {
+                        "js" => SourceCodeInterpreter::JavaScript,
+                        "rs" => SourceCodeInterpreter::Rust,
+                        "ts" => SourceCodeInterpreter::TypeScript,
+                        _ => SourceCodeInterpreter::Unknown,
+                    };
+                    let source_code = SourceCodeResource {
+                        resource: cr,
+                        interpreter,
+                    };
+                    Ok(Box::new(UniformResource::SourceCode(source_code)))
                 }
                 "md" | "mdx" | "text/markdown" => {
                     let markdown = MarkdownResource { resource: cr };
@@ -1078,19 +1099,21 @@ impl ResourcesCollection {
                     Ok(Box::new(UniformResource::PlainText(plain_text)))
                 }
                 "png" | "gif" | "tiff" | "jpg" | "jpeg" => {
-                    let image = ImageResource {
-                        resource: cr,
-                        image_meta: HashMap::new(), // TODO add meta data, infer type from content
-                    };
+                    // TODO: need to implement `infer` crate auto-detection
+                    let image = ImageResource { resource: cr };
                     Ok(Box::new(UniformResource::Image(image)))
                 }
-                "svg" | "image/svg+xml" => {
-                    let svg = SvgResource { resource: cr };
-                    Ok(Box::new(UniformResource::Svg(svg)))
-                }
-                "tap" => {
-                    let tap = TestAnythingResource { resource: cr };
-                    Ok(Box::new(UniformResource::Tap(tap)))
+                "svg" | "image/svg+xml" | "xml" | "text/xml" | "application/xml" => {
+                    let schema = match candidate_nature {
+                        "svg" | "image/svg+xml" => XmlSchema::Svg,
+                        "xml" | "text/xml" | "application/xml" => XmlSchema::Unknown,
+                        _ => XmlSchema::Unknown,
+                    };
+                    let xml = XmlResource {
+                        resource: cr,
+                        schema,
+                    };
+                    Ok(Box::new(UniformResource::Xml(xml)))
                 }
                 _ => Ok(Box::new(UniformResource::Unknown(
                     cr,
