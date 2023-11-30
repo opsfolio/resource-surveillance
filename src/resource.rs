@@ -6,6 +6,7 @@ use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 
+use bitflags::bitflags;
 use chrono::{DateTime, Utc};
 use is_executable::IsExecutable;
 use regex::RegexSet;
@@ -38,7 +39,55 @@ pub type BinaryContentSupplier = Box<dyn Fn() -> Result<Box<dyn BinaryContent>, 
 pub type TextContentSupplier = Box<dyn Fn() -> Result<Box<dyn TextContent>, Box<dyn Error>>>;
 pub type JsonValueSupplier = Box<dyn Fn() -> Result<Box<JsonValue>, Box<dyn Error>>>;
 
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct EncounterableResourceFlags: u32 {
+        const CONTENT_ACQUIRABLE       = 0b00000001;
+        const IGNORE_BY_NAME_REQUESTED = 0b00000010;
+
+        // there might be different types of "ignore" flags, create a union of
+        // all ignores into one when you don't care which one is set.
+        const IGNORABLE                = ContentResourceFlags::IGNORE_BY_NAME_REQUESTED.bits();
+
+        // TODO: see https://docs.rs/bitflags/latest/bitflags/#externally-defined-flags
+        // const _ = !0;
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct EncounteredResourceFlags: u32 {
+        const CONTENT_ACQUIRABLE       = EncounterableResourceFlags::CONTENT_ACQUIRABLE.bits();
+        const IGNORE_BY_NAME_REQUESTED = EncounterableResourceFlags::IGNORE_BY_NAME_REQUESTED.bits();
+
+        const IS_FILE                  = EncounteredResourceFlags::IGNORE_BY_NAME_REQUESTED.bits() << 1;
+        const IS_DIRECTORY             = EncounteredResourceFlags::IS_FILE.bits() << 1;
+        const IS_SYMLINK               = EncounteredResourceFlags::IS_DIRECTORY.bits() << 1;
+
+        // there might be different types of "ignore" flags, create a union of
+        // all ignores into one when you don't care which one is set.
+        const IGNORABLE                = EncounteredResourceFlags::IGNORE_BY_NAME_REQUESTED.bits();
+
+        // TODO: see https://docs.rs/bitflags/latest/bitflags/#externally-defined-flags
+        // const _ = !0;
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct ContentResourceFlags: u32 {
+        const CONTENT_ACQUIRABLE       = EncounteredResourceFlags::CONTENT_ACQUIRABLE.bits();
+        const IGNORE_BY_NAME_REQUESTED = EncounteredResourceFlags::IGNORE_BY_NAME_REQUESTED.bits();
+
+        // there might be different types of "ignore" flags, create a union of
+        // all ignores into one when you don't care which one is set.
+        const IGNORABLE                = ContentResourceFlags::IGNORE_BY_NAME_REQUESTED.bits();
+
+        // TODO: see https://docs.rs/bitflags/latest/bitflags/#externally-defined-flags
+        // const _ = !0;
+    }
+}
+// pub is_ignored: bool,
+// pub acquire_content: bool,
+
 pub struct ContentResource {
+    pub flags: ContentResourceFlags,
     pub uri: String,
     pub nature: Option<String>,
     pub size: Option<u64>,
@@ -197,14 +246,12 @@ impl TextContent for ResourceTextContent {
 }
 
 pub struct EncounterableResourceOptions {
-    pub is_ignored: bool,
-    pub acquire_content: bool,
+    pub flags: EncounterableResourceFlags,
 }
 
 #[derive(Debug)]
 pub struct EncounteredResourceMetaData {
-    pub is_file: bool,
-    pub is_dir: bool,
+    pub flags: EncounteredResourceFlags,
     pub file_size: u64,
     pub created_at: Option<chrono::prelude::DateTime<chrono::prelude::Utc>>,
     pub last_modified_at: Option<chrono::prelude::DateTime<chrono::prelude::Utc>>,
@@ -212,16 +259,16 @@ pub struct EncounteredResourceMetaData {
 
 impl EncounteredResourceMetaData {
     pub fn from_fs_path(fs_path: &Path) -> anyhow::Result<EncounteredResourceMetaData> {
-        let is_file: bool;
-        let is_dir: bool;
+        let mut flags = EncounteredResourceFlags::empty();
         let file_size: u64;
         let created_at: Option<chrono::prelude::DateTime<chrono::prelude::Utc>>;
         let last_modified_at: Option<chrono::prelude::DateTime<chrono::prelude::Utc>>;
 
         match fs::metadata(fs_path) {
             Ok(metadata) => {
-                is_file = metadata.is_file();
-                is_dir = metadata.is_dir();
+                flags.set(EncounteredResourceFlags::IS_FILE, metadata.is_file());
+                flags.set(EncounteredResourceFlags::IS_DIRECTORY, metadata.is_dir());
+                flags.set(EncounteredResourceFlags::IS_SYMLINK, metadata.is_symlink());
                 file_size = metadata.len();
                 created_at = metadata
                     .created()
@@ -239,8 +286,7 @@ impl EncounteredResourceMetaData {
         }
 
         Ok(EncounteredResourceMetaData {
-            is_file,
-            is_dir,
+            flags,
             file_size,
             created_at,
             last_modified_at,
@@ -248,19 +294,16 @@ impl EncounteredResourceMetaData {
     }
 
     pub fn from_vfs_path(vfs_path: &vfs::VfsPath) -> anyhow::Result<EncounteredResourceMetaData> {
-        let is_file: bool;
-        let is_dir: bool;
+        let mut flags = EncounteredResourceFlags::empty();
 
         let metadata = match vfs_path.metadata() {
             Ok(metadata) => {
                 match metadata.file_type {
                     vfs::VfsFileType::File => {
-                        is_file = true;
-                        is_dir = false;
+                        flags.insert(EncounteredResourceFlags::IS_FILE);
                     }
                     vfs::VfsFileType::Directory => {
-                        is_file = false;
-                        is_dir = true;
+                        flags.insert(EncounteredResourceFlags::IS_DIRECTORY);
                     }
                 };
                 metadata
@@ -272,8 +315,7 @@ impl EncounteredResourceMetaData {
         };
 
         Ok(EncounteredResourceMetaData {
-            is_file,
-            is_dir,
+            flags,
             file_size: metadata.len,
             created_at: None,
             last_modified_at: None,
@@ -294,7 +336,10 @@ impl EncounteredResourceContentSuppliers {
         let binary: Option<BinaryContentSupplier>;
         let text: Option<TextContentSupplier>;
 
-        if options.acquire_content {
+        if options
+            .flags
+            .contains(EncounterableResourceFlags::CONTENT_ACQUIRABLE)
+        {
             let path_cbs = fs_path.to_string_lossy().to_string(); // Clone for the first closure
             binary = Some(Box::new(
                 move || -> Result<Box<dyn BinaryContent>, Box<dyn Error>> {
@@ -343,7 +388,10 @@ impl EncounteredResourceContentSuppliers {
         let binary: Option<BinaryContentSupplier>;
         let text: Option<TextContentSupplier>;
 
-        if options.acquire_content {
+        if options
+            .flags
+            .contains(EncounterableResourceFlags::CONTENT_ACQUIRABLE)
+        {
             let path_clone_cbs = vfs_path.clone();
             binary = Some(Box::new(
                 move || -> Result<Box<dyn BinaryContent>, Box<dyn Error>> {
@@ -470,13 +518,17 @@ impl EncounterableResource {
         options: &EncounterableResourceOptions,
     ) -> EncounteredResource<ContentResource> {
         let uri = self.uri();
-        if options.is_ignored {
+        if options
+            .flags
+            .contains(EncounterableResourceFlags::IGNORE_BY_NAME_REQUESTED)
+        {
             return EncounteredResource::Ignored(uri);
         }
 
         let metadata = match self.meta_data() {
             Ok(metadata) => {
-                if !metadata.is_file {
+                // TODO: what about symlinks?
+                if !metadata.flags.contains(EncounteredResourceFlags::IS_FILE) {
                     return EncounteredResource::NotFile(uri);
                 }
                 metadata
@@ -489,6 +541,7 @@ impl EncounterableResource {
         let content_suppliers = self.content_suppliers(options);
 
         EncounteredResource::Resource(ContentResource {
+            flags: ContentResourceFlags::from_bits_truncate(options.flags.bits()),
             uri: uri.to_string(),
             nature,
             size: Some(metadata.file_size),
@@ -885,10 +938,14 @@ impl ResourcesCollection {
     pub fn encountered(&self) -> impl Iterator<Item = EncounteredResource<ContentResource>> + '_ {
         self.encounterable.iter().map(move |er| {
             let uri = er.uri();
-            let ero = EncounterableResourceOptions {
-                is_ignored: self.ignore_paths_regex_set.is_match(&uri),
-                acquire_content: self.ingest_content_regex_set.is_match(&uri),
-            };
+            let mut flags = EncounterableResourceFlags::empty();
+            if self.ignore_paths_regex_set.is_match(&uri) {
+                flags.insert(EncounterableResourceFlags::IGNORE_BY_NAME_REQUESTED);
+            }
+            if self.ingest_content_regex_set.is_match(&uri) {
+                flags.insert(EncounterableResourceFlags::CONTENT_ACQUIRABLE);
+            }
+            let ero = EncounterableResourceOptions { flags };
             let initial_guess = er.encountered(&ero);
 
             match &initial_guess {
@@ -909,6 +966,7 @@ impl ResourcesCollection {
                     } {
                         EncounteredResource::CapturableExec(
                             ContentResource {
+                                flags: cr.flags,
                                 uri: cr.uri.clone(),
                                 nature: cr.nature.clone(),
                                 size: cr.size,

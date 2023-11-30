@@ -359,21 +359,22 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
 
                             let hash = shell_result.stdout_hash();
                             let output_res = ContentResource {
-                                            uri: self.resource.uri.clone(),
-                                            nature: Some(nature.clone()),
-                                            size: Some(shell_result.stdout.len().try_into().unwrap()),
-                                            created_at: Some(chrono::Utc::now()),
-                                            last_modified_at: Some(chrono::Utc::now()),
-                                            content_binary_supplier: None,
-                                            content_text_supplier: Some(Box::new(
-                                                move || -> Result<Box<dyn TextContent>, Box<dyn std::error::Error>> {
-                                                    // TODO: do we really need to make clone these, can't we just
-                                                    // pass in self.executable.capturable_exec_text_supplier!?!?
-                                                    Ok(Box::new(ResourceTextContent { text: shell_result.stdout.clone(), hash: hash.clone() })
-                                                        as Box<dyn TextContent>)
-                                                },
-                                            )),
-                                        };
+                                flags: self.resource.flags,
+                                uri: self.resource.uri.clone(),
+                                nature: Some(nature.clone()),
+                                size: Some(shell_result.stdout.len().try_into().unwrap()),
+                                created_at: Some(chrono::Utc::now()),
+                                last_modified_at: Some(chrono::Utc::now()),
+                                content_binary_supplier: None,
+                                content_text_supplier: Some(Box::new(
+                                    move || -> Result<Box<dyn TextContent>, Box<dyn std::error::Error>> {
+                                        // TODO: do we really need to make clone these, can't we just
+                                        // pass in self.executable.capturable_exec_text_supplier!?!?
+                                        Ok(Box::new(ResourceTextContent { text: shell_result.stdout.clone(), hash: hash.clone() })
+                                            as Box<dyn TextContent>)
+                                    },
+                                )),
+                            };
 
                             match urw_state.resources.uniform_resource(output_res) {
                                 Ok(output_ur) => {
