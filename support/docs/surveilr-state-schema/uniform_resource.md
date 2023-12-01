@@ -23,7 +23,7 @@ CREATE TABLE "uniform_resource" (
     "content" BLOB,
     "nature" TEXT,
     "size_bytes" INTEGER,
-    "last_modified_at" INTEGER,
+    "last_modified_at" TIMESTAMP,
     "content_fm_body_attrs" TEXT CHECK(json_valid(content_fm_body_attrs) OR content_fm_body_attrs IS NULL),
     "frontmatter" TEXT CHECK(json_valid(frontmatter) OR frontmatter IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
@@ -56,7 +56,7 @@ CREATE TABLE "uniform_resource" (
 | content               | BLOB      |                   | true     |                                                                                                                                   |                                                           | either NULL if no content was acquired or the actual blob/text of the content                          |
 | nature                | TEXT      |                   | true     |                                                                                                                                   |                                                           | file extension or MIME                                                                                 |
 | size_bytes            | INTEGER   |                   | true     |                                                                                                                                   |                                                           |                                                                                                        |
-| last_modified_at      | INTEGER   |                   | true     |                                                                                                                                   |                                                           |                                                                                                        |
+| last_modified_at      | TIMESTAMP |                   | true     |                                                                                                                                   |                                                           | {"isSqlDomainZodDescrMeta":true,"isDateSqlDomain":true,"isDateTime":true}                              |
 | content_fm_body_attrs | TEXT      |                   | true     |                                                                                                                                   |                                                           | each component of frontmatter-based content ({ frontMatter: '', body: '', attrs: {...} })              |
 | frontmatter           | TEXT      |                   | true     |                                                                                                                                   |                                                           | meta data or other "frontmatter" in JSON format                                                        |
 | elaboration           | TEXT      |                   | true     |                                                                                                                                   |                                                           | anything that doesn't fit in other columns (JSON)                                                      |

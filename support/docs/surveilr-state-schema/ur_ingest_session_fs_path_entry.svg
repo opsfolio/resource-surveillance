@@ -224,7 +224,7 @@
 <text text-anchor="start" x="634.0987" y="-2024.9" font-family="Arial" font-size="14.00" fill="#666666">[INTEGER]</text>
 <polygon fill="none" stroke="#000000" points="526.7663,-1983.5 526.7663,-2013.5 777.7663,-2013.5 777.7663,-1983.5 526.7663,-1983.5"/>
 <text text-anchor="start" x="533.7663" y="-1994.9" font-family="Arial" font-size="14.00" fill="#000000">last_modified_at    </text>
-<text text-anchor="start" x="669.8841" y="-1994.9" font-family="Arial" font-size="14.00" fill="#666666">[INTEGER]</text>
+<text text-anchor="start" x="669.8841" y="-1994.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
 <polygon fill="none" stroke="#000000" points="526.7663,-1953.5 526.7663,-1983.5 777.7663,-1983.5 777.7663,-1953.5 526.7663,-1953.5"/>
 <text text-anchor="start" x="533.7663" y="-1964.9" font-family="Arial" font-size="14.00" fill="#000000">content_fm_body_attrs    </text>
 <text text-anchor="start" x="710.3539" y="-1964.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
