@@ -56,25 +56,25 @@ impl<'conn> IngestContext<'conn> {
     pub fn from_conn(conn: &'conn Connection, db_fs_path: &str) -> Result<IngestContext<'conn>> {
         let ins_ur_isfsp_stmt = conn.prepare(INS_UR_ISFSP_SQL).with_context(|| {
             format!(
-                "[ingest] unable to create `ins_ur_isfsp_stmt` SQL {} in {}",
+                "[IngestContext::from_conn] unable to create `ins_ur_isfsp_stmt` SQL {} in {}",
                 INS_UR_ISFSP_SQL, db_fs_path
             )
         })?;
         let ins_ur_stmt = conn.prepare(INS_UR_SQL).with_context(|| {
             format!(
-                "[ingest] unable to create `ins_ur_stmt` SQL {} in {}",
+                "[IngestContext::from_conn] unable to create `ins_ur_stmt` SQL {} in {}",
                 INS_UR_SQL, db_fs_path
             )
         })?;
         let ins_ur_transform_stmt = conn.prepare(INS_UR_TRANSFORM_SQL).with_context(|| {
             format!(
-                "[ingest] unable to create `ins_ur_transform_stmt` SQL {} in {}",
+                "[IngestContext::from_conn] unable to create `ins_ur_transform_stmt` SQL {} in {}",
                 INS_UR_TRANSFORM_SQL, db_fs_path
             )
         })?;
         let ins_ur_isfsp_entry_stmt = conn.prepare(INS_UR_ISFSP_ENTRY_SQL).with_context(|| {
             format!(
-                "[ingest] unable to create `ins_ur_isfsp_entry_stmt` SQL {} in {}",
+                "[IngestContext::from_conn] unable to create `ins_ur_isfsp_entry_stmt` SQL {} in {}",
                 INS_UR_ISFSP_ENTRY_SQL, db_fs_path
             )
         })?;
@@ -784,7 +784,7 @@ pub fn ingest_files(
 ) -> Result<String> {
     let mut dbc = DbConn::new(&ingest_args.state_db_fs_path, cli.debug).with_context(|| {
         format!(
-            "[ingest] SQLite transaction in {}",
+            "[ingest_files] SQLite transaction in {}",
             ingest_args.state_db_fs_path
         )
     })?;
@@ -794,7 +794,7 @@ pub fn ingest_files(
     let tx = dbc.init(Some(&ingest_args.state_db_init_sql))?;
     let (device_id, _device_name) = upserted_device(&tx, &crate::DEVICE).with_context(|| {
         format!(
-            "[ingest] upserted_device {} in {}",
+            "[ingest_files] upserted_device {} in {}",
             crate::DEVICE.name,
             db_fs_path
         )
@@ -804,11 +804,11 @@ pub fn ingest_files(
     // it in persist::prepare_conn so it's initialized as part of `dbc`.
 
     let (mut fswb, mut behavior_id) = IngestBehavior::new(&device_id, ingest_args, &tx)
-        .with_context(|| format!("[ingest] behavior issue {}", db_fs_path))?;
+        .with_context(|| format!("[ingest_files] behavior issue {}", db_fs_path))?;
 
     if !ingest_args.include_state_db_in_ingestion {
         let canonical_db_fs_path = std::fs::canonicalize(std::path::Path::new(&db_fs_path))
-            .with_context(|| format!("[ingest] unable to canonicalize in {}", db_fs_path))?;
+            .with_context(|| format!("[ingest_files] unable to canonicalize in {}", db_fs_path))?;
         let canonical_db_fs_path = canonical_db_fs_path.to_string_lossy().to_string();
         let mut wal_path = std::path::PathBuf::from(&canonical_db_fs_path);
         let mut db_journal_path = std::path::PathBuf::from(&canonical_db_fs_path);
@@ -822,7 +822,12 @@ pub fn ingest_files(
     if let Some(save_behavior_name) = &ingest_args.save_behavior {
         let saved_bid = fswb
             .save(&tx, &device_id, save_behavior_name)
-            .with_context(|| format!("[ingest] saving {} in {}", save_behavior_name, db_fs_path))?;
+            .with_context(|| {
+                format!(
+                    "[ingest_files] saving {} in {}",
+                    save_behavior_name, db_fs_path
+                )
+            })?;
         if cli.debug > 0 {
             println!("Saved behavior: {} ({})", save_behavior_name, saved_bid);
         }
@@ -851,7 +856,7 @@ pub fn ingest_files(
         )
         .with_context(|| {
             format!(
-                "[ingest] inserting UR walk session using {} in {}",
+                "[ingest_files] inserting UR walk session using {} in {}",
                 INS_UR_INGEST_SESSION_SQL, db_fs_path
             )
         })?;
@@ -866,13 +871,13 @@ pub fn ingest_files(
             .to_string();
 
         let mut ingest_stmts = IngestContext::from_conn(&tx, &ingest_args.state_db_fs_path)
-            .with_context(|| format!("[ingest] ingest_stmts in {}", db_fs_path))?;
+            .with_context(|| format!("[ingest_files] ingest_stmts in {}", db_fs_path))?;
 
         for root_path in &fswb.root_fs_paths {
             let canonical_path_buf = std::fs::canonicalize(std::path::Path::new(&root_path))
                 .with_context(|| {
                     format!(
-                        "[ingest] unable to canonicalize {} in {}",
+                        "[ingest_files] unable to canonicalize {} in {}",
                         root_path, db_fs_path
                     )
                 })?;
@@ -884,7 +889,7 @@ pub fn ingest_files(
                 .query_row(ins_ur_wsp_params, |row| row.get(0))
                 .with_context(|| {
                     format!(
-                        "[ingest] ins_ur_wsp_stmt {} with {} in {}",
+                        "[ingest_files] ins_ur_wsp_stmt {} with {} in {}",
                         INS_UR_ISFSP_SQL, "TODO: ins_ur_wsp_params.join()", db_fs_path
                     )
                 })?;
@@ -902,7 +907,17 @@ pub fn ingest_files(
                 nature_bind: fswb.nature_bind.clone(),
             };
 
-            let resources = ResourcesCollection::from_smart_ignore(&rp, &rw_options, false);
+            let resources = ResourcesCollection::from_smart_ignore(
+                &rp,
+                &rw_options,
+                &ingest_args.ignore_globs_conf_file,
+                if ingest_args.surveil_hidden_files {
+                    false
+                } else {
+                    true
+                },
+            );
+
             let mut urw_state = UniformResourceWriterState {
                 state_db_fs_path: &db_fs_path,
                 ingest_behavior: Some(&fswb),
@@ -1005,7 +1020,7 @@ pub fn ingest_files(
                                 ) {
                                     Ok(_) => {}
                                     Err(err) => {
-                                        eprintln!( "[ingest] unable to insert UR walk session path file system entry for {} in {}: {} ({})",
+                                        eprintln!( "[ingest_files] unable to insert UR walk session path file system entry for {} in {}: {} ({})",
                                         &inserted.uri, db_fs_path, err, INS_UR_ISFSP_ENTRY_SQL
                                         )
                                     }
@@ -1013,14 +1028,14 @@ pub fn ingest_files(
                             }
                             None => {
                                 eprintln!(
-                                    "[ingest] error extracting path info for {} in {}",
+                                    "[ingest_files] error extracting path info for {} in {}",
                                     canonical_path, db_fs_path
                                 )
                             }
                         }
                     }
                     Err(e) => {
-                        eprintln!("Error processing a resource: {}", e);
+                        eprintln!("[ingest_files] Error processing a resource: {}", e);
                     }
                 }
             }
@@ -1030,14 +1045,18 @@ pub fn ingest_files(
         Ok(_) => {}
         Err(err) => {
             eprintln!(
-                "[ingest] unable to execute SQL {} in {}: {}",
+                "[ingest_files] unable to execute SQL {} in {}: {}",
                 INS_UR_INGEST_SESSION_FINISH_SQL, db_fs_path, err
             )
         }
     }
     // putting everything inside a transaction improves performance significantly
-    tx.commit()
-        .with_context(|| format!("[ingest] unable to perform final commit in {}", db_fs_path))?;
+    tx.commit().with_context(|| {
+        format!(
+            "[ingest_files] unable to perform final commit in {}",
+            db_fs_path
+        )
+    })?;
 
     Ok(ingest_session_id)
 }
@@ -1118,7 +1137,7 @@ pub fn ingest_tasks(
             .collect();
         println!("ingest_tasks\n{}", lines.join(", "));
 
-        let resources = ResourcesCollection::from_tasks_lines(&lines, &rw_options);
+        let resources = ResourcesCollection::from_tasks_lines(&lines, &rw_options, "json");
         let mut urw_state = UniformResourceWriterState {
             state_db_fs_path: &db_fs_path,
             ingest_behavior: None,

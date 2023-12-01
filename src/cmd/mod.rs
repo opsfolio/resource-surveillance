@@ -17,6 +17,10 @@ const DEFAULT_INGEST_FS_IGNORE_PATHS: &str = r"/(\.git|node_modules)/";
 const DEFAULT_CAPTURE_EXEC_REGEX_PATTERN: &str = r"surveilr\[(?P<nature>[^\]]*)\]";
 const DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN: &str = r"surveilr-SQL";
 
+// this file is similar to .gitignore and, if it appears in a directory or
+// parent, it allows `surveilr` to ignore globs specified within it
+const DEFAULT_IGNORE_GLOBS_CONF_FILE: &str = ".surveilr_ignore";
+
 // Function to parse a key-value pair in the form of `key=value`.
 fn parse_key_val(s: &str) -> Result<(String, String), String> {
     let parts: Vec<&str> = s.splitn(2, '=').collect();
@@ -205,6 +209,18 @@ pub struct IngestFilesArgs {
         default_missing_value = "always"
     )]
     pub ignore_fs_entry: Vec<Regex>,
+
+    /// similar to .gitignore, ignore globs specified within it (works only with SmartIgnore walkers)
+    #[arg(
+        long,
+        default_value = DEFAULT_IGNORE_GLOBS_CONF_FILE,
+        default_missing_value = "always"
+    )]
+    pub ignore_globs_conf_file: String,
+
+    /// surveil hidden files (they are ignored by default)
+    #[arg(short, long)]
+    pub surveil_hidden_files: bool,
 
     /// reg-exes to use to load content for entry instead of just walking
     #[serde(with = "serde_regex")]

@@ -27,6 +27,7 @@ impl IngestCommands {
                             captured_exec_sql_regexs: ifa.captured_fs_exec_sql.to_vec(),
                             nature_bind: ifa.nature_bind.clone().unwrap_or(HashMap::default()),
                         },
+                        ifa,
                     )
                 } else {
                     self.files(cli, ifa)
@@ -148,9 +149,15 @@ impl IngestCommands {
         _cli: &super::Cli,
         root_fs_path: &[String],
         options: &ResourcesCollectionOptions,
+        args: &super::IngestFilesArgs,
     ) -> anyhow::Result<()> {
         let wd_resources = ResourcesCollection::from_walk_dir(root_fs_path, options);
-        let si_resources = ResourcesCollection::from_smart_ignore(root_fs_path, options, false);
+        let si_resources = ResourcesCollection::from_smart_ignore(
+            root_fs_path,
+            options,
+            &args.ignore_globs_conf_file,
+            !args.surveil_hidden_files,
+        );
         let vfs_pfs_resources = ResourcesCollection::from_vfs_physical_fs(root_fs_path, options);
 
         let mut table = Table::new();

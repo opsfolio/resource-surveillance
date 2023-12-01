@@ -68,6 +68,7 @@ impl CapturableExecCommands {
                 captured_exec_sql_regexs: captured_exec_sql.to_vec(),
                 nature_bind: HashMap::default(),
             },
+            super::DEFAULT_IGNORE_GLOBS_CONF_FILE,
             false,
         );
 
@@ -163,6 +164,7 @@ impl CapturableExecCommands {
                 captured_exec_sql_regexs: captured_exec_sql.to_vec(),
                 nature_bind: HashMap::default(),
             },
+            super::DEFAULT_IGNORE_GLOBS_CONF_FILE,
             false,
         );
 

@@ -461,7 +461,7 @@ pub enum EncounterableResource {
     WalkDir(walkdir::DirEntry),
     SmartIgnore(ignore::DirEntry),
     Vfs(vfs::VfsPath),
-    DenoTaskShellLine(String),
+    DenoTaskShellLine(String, String),
 }
 
 pub enum EncounteredResource<T> {
@@ -484,7 +484,7 @@ impl EncounterableResource {
             EncounterableResource::WalkDir(de) => de.path().to_string_lossy().to_string(),
             EncounterableResource::SmartIgnore(de) => de.path().to_string_lossy().to_string(),
             EncounterableResource::Vfs(path) => path.as_str().to_string(),
-            EncounterableResource::DenoTaskShellLine(cmds) => cmds.as_str().to_string(),
+            EncounterableResource::DenoTaskShellLine(line, _) => line.as_str().to_string(),
         }
     }
 
@@ -497,15 +497,17 @@ impl EncounterableResource {
                 EncounteredResourceMetaData::from_fs_path(de.path())
             }
             EncounterableResource::Vfs(path) => EncounteredResourceMetaData::from_vfs_path(path),
-            EncounterableResource::DenoTaskShellLine(_) => Ok(EncounteredResourceMetaData {
-                flags: EncounteredResourceFlags::from_bits_retain(
-                    EncounteredResourceFlags::IS_DENO_TASK_SHELL_LINE.bits(),
-                ),
-                nature: Some("json".to_string()),
-                file_size: 0,
-                created_at: None,
-                last_modified_at: None,
-            }),
+            EncounterableResource::DenoTaskShellLine(_, nature) => {
+                Ok(EncounteredResourceMetaData {
+                    flags: EncounteredResourceFlags::from_bits_retain(
+                        EncounteredResourceFlags::IS_DENO_TASK_SHELL_LINE.bits(),
+                    ),
+                    nature: Some(nature.clone()),
+                    file_size: 0,
+                    created_at: None,
+                    last_modified_at: None,
+                })
+            }
         }
     }
 
@@ -523,7 +525,7 @@ impl EncounterableResource {
             EncounterableResource::Vfs(path) => {
                 EncounteredResourceContentSuppliers::from_vfs_path(path, options)
             }
-            EncounterableResource::DenoTaskShellLine(_) => EncounteredResourceContentSuppliers {
+            EncounterableResource::DenoTaskShellLine(_, _) => EncounteredResourceContentSuppliers {
                 text: None,
                 binary: None,
             },
@@ -540,11 +542,11 @@ impl EncounterableResource {
                 ce_rules.path_capturable_executable(de.path())
             }
             EncounterableResource::Vfs(path) => ce_rules.uri_capturable_executable(path.as_str()),
-            EncounterableResource::DenoTaskShellLine(dts_cmds) => {
+            EncounterableResource::DenoTaskShellLine(line, nature) => {
                 Some(CapturableExecutable::UriShellExecutive(
-                    Box::new(DenoTaskShellExecutive::new(dts_cmds.clone())),
-                    dts_cmds.clone(),
-                    "json".to_string(),
+                    Box::new(DenoTaskShellExecutive::new(line.clone())),
+                    line.clone(),
+                    nature.to_string(),
                     false,
                 ))
             }
@@ -931,14 +933,14 @@ impl ResourcesCollection {
     pub fn from_smart_ignore(
         fs_root_paths: &[String],
         options: &ResourcesCollectionOptions,
-        include_hidden: bool,
+        ignore_globs_conf_file: &str,
+        ignore_hidden: bool,
     ) -> ResourcesCollection {
         let vfs_iter = fs_root_paths.iter().flat_map(move |root_path| {
-            let ignorable_walk = if include_hidden {
-                ignore::WalkBuilder::new(root_path).hidden(false).build()
-            } else {
-                ignore::Walk::new(root_path)
-            };
+            let ignorable_walk = ignore::WalkBuilder::new(root_path)
+                .hidden(ignore_hidden)
+                .add_custom_ignore_filename(ignore_globs_conf_file)
+                .build();
             ignorable_walk.into_iter().flatten()
         });
 
@@ -968,11 +970,12 @@ impl ResourcesCollection {
     pub fn from_tasks_lines(
         tasks: &[String],
         options: &ResourcesCollectionOptions,
+        nature: &str,
     ) -> ResourcesCollection {
         let encounterable: Vec<_> = tasks
             .iter()
             .cloned()
-            .map(EncounterableResource::DenoTaskShellLine)
+            .map(|line| EncounterableResource::DenoTaskShellLine(line, nature.to_string()))
             .collect();
 
         ResourcesCollection::new(encounterable, options)
@@ -1006,6 +1009,8 @@ impl ResourcesCollection {
             match &initial_guess {
                 EncounteredResource::Resource(cr) => {
                     if let Some(executable) = er.capturable_executable(&self.ce_rules) {
+                        let ercs = er.content_suppliers(&ero);
+                        // TODO: implement a Copy / Clone trait so we don't do this manually here
                         EncounteredResource::CapturableExec(
                             ContentResource {
                                 flags: cr.flags,
@@ -1014,8 +1019,8 @@ impl ResourcesCollection {
                                 size: cr.size,
                                 created_at: cr.created_at,
                                 last_modified_at: cr.last_modified_at,
-                                content_binary_supplier: None, // TODO: figure out how to clone this
-                                content_text_supplier: None,   // TODO: figure out how to clone this
+                                content_binary_supplier: ercs.binary,
+                                content_text_supplier: ercs.text,
                             },
                             executable,
                         )
