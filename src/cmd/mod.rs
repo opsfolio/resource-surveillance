@@ -357,7 +357,7 @@ pub struct ShellArgs {
 
 #[derive(Debug, Serialize, Subcommand)]
 pub enum ShellCommands {
-    /// Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) returns JSON
+    /// Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) that returns JSON
     Json {
         /// the command that would work as a Deno Task
         #[arg(short, long)]
@@ -370,6 +370,17 @@ pub enum ShellCommands {
         /// emit stdout only, without the exec status code and stderr
         #[arg(short, long, default_value = "false")]
         stdout_only: bool,
+    },
+
+    /// Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) that returns plain text
+    Plain {
+        /// the command that would work as a Deno Task
+        #[arg(short, long)]
+        command: String,
+
+        /// use this as the current working directory (CWD)
+        #[arg(long)]
+        cwd: Option<String>,
     },
 }
 

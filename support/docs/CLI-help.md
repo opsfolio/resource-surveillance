@@ -20,6 +20,7 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr notebooks ls`↴](#surveilr-notebooks-ls)
 * [`surveilr shell`↴](#surveilr-shell)
 * [`surveilr shell json`↴](#surveilr-shell-json)
+* [`surveilr shell plain`↴](#surveilr-shell-plain)
 
 ## `surveilr`
 
@@ -281,13 +282,14 @@ Deno Task Shell utilities
 
 ###### **Subcommands:**
 
-* `json` — Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) returns JSON
+* `json` — Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) that returns JSON
+* `plain` — Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) that returns plain text
 
 
 
 ## `surveilr shell json`
 
-Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) returns JSON
+Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) that returns JSON
 
 **Usage:** `surveilr shell json [OPTIONS] --command <COMMAND>`
 
@@ -298,6 +300,19 @@ Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manu
 * `-s`, `--stdout-only` — emit stdout only, without the exec status code and stderr
 
   Default value: `false`
+
+
+
+## `surveilr shell plain`
+
+Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) that returns plain text
+
+**Usage:** `surveilr shell plain [OPTIONS] --command <COMMAND>`
+
+###### **Options:**
+
+* `-c`, `--command <COMMAND>` — the command that would work as a Deno Task
+* `--cwd <CWD>` — use this as the current working directory (CWD)
 
 
 

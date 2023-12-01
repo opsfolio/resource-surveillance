@@ -262,8 +262,11 @@ impl ShellExecutive for DenoTaskShellExecutive {
                     let (stderr, stderr_handle) = get_output_writer_and_handle();
 
                     let local_set = tokio::task::LocalSet::new();
-                    let state =
+                    let mut state =
                         ShellState::new(self.env_vars.clone(), &self.cwd, Default::default());
+                    state
+                        .apply_env_var("INIT_CWD", self.cwd.to_string_lossy().to_string().as_str());
+
                     let status = local_set
                         .run_until(execute_with_pipes(list, state, stdin, stdout, stderr))
                         .await;
