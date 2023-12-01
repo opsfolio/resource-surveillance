@@ -32,6 +32,7 @@ impl IngestCommands {
                     self.files(cli, ifa)
                 }
             }
+            IngestCommands::Tasks(ifa) => self.tasks(cli, ifa),
         }
     }
 
@@ -108,6 +109,14 @@ impl IngestCommands {
             }
             Err(err) => Err(err),
         }
+    }
+
+    fn tasks(&self, _cli: &super::Cli, _args: &super::IngestTasksArgs) -> anyhow::Result<()> {
+        let lines = std::io::stdin().lines();
+        for line in lines {
+            println!("{}", line.unwrap());
+        }
+        Ok(())
     }
 
     fn files_dry_run(

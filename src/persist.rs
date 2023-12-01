@@ -1,6 +1,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
+use anyhow::{Context, Result};
 use base64::Engine;
 use globset::Glob;
 use is_executable::IsExecutable; // adds path.is_executable
@@ -13,11 +14,6 @@ extern crate globwalk;
 use super::device::Device;
 use super::resource::*;
 
-// TODO: every time a prepare_conn runs, allow passing in a Vector of files like
-// surveilr.init.sql as a source file that can help setup configurations and
-// presets through SQL (instead of JSON/YAML/etc.); consider using SQLPage crate
-// for parsers/templating or SQLa to help generate (with Deno integration).
-
 pub fn prepare_conn(db: &Connection) -> RusqliteResult<()> {
     declare_ulid_function(db)
 }
@@ -27,6 +23,65 @@ pub fn declare_ulid_function(db: &Connection) -> RusqliteResult<()> {
         assert_eq!(ctx.len(), 0, "called with unexpected number of arguments");
         Ok(Ulid::new().to_string())
     })
+}
+
+#[derive(Debug)]
+pub struct DbConn {
+    pub db_fs_path: String,
+    pub conn: Connection,
+    pub vebose_level: u8,
+}
+
+impl DbConn {
+    pub fn new(db_fs_path: &str, vebose_level: u8) -> Result<DbConn> {
+        let db_fs_path = db_fs_path.to_string();
+        let conn = Connection::open(db_fs_path.clone())
+            .with_context(|| format!("[DbConn::new] SQLite database {}", db_fs_path))?;
+        prepare_conn(&conn).with_context(|| {
+            format!("[DbConn::new] prepare SQLite connection for {}", db_fs_path)
+        })?;
+
+        if vebose_level > 0 {
+            println!("RSSD: {}", db_fs_path);
+        }
+
+        Ok(DbConn {
+            db_fs_path,
+            conn,
+            vebose_level,
+        })
+    }
+
+    pub fn init(&mut self, db_init_sql: Option<&[String]>) -> Result<rusqlite::Transaction> {
+        // putting everything inside a transaction improves performance significantly
+        let tx = self
+            .conn
+            .transaction()
+            .with_context(|| format!("[DbConn::new] SQLite transaction in {}", self.db_fs_path))?;
+
+        execute_migrations(&tx, "ingest")
+            .with_context(|| format!("[DbConn::new] execute_migrations in {}", self.db_fs_path))?;
+
+        if let Some(state_db_init_sql) = db_init_sql {
+            // TODO: add the executed files into the behaviors or other activity log!?
+            execute_globs_batch(
+                &tx,
+                &[".".to_string()],
+                state_db_init_sql,
+                "DbConn::new",
+                self.vebose_level,
+            )
+            .with_context(|| {
+                format!(
+                    "[DbConn::new] execute_globs_batch {} in {}",
+                    state_db_init_sql.join(", "),
+                    self.db_fs_path
+                )
+            })?;
+        }
+
+        Ok(tx)
+    }
 }
 
 execute_sql_batch!(bootstrap_ddl, include_str!("bootstrap.sql"));

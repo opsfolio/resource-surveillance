@@ -43,6 +43,54 @@ const INS_UR_ISFSP_ENTRY_SQL: &str = indoc! {"
         INSERT INTO ur_ingest_session_fs_path_entry (ur_ingest_session_fs_path_entry_id, ingest_session_id, ingest_fs_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn, ur_status, ur_diagnostics, captured_executable) 
                                            VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"};
 
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct IngestContext<'conn> {
+    ins_ur_isfsp_stmt: rusqlite::Statement<'conn>,
+    ins_ur_stmt: rusqlite::Statement<'conn>,
+    ins_ur_transform_stmt: rusqlite::Statement<'conn>,
+    ins_ur_isfsp_entry_stmt: rusqlite::Statement<'conn>,
+}
+
+impl<'conn> IngestContext<'conn> {
+    pub fn from_conn(
+        conn: &'conn Connection,
+        ingest_args: &crate::cmd::IngestFilesArgs,
+    ) -> Result<IngestContext<'conn>> {
+        let db_fs_path = &ingest_args.state_db_fs_path;
+        let ins_ur_isfsp_stmt = conn.prepare(INS_UR_ISFSP_SQL).with_context(|| {
+            format!(
+                "[ingest] unable to create `ins_ur_isfsp_stmt` SQL {} in {}",
+                INS_UR_ISFSP_SQL, db_fs_path
+            )
+        })?;
+        let ins_ur_stmt = conn.prepare(INS_UR_SQL).with_context(|| {
+            format!(
+                "[ingest] unable to create `ins_ur_stmt` SQL {} in {}",
+                INS_UR_SQL, db_fs_path
+            )
+        })?;
+        let ins_ur_transform_stmt = conn.prepare(INS_UR_TRANSFORM_SQL).with_context(|| {
+            format!(
+                "[ingest] unable to create `ins_ur_transform_stmt` SQL {} in {}",
+                INS_UR_TRANSFORM_SQL, db_fs_path
+            )
+        })?;
+        let ins_ur_isfsp_entry_stmt = conn.prepare(INS_UR_ISFSP_ENTRY_SQL).with_context(|| {
+            format!(
+                "[ingest] unable to create `ins_ur_isfsp_entry_stmt` SQL {} in {}",
+                INS_UR_ISFSP_ENTRY_SQL, db_fs_path
+            )
+        })?;
+        Ok(IngestContext {
+            ins_ur_isfsp_stmt,
+            ins_ur_stmt,
+            ins_ur_transform_stmt,
+            ins_ur_isfsp_entry_stmt,
+        })
+    }
+}
+
 pub struct UniformResourceWriterState<'a, 'conn> {
     ingest_args: &'a crate::cmd::IngestFilesArgs,
     env_current_dir: &'a String,
@@ -51,8 +99,7 @@ pub struct UniformResourceWriterState<'a, 'conn> {
     ingest_session_id: &'a String,
     ingest_fs_path_id: &'a String,
     resources: &'a ResourcesCollection,
-    ins_ur_stmt: &'a mut rusqlite::Statement<'conn>,
-    _ins_ur_transform_stmt: &'a mut rusqlite::Statement<'conn>,
+    ingest_stmts: &'a mut IngestContext<'conn>,
 }
 
 impl<'a, 'conn> UniformResourceWriterState<'a, 'conn> {
@@ -202,7 +249,7 @@ pub trait UniformResourceWriter<Resource> {
         let uri = resource.uri.clone();
         match resource.content_text_supplier.as_ref() {
             Some(text_supplier) => match text_supplier() {
-                Ok(text) => match urw_state.ins_ur_stmt.query_row(
+                Ok(text) => match urw_state.ingest_stmts.ins_ur_stmt.query_row(
                     params![
                         urw_state.device_id,
                         urw_state.ingest_session_id,
@@ -247,7 +294,7 @@ pub trait UniformResourceWriter<Resource> {
         _entry: &mut UniformResourceWriterEntry,
     ) -> UniformResourceWriterResult {
         let uri = resource.uri.clone();
-        match urw_state.ins_ur_stmt.query_row(
+        match urw_state.ingest_stmts.ins_ur_stmt.query_row(
             params![
                 urw_state.device_id,
                 urw_state.ingest_session_id,
@@ -283,7 +330,7 @@ impl UniformResourceWriter<ContentResource> for ContentResource {
         entry: &mut UniformResourceWriterEntry,
     ) -> UniformResourceWriterResult {
         let uri = self.uri.clone();
-        match urw_state.ins_ur_stmt.query_row(
+        match urw_state.ingest_stmts.ins_ur_stmt.query_row(
             params![
                 urw_state.device_id,
                 urw_state.ingest_session_id,
@@ -506,7 +553,7 @@ impl UniformResourceWriter<ContentResource> for MarkdownResource<ContentResource
                         fm_attrs = Some(serde_json::to_string_pretty(&fm_attrs_value).unwrap());
                     }
                     let uri = self.resource.uri.to_string();
-                    match urw_state.ins_ur_stmt.query_row(
+                    match urw_state.ingest_stmts.ins_ur_stmt.query_row(
                         params![
                             urw_state.device_id,
                             urw_state.ingest_session_id,
@@ -752,45 +799,18 @@ impl IngestBehavior {
     }
 }
 
-pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestFilesArgs) -> Result<String> {
-    let db_fs_path = &fsw_args.state_db_fs_path;
-
-    if cli.debug > 0 {
-        println!("Surveillance State DB: {}", db_fs_path);
-    }
-
-    let mut conn = Connection::open(db_fs_path)
-        .with_context(|| format!("[ingest] SQLite database {}", db_fs_path))?;
-
-    prepare_conn(&conn)
-        .with_context(|| format!("[ingest] prepare SQLite connection for {}", db_fs_path))?;
-
-    // putting everything inside a transaction improves performance significantly
-    let tx = conn
-        .transaction()
-        .with_context(|| format!("[ingest] SQLite transaction in {}", db_fs_path))?;
-
-    execute_migrations(&tx, "ingest")
-        .with_context(|| format!("[ingest] execute_migrations in {}", db_fs_path))?;
-
-    // TODO: add the executed files into the behaviors or other activity log!?
-    execute_globs_batch(
-        &tx,
-        &[".".to_string()],
-        &fsw_args.state_db_init_sql,
-        "ingest",
-        cli.debug,
-    )
-    .with_context(|| {
+pub fn ingest(cli: &crate::cmd::Cli, ingest_args: &crate::cmd::IngestFilesArgs) -> Result<String> {
+    let mut dbc = DbConn::new(&ingest_args.state_db_fs_path, cli.debug).with_context(|| {
         format!(
-            "[ingest] execute_globs_batch {} in {}",
-            fsw_args.state_db_init_sql.join(", "),
-            db_fs_path
+            "[ingest] SQLite transaction in {}",
+            ingest_args.state_db_fs_path
         )
     })?;
+    let db_fs_path = dbc.db_fs_path.clone();
 
-    // insert the device or, if it exists, get its current ID and name
-    let (device_id, device_name) = upserted_device(&tx, &crate::DEVICE).with_context(|| {
+    // putting everything inside a transaction improves performance significantly
+    let tx = dbc.init(Some(&ingest_args.state_db_init_sql))?;
+    let (device_id, _device_name) = upserted_device(&tx, &crate::DEVICE).with_context(|| {
         format!(
             "[ingest] upserted_device {} in {}",
             crate::DEVICE.name,
@@ -798,17 +818,13 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestFilesArgs) -> 
         )
     })?;
 
-    if cli.debug > 0 {
-        println!("Device: {device_name} ({device_id})");
-    }
-
     // the ulid() function we're using below is not built into SQLite, we define
-    // it in persist::prepare_conn.
+    // it in persist::prepare_conn so it's initialized as part of `dbc`.
 
-    let (mut fswb, mut behavior_id) = IngestBehavior::new(&device_id, fsw_args, &tx)
+    let (mut fswb, mut behavior_id) = IngestBehavior::new(&device_id, ingest_args, &tx)
         .with_context(|| format!("[ingest] behavior issue {}", db_fs_path))?;
 
-    if !fsw_args.include_state_db_in_ingestion {
+    if !ingest_args.include_state_db_in_ingestion {
         let canonical_db_fs_path = std::fs::canonicalize(std::path::Path::new(&db_fs_path))
             .with_context(|| format!("[ingest] unable to canonicalize in {}", db_fs_path))?;
         let canonical_db_fs_path = canonical_db_fs_path.to_string_lossy().to_string();
@@ -821,7 +837,7 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestFilesArgs) -> 
         fswb.add_ignore_exact(db_journal_path.to_string_lossy().to_string().as_str());
     }
 
-    if let Some(save_behavior_name) = &fsw_args.save_behavior {
+    if let Some(save_behavior_name) = &ingest_args.save_behavior {
         let saved_bid = fswb
             .save(&tx, &device_id, save_behavior_name)
             .with_context(|| format!("[ingest] saving {} in {}", save_behavior_name, db_fs_path))?;
@@ -869,31 +885,8 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestFilesArgs) -> 
             .to_string_lossy()
             .to_string();
 
-        let mut ins_ur_isfsp_stmt = tx.prepare(INS_UR_ISFSP_SQL).with_context(|| {
-            format!(
-                "[ingest] unable to create `ins_ur_isfsp_stmt` SQL {} in {}",
-                INS_UR_ISFSP_SQL, db_fs_path
-            )
-        })?;
-        let mut ins_ur_stmt = tx.prepare(INS_UR_SQL).with_context(|| {
-            format!(
-                "[ingest] unable to create `ins_ur_stmt` SQL {} in {}",
-                INS_UR_SQL, db_fs_path
-            )
-        })?;
-        let mut ins_ur_transform_stmt = tx.prepare(INS_UR_TRANSFORM_SQL).with_context(|| {
-            format!(
-                "[ingest] unable to create `ins_ur_transform_stmt` SQL {} in {}",
-                INS_UR_TRANSFORM_SQL, db_fs_path
-            )
-        })?;
-        let mut ins_ur_isfsp_entry_stmt =
-            tx.prepare(INS_UR_ISFSP_ENTRY_SQL).with_context(|| {
-                format!(
-                    "[ingest] unable to create `ins_ur_isfsp_entry_stmt` SQL {} in {}",
-                    INS_UR_ISFSP_ENTRY_SQL, db_fs_path
-                )
-            })?;
+        let mut ingest_stmts = IngestContext::from_conn(&tx, ingest_args)
+            .with_context(|| format!("[ingest] ingest_stmts in {}", db_fs_path))?;
 
         for root_path in &fswb.root_fs_paths {
             let canonical_path_buf = std::fs::canonicalize(std::path::Path::new(&root_path))
@@ -906,7 +899,8 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestFilesArgs) -> 
             let canonical_path = canonical_path_buf.into_os_string().into_string().unwrap();
 
             let ins_ur_wsp_params = params![ingest_session_id, canonical_path];
-            let ingest_fs_path_id: String = ins_ur_isfsp_stmt
+            let ingest_fs_path_id: String = ingest_stmts
+                .ins_ur_isfsp_stmt
                 .query_row(ins_ur_wsp_params, |row| row.get(0))
                 .with_context(|| {
                     format!(
@@ -914,6 +908,7 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestFilesArgs) -> 
                         INS_UR_ISFSP_SQL, "TODO: ins_ur_wsp_params.join()", db_fs_path
                     )
                 })?;
+
             if cli.debug > 0 {
                 println!("  Walk Session Path: {root_path} ({ingest_fs_path_id})");
             }
@@ -929,15 +924,14 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestFilesArgs) -> 
 
             let resources = ResourcesCollection::from_smart_ignore(&rp, &rw_options, false);
             let mut urw_state = UniformResourceWriterState {
-                ingest_args: fsw_args,
+                ingest_args,
                 ingest_behavior: &fswb,
                 env_current_dir: &env_current_dir,
                 device_id: &device_id,
                 ingest_session_id: &ingest_session_id,
                 ingest_fs_path_id: &ingest_fs_path_id,
                 resources: &resources,
-                ins_ur_stmt: &mut ins_ur_stmt,
-                _ins_ur_transform_stmt: &mut ins_ur_transform_stmt,
+                ingest_stmts: &mut ingest_stmts,
             };
 
             for resource_result in resources.uniform_resources() {
@@ -1007,23 +1001,28 @@ pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestFilesArgs) -> 
                                 file_basename,
                                 file_extn,
                             )) => {
-                                match ins_ur_isfsp_entry_stmt.execute(params![
-                                    ingest_session_id,
-                                    ingest_fs_path_id,
-                                    uniform_resource_id,
-                                    file_path_abs.into_os_string().into_string().unwrap(),
-                                    file_path_rel_parent.into_os_string().into_string().unwrap(),
-                                    file_path_rel.into_os_string().into_string().unwrap(),
-                                    file_basename,
-                                    if let Some(file_extn) = file_extn {
-                                        file_extn
-                                    } else {
-                                        String::from("")
-                                    },
-                                    ur_status,
-                                    ur_diagnostics,
-                                    captured_exec_diags
-                                ]) {
+                                match urw_state.ingest_stmts.ins_ur_isfsp_entry_stmt.execute(
+                                    params![
+                                        ingest_session_id,
+                                        ingest_fs_path_id,
+                                        uniform_resource_id,
+                                        file_path_abs.into_os_string().into_string().unwrap(),
+                                        file_path_rel_parent
+                                            .into_os_string()
+                                            .into_string()
+                                            .unwrap(),
+                                        file_path_rel.into_os_string().into_string().unwrap(),
+                                        file_basename,
+                                        if let Some(file_extn) = file_extn {
+                                            file_extn
+                                        } else {
+                                            String::from("")
+                                        },
+                                        ur_status,
+                                        ur_diagnostics,
+                                        captured_exec_diags
+                                    ],
+                                ) {
                                     Ok(_) => {}
                                     Err(err) => {
                                         eprintln!( "[ingest] unable to insert UR walk session path file system entry for {} in {}: {} ({})",

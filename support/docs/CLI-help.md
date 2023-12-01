@@ -14,6 +14,7 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr capturable-exec test`↴](#surveilr-capturable-exec-test)
 * [`surveilr ingest`↴](#surveilr-ingest)
 * [`surveilr ingest files`↴](#surveilr-ingest-files)
+* [`surveilr ingest tasks`↴](#surveilr-ingest-tasks)
 * [`surveilr notebooks`↴](#surveilr-notebooks)
 * [`surveilr notebooks cat`↴](#surveilr-notebooks-cat)
 * [`surveilr notebooks ls`↴](#surveilr-notebooks-ls)
@@ -165,6 +166,7 @@ Ingest content from device file system and other sources
 ###### **Subcommands:**
 
 * `files` — Ingest content from device file system and other sources
+* `tasks` — Notebooks maintenance utilities
 
 
 
@@ -202,6 +204,22 @@ Ingest content from device file system and other sources
 * `--stats` — show stats as an ASCII table after completion
 * `--stats-json` — show stats in JSON after completion
 * `--save-behavior <SAVE_BEHAVIOR>` — save the options as a new behavior
+
+
+
+## `surveilr ingest tasks`
+
+Notebooks maintenance utilities
+
+**Usage:** `surveilr ingest tasks [OPTIONS]`
+
+###### **Options:**
+
+* `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
+
+  Default value: `resource-surveillance.sqlite.db`
+* `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
+* `--stdin` — read tasks from STDIN
 
 
 

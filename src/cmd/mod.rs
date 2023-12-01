@@ -268,10 +268,28 @@ pub struct IngestFilesArgs {
     pub save_behavior: Option<String>,
 }
 
-/// Ingest content from device file system and other sources
+/// Notebooks maintenance utilities
+#[derive(Debug, Serialize, Args)]
+pub struct IngestTasksArgs {
+    /// target SQLite database
+    #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
+    pub state_db_fs_path: Option<String>,
+
+    /// one or more globs to match as SQL files and batch execute them in alpha order
+    #[arg(short = 'I', long)]
+    pub state_db_init_sql: Vec<String>,
+
+    /// read tasks from STDIN
+    #[arg(long)]
+    pub stdin: bool,
+}
+
+/// Ingest uniform resources content from multiple sources
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Serialize, Subcommand)]
 pub enum IngestCommands {
     Files(IngestFilesArgs),
+    Tasks(IngestTasksArgs),
 }
 
 /// Notebooks maintenance utilities

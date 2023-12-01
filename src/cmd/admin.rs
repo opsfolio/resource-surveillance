@@ -1,5 +1,4 @@
 use anyhow::Context;
-use rusqlite::Connection;
 
 use super::AdminCommands;
 use crate::persist::*;
@@ -62,34 +61,16 @@ impl AdminCommands {
             }
         }
 
-        let conn = Connection::open(db_fs_path)
+        let mut dbc = DbConn::new(db_fs_path, cli.debug)
             .with_context(|| format!("[AdminCommands::init] SQLite database {}", db_fs_path))?;
-
-        // add all our custom functions (`ulid()`, etc.)
-        prepare_conn(&conn).with_context(|| {
-            format!(
-                "[AdminCommands::init] prepare SQLite connection for {}",
-                db_fs_path
-            )
-        })?;
-
-        execute_migrations(&conn, "AdminCommands::init").with_context(|| {
-            format!("[AdminCommands::init] execute_migrations in {}", db_fs_path)
-        })?;
-
-        execute_globs_batch(
-            &conn,
-            &[".".to_string()],
-            db_init_sql_globs,
-            "AdminCommands::init",
-            cli.debug,
-        )
-        .with_context(|| format!("[AdminCommands::init] execute_migrations in {}", db_fs_path))?;
+        let tx = dbc
+            .init(Some(db_init_sql_globs))
+            .with_context(|| format!("[AdminCommands::init] init transaction {}", db_fs_path))?;
 
         if with_device {
             // insert the device or, if it exists, get its current ID and name
             let (device_id, device_name) =
-                upserted_device(&conn, &crate::DEVICE).with_context(|| {
+                upserted_device(&tx, &crate::DEVICE).with_context(|| {
                     format!(
                         "[AdminCommands::init] upserted_device {} in {}",
                         crate::DEVICE.name,
@@ -105,13 +86,16 @@ impl AdminCommands {
             }
         }
 
-        match sql_script {
-            Some(sql_script) => match conn.execute_batch(sql_script) {
+        let result = match sql_script {
+            Some(sql_script) => match tx.execute_batch(sql_script) {
                 Ok(_) => Ok(()),
                 Err(err) => Err(err.into()),
             },
             None => Ok(()),
-        }
+        };
+        tx.commit()
+            .with_context(|| format!("[AdminCommands::init] transaction commit {}", db_fs_path))?;
+        result
     }
 
     fn cli_help_markdown(&self) -> anyhow::Result<()> {
