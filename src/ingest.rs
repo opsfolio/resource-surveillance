@@ -911,11 +911,7 @@ pub fn ingest_files(
                 &rp,
                 &rw_options,
                 &ingest_args.ignore_globs_conf_file,
-                if ingest_args.surveil_hidden_files {
-                    false
-                } else {
-                    true
-                },
+                !ingest_args.surveil_hidden_files,
             );
 
             let mut urw_state = UniformResourceWriterState {

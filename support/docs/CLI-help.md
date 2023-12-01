@@ -186,6 +186,10 @@ Ingest content from device file system and other sources
 * `-i`, `--ignore-fs-entry <IGNORE_FS_ENTRY>` — reg-exes to use to ignore files in root-path(s)
 
   Default value: `/(\.git|node_modules)/`
+* `--ignore-globs-conf-file <IGNORE_GLOBS_CONF_FILE>` — similar to .gitignore, ignore globs specified within it (works only with SmartIgnore walkers)
+
+  Default value: `.surveilr_ignore`
+* `-s`, `--surveil-hidden-files` — surveil hidden files (they are ignored by default)
 * `--surveil-fs-content <SURVEIL_FS_CONTENT>` — reg-exes to use to load content for entry instead of just walking
 
   Default values: `\.(md|mdx|html|json|jsonc|tap|txt|text|toml|yaml)$`, `surveilr\[(?P<nature>[^\]]*)\]`
