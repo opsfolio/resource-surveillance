@@ -53,11 +53,7 @@ pub struct IngestContext<'conn> {
 }
 
 impl<'conn> IngestContext<'conn> {
-    pub fn from_conn(
-        conn: &'conn Connection,
-        ingest_args: &crate::cmd::IngestFilesArgs,
-    ) -> Result<IngestContext<'conn>> {
-        let db_fs_path = &ingest_args.state_db_fs_path;
+    pub fn from_conn(conn: &'conn Connection, db_fs_path: &str) -> Result<IngestContext<'conn>> {
         let ins_ur_isfsp_stmt = conn.prepare(INS_UR_ISFSP_SQL).with_context(|| {
             format!(
                 "[ingest] unable to create `ins_ur_isfsp_stmt` SQL {} in {}",
@@ -92,9 +88,9 @@ impl<'conn> IngestContext<'conn> {
 }
 
 pub struct UniformResourceWriterState<'a, 'conn> {
-    ingest_args: &'a crate::cmd::IngestFilesArgs,
+    state_db_fs_path: &'a String,
     env_current_dir: &'a String,
-    ingest_behavior: &'a IngestBehavior,
+    ingest_behavior: Option<&'a IngestBehavior>,
     device_id: &'a String,
     ingest_session_id: &'a String,
     ingest_fs_path_id: &'a String,
@@ -111,7 +107,7 @@ impl<'a, 'conn> UniformResourceWriterState<'a, 'conn> {
         };
         let ctx = json!({
             "surveilr-ingest": {
-                "args": { "state_db_fs_path": self.ingest_args.state_db_fs_path },
+                "args": { "state_db_fs_path": self.state_db_fs_path },
                 "env": { "current_dir": self.env_current_dir },
                 "behavior": self.ingest_behavior,
                 "device": { "device_id": self.device_id },
@@ -750,23 +746,6 @@ impl IngestBehavior {
             .push(regex::Regex::new(format!("^{}$", regex::escape(pattern)).as_str()).unwrap());
     }
 
-    // TODO: move this to rwalker.rs to unify all resource walkers
-    // pub fn code_notebook_cells(&mut self, conn: &Connection) {
-    //     match select_notebooks_and_cells(
-    //         conn,
-    //         &self.code_notebooks_searched,
-    //         &self.code_notebook_cells_searched,
-    //     ) {
-    //         Ok(matched) => {
-    //             for row in matched {
-    //                 let (notebook, kernel, cell, _code) = row;
-    //                 println!("-- {notebook}::{cell} ({kernel})");
-    //             }
-    //         }
-    //         Err(err) => println!("IngestBehavior code_notebook_cells error: {}", err),
-    //     }
-    // }
-
     pub fn save(
         &self,
         conn: &Connection,
@@ -799,7 +778,10 @@ impl IngestBehavior {
     }
 }
 
-pub fn ingest(cli: &crate::cmd::Cli, ingest_args: &crate::cmd::IngestFilesArgs) -> Result<String> {
+pub fn ingest_files(
+    cli: &crate::cmd::Cli,
+    ingest_args: &crate::cmd::IngestFilesArgs,
+) -> Result<String> {
     let mut dbc = DbConn::new(&ingest_args.state_db_fs_path, cli.debug).with_context(|| {
         format!(
             "[ingest] SQLite transaction in {}",
@@ -873,19 +855,17 @@ pub fn ingest(cli: &crate::cmd::Cli, ingest_args: &crate::cmd::IngestFilesArgs) 
                 INS_UR_INGEST_SESSION_SQL, db_fs_path
             )
         })?;
+
     if cli.debug > 0 {
         println!("Walk Session: {ingest_session_id}");
     }
-
-    // We don't use an ORM and just use raw Rusqlite for highest performance.
-    // Use a scope to ensure all prepared SQL statements, which borrow `tx`` are dropped before committing the transaction.
     {
         let env_current_dir = std::env::current_dir()
             .unwrap()
             .to_string_lossy()
             .to_string();
 
-        let mut ingest_stmts = IngestContext::from_conn(&tx, ingest_args)
+        let mut ingest_stmts = IngestContext::from_conn(&tx, &ingest_args.state_db_fs_path)
             .with_context(|| format!("[ingest] ingest_stmts in {}", db_fs_path))?;
 
         for root_path in &fswb.root_fs_paths {
@@ -924,8 +904,8 @@ pub fn ingest(cli: &crate::cmd::Cli, ingest_args: &crate::cmd::IngestFilesArgs) 
 
             let resources = ResourcesCollection::from_smart_ignore(&rp, &rw_options, false);
             let mut urw_state = UniformResourceWriterState {
-                ingest_args,
-                ingest_behavior: &fswb,
+                state_db_fs_path: &db_fs_path,
+                ingest_behavior: Some(&fswb),
                 env_current_dir: &env_current_dir,
                 device_id: &device_id,
                 ingest_session_id: &ingest_session_id,
@@ -1046,7 +1026,6 @@ pub fn ingest(cli: &crate::cmd::Cli, ingest_args: &crate::cmd::IngestFilesArgs) 
             }
         }
     }
-
     match tx.execute(INS_UR_INGEST_SESSION_FINISH_SQL, params![ingest_session_id]) {
         Ok(_) => {}
         Err(err) => {
@@ -1059,6 +1038,204 @@ pub fn ingest(cli: &crate::cmd::Cli, ingest_args: &crate::cmd::IngestFilesArgs) 
     // putting everything inside a transaction improves performance significantly
     tx.commit()
         .with_context(|| format!("[ingest] unable to perform final commit in {}", db_fs_path))?;
+
+    Ok(ingest_session_id)
+}
+
+pub fn ingest_tasks(
+    cli: &crate::cmd::Cli,
+    ingest_args: &crate::cmd::IngestTasksArgs,
+) -> Result<String> {
+    let mut dbc = DbConn::new(&ingest_args.state_db_fs_path, cli.debug).with_context(|| {
+        format!(
+            "[ingest_tasks] SQLite transaction in {}",
+            ingest_args.state_db_fs_path
+        )
+    })?;
+    let db_fs_path = dbc.db_fs_path.clone();
+
+    // putting everything inside a transaction improves performance significantly
+    let tx = dbc.init(Some(&ingest_args.state_db_init_sql))?;
+    let (device_id, _device_name) = upserted_device(&tx, &crate::DEVICE).with_context(|| {
+        format!(
+            "[ingest_tasks] upserted_device {} in {}",
+            crate::DEVICE.name,
+            db_fs_path
+        )
+    })?;
+
+    let ingest_session_id: String = tx
+        .query_row(
+            INS_UR_INGEST_SESSION_SQL,
+            params![device_id, None::<String>, None::<String>],
+            |row| row.get(0),
+        )
+        .with_context(|| {
+            format!(
+                "[ingest_tasks] inserting UR walk session using {} in {}",
+                INS_UR_INGEST_SESSION_SQL, db_fs_path
+            )
+        })?;
+    if cli.debug > 0 {
+        println!("Walk Session: {ingest_session_id}");
+    }
+
+    let env_current_dir = std::env::current_dir()
+        .unwrap()
+        .to_string_lossy()
+        .to_string();
+    {
+        let mut ingest_stmts = IngestContext::from_conn(&tx, &ingest_args.state_db_fs_path)
+            .with_context(|| format!("[ingest_tasks] ingest_stmts in {}", db_fs_path))?;
+
+        let canonical_path = "cli-tasks".to_string();
+        let ins_ur_wsp_params = params![ingest_session_id, canonical_path];
+        let ingest_fs_path_id: String = ingest_stmts
+            .ins_ur_isfsp_stmt
+            .query_row(ins_ur_wsp_params, |row| row.get(0))
+            .with_context(|| {
+                format!(
+                    "[ingest_tasks] ins_ur_wsp_stmt {} with {} in {}",
+                    INS_UR_ISFSP_SQL, "TODO: ins_ur_wsp_params.join()", db_fs_path
+                )
+            })?;
+        if cli.debug > 0 {
+            println!("  Walk Session Path: {canonical_path} ({ingest_fs_path_id})");
+        }
+
+        let rw_options = ResourcesCollectionOptions {
+            ingest_content_regexs: vec![],
+            ignore_paths_regexs: vec![],
+            capturable_executables_regexs: vec![],
+            captured_exec_sql_regexs: vec![],
+            nature_bind: Default::default(),
+        };
+
+        let lines: Vec<_> = std::io::stdin()
+            .lines()
+            .map(Result::ok)
+            .map(|t| t.unwrap())
+            .collect();
+        println!("ingest_tasks\n{}", lines.join(", "));
+
+        let resources = ResourcesCollection::from_tasks_lines(&lines, &rw_options);
+        let mut urw_state = UniformResourceWriterState {
+            state_db_fs_path: &db_fs_path,
+            ingest_behavior: None,
+            env_current_dir: &env_current_dir,
+            device_id: &device_id,
+            ingest_session_id: &ingest_session_id,
+            ingest_fs_path_id: &ingest_fs_path_id,
+            resources: &resources,
+            ingest_stmts: &mut ingest_stmts,
+        };
+
+        for resource_result in resources.uniform_resources() {
+            match resource_result {
+                Ok(resource) => {
+                    let mut urw_entry = UniformResourceWriterEntry {
+                        path: Some(resource.uri()),
+                        tried_alternate_nature: None,
+                    };
+                    println!("{:?}", urw_entry.path);
+
+                    let inserted = resource.insert(&mut urw_state, &mut urw_entry);
+                    let mut ur_status = inserted.action.ur_status();
+                    let mut ur_diagnostics = inserted.action.ur_diagnostics();
+                    let mut captured_exec_diags: Option<String> = None;
+
+                    let uniform_resource_id = match &inserted.action {
+                        UniformResourceWriterAction::Inserted(ref uniform_resource_id, None) => {
+                            Some(uniform_resource_id)
+                        }
+                        UniformResourceWriterAction::InsertedExecutableOutput(
+                            ref uniform_resource_id,
+                            None,
+                            diags,
+                        ) => {
+                            captured_exec_diags =
+                                Some(serde_json::to_string_pretty(&diags).unwrap());
+                            Some(uniform_resource_id)
+                        }
+                        UniformResourceWriterAction::CapturedExecutableSqlOutput(
+                            ref sql_script,
+                            diags,
+                        ) => {
+                            captured_exec_diags =
+                                Some(serde_json::to_string_pretty(&diags).unwrap());
+                            match tx.execute_batch(sql_script) {
+                                Ok(_) => {
+                                    ur_status = Some(String::from("EXECUTED_CAPTURED_SQL"));
+                                    ur_diagnostics = Some(serde_json::to_string_pretty(&json!({
+                                            "instance": "UniformResourceWriterAction::CapturedExecutableSqlOutput(err)",
+                                            "SQL": sql_script
+                                        })).unwrap());
+                                    None
+                                }
+                                Err(err) => {
+                                    ur_status = Some(String::from("ERROR"));
+                                    ur_diagnostics = Some(serde_json::to_string_pretty(&json!({
+                                            "instance": "UniformResourceWriterAction::CapturedExecutableSqlOutput(err)",
+                                            "message": "Error executing batched SQL",
+                                            "error": err.to_string(),
+                                            "SQL": sql_script
+                                        })).unwrap());
+                                    None
+                                }
+                            }
+                        }
+                        _ => None,
+                    };
+
+                    // TODO: replace with proper table like `ur_*_task_entry`
+                    match urw_state
+                        .ingest_stmts
+                        .ins_ur_isfsp_entry_stmt
+                        .execute(params![
+                            ingest_session_id,
+                            ingest_fs_path_id,
+                            uniform_resource_id,
+                            urw_entry.path,
+                            urw_entry.path,
+                            urw_entry.path,
+                            urw_entry.path,
+                            String::from(""),
+                            ur_status,
+                            ur_diagnostics,
+                            captured_exec_diags
+                        ]) {
+                        Ok(_) => {}
+                        Err(err) => {
+                            eprintln!( "[ingest_tasks] unable to insert UR walk session path file system entry for {} in {}: {} ({})",
+                            &inserted.uri, db_fs_path, err, INS_UR_ISFSP_ENTRY_SQL
+                            )
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error processing a ingest_tasks resource: {}", e);
+                }
+            }
+        }
+    }
+
+    match tx.execute(INS_UR_INGEST_SESSION_FINISH_SQL, params![ingest_session_id]) {
+        Ok(_) => {}
+        Err(err) => {
+            eprintln!(
+                "[ingest_tasks] unable to execute SQL {} in {}: {}",
+                INS_UR_INGEST_SESSION_FINISH_SQL, db_fs_path, err
+            )
+        }
+    }
+
+    // putting everything inside a transaction improves performance significantly
+    tx.commit().with_context(|| {
+        format!(
+            "[ingest_tasks] unable to perform final commit in {}",
+            db_fs_path
+        )
+    })?;
 
     Ok(ingest_session_id)
 }

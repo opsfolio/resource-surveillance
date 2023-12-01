@@ -51,7 +51,7 @@ what will be ingested when you use the `ingest` command in the next section. Use
 `--dry-run` to see a summary of what files will be ingested.
 
 ```bash
-$ surveilr ingest files --dry-run                        # explain the `stats` subcommand
+$ surveilr ingest files --dry-run                        # show stats for CWD
 $ surveilr ingest files --dry-run -r /other -r /other2   # test some other director(ies)
 ```
 
@@ -72,12 +72,22 @@ $ export SURVEILR_STATEDB_FS_PATH="resource-surveillance-$(hostname).sqlite.db"
 
 Here's how you use the most common `ingest` patterns:
 
-```base
+```bash
 $ surveilr ingest files --help                 # explain the `ingest` subcommand
 $ surveilr ingest files                        # walk the current working directory (CWD)
 $ surveilr ingest files -r /other -r /other2   # walk some other director(ies)
 $ surveilr ingest files --stats                # walk the current working directory (CWD) show stats afterwards
 ```
+
+[EXPERIMENTAL #56] To execute commands and ingest their output:
+
+```bash
+$ echo "osqueryi \"select * from users\" --json" | surveilr ingest tasks
+```
+
+The `surveilr ingest tasks` accepts one or more lines of Deno Task Shell
+commands, executes them one by one, and inserts each output as JSON into
+`uniform_resource`.
 
 ## Merging multiple `RSSD`s into one using `surveilr` (`admin merge`)
 

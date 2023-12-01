@@ -273,7 +273,7 @@ pub struct IngestFilesArgs {
 pub struct IngestTasksArgs {
     /// target SQLite database
     #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
-    pub state_db_fs_path: Option<String>,
+    pub state_db_fs_path: String,
 
     /// one or more globs to match as SQL files and batch execute them in alpha order
     #[arg(short = 'I', long)]

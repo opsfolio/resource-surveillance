@@ -36,87 +36,111 @@ impl IngestCommands {
         }
     }
 
-    fn files(&self, cli: &super::Cli, args: &super::IngestFilesArgs) -> anyhow::Result<()> {
-        match crate::ingest::ingest(cli, args) {
-            Ok(ingest_session_id) => {
-                if args.stats || args.stats_json {
-                    if let Ok(conn) = Connection::open_with_flags(
-                        args.state_db_fs_path.clone(),
-                        OpenFlags::SQLITE_OPEN_READ_ONLY,
-                    ) {
-                        if args.stats_json {
-                            if let Ok(stats) =
-                                ingest_session_stats_latest(&conn, ingest_session_id.clone())
-                            {
-                                print!("{}", serde_json::to_string_pretty(&stats).unwrap())
-                            }
-                        }
+    fn session_stats(
+        &self,
+        state_db_fs_path: &str,
+        root_fs_path: &[String],
+        ingest_session_id: String,
+        stats: bool,
+        stats_json: bool,
+    ) {
+        if !stats && !stats_json {
+            return;
+        }
 
-                        if args.stats {
-                            let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
-                            ingest_session_stats(
-                                &conn,
-                                |_index,
-                                 root_path,
-                                 file_extension,
-                                 file_count,
-                                 with_content_count,
-                                 with_frontmatter_count| {
-                                    if args.root_fs_path.len() < 2 {
-                                        rows.push(vec![
-                                            file_extension,
-                                            file_count.to_string(),
-                                            with_content_count.to_string(),
-                                            with_frontmatter_count.to_string(),
-                                        ]);
-                                    } else {
-                                        rows.push(vec![
-                                            root_path,
-                                            file_extension,
-                                            file_count.to_string(),
-                                            with_content_count.to_string(),
-                                            with_frontmatter_count.to_string(),
-                                        ]);
-                                    }
-                                    Ok(())
-                                },
-                                ingest_session_id,
-                            )
-                            .unwrap();
-                            println!(
-                                "{}",
-                                if args.root_fs_path.len() < 2 {
-                                    crate::format::as_ascii_table(
-                                        &["Extn", "Count", "Content", "Frontmatter"],
-                                        &rows,
-                                    )
-                                } else {
-                                    crate::format::as_ascii_table(
-                                        &["Path", "Extn", "Count", "Content", "Frontmatter"],
-                                        &rows,
-                                    )
-                                }
-                            );
-                        }
-                    } else {
-                        println!(
-                            "Ingest files command requires a database: {}",
-                            args.state_db_fs_path
-                        );
-                    }
+        if let Ok(conn) =
+            Connection::open_with_flags(state_db_fs_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        {
+            if stats_json {
+                if let Ok(stats) = ingest_session_stats_latest(&conn, ingest_session_id.clone()) {
+                    print!("{}", serde_json::to_string_pretty(&stats).unwrap())
                 }
+            }
+
+            if stats {
+                let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
+                ingest_session_stats(
+                    &conn,
+                    |_index,
+                     root_path,
+                     file_extension,
+                     file_count,
+                     with_content_count,
+                     with_frontmatter_count| {
+                        if root_fs_path.len() < 2 {
+                            rows.push(vec![
+                                file_extension,
+                                file_count.to_string(),
+                                with_content_count.to_string(),
+                                with_frontmatter_count.to_string(),
+                            ]);
+                        } else {
+                            rows.push(vec![
+                                root_path,
+                                file_extension,
+                                file_count.to_string(),
+                                with_content_count.to_string(),
+                                with_frontmatter_count.to_string(),
+                            ]);
+                        }
+                        Ok(())
+                    },
+                    ingest_session_id,
+                )
+                .unwrap();
+                println!(
+                    "{}",
+                    if root_fs_path.len() < 2 {
+                        crate::format::as_ascii_table(
+                            &["Extn", "Count", "Content", "Frontmatter"],
+                            &rows,
+                        )
+                    } else {
+                        crate::format::as_ascii_table(
+                            &["Path", "Extn", "Count", "Content", "Frontmatter"],
+                            &rows,
+                        )
+                    }
+                );
+            }
+        } else {
+            println!(
+                "Ingest files command requires a database: {}",
+                state_db_fs_path
+            );
+        }
+    }
+
+    fn files(&self, cli: &super::Cli, args: &super::IngestFilesArgs) -> anyhow::Result<()> {
+        match crate::ingest::ingest_files(cli, args) {
+            Ok(ingest_session_id) => {
+                self.session_stats(
+                    &args.state_db_fs_path,
+                    &args.root_fs_path,
+                    ingest_session_id,
+                    args.stats,
+                    args.stats_json,
+                );
                 Ok(())
             }
             Err(err) => Err(err),
         }
     }
 
-    fn tasks(&self, _cli: &super::Cli, _args: &super::IngestTasksArgs) -> anyhow::Result<()> {
-        let lines = std::io::stdin().lines();
-        for line in lines {
-            println!("{}", line.unwrap());
+    fn tasks(&self, cli: &super::Cli, args: &super::IngestTasksArgs) -> anyhow::Result<()> {
+        match crate::ingest::ingest_tasks(cli, args) {
+            Ok(ingest_session_id) => {
+                self.session_stats(
+                    &args.state_db_fs_path,
+                    &["cli-tasks".to_string()],
+                    ingest_session_id,
+                    true,
+                    false,
+                );
+                Ok(())
+            }
+            Err(err) => Err(err),
         }
-        Ok(())
     }
 
     fn files_dry_run(

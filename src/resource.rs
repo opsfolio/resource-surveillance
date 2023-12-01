@@ -60,6 +60,7 @@ bitflags! {
         const IS_FILE                  = EncounteredResourceFlags::IGNORE_BY_NAME_REQUESTED.bits() << 1;
         const IS_DIRECTORY             = EncounteredResourceFlags::IS_FILE.bits() << 1;
         const IS_SYMLINK               = EncounteredResourceFlags::IS_DIRECTORY.bits() << 1;
+        const IS_DENO_TASK_SHELL_LINE  = EncounteredResourceFlags::IS_SYMLINK.bits() << 1;
 
         // there might be different types of "ignore" flags, create a union of
         // all ignores into one when you don't care which one is set.
@@ -262,6 +263,7 @@ pub struct EncounterableResourceOptions {
 #[derive(Debug)]
 pub struct EncounteredResourceMetaData {
     pub flags: EncounteredResourceFlags,
+    pub nature: Option<String>,
     pub file_size: u64,
     pub created_at: Option<chrono::prelude::DateTime<chrono::prelude::Utc>>,
     pub last_modified_at: Option<chrono::prelude::DateTime<chrono::prelude::Utc>>,
@@ -295,7 +297,12 @@ impl EncounteredResourceMetaData {
             }
         }
 
+        let nature = fs_path
+            .extension()
+            .map(|ext| ext.to_string_lossy().to_string());
+
         Ok(EncounteredResourceMetaData {
+            nature,
             flags,
             file_size,
             created_at,
@@ -324,7 +331,13 @@ impl EncounteredResourceMetaData {
             }
         };
 
+        let nature = vfs_path
+            .as_str()
+            .rsplit_once('.')
+            .map(|(_, ext)| ext.to_string());
+
         Ok(EncounteredResourceMetaData {
+            nature,
             flags,
             file_size: metadata.len,
             created_at: None,
@@ -448,6 +461,7 @@ pub enum EncounterableResource {
     WalkDir(walkdir::DirEntry),
     SmartIgnore(ignore::DirEntry),
     Vfs(vfs::VfsPath),
+    DenoTaskShellLine(String),
 }
 
 pub enum EncounteredResource<T> {
@@ -470,14 +484,7 @@ impl EncounterableResource {
             EncounterableResource::WalkDir(de) => de.path().to_string_lossy().to_string(),
             EncounterableResource::SmartIgnore(de) => de.path().to_string_lossy().to_string(),
             EncounterableResource::Vfs(path) => path.as_str().to_string(),
-        }
-    }
-
-    pub fn _path(&self) -> Option<&Path> {
-        match self {
-            EncounterableResource::WalkDir(de) => Some(de.path()),
-            EncounterableResource::SmartIgnore(de) => Some(de.path()),
-            EncounterableResource::Vfs(_path) => None,
+            EncounterableResource::DenoTaskShellLine(cmds) => cmds.as_str().to_string(),
         }
     }
 
@@ -490,6 +497,15 @@ impl EncounterableResource {
                 EncounteredResourceMetaData::from_fs_path(de.path())
             }
             EncounterableResource::Vfs(path) => EncounteredResourceMetaData::from_vfs_path(path),
+            EncounterableResource::DenoTaskShellLine(_) => Ok(EncounteredResourceMetaData {
+                flags: EncounteredResourceFlags::from_bits_retain(
+                    EncounteredResourceFlags::IS_DENO_TASK_SHELL_LINE.bits(),
+                ),
+                nature: Some("json".to_string()),
+                file_size: 0,
+                created_at: None,
+                last_modified_at: None,
+            }),
         }
     }
 
@@ -507,6 +523,10 @@ impl EncounterableResource {
             EncounterableResource::Vfs(path) => {
                 EncounteredResourceContentSuppliers::from_vfs_path(path, options)
             }
+            EncounterableResource::DenoTaskShellLine(_) => EncounteredResourceContentSuppliers {
+                text: None,
+                binary: None,
+            },
         }
     }
 
@@ -520,6 +540,14 @@ impl EncounterableResource {
                 ce_rules.path_capturable_executable(de.path())
             }
             EncounterableResource::Vfs(path) => ce_rules.uri_capturable_executable(path.as_str()),
+            EncounterableResource::DenoTaskShellLine(dts_cmds) => {
+                Some(CapturableExecutable::UriShellExecutive(
+                    Box::new(DenoTaskShellExecutive::new(dts_cmds.clone())),
+                    dts_cmds.clone(),
+                    "json".to_string(),
+                    false,
+                ))
+            }
         }
     }
 
@@ -537,8 +565,11 @@ impl EncounterableResource {
 
         let metadata = match self.meta_data() {
             Ok(metadata) => {
-                // TODO: what about symlinks?
-                if !metadata.flags.contains(EncounteredResourceFlags::IS_FILE) {
+                if !metadata
+                    .flags
+                    .contains(EncounteredResourceFlags::IS_DENO_TASK_SHELL_LINE)
+                    && !metadata.flags.contains(EncounteredResourceFlags::IS_FILE)
+                {
                     return EncounteredResource::NotFile(uri);
                 }
                 metadata
@@ -547,13 +578,12 @@ impl EncounterableResource {
         };
 
         // typically the nature is a the file's extension
-        let nature = uri.rsplit_once('.').map(|(_, ext)| ext.to_string());
         let content_suppliers = self.content_suppliers(options);
 
         EncounteredResource::Resource(ContentResource {
             flags: ContentResourceFlags::from_bits_truncate(options.flags.bits()),
             uri: uri.to_string(),
-            nature,
+            nature: metadata.nature,
             size: Some(metadata.file_size),
             created_at: metadata.created_at,
             last_modified_at: metadata.last_modified_at,
@@ -933,6 +963,21 @@ impl ResourcesCollection {
         )
     }
 
+    // create a ignore::Walk instance which is a "smart" ignore because it honors .gitigore and .ignore
+    // files in the walk path as well as the ignore and other directives passed in via options
+    pub fn from_tasks_lines(
+        tasks: &[String],
+        options: &ResourcesCollectionOptions,
+    ) -> ResourcesCollection {
+        let encounterable: Vec<_> = tasks
+            .iter()
+            .cloned()
+            .map(EncounterableResource::DenoTaskShellLine)
+            .collect();
+
+        ResourcesCollection::new(encounterable, options)
+    }
+
     pub fn ignored(&self) -> impl Iterator<Item = &EncounterableResource> + '_ {
         self.encounterable
             .iter()
@@ -960,20 +1005,7 @@ impl ResourcesCollection {
 
             match &initial_guess {
                 EncounteredResource::Resource(cr) => {
-                    if let Some(executable) = match er {
-                        EncounterableResource::WalkDir(de) => {
-                            // this strictly checks that path is executable
-                            self.ce_rules.path_capturable_executable(de.path())
-                        }
-                        EncounterableResource::SmartIgnore(de) => {
-                            // this strictly checks that path is executable
-                            self.ce_rules.path_capturable_executable(de.path())
-                        }
-                        EncounterableResource::Vfs(path) => {
-                            // this only checks that naming rules are satisfied
-                            self.ce_rules.uri_capturable_executable(path.as_str())
-                        }
-                    } {
+                    if let Some(executable) = er.capturable_executable(&self.ce_rules) {
                         EncounteredResource::CapturableExec(
                             ContentResource {
                                 flags: cr.flags,
