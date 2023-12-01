@@ -13,13 +13,12 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr capturable-exec ls`↴](#surveilr-capturable-exec-ls)
 * [`surveilr capturable-exec test`↴](#surveilr-capturable-exec-test)
 * [`surveilr ingest`↴](#surveilr-ingest)
+* [`surveilr ingest files`↴](#surveilr-ingest-files)
 * [`surveilr notebooks`↴](#surveilr-notebooks)
 * [`surveilr notebooks cat`↴](#surveilr-notebooks-cat)
 * [`surveilr notebooks ls`↴](#surveilr-notebooks-ls)
 * [`surveilr shell`↴](#surveilr-shell)
 * [`surveilr shell json`↴](#surveilr-shell-json)
-* [`surveilr walker`↴](#surveilr-walker)
-* [`surveilr walker stats`↴](#surveilr-walker-stats)
 
 ## `surveilr`
 
@@ -32,7 +31,6 @@ This document contains the help content for the `surveilr` command-line program.
 * `ingest` — Ingest content from device file system and other sources
 * `notebooks` — Notebooks maintenance utilities
 * `shell` — Deno Task Shell utilities
-* `walker` — Virtual File System (VFS) utilities
 
 ###### **Options:**
 
@@ -162,10 +160,23 @@ test capturable executables
 
 Ingest content from device file system and other sources
 
-**Usage:** `surveilr ingest [OPTIONS]`
+**Usage:** `surveilr ingest <COMMAND>`
+
+###### **Subcommands:**
+
+* `files` — Ingest content from device file system and other sources
+
+
+
+## `surveilr ingest files`
+
+Ingest content from device file system and other sources
+
+**Usage:** `surveilr ingest files [OPTIONS]`
 
 ###### **Options:**
 
+* `--dry-run` — don't run the ingestion, just report statistics
 * `-b`, `--behavior <BEHAVIOR>` — the behavior name in `behavior` table
 * `-r`, `--root-fs-path <ROOT_FS_PATH>` — one or more root paths to ingest
 
@@ -173,9 +184,6 @@ Ingest content from device file system and other sources
 * `-i`, `--ignore-fs-entry <IGNORE_FS_ENTRY>` — reg-exes to use to ignore files in root-path(s)
 
   Default value: `/(\.git|node_modules)/`
-* `--compute-fs-content-digests <COMPUTE_FS_CONTENT_DIGESTS>` — reg-exes to use to compute digests for
-
-  Default value: `.*`
 * `--surveil-fs-content <SURVEIL_FS_CONTENT>` — reg-exes to use to load content for entry instead of just walking
 
   Default values: `\.(md|mdx|html|json|jsonc|tap|txt|text|toml|yaml)$`, `surveilr\[(?P<nature>[^\]]*)\]`
@@ -185,8 +193,6 @@ Ingest content from device file system and other sources
 * `--captured-fs-exec-sql <CAPTURED_FS_EXEC_SQL>` — reg-exes that will signify which captured executables' output should be treated as batch SQL
 
   Default value: `surveilr-SQL`
-* `-n`, `--notebook <NOTEBOOK>` — search cells in these notebooks (include % for LIKE otherwise =)
-* `-c`, `--cell <CELL>` — use these cells' content as ingestion code (include % for LIKE otherwise =)
 * `-N`, `--nature-bind <NATURE_BIND>` — bind an unknown nature (file extension), the key, to a known nature the value "text=text/plain,yaml=application/yaml"
 * `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
 
@@ -270,59 +276,6 @@ Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manu
 * `-s`, `--stdout-only` — emit stdout only, without the exec status code and stderr
 
   Default value: `false`
-
-
-
-## `surveilr walker`
-
-Virtual File System (VFS) utilities
-
-**Usage:** `surveilr walker <COMMAND>`
-
-###### **Subcommands:**
-
-* `stats` — List the ingestable entries
-
-
-
-## `surveilr walker stats`
-
-List the ingestable entries
-
-**Usage:** `surveilr walker stats [OPTIONS]`
-
-###### **Options:**
-
-* `-b`, `--behavior <BEHAVIOR>` — the behavior name in `behavior` table
-* `-r`, `--root-fs-path <ROOT_FS_PATH>` — one or more root paths to ingest
-
-  Default value: `.`
-* `-i`, `--ignore-fs-entry <IGNORE_FS_ENTRY>` — reg-exes to use to ignore files in root-path(s)
-
-  Default value: `/(\.git|node_modules)/`
-* `--compute-fs-content-digests <COMPUTE_FS_CONTENT_DIGESTS>` — reg-exes to use to compute digests for
-
-  Default value: `.*`
-* `--surveil-fs-content <SURVEIL_FS_CONTENT>` — reg-exes to use to load content for entry instead of just walking
-
-  Default values: `\.(md|mdx|html|json|jsonc|tap|txt|text|toml|yaml)$`, `surveilr\[(?P<nature>[^\]]*)\]`
-* `--capture-fs-exec <CAPTURE_FS_EXEC>` — reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
-
-  Default value: `surveilr\[(?P<nature>[^\]]*)\]`
-* `--captured-fs-exec-sql <CAPTURED_FS_EXEC_SQL>` — reg-exes that will signify which captured executables' output should be treated as batch SQL
-
-  Default value: `surveilr-SQL`
-* `-n`, `--notebook <NOTEBOOK>` — search cells in these notebooks (include % for LIKE otherwise =)
-* `-c`, `--cell <CELL>` — use these cells' content as ingestion code (include % for LIKE otherwise =)
-* `-N`, `--nature-bind <NATURE_BIND>` — bind an unknown nature (file extension), the key, to a known nature the value "text=text/plain,yaml=application/yaml"
-* `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
-
-  Default value: `resource-surveillance.sqlite.db`
-* `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
-* `--include-state-db-in-ingestion` — include the surveil database in the ingestion candidates
-* `--stats` — show stats as an ASCII table after completion
-* `--stats-json` — show stats in JSON after completion
-* `--save-behavior <SAVE_BEHAVIOR>` — save the options as a new behavior
 
 
 

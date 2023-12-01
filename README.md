@@ -44,22 +44,18 @@ provides. Though [CLI Help](support/docs/CLI-help.md) is a good reference, it's
 best to depend on `surveilr --help` and `surveilr <command> --help` because it
 will more accurate for the latest version.
 
-## Checking what can be "walked" in the file system `walker`
+## Checking what can be "walked" in the file system
 
 Before you do any ingestion into SQLite `RSSD`s, you can get some statistics on
-what will be ingested when you use the `ingest` command in the next section.
+what will be ingested when you use the `ingest` command in the next section. Use
+`--dry-run` to see a summary of what files will be ingested.
 
 ```bash
-$ surveilr walker stats --help                 # explain the `stats` subcommand
-$ surveilr walker stats                        # walk the current working directory (CWD)
-$ surveilr walker stats -r /other -r /other2   # walk some other director(ies)
+$ surveilr ingest files --dry-run                        # explain the `stats` subcommand
+$ surveilr ingest files --dry-run -r /other -r /other2   # test some other director(ies)
 ```
 
-The `surveilr ingest` and `surveilr walker` commands both have similar
-arguments. The difference is that `surveilr walker` is a sort of "dry run" to
-check what will be ingested before you do the ingestion.
-
-## Creating `RSSD`s by "walking" the file system (`ingest`)
+## Creating `RSSD`s by "walking" the file system
 
 Unless you set the `SURVEILR_STATEDB_FS_PATH` env var, the default _Resource
 Surveillance State Database_ ("RSSD") will be `resource-surveillance.sqlite.db`.
@@ -77,10 +73,10 @@ $ export SURVEILR_STATEDB_FS_PATH="resource-surveillance-$(hostname).sqlite.db"
 Here's how you use the most common `ingest` patterns:
 
 ```base
-$ surveilr ingest --help                 # explain the `ingest` subcommand
-$ surveilr ingest                        # walk the current working directory (CWD)
-$ surveilr ingest -r /other -r /other2   # walk some other director(ies)
-$ surveilr ingest --stats                # walk the current working directory (CWD) show stats afterwards
+$ surveilr ingest files --help                 # explain the `ingest` subcommand
+$ surveilr ingest files                        # walk the current working directory (CWD)
+$ surveilr ingest files -r /other -r /other2   # walk some other director(ies)
+$ surveilr ingest files --stats                # walk the current working directory (CWD) show stats afterwards
 ```
 
 ## Merging multiple `RSSD`s into one using `surveilr` (`admin merge`)

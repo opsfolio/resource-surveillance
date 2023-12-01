@@ -8,7 +8,6 @@ pub mod admin;
 pub mod capexec;
 pub mod ingest;
 pub mod notebooks;
-pub mod rwalk;
 pub mod shell;
 
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
@@ -50,7 +49,6 @@ pub enum CliCommands {
     Ingest(IngestArgs),
     Notebooks(NotebooksArgs),
     Shell(ShellArgs),
-    Walker(WalkerArgs),
 }
 
 /// Admin / maintenance utilities
@@ -179,6 +177,17 @@ pub enum CapturableExecCommands {
 /// Ingest content from device file system and other sources
 #[derive(Debug, Serialize, Args)]
 pub struct IngestArgs {
+    #[command(subcommand)]
+    pub command: IngestCommands,
+}
+
+/// Ingest content from device file system and other sources
+#[derive(Debug, Serialize, Args)]
+pub struct IngestFilesArgs {
+    /// don't run the ingestion, just report statistics
+    #[arg(long)]
+    pub dry_run: bool,
+
     /// the behavior name in `behavior` table
     #[arg(short, long, env = "SURVEILR_INGEST_BEHAVIOR_NAME")]
     pub behavior: Option<String>,
@@ -196,11 +205,6 @@ pub struct IngestArgs {
         default_missing_value = "always"
     )]
     pub ignore_fs_entry: Vec<Regex>,
-
-    /// reg-exes to use to compute digests for
-    #[serde(with = "serde_regex")]
-    #[arg(long, default_value = ".*", default_missing_value = "always")]
-    pub compute_fs_content_digests: Vec<Regex>,
 
     /// reg-exes to use to load content for entry instead of just walking
     #[serde(with = "serde_regex")]
@@ -234,14 +238,6 @@ pub struct IngestArgs {
     )]
     pub captured_fs_exec_sql: Vec<regex::Regex>,
 
-    /// search cells in these notebooks (include % for LIKE otherwise =)
-    #[arg(short, long)]
-    pub notebook: Vec<String>,
-
-    /// use these cells' content as ingestion code (include % for LIKE otherwise =)
-    #[arg(short, long)]
-    pub cell: Vec<String>,
-
     /// bind an unknown nature (file extension), the key, to a known nature the value
     /// "text=text/plain,yaml=application/yaml"
     #[arg(short = 'N', long, value_parser=parse_key_val)]
@@ -270,6 +266,12 @@ pub struct IngestArgs {
     /// save the options as a new behavior
     #[arg(long)]
     pub save_behavior: Option<String>,
+}
+
+/// Ingest content from device file system and other sources
+#[derive(Debug, Serialize, Subcommand)]
+pub enum IngestCommands {
+    Files(IngestFilesArgs),
 }
 
 /// Notebooks maintenance utilities
@@ -337,28 +339,14 @@ pub enum ShellCommands {
     },
 }
 
-/// Virtual File System (VFS) utilities
-#[derive(Debug, Serialize, Args)]
-pub struct WalkerArgs {
-    #[command(subcommand)]
-    pub command: WalkerCommands,
-}
-
-#[derive(Debug, Serialize, Subcommand)]
-pub enum WalkerCommands {
-    /// List the ingestable entries
-    Stats(IngestArgs),
-}
-
 impl CliCommands {
     pub fn execute(&self, cli: &Cli) -> anyhow::Result<()> {
         match self {
             CliCommands::Admin(args) => args.command.execute(cli, args),
             CliCommands::CapturableExec(args) => args.command.execute(cli, args),
-            CliCommands::Ingest(args) => args.execute(cli),
+            CliCommands::Ingest(args) => args.command.execute(cli, args),
             CliCommands::Notebooks(args) => args.command.execute(cli, args),
             CliCommands::Shell(args) => args.command.execute(cli, args),
-            CliCommands::Walker(args) => args.command.execute(cli, args),
         }
     }
 }

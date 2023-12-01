@@ -44,7 +44,7 @@ const INS_UR_ISFSP_ENTRY_SQL: &str = indoc! {"
                                            VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"};
 
 pub struct UniformResourceWriterState<'a, 'conn> {
-    ingest_args: &'a crate::cmd::IngestArgs,
+    ingest_args: &'a crate::cmd::IngestFilesArgs,
     env_current_dir: &'a String,
     ingest_behavior: &'a IngestBehavior,
     device_id: &'a String,
@@ -619,23 +619,18 @@ pub struct IngestBehavior {
     pub ingest_content_fs_entry_regexs: Vec<regex::Regex>,
 
     #[serde(with = "serde_regex")]
-    pub compute_digests_fs_entry_regexs: Vec<regex::Regex>,
-
-    #[serde(with = "serde_regex")]
     pub capturable_executables_fs_entry_regexs: Vec<regex::Regex>,
 
     #[serde(with = "serde_regex")]
     pub captured_exec_sql_fs_entry_regexs: Vec<regex::Regex>,
 
-    pub code_notebooks_searched: Vec<String>,
-    pub code_notebook_cells_searched: Vec<String>,
     pub nature_bind: HashMap<String, String>,
 }
 
 impl IngestBehavior {
     pub fn new(
         device_id: &String,
-        fsw_args: &crate::cmd::IngestArgs,
+        fsw_args: &crate::cmd::IngestFilesArgs,
         conn: &Connection,
     ) -> anyhow::Result<(Self, Option<String>)> {
         if let Some(behavior_name) = &fsw_args.behavior {
@@ -668,7 +663,7 @@ impl IngestBehavior {
         }
     }
 
-    pub fn from_ingest_args(args: &crate::cmd::IngestArgs) -> Self {
+    pub fn from_ingest_args(args: &crate::cmd::IngestFilesArgs) -> Self {
         let mut nature_bind: HashMap<String, String> =
             if let Some(supplied_binds) = &args.nature_bind {
                 supplied_binds.clone()
@@ -688,12 +683,9 @@ impl IngestBehavior {
         IngestBehavior {
             root_fs_paths: args.root_fs_path.clone(),
             ingest_content_fs_entry_regexs: args.surveil_fs_content.clone(),
-            compute_digests_fs_entry_regexs: args.compute_fs_content_digests.clone(),
             ignore_fs_entry_regexs: args.ignore_fs_entry.clone(),
             capturable_executables_fs_entry_regexs: args.capture_fs_exec.clone(),
             captured_exec_sql_fs_entry_regexs: args.captured_fs_exec_sql.clone(),
-            code_notebooks_searched: args.notebook.clone(),
-            code_notebook_cells_searched: args.cell.clone(),
             nature_bind,
         }
     }
@@ -760,7 +752,7 @@ impl IngestBehavior {
     }
 }
 
-pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestArgs) -> Result<String> {
+pub fn ingest(cli: &crate::cmd::Cli, fsw_args: &crate::cmd::IngestFilesArgs) -> Result<String> {
     let db_fs_path = &fsw_args.state_db_fs_path;
 
     if cli.debug > 0 {
