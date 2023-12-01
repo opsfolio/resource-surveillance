@@ -79,15 +79,61 @@ $ surveilr ingest files -r /other -r /other2   # walk some other director(ies)
 $ surveilr ingest files --stats                # walk the current working directory (CWD) show stats afterwards
 ```
 
-[EXPERIMENTAL #56] To execute commands and ingest their output:
+## Creating `RSSD`s by executing shell tasks
+
+The `surveilr ingest tasks` commands accepts one or more lines of Deno Task
+Shell commands / tasks through STDIN, executes them one by one, and inserts each
+output as JSON into `uniform_resource`.
+
+Each line in STDIN can be one of the following:
+
+- **Simple text**. A line of text that is not in `JSONL` format will be treated
+  as an "anonymous" (unidentified) command string, executed with the assumption
+  that the command output is in JSON, and stored in `uniform_resource`.
+- **JSONL**. A line of text that is in `JSONL` format will be treated as an JSON
+  object of the type `{ key: string, nature?: string }`, parsed, the value of
+  `key` is executed, and stored in `uniform_resource` using `key` is the
+  identifier with an optional `nature`. If `nature` is not supplied, the output
+  of the command is assumed to be JSON.
+
+Examples:
 
 ```bash
+# single command without identifier or nature, surveilr expects JSON
 $ echo "osqueryi \"select * from users\" --json" | surveilr ingest tasks
-```
 
-The `surveilr ingest tasks` accepts one or more lines of Deno Task Shell
-commands, executes them one by one, and inserts each output as JSON into
-`uniform_resource`.
+# single command with identifier and nature
+$ echo "{ \"my-osquery-test\": \"osqueryi 'select * from users'\", \"nature\": \"txt\" }" | surveilr ingest tasks
+
+# multiple commands whether each line can be a JSONL formatted object;
+# the following runs Deno to grab a locak package.json file, extract all scripts
+# starting with `surveilr-` and sends them to surveilr to execute and store.
+$ deno eval "Deno.readTextFile('package.json').then(text => { \
+      const data = JSON.parse(text);                          \
+      console.log(                                            \
+        Object.entries(data.scripts ?? {})                    \
+          .filter(([k]) => k.startsWith('surveilr-'))         \
+          .map(([k, v]) => ({ [k]: v }))                      \
+          .map((line) => JSON.stringify(line)).join('\n'),    \
+      )                                                       \
+    }).catch((err) => console.error(err));"                   \
+  | surveilr ingest tasks
+
+# multiple commands whether each line can be a JSONL formatted object;
+# the following runs Deno to grab a remote deno.jsonc file, extract all tasks
+# starting with `surveilr-` and sends them to surveilr to execute and store.
+$ deno eval "fetch(                                                                  \
+      'https://raw.githubusercontent.com/netspective-labs/sql-aide/main/deno.jsonc', \
+    ).then((res) => res.json()).then((data) =>                                       \
+      console.log(                                                                   \
+        Object.entries(data.tasks ?? {})                                             \
+          .filter(([k]) => k.startsWith('surveilr-'))                                \
+          .map(([k, v]) => ({ [k]: v }))                                             \
+          .map((line) => JSON.stringify(line)).join('\n'),                           \
+      )                                                                              \
+    ).catch((err) => console.error(err));"                                           \
+  | surveilr ingest tasks
+```
 
 ## Merging multiple `RSSD`s into one using `surveilr` (`admin merge`)
 

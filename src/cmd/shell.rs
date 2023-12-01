@@ -28,9 +28,9 @@ impl ShellCommands {
 
         let stdin = crate::shell::ShellStdIn::None;
         let ce = CapturableExecutable::UriShellExecutive(
-            Box::new(DenoTaskShellExecutive::new(command.to_string())),
+            Box::new(DenoTaskShellExecutive::new(command.to_owned(), None)),
             format!("cli://shell/result/{}", command),
-            String::from("json"),
+            "json".to_owned(),
             false,
         );
 

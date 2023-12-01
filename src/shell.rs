@@ -175,11 +175,13 @@ impl ShellExecutive for String {
 /// command and returns the exit code, stdout, and stderr outputs.
 pub struct DenoTaskShellExecutive {
     // the parseable Deno Task Shell command text to execute
-    command: String,
+    pub command: String,
     // Environment variables to be used for commands.
-    env_vars: HashMap<String, String>,
+    pub env_vars: HashMap<String, String>,
     // An optional working directory to execute commands in (defaults to env::current_dir).
-    cwd: PathBuf,
+    pub cwd: PathBuf,
+    // An optional identity if we need to persist the output
+    pub identity: Option<String>,
 }
 
 impl DenoTaskShellExecutive {
@@ -187,7 +189,7 @@ impl DenoTaskShellExecutive {
     ///
     /// It initializes environment variables from the current process environment.
     /// Custom commands and temporary directory are not set by default.
-    pub fn new(command: String) -> Self {
+    pub fn new(command: String, identity: Option<String>) -> Self {
         let env_vars = std::env::vars()
             .map(|(key, value)| {
                 // For some very strange reason, key will sometimes be cased as "Path"
@@ -206,6 +208,7 @@ impl DenoTaskShellExecutive {
             command,
             cwd: std::env::current_dir().unwrap_or(std::env::temp_dir()),
             env_vars,
+            identity,
         }
     }
 
@@ -249,29 +252,37 @@ impl ShellExecutive for DenoTaskShellExecutive {
         }
 
         RUNTIME.block_on(async {
-            let list = parse(&self.command).unwrap();
+            match parse(&self.command) {
+                Ok(list) => {
+                    let (stdin, mut stdin_writer) = pipe();
+                    stdin_writer.write_all(&ce_stdin.bytes()).unwrap();
+                    drop(stdin_writer); // prevent a deadlock by dropping the writer
 
-            let (stdin, mut stdin_writer) = pipe();
-            stdin_writer.write_all(&ce_stdin.bytes()).unwrap();
-            drop(stdin_writer); // prevent a deadlock by dropping the writer
+                    let (stdout, stdout_handle) = get_output_writer_and_handle();
+                    let (stderr, stderr_handle) = get_output_writer_and_handle();
 
-            let (stdout, stdout_handle) = get_output_writer_and_handle();
-            let (stderr, stderr_handle) = get_output_writer_and_handle();
+                    let local_set = tokio::task::LocalSet::new();
+                    let state =
+                        ShellState::new(self.env_vars.clone(), &self.cwd, Default::default());
+                    let status = local_set
+                        .run_until(execute_with_pipes(list, state, stdin, stdout, stderr))
+                        .await;
 
-            let local_set = tokio::task::LocalSet::new();
-            let state = ShellState::new(self.env_vars.clone(), &self.cwd, Default::default());
-            let status = local_set
-                .run_until(execute_with_pipes(list, state, stdin, stdout, stderr))
-                .await;
+                    let stderr = stderr_handle.await.unwrap();
+                    let stdout = stdout_handle.await.unwrap();
 
-            let stderr = stderr_handle.await.unwrap();
-            let stdout = stdout_handle.await.unwrap();
-
-            Ok(ShellResult {
-                status: ExitStatus::Exited(status as u32),
-                stderr,
-                stdout,
-            })
+                    Ok(ShellResult {
+                        status: ExitStatus::Exited(status as u32),
+                        stderr,
+                        stdout,
+                    })
+                }
+                Err(err) => Ok(ShellResult {
+                    status: ExitStatus::Undetermined,
+                    stderr: format!("{err:?}"),
+                    stdout: String::new(),
+                }),
+            }
         })
     }
 }
@@ -288,7 +299,7 @@ mod tests {
     #[test]
     fn test_command_execution() {
         let shell_result_supplier =
-            DenoTaskShellExecutive::new(r#"echo "Hello, world!" | cat"#.to_string());
+            DenoTaskShellExecutive::new(r#"echo "Hello, world!" | cat"#.to_string(), None);
         let result = shell_result_supplier.execute(ShellStdIn::None).unwrap();
 
         assert_eq!(result.status, subprocess::ExitStatus::Exited(0)); // Assuming 0 is the success code
@@ -299,7 +310,8 @@ mod tests {
     #[test]
     fn test_environment_variable_handling() {
         // Set an environment variable and check if it's correctly passed
-        let mut shell_result_supplier = DenoTaskShellExecutive::new("echo $TEST_VAR".to_string());
+        let mut shell_result_supplier =
+            DenoTaskShellExecutive::new("echo $TEST_VAR".to_string(), Some("test-ID".to_owned()));
         shell_result_supplier
             .env_vars
             .insert("TEST_VAR".to_string(), "123".to_string());

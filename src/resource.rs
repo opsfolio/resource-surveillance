@@ -461,7 +461,57 @@ pub enum EncounterableResource {
     WalkDir(walkdir::DirEntry),
     SmartIgnore(ignore::DirEntry),
     Vfs(vfs::VfsPath),
-    DenoTaskShellLine(String, String),
+    DenoTaskShellLine(String, Option<String>, String),
+}
+
+impl EncounterableResource {
+    /// Parses a given string input as a JSON value and returns a DenoTaskShellLine.
+    ///
+    /// # Arguments
+    ///
+    /// * `line` - A string slice that represents either a JSON object or a plain text.
+    ///
+    /// # Returns
+    ///
+    /// DenoTaskShellLine:
+    /// - The first string value found in the JSON object, or the entire input string if not a JSON object.
+    /// - An `Option<String>` containing the key corresponding to the first string value, or `None` if the input is not a JSON object or doesn't contain a string value.
+    /// - A string that is either `"json"` or the value of the `"nature"` key in the JSON object, if present.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let json_str = r#"{ "key1": "value1", "nature": "example" }"#;
+    /// let result = dts_er(json_str);
+    /// assert_eq!(result, ("value1".to_string(), Some("key1".to_string()), "example".to_string()));
+    ///
+    /// let non_json_str = "Hello, world!";
+    /// let result = dts_er(non_json_str);
+    /// assert_eq!(result, ("Hello, world!".to_string(), None, "json".to_string()));
+    /// ```
+    pub fn from_deno_task_shell_line(line: impl AsRef<str>) -> EncounterableResource {
+        let (commands, identity, nature) = match serde_json::from_str::<JsonValue>(line.as_ref()) {
+            Ok(parsed) => {
+                if let Some(obj) = parsed.as_object() {
+                    if let Some((key, value)) = obj.iter().find(|(_, v)| v.is_string()) {
+                        let value_str = value.as_str().unwrap().to_owned();
+                        let nature = obj
+                            .get("nature")
+                            .and_then(JsonValue::as_str)
+                            .map(|s| s.to_owned())
+                            .unwrap_or("json".to_owned());
+                        (value_str, Some(key.clone()), nature)
+                    } else {
+                        (line.as_ref().to_owned(), None, "json".to_owned())
+                    }
+                } else {
+                    (line.as_ref().to_owned(), None, "json".to_owned())
+                }
+            }
+            Err(_) => (line.as_ref().to_owned(), None, "json".to_owned()),
+        };
+        EncounterableResource::DenoTaskShellLine(commands, identity, nature)
+    }
 }
 
 pub enum EncounteredResource<T> {
@@ -484,7 +534,9 @@ impl EncounterableResource {
             EncounterableResource::WalkDir(de) => de.path().to_string_lossy().to_string(),
             EncounterableResource::SmartIgnore(de) => de.path().to_string_lossy().to_string(),
             EncounterableResource::Vfs(path) => path.as_str().to_string(),
-            EncounterableResource::DenoTaskShellLine(line, _) => line.as_str().to_string(),
+            EncounterableResource::DenoTaskShellLine(line, identity, _) => {
+                identity.to_owned().unwrap_or(line.as_str().to_string())
+            }
         }
     }
 
@@ -497,7 +549,7 @@ impl EncounterableResource {
                 EncounteredResourceMetaData::from_fs_path(de.path())
             }
             EncounterableResource::Vfs(path) => EncounteredResourceMetaData::from_vfs_path(path),
-            EncounterableResource::DenoTaskShellLine(_, nature) => {
+            EncounterableResource::DenoTaskShellLine(_, _, nature) => {
                 Ok(EncounteredResourceMetaData {
                     flags: EncounteredResourceFlags::from_bits_retain(
                         EncounteredResourceFlags::IS_DENO_TASK_SHELL_LINE.bits(),
@@ -525,10 +577,12 @@ impl EncounterableResource {
             EncounterableResource::Vfs(path) => {
                 EncounteredResourceContentSuppliers::from_vfs_path(path, options)
             }
-            EncounterableResource::DenoTaskShellLine(_, _) => EncounteredResourceContentSuppliers {
-                text: None,
-                binary: None,
-            },
+            EncounterableResource::DenoTaskShellLine(_, _, _) => {
+                EncounteredResourceContentSuppliers {
+                    text: None,
+                    binary: None,
+                }
+            }
         }
     }
 
@@ -542,9 +596,12 @@ impl EncounterableResource {
                 ce_rules.path_capturable_executable(de.path())
             }
             EncounterableResource::Vfs(path) => ce_rules.uri_capturable_executable(path.as_str()),
-            EncounterableResource::DenoTaskShellLine(line, nature) => {
+            EncounterableResource::DenoTaskShellLine(line, identity, nature) => {
                 Some(CapturableExecutable::UriShellExecutive(
-                    Box::new(DenoTaskShellExecutive::new(line.clone())),
+                    Box::new(DenoTaskShellExecutive::new(
+                        line.clone(),
+                        identity.to_owned(),
+                    )),
                     line.clone(),
                     nature.to_string(),
                     false,
@@ -970,12 +1027,11 @@ impl ResourcesCollection {
     pub fn from_tasks_lines(
         tasks: &[String],
         options: &ResourcesCollectionOptions,
-        nature: &str,
     ) -> ResourcesCollection {
         let encounterable: Vec<_> = tasks
             .iter()
             .cloned()
-            .map(|line| EncounterableResource::DenoTaskShellLine(line, nature.to_string()))
+            .map(EncounterableResource::from_deno_task_shell_line)
             .collect();
 
         ResourcesCollection::new(encounterable, options)
@@ -1011,6 +1067,7 @@ impl ResourcesCollection {
                     if let Some(executable) = er.capturable_executable(&self.ce_rules) {
                         let ercs = er.content_suppliers(&ero);
                         // TODO: implement a Copy / Clone trait so we don't do this manually here
+                        // TODO: we should just use cr.to_owned() or .as_ref().to_owned() or similar?
                         EncounteredResource::CapturableExec(
                             ContentResource {
                                 flags: cr.flags,

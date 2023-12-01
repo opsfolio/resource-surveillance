@@ -1131,9 +1131,8 @@ pub fn ingest_tasks(
             .map(Result::ok)
             .map(|t| t.unwrap())
             .collect();
-        println!("ingest_tasks\n{}", lines.join(", "));
 
-        let resources = ResourcesCollection::from_tasks_lines(&lines, &rw_options, "json");
+        let resources = ResourcesCollection::from_tasks_lines(&lines, &rw_options);
         let mut urw_state = UniformResourceWriterState {
             state_db_fs_path: &db_fs_path,
             ingest_behavior: None,
@@ -1152,7 +1151,9 @@ pub fn ingest_tasks(
                         path: Some(resource.uri()),
                         tried_alternate_nature: None,
                     };
-                    println!("{:?}", urw_entry.path);
+                    if cli.debug > 0 {
+                        println!("{:?}", urw_entry.path);
+                    }
 
                     let inserted = resource.insert(&mut urw_state, &mut urw_entry);
                     let mut ur_status = inserted.action.ur_status();
