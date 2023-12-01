@@ -397,7 +397,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     content: gd.blobTextNullable(),
     nature: gd.textNullable(),
     size_bytes: gd.integerNullable(),
-    last_modified_at: gd.integerNullable(),
+    last_modified_at: gd.dateTimeNullable(),
     content_fm_body_attrs: gd.jsonTextNullable(),
     frontmatter: gd.jsonTextNullable(),
     elaboration: gd.jsonTextNullable(),

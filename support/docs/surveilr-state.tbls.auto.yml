@@ -114,6 +114,8 @@ comments:
         either NULL if no content was acquired or the actual blob/text of the
         content
       nature: file extension or MIME
+      last_modified_at: >-
+        {"isSqlDomainZodDescrMeta":true,"isDateSqlDomain":true,"isDateTime":true}
       content_fm_body_attrs: >-
         each component of frontmatter-based content ({ frontMatter: '', body:
         '', attrs: {...} })

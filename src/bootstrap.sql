@@ -239,7 +239,7 @@ CREATE TABLE IF NOT EXISTS "uniform_resource" (
     "content" BLOB,
     "nature" TEXT,
     "size_bytes" INTEGER,
-    "last_modified_at" INTEGER,
+    "last_modified_at" TIMESTAMP,
     "content_fm_body_attrs" TEXT CHECK(json_valid(content_fm_body_attrs) OR content_fm_body_attrs IS NULL),
     "frontmatter" TEXT CHECK(json_valid(frontmatter) OR frontmatter IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
@@ -306,7 +306,7 @@ CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path__ingest_session_id__ro
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource__device_id__uri" ON "uniform_resource"("device_id", "uri");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource_transform__uniform_resource_id__content_digest" ON "uniform_resource_transform"("uniform_resource_id", "content_digest");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path_entry__ingest_session_id__file_path_abs" ON "ur_ingest_session_fs_path_entry"("ingest_session_id", "file_path_abs");
-', '9e6d70c79ee68d9e7291799dde31ec0b66097c9c', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', '0b9dcf4b2ceb279818ff37eb2d53761853966cfd', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -776,7 +776,7 @@ CREATE TABLE IF NOT EXISTS "uniform_resource" (
     "content" BLOB,
     "nature" TEXT,
     "size_bytes" INTEGER,
-    "last_modified_at" INTEGER,
+    "last_modified_at" TIMESTAMP,
     "content_fm_body_attrs" TEXT CHECK(json_valid(content_fm_body_attrs) OR content_fm_body_attrs IS NULL),
     "frontmatter" TEXT CHECK(json_valid(frontmatter) OR frontmatter IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
@@ -905,7 +905,7 @@ CREATE VIEW IF NOT EXISTS "ingest_session_stats" AS
         ingest_session_finished_at,
         file_extension;
     
-      ', 'd81115a87b59a09607e457b9f699dac3a06649c7', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', 'd1314b6f7d9125f973c04702a3e40f897d3a31dc', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -974,7 +974,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       content: BLOB
       nature: TEXT
       size_bytes: INTEGER
-      last_modified_at: INTEGER
+      last_modified_at: TIMESTAMP
       content_fm_body_attrs: TEXT
       frontmatter: TEXT
       elaboration: TEXT
@@ -1021,7 +1021,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   ur_ingest_session |o..o{ ur_ingest_session_fs_path_entry
   ur_ingest_session_fs_path |o..o{ ur_ingest_session_fs_path_entry
   uniform_resource |o..o{ ur_ingest_session_fs_path_entry
-@enduml', '64f77bf649adf227bd2f7eacfa7ea89535419f36', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', '2d996eda800b6c1c19829a90f5a7180335494cc0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,
