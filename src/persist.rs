@@ -2,11 +2,12 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use anyhow::{Context, Result};
-use base64::Engine;
+use comfy_table::*;
 use globset::Glob;
 use is_executable::IsExecutable; // adds path.is_executable
 use rusqlite::functions::FunctionFlags;
-use rusqlite::{Connection, Result as RusqliteResult, ToSql};
+use rusqlite::{types::ValueRef, Connection, Result as RusqliteResult, ToSql};
+use serde_json::{json, Value as JsonValue};
 use ulid::Ulid;
 
 extern crate globwalk;
@@ -33,6 +34,7 @@ pub struct DbConn {
 }
 
 impl DbConn {
+    // open an existing database or create a new one if it doesn't exist
     pub fn new(db_fs_path: &str, vebose_level: u8) -> Result<DbConn> {
         let db_fs_path = db_fs_path.to_string();
         let conn = Connection::open(db_fs_path.clone())
@@ -45,6 +47,20 @@ impl DbConn {
             println!("RSSD: {}", db_fs_path);
         }
 
+        Ok(DbConn {
+            db_fs_path,
+            conn,
+            vebose_level,
+        })
+    }
+
+    // open an existing database and error out if it doesn't exist
+    pub fn open(db_fs_path: &str, vebose_level: u8) -> Result<DbConn> {
+        let db_fs_path = db_fs_path.to_string();
+        let conn = Connection::open_with_flags(
+            db_fs_path.clone(),
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )?;
         Ok(DbConn {
             db_fs_path,
             conn,
@@ -81,6 +97,87 @@ impl DbConn {
         }
 
         Ok(tx)
+    }
+
+    pub fn query_result_as_formatted_table(
+        &self,
+        query: &str,
+        params: &[&dyn ToSql],
+    ) -> Result<Table> {
+        let mut stmt = self.conn.prepare(query)?;
+
+        // Clone the column names to avoid borrowing issues
+        let columns: Vec<String> = stmt
+            .column_names()
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        let mut table = Table::new();
+        table
+            .load_preset(presets::UTF8_FULL_CONDENSED)
+            .apply_modifier(modifiers::UTF8_ROUND_CORNERS)
+            .set_content_arrangement(ContentArrangement::Dynamic)
+            .set_header(columns.clone());
+
+        let rows = stmt.query_map(params, |row| {
+            Ok((0..columns.len())
+                .map(|i| match row.get_ref_unwrap(i) {
+                    ValueRef::Integer(int_val) => {
+                        Cell::new(int_val.to_string()).set_alignment(CellAlignment::Right)
+                    }
+                    ValueRef::Real(float_val) => {
+                        Cell::new(float_val.to_string()).set_alignment(CellAlignment::Right)
+                    }
+                    ValueRef::Text(_) => Cell::new(row.get_unwrap::<usize, String>(i)),
+                    _ => Cell::new(""),
+                })
+                .collect::<Vec<Cell>>())
+        })?;
+
+        for row in rows {
+            table.add_row(row?);
+        }
+
+        Ok(table)
+    }
+
+    pub fn query_result_as_json_value(
+        &self,
+        query: &str,
+        params: &[&dyn ToSql],
+    ) -> Result<JsonValue> {
+        let mut stmt = self.conn.prepare(query)?;
+
+        // Clone the column names to avoid borrowing issues
+        let columns: Vec<String> = stmt
+            .column_names()
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        let rows_result = stmt.query_map(params, |row| {
+            let row_map: serde_json::Map<_, _> = columns
+                .iter()
+                .enumerate()
+                .map(|(i, col_name)| match row.get_ref_unwrap(i) {
+                    ValueRef::Integer(int_val) => (col_name.clone(), json!(int_val)),
+                    ValueRef::Real(float_val) => (col_name.clone(), json!(float_val)),
+                    ValueRef::Text(_) => match row.get::<usize, String>(i) {
+                        Ok(val) => (col_name.clone(), json!(val)),
+                        Err(err) => (col_name.clone(), json!(err.to_string())),
+                    },
+                    _ => (col_name.clone(), json!(null)),
+                })
+                .collect();
+            Ok(JsonValue::Object(row_map))
+        });
+
+        let rows: Vec<JsonValue> = rows_result?
+            .map(|row_result| row_result.unwrap_or_else(|e| json!({"error": e.to_string()})))
+            .collect();
+
+        Ok(json!(rows))
     }
 }
 
@@ -244,31 +341,6 @@ query_sql_single!(
     state_sysinfo: &str;
     device_id: String,
     name: String
-);
-
-query_sql_rows!(
-    ur_ingest_session_files_stats,
-    r"SELECT ingest_session_root_fs_path,
-             file_extension,
-             total_file_count AS file_count,
-             file_count_with_content AS with_content_count,
-             file_count_with_frontmatter AS with_frontmatter_count
-        FROM ur_ingest_session_files_stats_latest
-       WHERE ingest_session_id = ?",
-    ingest_session_id: String;
-    ingest_session_root_fs_path: String,
-    file_extension: String,
-    file_count: usize,
-    with_content_count: usize,
-    with_frontmatter_count: usize
-);
-
-query_sql_rows_json!(
-    ur_ingest_session_files_stats_latest,
-    r"SELECT *
-        FROM ur_ingest_session_files_stats_latest
-       WHERE ingest_session_id = ?",
-    ingest_session_id: String
 );
 
 /// Executes a query to select notebook and cell information from the `code_notebook_cell` table.

@@ -324,6 +324,14 @@ pub struct IngestTasksArgs {
     /// read tasks from STDIN
     #[arg(long)]
     pub stdin: bool,
+
+    /// show session stats after completion
+    #[arg(long)]
+    pub stats: bool,
+
+    /// show session stats as JSON after completion
+    #[arg(long)]
+    pub stats_json: bool,
 }
 
 /// Ingest uniform resources content from multiple sources

@@ -250,6 +250,8 @@ Notebooks maintenance utilities
   Default value: `resource-surveillance.sqlite.db`
 * `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
 * `--stdin` — read tasks from STDIN
+* `--stats` — show session stats after completion
+* `--stats-json` — show session stats as JSON after completion
 
 
 

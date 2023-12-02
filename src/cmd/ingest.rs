@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use rusqlite::{Connection, OpenFlags};
-
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL_CONDENSED;
 use comfy_table::*;
@@ -37,93 +35,46 @@ impl IngestCommands {
         }
     }
 
-    fn session_stats(
-        &self,
-        state_db_fs_path: &str,
-        root_fs_path: &[String],
-        ingest_session_id: String,
-        stats: bool,
-        stats_json: bool,
-    ) {
-        if !stats && !stats_json {
-            return;
-        }
-
-        if let Ok(conn) =
-            Connection::open_with_flags(state_db_fs_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
-        {
-            if stats_json {
-                if let Ok(stats) =
-                    ur_ingest_session_files_stats_latest(&conn, ingest_session_id.clone())
-                {
-                    print!("{}", serde_json::to_string_pretty(&stats).unwrap())
-                }
-            }
-
-            if stats {
-                let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
-                ur_ingest_session_files_stats(
-                    &conn,
-                    |_index,
-                     root_path,
-                     file_extension,
-                     file_count,
-                     with_content_count,
-                     with_frontmatter_count| {
-                        if root_fs_path.len() < 2 {
-                            rows.push(vec![
-                                file_extension,
-                                file_count.to_string(),
-                                with_content_count.to_string(),
-                                with_frontmatter_count.to_string(),
-                            ]);
-                        } else {
-                            rows.push(vec![
-                                root_path,
-                                file_extension,
-                                file_count.to_string(),
-                                with_content_count.to_string(),
-                                with_frontmatter_count.to_string(),
-                            ]);
-                        }
-                        Ok(())
-                    },
-                    ingest_session_id,
-                )
-                .unwrap();
-                println!(
-                    "{}",
-                    if root_fs_path.len() < 2 {
-                        crate::format::as_ascii_table(
-                            &["Extn", "Count", "Content", "Frontmatter"],
-                            &rows,
-                        )
-                    } else {
-                        crate::format::as_ascii_table(
-                            &["Path", "Extn", "Count", "Content", "Frontmatter"],
-                            &rows,
-                        )
-                    }
-                );
-            }
-        } else {
-            println!(
-                "Ingest files command requires a database: {}",
-                state_db_fs_path
-            );
-        }
-    }
-
     fn files(&self, cli: &super::Cli, args: &super::IngestFilesArgs) -> anyhow::Result<()> {
         match crate::ingest::ingest_files(cli, args) {
             Ok(ingest_session_id) => {
-                self.session_stats(
-                    &args.state_db_fs_path,
-                    &args.root_fs_path,
-                    ingest_session_id,
-                    args.stats,
-                    args.stats_json,
-                );
+                if args.stats || args.stats_json {
+                    // only export the path if there's more than one
+                    let sql = if args.root_fs_path.len() > 1 || args.stats_json {
+                        r"SELECT ingest_session_root_fs_path as 'Path',
+                                 file_extension as 'Extn',
+                                 total_file_count AS 'Count',
+                                 file_count_with_content AS 'Content',
+                                 file_count_with_frontmatter AS 'Frontmatter'
+                            FROM ur_ingest_session_files_stats
+                           WHERE ingest_session_id = ?"
+                    } else {
+                        r"SELECT file_extension as 'Extn',
+                                 total_file_count AS 'Count',
+                                 file_count_with_content AS 'Content',
+                                 file_count_with_frontmatter AS 'Frontmatter'
+                            FROM ur_ingest_session_files_stats
+                           WHERE ingest_session_id = ?"
+                    };
+
+                    let dbc = DbConn::open(&args.state_db_fs_path, cli.debug)?;
+                    if args.stats_json {
+                        let value = dbc.query_result_as_json_value(
+                            sql,
+                            rusqlite::params![ingest_session_id],
+                        )?;
+                        println!("{}", serde_json::to_string_pretty(&value)?);
+                    } else {
+                        let table = dbc.query_result_as_formatted_table(
+                            sql,
+                            rusqlite::params![ingest_session_id],
+                        )?;
+                        println!(
+                            "\n==> `ur_ingest_session_files_stats` for session ID '{}':\n{}",
+                            ingest_session_id, table
+                        )
+                    }
+                }
                 Ok(())
             }
             Err(err) => Err(err),
@@ -132,14 +83,35 @@ impl IngestCommands {
 
     fn tasks(&self, cli: &super::Cli, args: &super::IngestTasksArgs) -> anyhow::Result<()> {
         match crate::ingest::ingest_tasks(cli, args) {
-            Ok(_ingest_session_id) => {
-                // self.session_stats(
-                //     &args.state_db_fs_path,
-                //     &["cli-tasks".to_string()],
-                //     ingest_session_id,
-                //     true,
-                //     false,
-                // );
+            Ok(ingest_session_id) => {
+                if args.stats || args.stats_json {
+                    let sql = r#"
+                        SELECT ur_status as 'Status', 
+                            nature as 'Nature', 
+                            total_file_count as 'Count', 
+                            file_count_with_content as 'Content', 
+                            file_count_with_frontmatter as 'Frontmatter'
+                         FROM ur_ingest_session_tasks_stats_latest
+                        WHERE ingest_session_id = ?"#;
+
+                    let dbc = DbConn::open(&args.state_db_fs_path, cli.debug)?;
+                    if args.stats_json {
+                        let value = dbc.query_result_as_json_value(
+                            sql,
+                            rusqlite::params![ingest_session_id],
+                        )?;
+                        println!("{}", serde_json::to_string_pretty(&value)?);
+                    } else {
+                        let table = dbc.query_result_as_formatted_table(
+                            sql,
+                            rusqlite::params![ingest_session_id],
+                        )?;
+                        println!(
+                            "\n==> `ur_ingest_session_tasks_stats` for session ID '{}':\n{}",
+                            ingest_session_id, table
+                        )
+                    }
+                }
                 Ok(())
             }
             Err(err) => Err(err),

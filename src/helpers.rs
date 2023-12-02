@@ -5,6 +5,7 @@
  * to handle them in your own code.
  */
 
+#[macro_export]
 // Macro for executing a non-query SQL command (like INSERT, UPDATE, DELETE) with type-safe bind parameters
 macro_rules! execute_sql {
     ($func_name:ident, $sql:expr, $($param_name:ident : $param_type:ty),*) => {
@@ -17,8 +18,9 @@ macro_rules! execute_sql {
     };
 }
 
+#[macro_export]
 // Macro for executing a non-query SQL command (like INSERT, UPDATE, DELETE) without bind parameters
-macro_rules! _execute_sql_no_args {
+macro_rules! execute_sql_no_args {
     ($func_name:ident, $sql:expr) => {
         pub fn $func_name(conn: &Connection) -> RusqliteResult<usize> {
             let mut stmt = conn.prepare_cached($sql)?;
@@ -28,6 +30,7 @@ macro_rules! _execute_sql_no_args {
     };
 }
 
+#[macro_export]
 // Macro for executing multiple queries in a batch without any arguments
 macro_rules! execute_sql_batch {
     ($func_name:ident, $sql:expr) => {
@@ -38,6 +41,7 @@ macro_rules! execute_sql_batch {
     };
 }
 
+#[macro_export]
 // Macro for executing a query SQL command that returns a single row with type-safe bind parameters
 macro_rules! query_sql_single {
     // Match when there's only one output column
@@ -72,8 +76,9 @@ macro_rules! query_sql_single {
     };
 }
 
+#[macro_export]
 // Macro for executing a query SQL command that returns a single row without bind parameters
-macro_rules! _query_sql_single_no_args {
+macro_rules! query_sql_single_no_args {
     // Match when there's only one output column
     ($func_name:ident, $sql:expr; $out_name:ident : $out_type:ty) => {
         pub fn $func_name(conn: &Connection) -> RusqliteResult<$out_type> {
@@ -104,6 +109,7 @@ macro_rules! _query_sql_single_no_args {
     };
 }
 
+#[macro_export]
 // Macro for executing a query SQL command that calls a closure for each row with type-safe bind parameters
 macro_rules! query_sql_rows {
     // Match when there's only one output column
@@ -143,6 +149,7 @@ macro_rules! query_sql_rows {
     };
 }
 
+#[macro_export]
 // Macro for executing a query SQL command that calls a closure for each row without bind parameters
 macro_rules! query_sql_rows_no_args {
     // Match when there's only one output column
@@ -181,6 +188,14 @@ macro_rules! query_sql_rows_no_args {
 }
 
 #[macro_export]
+// usage:
+// query_sql_rows_json!(
+//     ur_ingest_session_files_stats_latest,
+//     r"SELECT *
+//         FROM ur_ingest_session_files_stats_latest
+//        WHERE ingest_session_id = ?",
+//     ingest_session_id: String
+// );
 macro_rules! query_sql_rows_json {
     ($func_name:ident, $sql:expr, $($param_name:ident : $param_type:ty),*) => {
         pub fn $func_name(conn: &rusqlite::Connection $(, $param_name: $param_type)*) -> rusqlite::Result<serde_json::Value> {
