@@ -147,7 +147,7 @@ test capturable executables files
 ###### **Subcommands:**
 
 * `file` — test capturable executables files
-* `task` — Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner)
+* `task` — Execute a task string as if it was run by `ingest tasks` and show the output
 
 
 
@@ -171,20 +171,15 @@ test capturable executables files
 
 ## `surveilr capturable-exec test task`
 
-Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner)
+Execute a task string as if it was run by `ingest tasks` and show the output
 
-**Usage:** `surveilr capturable-exec test task [OPTIONS] --task <TASK>`
+**Usage:** `surveilr capturable-exec test task [OPTIONS]`
 
 ###### **Options:**
 
-* `-t`, `--task <TASK>` — the command that would work as a Deno Task line
+* `-s`, `--stdin` — send commands in via STDIN the same as with `ingest tasks` and just emit the output
+* `-t`, `--task <TASK>` — one or more commands that would work as a Deno Task line
 * `--cwd <CWD>` — use this as the current working directory (CWD)
-* `-s`, `--stdout-only` — emit stdout only, without the exec status code and stderr
-
-  Default value: `false`
-* `--nature <NATURE>` — nature of the expected output
-
-  Default value: `json`
 
 
 

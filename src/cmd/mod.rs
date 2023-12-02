@@ -188,23 +188,19 @@ pub enum CapturableExecTestCommands {
         captured_fs_exec_sql: Vec<Regex>,
     },
 
-    /// Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner)
+    /// Execute a task string as if it was run by `ingest tasks` and show the output
     Task {
-        /// the command that would work as a Deno Task line
+        /// send commands in via STDIN the same as with `ingest tasks` and just emit the output
         #[arg(short, long)]
-        task: String,
+        stdin: bool,
+
+        /// one or more commands that would work as a Deno Task line
+        #[arg(short, long)]
+        task: Vec<String>,
 
         /// use this as the current working directory (CWD)
         #[arg(long)]
         cwd: Option<String>,
-
-        /// emit stdout only, without the exec status code and stderr
-        #[arg(short, long, default_value = "false")]
-        stdout_only: bool,
-
-        /// nature of the expected output
-        #[arg(long, default_value = "json", default_missing_value = "always")]
-        nature: String,
     },
 }
 

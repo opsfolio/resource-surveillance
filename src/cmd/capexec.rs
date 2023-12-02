@@ -309,12 +309,9 @@ impl CapturableExecTestCommands {
                 capture_exec,
                 captured_exec_sql,
             ),
-            CapturableExecTestCommands::Task {
-                task,
-                cwd,
-                stdout_only,
-                nature,
-            } => self.task(cli, task, nature, cwd.as_ref(), *stdout_only),
+            CapturableExecTestCommands::Task { stdin, task, cwd } => {
+                self.task(cli, *stdin, task, cwd.as_ref())
+            }
         }
     }
 
@@ -385,40 +382,77 @@ impl CapturableExecTestCommands {
     fn task(
         &self,
         cli: &super::Cli,
-        command: &str,
-        nature: &str,
+        read_from_stdin: bool,
+        task_cmds: &[String],
         _cwd: Option<&String>,
-        _stdout_only: bool,
     ) -> anyhow::Result<()> {
         if cli.debug > 0 {
-            println!("{:?}", command);
+            println!("{:?}", task_cmds);
         }
 
-        let stdin = crate::shell::ShellStdIn::None;
-        let ce = CapturableExecutable::UriShellExecutive(
-            Box::new(DenoTaskShellExecutive::new(command.to_owned(), None)),
-            format!("cli://capturable-exec/test/task/{}", command),
-            nature.to_owned(),
-            false,
-        );
+        let rc_options = ResourcesCollectionOptions {
+            ingest_content_regexs: vec![],
+            ignore_paths_regexs: vec![],
+            capturable_executables_regexs: vec![],
+            captured_exec_sql_regexs: vec![],
+            nature_bind: Default::default(),
+        };
 
-        match nature {
-            "json" | "text/json" | "application/json" => match ce.executed_result_as_json(stdin) {
-                Ok((json_value, _nature, _is_sql_exec)) => {
-                    print!("{}", serde_json::to_string_pretty(&json_value).unwrap());
+        let tasks = if read_from_stdin {
+            std::io::stdin()
+                .lines()
+                .map(Result::ok)
+                .map(|t| t.unwrap())
+                .collect()
+        } else {
+            task_cmds.to_vec()
+        };
+
+        let (_, resources) = ResourcesCollection::from_tasks_lines(&tasks, &rc_options);
+
+        for ur in resources.uniform_resources() {
+            match ur {
+                Ok(resource) => match &resource {
+                    UniformResource::CapturableExec(cer) => {
+                        println!("URI: '{}', nature: {:?}", resource.uri(), resource.nature());
+                        let stdin = crate::shell::ShellStdIn::None;
+                        match &cer.resource.nature {
+                            Some(nature) => match nature.as_str() {
+                                "json" | "text/json" | "application/json" => {
+                                    match cer.executable.executed_result_as_json(stdin) {
+                                        Ok((json_value, _nature, _is_sql_exec)) => {
+                                            println!(
+                                                "{}",
+                                                serde_json::to_string_pretty(&json_value).unwrap()
+                                            );
+                                        }
+                                        Err(err) => {
+                                            println!("ERROR in JSON -- did you remember to have your command output JSON?\n{:?}", err);
+                                        }
+                                    }
+                                }
+                                _ => match cer.executable.executed_result_as_text(stdin) {
+                                    Ok((stdout, _nature, _is_sql_exec)) => {
+                                        println!("{stdout}");
+                                    }
+                                    Err(err) => {
+                                        println!("ERROR in text\n{:?}", err);
+                                    }
+                                },
+                            },
+                            None => {
+                                eprintln!("Ideterminate nature");
+                            }
+                        }
+                    }
+                    _ => {
+                        eprintln!("Can only handle UniformResource::CapturableExec resources");
+                    }
+                },
+                Err(e) => {
+                    eprintln!("Error processing a ingest_tasks resource: {}", e);
                 }
-                Err(err) => {
-                    print!("{:?}", err);
-                }
-            },
-            _ => match ce.executed_result_as_text(stdin) {
-                Ok((stdout, _nature, _is_sql_exec)) => {
-                    print!("{stdout}");
-                }
-                Err(err) => {
-                    print!("{:?}", err);
-                }
-            },
+            }
         }
 
         Ok(())

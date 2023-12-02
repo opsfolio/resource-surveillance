@@ -142,9 +142,18 @@ If you want to test the output of shell tasks without persisting with
 
 ```bash
 $ surveilr capturable-exec test task --help
-$ surveilr capturable-exec test task -t 'osqueryi "select * from users" --json' # nature defaults to JSON
-$ surveilr capturable-exec test task -t 'osqueryi "select * from users"' --nature text
+$ surveilr capturable-exec test task -t 'osqueryi "select * from users" --json'
+$ surveilr capturable-exec test task -t 'osqueryi "select * from users"'
+$ surveilr capturable-exec test task -t '{ "osquery result as plain text": "osqueryi \"SELECT * from users\" --json" }'
+$ surveilr capturable-exec test task -t '{ "osquery result as plain text": "osqueryi \"SELECT * from users\"", "nature": "text/plain" }'
+
+$ echo 'osqueryi "select * from users" --json' | surveilr capturable-exec test task --stdin
+$ echo '{ "osquery result as plain text": "osqueryi \"SELECT * from users\"", "nature": "text/plain" }' | surveilr capturable-exec test task --stdin
+$ cat support/test-fixtures/synthetic-tasks-via-stdin | surveilr capturable-exec test task --stdin
 ```
+
+See examples
+[in this test fixture](support/test-fixtures/synthetic-tasks-via-stdin).
 
 ## Merging multiple `RSSD`s into one using `surveilr` (`admin merge`)
 
