@@ -43,8 +43,8 @@ const INS_UR_ISFSP_ENTRY_SQL: &str = indoc! {"
         INSERT INTO ur_ingest_session_fs_path_entry (ur_ingest_session_fs_path_entry_id, ingest_session_id, ingest_fs_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn, ur_status, ur_diagnostics, captured_executable) 
                                            VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"};
 
-const INS_UR_ISTASK_ENTRY_SQL: &str = indoc! {"
-        INSERT INTO ur_ingest_session_task_entry (ur_ingest_session_task_entry_id, ingest_session_id, uniform_resource_id, captured_executable, ur_status, ur_diagnostics) 
+const INS_UR_IS_TASK_SQL: &str = indoc! {"
+        INSERT INTO ur_ingest_session_task (ur_ingest_session_task_id, ingest_session_id, uniform_resource_id, captured_executable, ur_status, ur_diagnostics) 
                                             VALUES (ulid(), ?, ?, ?, ?, ?)"};
 
 #[allow(dead_code)]
@@ -54,7 +54,7 @@ pub struct IngestContext<'conn> {
     ins_ur_stmt: rusqlite::Statement<'conn>,
     ins_ur_transform_stmt: rusqlite::Statement<'conn>,
     ins_ur_isfsp_entry_stmt: rusqlite::Statement<'conn>,
-    ins_ur_istask_entry_stmt: rusqlite::Statement<'conn>,
+    ins_ur_is_task_stmt: rusqlite::Statement<'conn>,
 }
 
 impl<'conn> IngestContext<'conn> {
@@ -83,7 +83,7 @@ impl<'conn> IngestContext<'conn> {
                 INS_UR_ISFSP_ENTRY_SQL, db_fs_path
             )
         })?;
-        let ins_ur_istask_entry_stmt = conn.prepare(INS_UR_ISTASK_ENTRY_SQL).with_context(|| {
+        let ins_ur_istask_entry_stmt = conn.prepare(INS_UR_IS_TASK_SQL).with_context(|| {
             format!(
                 "[IngestContext::from_conn] unable to create `ins_ur_istask_entry_stmt` SQL {} in {}",
                 INS_UR_ISFSP_ENTRY_SQL, db_fs_path
@@ -94,7 +94,7 @@ impl<'conn> IngestContext<'conn> {
             ins_ur_stmt,
             ins_ur_transform_stmt,
             ins_ur_isfsp_entry_stmt,
-            ins_ur_istask_entry_stmt,
+            ins_ur_is_task_stmt: ins_ur_istask_entry_stmt,
         })
     }
 }
@@ -382,7 +382,7 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
         urw_state: &mut UniformResourceWriterState<'_, '_>,
         entry: &mut UniformResourceWriterEntry,
     ) -> UniformResourceWriterResult {
-        // if FsWalker wants to, store the executable as a uniform_resource itself so we have history;
+        // if resources collection instance wants to, store the executable as a uniform_resource itself so we have history;
         self.insert_text(urw_state, &self.resource, entry);
 
         // now try to execute the capturable executable and store its output
@@ -665,10 +665,6 @@ impl UniformResource<ContentResource> {
     }
 }
 
-// TODO: Allow per file type / MIME / extension / nature configuration
-// such as compression for certain types of files but as-is for other
-// types;
-
 #[derive(Serialize, Deserialize)]
 pub struct IngestFilesBehavior {
     pub root_fs_paths: Vec<String>,
@@ -691,11 +687,11 @@ pub struct IngestFilesBehavior {
 impl IngestFilesBehavior {
     pub fn new(
         device_id: &String,
-        fsw_args: &crate::cmd::IngestFilesArgs,
+        ingest_args: &crate::cmd::IngestFilesArgs,
         conn: &Connection,
     ) -> anyhow::Result<(Self, Option<String>)> {
-        if let Some(behavior_name) = &fsw_args.behavior {
-            let (fswb_behavior_id, fswb_json): (String, String) = conn
+        if let Some(behavior_name) = &ingest_args.behavior {
+            let (behavior_id, behavior_json): (String, String) = conn
                 .query_row(
                     r#"
                    SELECT behavior_id, behavior_conf_json 
@@ -708,19 +704,19 @@ impl IngestFilesBehavior {
                 )
                 .with_context(|| {
                     format!(
-                        "[IngestBehavior.new] unable to read behavior '{}' from {} behavior table",
-                        behavior_name, fsw_args.state_db_fs_path
+                        "[IngestFilesBehavior.new] unable to read behavior '{}' from {} behavior table",
+                        behavior_name, ingest_args.state_db_fs_path
                     )
                 })?;
-            let fswb = IngestFilesBehavior::from_json(&fswb_json).with_context(|| {
+            let behavior = IngestFilesBehavior::from_json(&behavior_json).with_context(|| {
                 format!(
-                    "[IngestBehavior.new] unable to deserialize behavior {} in {}",
-                    fswb_json, fsw_args.state_db_fs_path
+                    "[IngestFilesBehavior.new] unable to deserialize behavior {} in {}",
+                    behavior_json, ingest_args.state_db_fs_path
                 )
             })?;
-            Ok((fswb, Some(fswb_behavior_id)))
+            Ok((behavior, Some(behavior_id)))
         } else {
-            Ok((IngestFilesBehavior::from_ingest_args(fsw_args), None))
+            Ok((IngestFilesBehavior::from_ingest_args(ingest_args), None))
         }
     }
 
@@ -788,7 +784,7 @@ impl IngestFilesBehavior {
             )
             .with_context(|| {
                 format!(
-                    "[IngestBehavior.save] unable to save behavior '{}'",
+                    "[IngestFilesBehavior.save] unable to save behavior '{}'",
                     behavior_name
                 )
             })?;
@@ -821,7 +817,7 @@ pub fn ingest_files(
     // the ulid() function we're using below is not built into SQLite, we define
     // it in persist::prepare_conn so it's initialized as part of `dbc`.
 
-    let (mut fswb, mut behavior_id) = IngestFilesBehavior::new(&device_id, ingest_args, &tx)
+    let (mut behavior, mut behavior_id) = IngestFilesBehavior::new(&device_id, ingest_args, &tx)
         .with_context(|| format!("[ingest_files] behavior issue {}", db_fs_path))?;
 
     if !ingest_args.include_state_db_in_ingestion {
@@ -832,13 +828,13 @@ pub fn ingest_files(
         let mut db_journal_path = std::path::PathBuf::from(&canonical_db_fs_path);
         wal_path.set_extension("wal");
         db_journal_path.set_extension("db-journal");
-        fswb.add_ignore_exact(canonical_db_fs_path.as_str());
-        fswb.add_ignore_exact(wal_path.to_string_lossy().to_string().as_str());
-        fswb.add_ignore_exact(db_journal_path.to_string_lossy().to_string().as_str());
+        behavior.add_ignore_exact(canonical_db_fs_path.as_str());
+        behavior.add_ignore_exact(wal_path.to_string_lossy().to_string().as_str());
+        behavior.add_ignore_exact(db_journal_path.to_string_lossy().to_string().as_str());
     }
 
     if let Some(save_behavior_name) = &ingest_args.save_behavior {
-        let saved_bid = fswb
+        let saved_bid = behavior
             .save(&tx, &device_id, save_behavior_name)
             .with_context(|| {
                 format!(
@@ -864,7 +860,7 @@ pub fn ingest_files(
             params![
                 device_id,
                 behavior_id,
-                match fswb.persistable_json_text() {
+                match behavior.persistable_json_text() {
                     Ok(json_text) => json_text,
                     Err(_err) =>
                         String::from("JSON serialization error, TODO: convert err to string"),
@@ -891,7 +887,7 @@ pub fn ingest_files(
         let mut ingest_stmts = IngestContext::from_conn(&tx, &ingest_args.state_db_fs_path)
             .with_context(|| format!("[ingest_files] ingest_stmts in {}", db_fs_path))?;
 
-        for root_path in &fswb.root_fs_paths {
+        for root_path in &behavior.root_fs_paths {
             let canonical_path_buf = std::fs::canonicalize(std::path::Path::new(&root_path))
                 .with_context(|| {
                     format!(
@@ -918,11 +914,13 @@ pub fn ingest_files(
 
             let rp: Vec<String> = vec![canonical_path.clone()];
             let rw_options = ResourcesCollectionOptions {
-                ingest_content_regexs: fswb.ingest_content_fs_entry_regexs.to_vec(),
-                ignore_paths_regexs: fswb.ignore_fs_entry_regexs.to_vec(),
-                capturable_executables_regexs: fswb.capturable_executables_fs_entry_regexs.to_vec(),
-                captured_exec_sql_regexs: fswb.captured_exec_sql_fs_entry_regexs.to_vec(),
-                nature_bind: fswb.nature_bind.clone(),
+                ingest_content_regexs: behavior.ingest_content_fs_entry_regexs.to_vec(),
+                ignore_paths_regexs: behavior.ignore_fs_entry_regexs.to_vec(),
+                capturable_executables_regexs: behavior
+                    .capturable_executables_fs_entry_regexs
+                    .to_vec(),
+                captured_exec_sql_regexs: behavior.captured_exec_sql_fs_entry_regexs.to_vec(),
+                nature_bind: behavior.nature_bind.clone(),
             };
 
             let resources = ResourcesCollection::from_smart_ignore(
@@ -934,7 +932,7 @@ pub fn ingest_files(
 
             let mut urw_state = UniformResourceWriterState {
                 state_db_fs_path: &db_fs_path,
-                ingest_files_behavior: Some(&fswb),
+                ingest_files_behavior: Some(&behavior),
                 env_current_dir: &env_current_dir,
                 device_id: &device_id,
                 ingest_session_id: &ingest_session_id,
@@ -1075,6 +1073,30 @@ pub fn ingest_files(
     Ok(ingest_session_id)
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct IngestTasksBehavior {
+    pub lines: Vec<String>,         // what was given
+    pub encounterable: Vec<String>, // after filtering for comments, blanks, etc.
+}
+
+impl IngestTasksBehavior {
+    pub fn from_stdin() -> Self {
+        let lines: Vec<_> = std::io::stdin()
+            .lines()
+            .map(Result::ok)
+            .map(|t| t.unwrap())
+            .collect();
+        IngestTasksBehavior {
+            lines: lines.clone(),
+            encounterable: lines,
+        }
+    }
+
+    pub fn persistable_json_text(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string_pretty(self)
+    }
+}
+
 pub fn ingest_tasks(
     cli: &crate::cmd::Cli,
     ingest_args: &crate::cmd::IngestTasksArgs,
@@ -1097,14 +1119,29 @@ pub fn ingest_tasks(
         )
     })?;
 
+    let mut behavior = IngestTasksBehavior::from_stdin();
+    let rc_options = ResourcesCollectionOptions {
+        ingest_content_regexs: vec![],
+        ignore_paths_regexs: vec![],
+        capturable_executables_regexs: vec![],
+        captured_exec_sql_regexs: vec![],
+        nature_bind: Default::default(),
+    };
+    let (encounterable, resources) =
+        ResourcesCollection::from_tasks_lines(&behavior.lines, &rc_options);
+    behavior.encounterable = encounterable;
+
     let ingest_session_id: String = tx
         .query_row(
             INS_UR_INGEST_SESSION_SQL,
             params![
                 device_id,
                 None::<String>,
-                serde_json::to_string_pretty(&ingest_args)
-                    .unwrap_or(r#"{ "error": "ingest_args could not be serialized" }"#.to_owned())
+                match behavior.persistable_json_text() {
+                    Ok(json_text) => json_text,
+                    Err(_err) =>
+                        String::from("JSON serialization error, TODO: convert err to string"),
+                }
             ],
             |row| row.get(0),
         )
@@ -1127,21 +1164,6 @@ pub fn ingest_tasks(
         let mut ingest_stmts = IngestContext::from_conn(&tx, &ingest_args.state_db_fs_path)
             .with_context(|| format!("[ingest_tasks] ingest_stmts in {}", db_fs_path))?;
 
-        let rw_options = ResourcesCollectionOptions {
-            ingest_content_regexs: vec![],
-            ignore_paths_regexs: vec![],
-            capturable_executables_regexs: vec![],
-            captured_exec_sql_regexs: vec![],
-            nature_bind: Default::default(),
-        };
-
-        let lines: Vec<_> = std::io::stdin()
-            .lines()
-            .map(Result::ok)
-            .map(|t| t.unwrap())
-            .collect();
-
-        let resources = ResourcesCollection::from_tasks_lines(&lines, &rw_options);
         let mut urw_state = UniformResourceWriterState {
             state_db_fs_path: &db_fs_path,
             ingest_files_behavior: None,
@@ -1216,20 +1238,17 @@ pub fn ingest_tasks(
                         }
                     };
 
-                    match urw_state
-                        .ingest_stmts
-                        .ins_ur_istask_entry_stmt
-                        .execute(params![
-                            ingest_session_id,
-                            uniform_resource_id,
-                            captured_executable,
-                            ur_status,
-                            ur_diagnostics,
-                        ]) {
+                    match urw_state.ingest_stmts.ins_ur_is_task_stmt.execute(params![
+                        ingest_session_id,
+                        uniform_resource_id,
+                        captured_executable,
+                        ur_status,
+                        ur_diagnostics,
+                    ]) {
                         Ok(_) => {}
                         Err(err) => {
                             eprintln!( "[ingest_tasks] unable to insert UR task entry for {} in {}: {} ({})",
-                            &inserted.uri, db_fs_path, err, INS_UR_ISTASK_ENTRY_SQL
+                            &inserted.uri, db_fs_path, err, INS_UR_IS_TASK_SQL
                             )
                         }
                     }

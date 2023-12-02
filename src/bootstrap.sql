@@ -300,8 +300,8 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path_entry" (
     FOREIGN KEY("ingest_fs_path_id") REFERENCES "ur_ingest_session_fs_path"("ur_ingest_session_fs_path_id"),
     FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
 );
-CREATE TABLE IF NOT EXISTS "ur_ingest_session_task_entry" (
-    "ur_ingest_session_task_entry_id" VARCHAR PRIMARY KEY NOT NULL,
+CREATE TABLE IF NOT EXISTS "ur_ingest_session_task" (
+    "ur_ingest_session_task_id" VARCHAR PRIMARY KEY NOT NULL,
     "ingest_session_id" VARCHAR NOT NULL,
     "uniform_resource_id" VARCHAR,
     "captured_executable" TEXT CHECK(json_valid(captured_executable)) NOT NULL,
@@ -325,14 +325,14 @@ CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path__ingest_session_id__ro
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource__device_id__uri" ON "uniform_resource"("device_id", "uri");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource_transform__uniform_resource_id__content_digest" ON "uniform_resource_transform"("uniform_resource_id", "content_digest");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path_entry__ingest_session_id__file_path_abs" ON "ur_ingest_session_fs_path_entry"("ingest_session_id", "file_path_abs");
-CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_task_entry__ingest_session_id" ON "ur_ingest_session_task_entry"("ingest_session_id");
-', '97b6a7c83df402dc8762b1f5137032b6a8007ee8', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_task__ingest_session_id" ON "ur_ingest_session_task"("ingest_session_id");
+', '17e790455fd1954f84a25af9de669d504817c567', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v002_fsContentIngestSessionStatsViewDDL', NULL, 'DROP VIEW IF EXISTS "ingest_session_stats";
-CREATE VIEW IF NOT EXISTS "ingest_session_stats" AS
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v002_fsContentIngestSessionFilesStatsViewDDL', NULL, 'DROP VIEW IF EXISTS "ur_ingest_session_files_stats";
+CREATE VIEW IF NOT EXISTS "ur_ingest_session_files_stats" AS
     WITH Summary AS (
         SELECT
             device.device_id AS device_id,
@@ -389,27 +389,97 @@ CREATE VIEW IF NOT EXISTS "ingest_session_stats" AS
     ORDER BY
         device_id,
         ingest_session_finished_at,
-        file_extension;
-    ', 'ca9ec3ec2b705d082408d3d96e7a23da881c1574', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+        file_extension;', '9870d0c179334958ddda85827e4966b406c86e0c', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v002_fsContentIngestSessionStatsLatestViewDDL', NULL, 'DROP VIEW IF EXISTS "ingest_session_stats_latest";
-CREATE VIEW IF NOT EXISTS "ingest_session_stats_latest" AS
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v002_fsContentIngestSessionFilesStatsLatestViewDDL', NULL, 'DROP VIEW IF EXISTS "ur_ingest_session_files_stats_latest";
+CREATE VIEW IF NOT EXISTS "ur_ingest_session_files_stats_latest" AS
     SELECT iss.*
-      FROM ingest_session_stats AS iss
+      FROM ur_ingest_session_files_stats AS iss
       JOIN (  SELECT ur_ingest_session.ur_ingest_session_id AS latest_session_id
                 FROM ur_ingest_session
             ORDER BY ur_ingest_session.ingest_finished_at DESC
                LIMIT 1) AS latest
-        ON iss.ingest_session_id = latest.latest_session_id;', '627523d9f98383aeaab10b4be9b9a48651a4d635', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+        ON iss.ingest_session_id = latest.latest_session_id;', 'f7a286b3b64881e069f05950d992a3b04af5c8f3', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v002_urIngestSessionIssueViewDDL', NULL, 'DROP VIEW IF EXISTS "ur_ingest_session_issue";
-CREATE VIEW IF NOT EXISTS "ur_ingest_session_issue" AS
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v002_urIngestSessionTasksStatsViewDDL', NULL, 'DROP VIEW IF EXISTS "ur_ingest_session_tasks_stats";
+CREATE VIEW IF NOT EXISTS "ur_ingest_session_tasks_stats" AS
+      WITH Summary AS (
+          SELECT
+            device.device_id AS device_id,
+            ur_ingest_session.ur_ingest_session_id AS ingest_session_id,
+            ur_ingest_session.ingest_started_at AS ingest_session_started_at,
+            ur_ingest_session.ingest_finished_at AS ingest_session_finished_at,
+            COALESCE(ur_ingest_session_task.ur_status, ''Ok'') AS ur_status,
+            COALESCE(uniform_resource.nature, ''UNKNOWN'') AS nature,
+            COUNT(ur_ingest_session_task.uniform_resource_id) AS total_file_count,
+            SUM(CASE WHEN uniform_resource.content IS NOT NULL THEN 1 ELSE 0 END) AS file_count_with_content,
+            SUM(CASE WHEN uniform_resource.frontmatter IS NOT NULL THEN 1 ELSE 0 END) AS file_count_with_frontmatter,
+            MIN(uniform_resource.size_bytes) AS min_file_size_bytes,
+            AVG(uniform_resource.size_bytes) AS average_file_size_bytes,
+            MAX(uniform_resource.size_bytes) AS max_file_size_bytes,
+            MIN(uniform_resource.last_modified_at) AS oldest_file_last_modified_datetime,
+            MAX(uniform_resource.last_modified_at) AS youngest_file_last_modified_datetime
+        FROM
+            ur_ingest_session
+        JOIN
+            device ON ur_ingest_session.device_id = device.device_id
+        LEFT JOIN
+            ur_ingest_session_task ON ur_ingest_session.ur_ingest_session_id = ur_ingest_session_task.ingest_session_id
+        LEFT JOIN
+            uniform_resource ON ur_ingest_session_task.uniform_resource_id = uniform_resource.uniform_resource_id
+        GROUP BY
+            device.device_id,
+            ur_ingest_session.ur_ingest_session_id,
+            ur_ingest_session.ingest_started_at,
+            ur_ingest_session.ingest_finished_at,
+            ur_ingest_session_task.captured_executable
+    )
+    SELECT
+        device_id,
+        ingest_session_id,
+        ingest_session_started_at,
+        ingest_session_finished_at,
+        ur_status,
+        nature,
+        total_file_count,
+        file_count_with_content,
+        file_count_with_frontmatter,
+        min_file_size_bytes,
+        CAST(ROUND(average_file_size_bytes) AS INTEGER) AS average_file_size_bytes,
+        max_file_size_bytes,
+        oldest_file_last_modified_datetime,
+        youngest_file_last_modified_datetime
+    FROM
+        Summary
+    ORDER BY
+        device_id,
+        ingest_session_finished_at,
+        ur_status;', '1f7a7f2e454cf81922df584750d84a4d39a2381e', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+            interpretable_code = EXCLUDED.interpretable_code,
+            notebook_kernel_id = EXCLUDED.notebook_kernel_id,
+            updated_at = CURRENT_TIMESTAMP,
+            activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v002_urIngestSessionTasksStatsLatestViewDDL', NULL, 'DROP VIEW IF EXISTS "ur_ingest_session_tasks_stats_latest";
+CREATE VIEW IF NOT EXISTS "ur_ingest_session_tasks_stats_latest" AS
+    SELECT iss.*
+      FROM ur_ingest_session_tasks_stats AS iss
+      JOIN (  SELECT ur_ingest_session.ur_ingest_session_id AS latest_session_id
+                FROM ur_ingest_session
+            ORDER BY ur_ingest_session.ingest_finished_at DESC
+               LIMIT 1) AS latest
+        ON iss.ingest_session_id = latest.latest_session_id;', '633501882d79e8bf255919bff540f9d0143489e3', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+            interpretable_code = EXCLUDED.interpretable_code,
+            notebook_kernel_id = EXCLUDED.notebook_kernel_id,
+            updated_at = CURRENT_TIMESTAMP,
+            activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v002_urIngestSessionFileIssueViewDDL', NULL, 'DROP VIEW IF EXISTS "ur_ingest_session_file_issue";
+CREATE VIEW IF NOT EXISTS "ur_ingest_session_file_issue" AS
       SELECT us.device_id,
              us.ur_ingest_session_id,
              usp.ur_ingest_session_fs_path_id,
@@ -429,7 +499,7 @@ CREATE VIEW IF NOT EXISTS "ur_ingest_session_issue" AS
              ufs.ur_ingest_session_fs_path_entry_id,
              ufs.file_path_abs,
              ufs.ur_status,
-             ufs.ur_diagnostics;', 'b934543905a1d902331fa2ded1791e219144f483', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+             ufs.ur_diagnostics;', '99136e34dcf27424fa7b873b319ac5400786691e', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -857,8 +927,8 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path_entry" (
     FOREIGN KEY("ingest_fs_path_id") REFERENCES "ur_ingest_session_fs_path"("ur_ingest_session_fs_path_id"),
     FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
 );
-CREATE TABLE IF NOT EXISTS "ur_ingest_session_task_entry" (
-    "ur_ingest_session_task_entry_id" VARCHAR PRIMARY KEY NOT NULL,
+CREATE TABLE IF NOT EXISTS "ur_ingest_session_task" (
+    "ur_ingest_session_task_id" VARCHAR PRIMARY KEY NOT NULL,
     "ingest_session_id" VARCHAR NOT NULL,
     "uniform_resource_id" VARCHAR,
     "captured_executable" TEXT CHECK(json_valid(captured_executable)) NOT NULL,
@@ -882,11 +952,11 @@ CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path__ingest_session_id__ro
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource__device_id__uri" ON "uniform_resource"("device_id", "uri");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource_transform__uniform_resource_id__content_digest" ON "uniform_resource_transform"("uniform_resource_id", "content_digest");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path_entry__ingest_session_id__file_path_abs" ON "ur_ingest_session_fs_path_entry"("ingest_session_id", "file_path_abs");
-CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_task_entry__ingest_session_id" ON "ur_ingest_session_task_entry"("ingest_session_id");
+CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_task__ingest_session_id" ON "ur_ingest_session_task"("ingest_session_id");
 
 
-DROP VIEW IF EXISTS "ingest_session_stats";
-CREATE VIEW IF NOT EXISTS "ingest_session_stats" AS
+DROP VIEW IF EXISTS "ur_ingest_session_files_stats";
+CREATE VIEW IF NOT EXISTS "ur_ingest_session_files_stats" AS
     WITH Summary AS (
         SELECT
             device.device_id AS device_id,
@@ -944,8 +1014,7 @@ CREATE VIEW IF NOT EXISTS "ingest_session_stats" AS
         device_id,
         ingest_session_finished_at,
         file_extension;
-    
-      ', 'c83cc0071571144ada6eb8d725d839921e33c06f', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', '9a91f2bf6f132785ab361a3cf1caf7ac71193563', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -1050,8 +1119,8 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       elaboration: TEXT
   }
 
-  entity "ur_ingest_session_task_entry" as ur_ingest_session_task_entry {
-    * **ur_ingest_session_task_entry_id**: VARCHAR
+  entity "ur_ingest_session_task" as ur_ingest_session_task {
+    * **ur_ingest_session_task_id**: VARCHAR
     --
     * ingest_session_id: VARCHAR
       uniform_resource_id: VARCHAR
@@ -1073,9 +1142,9 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   ur_ingest_session |o..o{ ur_ingest_session_fs_path_entry
   ur_ingest_session_fs_path |o..o{ ur_ingest_session_fs_path_entry
   uniform_resource |o..o{ ur_ingest_session_fs_path_entry
-  ur_ingest_session |o..o{ ur_ingest_session_task_entry
-  uniform_resource |o..o{ ur_ingest_session_task_entry
-@enduml', '59059283f183a7b925c210be46caa7638b250a65', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+  ur_ingest_session |o..o{ ur_ingest_session_task
+  uniform_resource |o..o{ ur_ingest_session_task
+@enduml', '8802321d448f13f176ba8ff09529001d19e36d9b', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,
@@ -1205,7 +1274,7 @@ SELECT ''Information Schema'' as title,
   ''blue'' as color,
   ''download'' as icon;', (CURRENT_TIMESTAMP)) ON CONFLICT(path) DO UPDATE SET contents = EXCLUDED.contents, last_modified = CURRENT_TIMESTAMP;
 INSERT INTO "sqlpage_files" ("path", "contents", "last_modified") VALUES ('ingest-session-stats.sql', 'SELECT ''table'' as component, 1 as search, 1 as sort;
-SELECT ingest_session_started_at, file_extn, total_count, with_content, with_frontmatter, average_size from ingest_session_stats;', (CURRENT_TIMESTAMP)) ON CONFLICT(path) DO UPDATE SET contents = EXCLUDED.contents, last_modified = CURRENT_TIMESTAMP;
+SELECT ingest_session_started_at, file_extn, total_count, with_content, with_frontmatter, average_size from ur_ingest_session_files_stats;', (CURRENT_TIMESTAMP)) ON CONFLICT(path) DO UPDATE SET contents = EXCLUDED.contents, last_modified = CURRENT_TIMESTAMP;
 INSERT INTO "sqlpage_files" ("path", "contents", "last_modified") VALUES ('mime-types.sql', 'SELECT ''table'' as component, 1 as search, 1 as sort;
 SELECT name, file_extn, description from mime_type;', (CURRENT_TIMESTAMP)) ON CONFLICT(path) DO UPDATE SET contents = EXCLUDED.contents, last_modified = CURRENT_TIMESTAMP;
 INSERT INTO "sqlpage_files" ("path", "contents", "last_modified") VALUES ('notebooks.sql', 'SELECT ''table'' as component, ''Cell'' as markdown, 1 as search, 1 as sort;

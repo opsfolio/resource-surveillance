@@ -557,9 +557,9 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   );
 
   const urIngestSessionTaskEntry = gm.textPkTable(
-    "ur_ingest_session_task_entry",
+    "ur_ingest_session_task",
     {
-      ur_ingest_session_task_entry_id: gm.keys.varcharPrimaryKey(),
+      ur_ingest_session_task_id: gm.keys.varcharPrimaryKey(),
       ingest_session_id: urIngestSession.references
         .ur_ingest_session_id(),
       uniform_resource_id: uniformResource.references.uniform_resource_id()

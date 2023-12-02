@@ -389,9 +389,9 @@ export class ConstructionSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
   }
 
   // note since `once_` pragma is not present, it will be run each time
-  v002_fsContentIngestSessionStatsViewDDL() {
+  v002_fsContentIngestSessionFilesStatsViewDDL() {
     // deno-fmt-ignore
-    return this.nbh.viewDefn("ingest_session_stats")/* sql */`
+    return this.nbh.viewDefn("ur_ingest_session_files_stats")/* sql */`
       WITH Summary AS (
           SELECT
               device.device_id AS device_id,
@@ -448,16 +448,15 @@ export class ConstructionSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
       ORDER BY
           device_id,
           ingest_session_finished_at,
-          file_extension;
-      `;
+          file_extension;`;
   }
 
   // note since `once_` pragma is not present, it will be run each time
-  v002_fsContentIngestSessionStatsLatestViewDDL() {
+  v002_fsContentIngestSessionFilesStatsLatestViewDDL() {
     // deno-fmt-ignore
-    return this.nbh.viewDefn("ingest_session_stats_latest")/* sql */`
+    return this.nbh.viewDefn("ur_ingest_session_files_stats_latest")/* sql */`
       SELECT iss.*
-        FROM ingest_session_stats AS iss
+        FROM ur_ingest_session_files_stats AS iss
         JOIN (  SELECT ur_ingest_session.ur_ingest_session_id AS latest_session_id
                   FROM ur_ingest_session
               ORDER BY ur_ingest_session.ingest_finished_at DESC
@@ -465,9 +464,80 @@ export class ConstructionSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
           ON iss.ingest_session_id = latest.latest_session_id;`;
   }
 
-  v002_urIngestSessionIssueViewDDL() {
+  // note since `once_` pragma is not present, it will be run each time
+  v002_urIngestSessionTasksStatsViewDDL() {
     // deno-fmt-ignore
-    return this.nbh.viewDefn("ur_ingest_session_issue")/* sql */`
+    return this.nbh.viewDefn("ur_ingest_session_tasks_stats")/* sql */`
+        WITH Summary AS (
+            SELECT
+              device.device_id AS device_id,
+              ur_ingest_session.ur_ingest_session_id AS ingest_session_id,
+              ur_ingest_session.ingest_started_at AS ingest_session_started_at,
+              ur_ingest_session.ingest_finished_at AS ingest_session_finished_at,
+              COALESCE(ur_ingest_session_task.ur_status, 'Ok') AS ur_status,
+              COALESCE(uniform_resource.nature, 'UNKNOWN') AS nature,
+              COUNT(ur_ingest_session_task.uniform_resource_id) AS total_file_count,
+              SUM(CASE WHEN uniform_resource.content IS NOT NULL THEN 1 ELSE 0 END) AS file_count_with_content,
+              SUM(CASE WHEN uniform_resource.frontmatter IS NOT NULL THEN 1 ELSE 0 END) AS file_count_with_frontmatter,
+              MIN(uniform_resource.size_bytes) AS min_file_size_bytes,
+              AVG(uniform_resource.size_bytes) AS average_file_size_bytes,
+              MAX(uniform_resource.size_bytes) AS max_file_size_bytes,
+              MIN(uniform_resource.last_modified_at) AS oldest_file_last_modified_datetime,
+              MAX(uniform_resource.last_modified_at) AS youngest_file_last_modified_datetime
+          FROM
+              ur_ingest_session
+          JOIN
+              device ON ur_ingest_session.device_id = device.device_id
+          LEFT JOIN
+              ur_ingest_session_task ON ur_ingest_session.ur_ingest_session_id = ur_ingest_session_task.ingest_session_id
+          LEFT JOIN
+              uniform_resource ON ur_ingest_session_task.uniform_resource_id = uniform_resource.uniform_resource_id
+          GROUP BY
+              device.device_id,
+              ur_ingest_session.ur_ingest_session_id,
+              ur_ingest_session.ingest_started_at,
+              ur_ingest_session.ingest_finished_at,
+              ur_ingest_session_task.captured_executable
+      )
+      SELECT
+          device_id,
+          ingest_session_id,
+          ingest_session_started_at,
+          ingest_session_finished_at,
+          ur_status,
+          nature,
+          total_file_count,
+          file_count_with_content,
+          file_count_with_frontmatter,
+          min_file_size_bytes,
+          CAST(ROUND(average_file_size_bytes) AS INTEGER) AS average_file_size_bytes,
+          max_file_size_bytes,
+          oldest_file_last_modified_datetime,
+          youngest_file_last_modified_datetime
+      FROM
+          Summary
+      ORDER BY
+          device_id,
+          ingest_session_finished_at,
+          ur_status;`;
+  }
+
+  // note since `once_` pragma is not present, it will be run each time
+  v002_urIngestSessionTasksStatsLatestViewDDL() {
+    // deno-fmt-ignore
+    return this.nbh.viewDefn("ur_ingest_session_tasks_stats_latest")/* sql */`
+        SELECT iss.*
+          FROM ur_ingest_session_tasks_stats AS iss
+          JOIN (  SELECT ur_ingest_session.ur_ingest_session_id AS latest_session_id
+                    FROM ur_ingest_session
+                ORDER BY ur_ingest_session.ingest_finished_at DESC
+                   LIMIT 1) AS latest
+            ON iss.ingest_session_id = latest.latest_session_id;`;
+  }
+
+  v002_urIngestSessionFileIssueViewDDL() {
+    // deno-fmt-ignore
+    return this.nbh.viewDefn("ur_ingest_session_file_issue")/* sql */`
         SELECT us.device_id,
                us.ur_ingest_session_id,
                usp.ur_ingest_session_fs_path_id,
@@ -778,7 +848,7 @@ export class SQLPageNotebook<EmitContext extends SQLa.SqlEmitContext>
   "ingest-session-stats.sql"() {
     return this.nbh.SQL`
       SELECT 'table' as component, 1 as search, 1 as sort;
-      SELECT ingest_session_started_at, file_extn, total_count, with_content, with_frontmatter, average_size from ingest_session_stats;`;
+      SELECT ingest_session_started_at, file_extn, total_count, with_content, with_frontmatter, average_size from ur_ingest_session_files_stats;`;
   }
 
   "mime-types.sql"() {
@@ -1044,7 +1114,7 @@ export class LargeLanguageModelsPromptsNotebook<
 
         ${this.constrNB.v001_once_initialDDL().SQL(this.nbh.emitCtx)}
 
-        ${this.constrNB.v002_fsContentIngestSessionStatsViewDDL().SQL(this.nbh.emitCtx)
+        ${this.constrNB.v002_fsContentIngestSessionFilesStatsViewDDL().SQL(this.nbh.emitCtx)
       }
       `;
   }

@@ -247,13 +247,13 @@ query_sql_single!(
 );
 
 query_sql_rows!(
-    ingest_session_stats,
+    ur_ingest_session_files_stats,
     r"SELECT ingest_session_root_fs_path,
              file_extension,
              total_file_count AS file_count,
              file_count_with_content AS with_content_count,
              file_count_with_frontmatter AS with_frontmatter_count
-        FROM ingest_session_stats_latest
+        FROM ur_ingest_session_files_stats_latest
        WHERE ingest_session_id = ?",
     ingest_session_id: String;
     ingest_session_root_fs_path: String,
@@ -264,9 +264,9 @@ query_sql_rows!(
 );
 
 query_sql_rows_json!(
-    ingest_session_stats_latest,
+    ur_ingest_session_files_stats_latest,
     r"SELECT *
-        FROM ingest_session_stats_latest
+        FROM ur_ingest_session_files_stats_latest
        WHERE ingest_session_id = ?",
     ingest_session_id: String
 );

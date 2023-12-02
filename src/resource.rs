@@ -481,34 +481,43 @@ impl EncounterableResource {
     /// # Examples
     ///
     /// ```
-    /// let json_str = r#"{ "key1": "value1", "nature": "example" }"#;
+    /// let json_str = r#"{ "my_cmd_identity": "echo \"hello world\"", "nature": "text/plain" }"#;
     /// let result = dts_er(json_str);
-    /// assert_eq!(result, ("value1".to_string(), Some("key1".to_string()), "example".to_string()));
+    /// assert_eq!(result, ("echo \"hello world\"".to_string(), Some("my_cmd_identity".to_string()), "text/plain".to_string()));
     ///
-    /// let non_json_str = "Hello, world!";
+    /// let non_json_str = "echo \"Hello, world!\"";
     /// let result = dts_er(non_json_str);
     /// assert_eq!(result, ("Hello, world!".to_string(), None, "json".to_string()));
     /// ```
     pub fn from_deno_task_shell_line(line: impl AsRef<str>) -> EncounterableResource {
+        let default_nature = "json".to_string();
         let (commands, identity, nature) = match serde_json::from_str::<JsonValue>(line.as_ref()) {
             Ok(parsed) => {
                 if let Some(obj) = parsed.as_object() {
-                    if let Some((key, value)) = obj.iter().find(|(_, v)| v.is_string()) {
-                        let value_str = value.as_str().unwrap().to_owned();
-                        let nature = obj
-                            .get("nature")
-                            .and_then(JsonValue::as_str)
-                            .map(|s| s.to_owned())
-                            .unwrap_or("json".to_owned());
-                        (value_str, Some(key.clone()), nature)
-                    } else {
-                        (line.as_ref().to_owned(), None, "json".to_owned())
-                    }
+                    let mut task: String = "no task found".to_string();
+                    let mut identity: Option<String> = None;
+                    let mut nature = default_nature.clone();
+                    obj.iter()
+                        .filter(|(_, v)| v.is_string())
+                        .for_each(|(key, value)| {
+                            if key == "nature" {
+                                nature = JsonValue::as_str(value)
+                                    .unwrap_or(default_nature.as_str())
+                                    .to_string();
+                            } else {
+                                task = JsonValue::as_str(value)
+                                    .unwrap_or(default_nature.as_str())
+                                    .to_string();
+                                identity = Some(key.to_owned());
+                            }
+                        });
+
+                    (task, identity, nature)
                 } else {
-                    (line.as_ref().to_owned(), None, "json".to_owned())
+                    (line.as_ref().to_owned(), None, default_nature)
                 }
             }
-            Err(_) => (line.as_ref().to_owned(), None, "json".to_owned()),
+            Err(_) => (line.as_ref().to_owned(), None, default_nature),
         };
         EncounterableResource::DenoTaskShellLine(commands, identity, nature)
     }
@@ -1040,19 +1049,27 @@ impl ResourcesCollection {
         )
     }
 
-    // create a ignore::Walk instance which is a "smart" ignore because it honors .gitigore and .ignore
-    // files in the walk path as well as the ignore and other directives passed in via options
     pub fn from_tasks_lines(
         tasks: &[String],
         options: &ResourcesCollectionOptions,
-    ) -> ResourcesCollection {
+    ) -> (Vec<String>, ResourcesCollection) {
         let encounterable: Vec<_> = tasks
             .iter()
-            .cloned()
-            .map(EncounterableResource::from_deno_task_shell_line)
+            .filter(|line| !line.starts_with('#'))
+            .filter(|line| !line.trim().is_empty())
+            .map(|line| line.to_owned())
             .collect();
 
-        ResourcesCollection::new(encounterable, options)
+        (
+            encounterable.clone(),
+            ResourcesCollection::new(
+                encounterable
+                    .iter()
+                    .map(EncounterableResource::from_deno_task_shell_line)
+                    .collect(),
+                options,
+            ),
+        )
     }
 
     pub fn ignored(&self) -> impl Iterator<Item = &EncounterableResource> + '_ {

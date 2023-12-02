@@ -14,7 +14,7 @@ include:
   - uniform_resource
   - uniform_resource_transform
   - ur_ingest_session_fs_path_entry
-  - ur_ingest_session_task_entry
+  - ur_ingest_session_task
 name: Resource Surveillance State Schema
 comments:
   - table: device
@@ -170,9 +170,9 @@ comments:
       contents
 
       if they were modified across sessions.
-  - table: ur_ingest_session_task_entry
+  - table: ur_ingest_session_task
     columnComments:
-      ur_ingest_session_task_entry_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      ur_ingest_session_task_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
       ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
       uniform_resource_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
       captured_executable: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
@@ -184,8 +184,8 @@ comments:
       Contains entries related to task content ingestion paths. On multiple
       executions,
 
-      unlike uniform_resource, ur_ingest_session_task_entry rows are always
-      inserted and
+      unlike uniform_resource, ur_ingest_session_task rows are always inserted
+      and
 
       references the uniform_resource primary key of its related content.
 

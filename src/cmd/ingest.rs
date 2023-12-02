@@ -53,14 +53,16 @@ impl IngestCommands {
             Connection::open_with_flags(state_db_fs_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
         {
             if stats_json {
-                if let Ok(stats) = ingest_session_stats_latest(&conn, ingest_session_id.clone()) {
+                if let Ok(stats) =
+                    ur_ingest_session_files_stats_latest(&conn, ingest_session_id.clone())
+                {
                     print!("{}", serde_json::to_string_pretty(&stats).unwrap())
                 }
             }
 
             if stats {
                 let mut rows: Vec<Vec<String>> = Vec::new(); // Declare the rows as a vector of vectors of strings
-                ingest_session_stats(
+                ur_ingest_session_files_stats(
                     &conn,
                     |_index,
                      root_path,
