@@ -391,7 +391,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     device_id: device.references.device_id(),
     ingest_session_id: urIngestSession.references.ur_ingest_session_id(),
     ingest_fs_path_id: urIngestSessionFsPath.references
-      .ur_ingest_session_fs_path_id(),
+      .ur_ingest_session_fs_path_id().optional(),
     uri: gd.text(),
     content_digest: gd.text(),
     content: gd.blobTextNullable(),
@@ -556,6 +556,45 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     },
   );
 
+  const urIngestSessionTaskEntry = gm.textPkTable(
+    "ur_ingest_session_task_entry",
+    {
+      ur_ingest_session_task_entry_id: gm.keys.varcharPrimaryKey(),
+      ingest_session_id: urIngestSession.references
+        .ur_ingest_session_id(),
+      uniform_resource_id: uniformResource.references.uniform_resource_id()
+        .optional(), // if a uniform_resource was prepared for this or already existed
+      captured_executable: gd.jsonText(),
+      ur_status: gd.textNullable(), // "CREATED", "EXISTING", "ERROR" / "WARNING" / etc.
+      ur_diagnostics: gd.jsonTextNullable(), // JSON diagnostics for ur_status column
+      ur_transformations: gd.jsonTextNullable(), // JSON-based details to know what transformations occurred, if any
+      elaboration: gd.jsonTextNullable(), // anything that doesn't fit above
+      ...gm.housekeeping.columns,
+    },
+    {
+      isIdempotent: true,
+      indexes: (props, tableName) => {
+        const tif = SQLa.tableIndexesFactory(tableName, props);
+        return [
+          tif.index(
+            { isIdempotent: true },
+            "ingest_session_id",
+          ),
+        ];
+      },
+      populateQS: (t, _c, _cols, tableName) => {
+        t.description = markdown`
+          Contains entries related to task content ingestion paths. On multiple executions,
+          unlike ${uniformResource.tableName}, ${tableName} rows are always inserted and
+          references the ${uniformResource.tableName} primary key of its related content.
+          This method allows for a more efficient query of file version differences across
+          sessions. With SQL queries, you can detect which sessions have a file added or modified,
+          which sessions have a file deleted, and what the differences are in file contents
+          if they were modified across sessions.`;
+      },
+    },
+  );
+
   const informationSchema = {
     tables: [
       device,
@@ -565,6 +604,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       uniformResource,
       uniformResourceTransform,
       urIngestSessionFsPathEntry,
+      urIngestSessionTaskEntry,
     ],
     tableIndexes: [
       ...device.indexes,
@@ -574,6 +614,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       ...uniformResource.indexes,
       ...uniformResourceTransform.indexes,
       ...urIngestSessionFsPathEntry.indexes,
+      ...urIngestSessionTaskEntry.indexes,
     ],
   };
 
@@ -586,6 +627,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     uniformResource,
     uniformResourceTransform,
     urIngestSessionFsPathEntry,
+    urIngestSessionTaskEntry,
     informationSchema,
   };
 }

@@ -43,6 +43,10 @@ const INS_UR_ISFSP_ENTRY_SQL: &str = indoc! {"
         INSERT INTO ur_ingest_session_fs_path_entry (ur_ingest_session_fs_path_entry_id, ingest_session_id, ingest_fs_path_id, uniform_resource_id, file_path_abs, file_path_rel_parent, file_path_rel, file_basename, file_extn, ur_status, ur_diagnostics, captured_executable) 
                                            VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"};
 
+const INS_UR_ISTASK_ENTRY_SQL: &str = indoc! {"
+        INSERT INTO ur_ingest_session_task_entry (ur_ingest_session_task_entry_id, ingest_session_id, uniform_resource_id, captured_executable, ur_status, ur_diagnostics) 
+                                            VALUES (ulid(), ?, ?, ?, ?, ?)"};
+
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct IngestContext<'conn> {
@@ -50,6 +54,7 @@ pub struct IngestContext<'conn> {
     ins_ur_stmt: rusqlite::Statement<'conn>,
     ins_ur_transform_stmt: rusqlite::Statement<'conn>,
     ins_ur_isfsp_entry_stmt: rusqlite::Statement<'conn>,
+    ins_ur_istask_entry_stmt: rusqlite::Statement<'conn>,
 }
 
 impl<'conn> IngestContext<'conn> {
@@ -78,11 +83,18 @@ impl<'conn> IngestContext<'conn> {
                 INS_UR_ISFSP_ENTRY_SQL, db_fs_path
             )
         })?;
+        let ins_ur_istask_entry_stmt = conn.prepare(INS_UR_ISTASK_ENTRY_SQL).with_context(|| {
+            format!(
+                "[IngestContext::from_conn] unable to create `ins_ur_istask_entry_stmt` SQL {} in {}",
+                INS_UR_ISFSP_ENTRY_SQL, db_fs_path
+            )
+        })?;
         Ok(IngestContext {
             ins_ur_isfsp_stmt,
             ins_ur_stmt,
             ins_ur_transform_stmt,
             ins_ur_isfsp_entry_stmt,
+            ins_ur_istask_entry_stmt,
         })
     }
 }
@@ -90,12 +102,12 @@ impl<'conn> IngestContext<'conn> {
 pub struct UniformResourceWriterState<'a, 'conn> {
     state_db_fs_path: &'a String,
     env_current_dir: &'a String,
-    ingest_behavior: Option<&'a IngestBehavior>,
     device_id: &'a String,
     ingest_session_id: &'a String,
-    ingest_fs_path_id: &'a String,
     resources: &'a ResourcesCollection,
     ingest_stmts: &'a mut IngestContext<'conn>,
+    ingest_files_behavior: Option<&'a IngestFilesBehavior>,
+    ingest_fs_path_id: Option<&'a String>,
 }
 
 impl<'a, 'conn> UniformResourceWriterState<'a, 'conn> {
@@ -109,7 +121,7 @@ impl<'a, 'conn> UniformResourceWriterState<'a, 'conn> {
             "surveilr-ingest": {
                 "args": { "state_db_fs_path": self.state_db_fs_path },
                 "env": { "current_dir": self.env_current_dir },
-                "behavior": self.ingest_behavior,
+                "behavior": self.ingest_files_behavior,
                 "device": { "device_id": self.device_id },
                 "session": {
                     "walk-session-id": self.ingest_session_id,
@@ -375,12 +387,18 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
 
         // now try to execute the capturable executable and store its output
         match &self.executable {
-            CapturableExecutable::UriShellExecutive(executive, _, nature, is_batched_sql) => {
+            CapturableExecutable::UriShellExecutive(
+                executive,
+                interpretable_code,
+                nature,
+                is_batched_sql,
+            ) => {
                 let stdin = urw_state.capturable_exec_ctx(entry);
                 match executive.execute(stdin.clone()) {
                     Ok(shell_result) => {
                         let captured_executable_diags = json!({
                             "args": [],
+                            "interpretable-code": interpretable_code,
                             "stdin": stdin.json(),
                             "exit-status": format!("{:?}", shell_result.status),
                             "stderr": shell_result.stderr,
@@ -424,15 +442,15 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
                                     let ur = *(output_ur);
                                     let inserted_output = ur.insert(urw_state, entry);
                                     match inserted_output.action {
-                                                    UniformResourceWriterAction::Inserted(ur_id, ur_status) => {
-                                                        UniformResourceWriterResult {
-                                                            uri: inserted_output.uri,
-                                                            action: UniformResourceWriterAction::InsertedExecutableOutput(ur_id, ur_status,
-                                                                captured_executable_diags),
-                                                        }
-                                                    },
-                                                    _ => inserted_output
-                                                }
+                                        UniformResourceWriterAction::Inserted(ur_id, ur_status) => {
+                                            UniformResourceWriterResult {
+                                                uri: inserted_output.uri,
+                                                action: UniformResourceWriterAction::InsertedExecutableOutput(ur_id, ur_status,
+                                                    captured_executable_diags),
+                                            }
+                                        },
+                                        _ => inserted_output
+                                    }
                                 }
                                 Err(err) => UniformResourceWriterResult {
                                     uri: self.resource.uri.clone(),
@@ -652,7 +670,7 @@ impl UniformResource<ContentResource> {
 // types;
 
 #[derive(Serialize, Deserialize)]
-pub struct IngestBehavior {
+pub struct IngestFilesBehavior {
     pub root_fs_paths: Vec<String>,
 
     #[serde(with = "serde_regex")]
@@ -670,7 +688,7 @@ pub struct IngestBehavior {
     pub nature_bind: HashMap<String, String>,
 }
 
-impl IngestBehavior {
+impl IngestFilesBehavior {
     pub fn new(
         device_id: &String,
         fsw_args: &crate::cmd::IngestFilesArgs,
@@ -694,7 +712,7 @@ impl IngestBehavior {
                         behavior_name, fsw_args.state_db_fs_path
                     )
                 })?;
-            let fswb = IngestBehavior::from_json(&fswb_json).with_context(|| {
+            let fswb = IngestFilesBehavior::from_json(&fswb_json).with_context(|| {
                 format!(
                     "[IngestBehavior.new] unable to deserialize behavior {} in {}",
                     fswb_json, fsw_args.state_db_fs_path
@@ -702,7 +720,7 @@ impl IngestBehavior {
             })?;
             Ok((fswb, Some(fswb_behavior_id)))
         } else {
-            Ok((IngestBehavior::from_ingest_args(fsw_args), None))
+            Ok((IngestFilesBehavior::from_ingest_args(fsw_args), None))
         }
     }
 
@@ -723,7 +741,7 @@ impl IngestBehavior {
         // the names in `args` are convenient for CLI usage but the struct
         // field names in IngestBehavior should be longer and more descriptive
         // since IngestBehavior is stored as activity in the database.
-        IngestBehavior {
+        IngestFilesBehavior {
             root_fs_paths: args.root_fs_path.clone(),
             ingest_content_fs_entry_regexs: args.surveil_fs_content.clone(),
             ignore_fs_entry_regexs: args.ignore_fs_entry.clone(),
@@ -803,7 +821,7 @@ pub fn ingest_files(
     // the ulid() function we're using below is not built into SQLite, we define
     // it in persist::prepare_conn so it's initialized as part of `dbc`.
 
-    let (mut fswb, mut behavior_id) = IngestBehavior::new(&device_id, ingest_args, &tx)
+    let (mut fswb, mut behavior_id) = IngestFilesBehavior::new(&device_id, ingest_args, &tx)
         .with_context(|| format!("[ingest_files] behavior issue {}", db_fs_path))?;
 
     if !ingest_args.include_state_db_in_ingestion {
@@ -916,11 +934,11 @@ pub fn ingest_files(
 
             let mut urw_state = UniformResourceWriterState {
                 state_db_fs_path: &db_fs_path,
-                ingest_behavior: Some(&fswb),
+                ingest_files_behavior: Some(&fswb),
                 env_current_dir: &env_current_dir,
                 device_id: &device_id,
                 ingest_session_id: &ingest_session_id,
-                ingest_fs_path_id: &ingest_fs_path_id,
+                ingest_fs_path_id: Some(&ingest_fs_path_id),
                 resources: &resources,
                 ingest_stmts: &mut ingest_stmts,
             };
@@ -1082,7 +1100,12 @@ pub fn ingest_tasks(
     let ingest_session_id: String = tx
         .query_row(
             INS_UR_INGEST_SESSION_SQL,
-            params![device_id, None::<String>, None::<String>],
+            params![
+                device_id,
+                None::<String>,
+                serde_json::to_string_pretty(&ingest_args)
+                    .unwrap_or(r#"{ "error": "ingest_args could not be serialized" }"#.to_owned())
+            ],
             |row| row.get(0),
         )
         .with_context(|| {
@@ -1095,28 +1118,14 @@ pub fn ingest_tasks(
         println!("Walk Session: {ingest_session_id}");
     }
 
-    let env_current_dir = std::env::current_dir()
-        .unwrap()
-        .to_string_lossy()
-        .to_string();
     {
+        let env_current_dir = std::env::current_dir()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+
         let mut ingest_stmts = IngestContext::from_conn(&tx, &ingest_args.state_db_fs_path)
             .with_context(|| format!("[ingest_tasks] ingest_stmts in {}", db_fs_path))?;
-
-        let canonical_path = "cli-tasks".to_string();
-        let ins_ur_wsp_params = params![ingest_session_id, canonical_path];
-        let ingest_fs_path_id: String = ingest_stmts
-            .ins_ur_isfsp_stmt
-            .query_row(ins_ur_wsp_params, |row| row.get(0))
-            .with_context(|| {
-                format!(
-                    "[ingest_tasks] ins_ur_wsp_stmt {} with {} in {}",
-                    INS_UR_ISFSP_SQL, "TODO: ins_ur_wsp_params.join()", db_fs_path
-                )
-            })?;
-        if cli.debug > 0 {
-            println!("  Walk Session Path: {canonical_path} ({ingest_fs_path_id})");
-        }
 
         let rw_options = ResourcesCollectionOptions {
             ingest_content_regexs: vec![],
@@ -1135,11 +1144,11 @@ pub fn ingest_tasks(
         let resources = ResourcesCollection::from_tasks_lines(&lines, &rw_options);
         let mut urw_state = UniformResourceWriterState {
             state_db_fs_path: &db_fs_path,
-            ingest_behavior: None,
+            ingest_files_behavior: None,
             env_current_dir: &env_current_dir,
             device_id: &device_id,
             ingest_session_id: &ingest_session_id,
-            ingest_fs_path_id: &ingest_fs_path_id,
+            ingest_fs_path_id: None,
             resources: &resources,
             ingest_stmts: &mut ingest_stmts,
         };
@@ -1158,18 +1167,15 @@ pub fn ingest_tasks(
                     let inserted = resource.insert(&mut urw_state, &mut urw_entry);
                     let mut ur_status = inserted.action.ur_status();
                     let mut ur_diagnostics = inserted.action.ur_diagnostics();
-                    let mut captured_exec_diags: Option<String> = None;
+                    let captured_executable: Option<String>;
 
                     let uniform_resource_id = match &inserted.action {
-                        UniformResourceWriterAction::Inserted(ref uniform_resource_id, None) => {
-                            Some(uniform_resource_id)
-                        }
                         UniformResourceWriterAction::InsertedExecutableOutput(
                             ref uniform_resource_id,
-                            None,
+                            _,
                             diags,
                         ) => {
-                            captured_exec_diags =
+                            captured_executable =
                                 Some(serde_json::to_string_pretty(&diags).unwrap());
                             Some(uniform_resource_id)
                         }
@@ -1177,7 +1183,7 @@ pub fn ingest_tasks(
                             ref sql_script,
                             diags,
                         ) => {
-                            captured_exec_diags =
+                            captured_executable =
                                 Some(serde_json::to_string_pretty(&diags).unwrap());
                             match tx.execute_batch(sql_script) {
                                 Ok(_) => {
@@ -1200,30 +1206,30 @@ pub fn ingest_tasks(
                                 }
                             }
                         }
-                        _ => None,
+                        _ => {
+                            ur_status = Some(String::from("ERROR"));
+                            captured_executable = Some(
+                                r#"{ "error": "captured_executable should never be set in this condition" }"#
+                                    .to_owned(),
+                            );
+                            None
+                        }
                     };
 
-                    // TODO: replace with proper table like `ur_*_task_entry`
                     match urw_state
                         .ingest_stmts
-                        .ins_ur_isfsp_entry_stmt
+                        .ins_ur_istask_entry_stmt
                         .execute(params![
                             ingest_session_id,
-                            ingest_fs_path_id,
                             uniform_resource_id,
-                            urw_entry.path,
-                            urw_entry.path,
-                            urw_entry.path,
-                            urw_entry.path,
-                            String::from(""),
+                            captured_executable,
                             ur_status,
                             ur_diagnostics,
-                            captured_exec_diags
                         ]) {
                         Ok(_) => {}
                         Err(err) => {
-                            eprintln!( "[ingest_tasks] unable to insert UR walk session path file system entry for {} in {}: {} ({})",
-                            &inserted.uri, db_fs_path, err, INS_UR_ISFSP_ENTRY_SQL
+                            eprintln!( "[ingest_tasks] unable to insert UR task entry for {} in {}: {} ({})",
+                            &inserted.uri, db_fs_path, err, INS_UR_ISTASK_ENTRY_SQL
                             )
                         }
                     }

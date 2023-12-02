@@ -233,7 +233,7 @@ CREATE TABLE IF NOT EXISTS "uniform_resource" (
     "uniform_resource_id" VARCHAR PRIMARY KEY NOT NULL,
     "device_id" VARCHAR NOT NULL,
     "ingest_session_id" VARCHAR NOT NULL,
-    "ingest_fs_path_id" VARCHAR NOT NULL,
+    "ingest_fs_path_id" VARCHAR,
     "uri" TEXT NOT NULL,
     "content_digest" TEXT NOT NULL,
     "content" BLOB,
@@ -300,13 +300,33 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path_entry" (
     FOREIGN KEY("ingest_fs_path_id") REFERENCES "ur_ingest_session_fs_path"("ur_ingest_session_fs_path_id"),
     FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
 );
+CREATE TABLE IF NOT EXISTS "ur_ingest_session_task_entry" (
+    "ur_ingest_session_task_entry_id" VARCHAR PRIMARY KEY NOT NULL,
+    "ingest_session_id" VARCHAR NOT NULL,
+    "uniform_resource_id" VARCHAR,
+    "captured_executable" TEXT CHECK(json_valid(captured_executable)) NOT NULL,
+    "ur_status" TEXT,
+    "ur_diagnostics" TEXT CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL),
+    "ur_transformations" TEXT CHECK(json_valid(ur_transformations) OR ur_transformations IS NULL),
+    "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
+    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT DEFAULT ''UNKNOWN'',
+    "updated_at" TIMESTAMP,
+    "updated_by" TEXT,
+    "deleted_at" TIMESTAMP,
+    "deleted_by" TEXT,
+    "activity_log" TEXT,
+    FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
+    FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
+);
 
 CREATE INDEX IF NOT EXISTS "idx_device__name__state" ON "device"("name", "state");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path__ingest_session_id__root_path" ON "ur_ingest_session_fs_path"("ingest_session_id", "root_path");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource__device_id__uri" ON "uniform_resource"("device_id", "uri");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource_transform__uniform_resource_id__content_digest" ON "uniform_resource_transform"("uniform_resource_id", "content_digest");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path_entry__ingest_session_id__file_path_abs" ON "ur_ingest_session_fs_path_entry"("ingest_session_id", "file_path_abs");
-', '0b9dcf4b2ceb279818ff37eb2d53761853966cfd', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_task_entry__ingest_session_id" ON "ur_ingest_session_task_entry"("ingest_session_id");
+', '97b6a7c83df402dc8762b1f5137032b6a8007ee8', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -770,7 +790,7 @@ CREATE TABLE IF NOT EXISTS "uniform_resource" (
     "uniform_resource_id" VARCHAR PRIMARY KEY NOT NULL,
     "device_id" VARCHAR NOT NULL,
     "ingest_session_id" VARCHAR NOT NULL,
-    "ingest_fs_path_id" VARCHAR NOT NULL,
+    "ingest_fs_path_id" VARCHAR,
     "uri" TEXT NOT NULL,
     "content_digest" TEXT NOT NULL,
     "content" BLOB,
@@ -837,12 +857,32 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path_entry" (
     FOREIGN KEY("ingest_fs_path_id") REFERENCES "ur_ingest_session_fs_path"("ur_ingest_session_fs_path_id"),
     FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
 );
+CREATE TABLE IF NOT EXISTS "ur_ingest_session_task_entry" (
+    "ur_ingest_session_task_entry_id" VARCHAR PRIMARY KEY NOT NULL,
+    "ingest_session_id" VARCHAR NOT NULL,
+    "uniform_resource_id" VARCHAR,
+    "captured_executable" TEXT CHECK(json_valid(captured_executable)) NOT NULL,
+    "ur_status" TEXT,
+    "ur_diagnostics" TEXT CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL),
+    "ur_transformations" TEXT CHECK(json_valid(ur_transformations) OR ur_transformations IS NULL),
+    "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
+    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT DEFAULT ''UNKNOWN'',
+    "updated_at" TIMESTAMP,
+    "updated_by" TEXT,
+    "deleted_at" TIMESTAMP,
+    "deleted_by" TEXT,
+    "activity_log" TEXT,
+    FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
+    FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
+);
 
 CREATE INDEX IF NOT EXISTS "idx_device__name__state" ON "device"("name", "state");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path__ingest_session_id__root_path" ON "ur_ingest_session_fs_path"("ingest_session_id", "root_path");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource__device_id__uri" ON "uniform_resource"("device_id", "uri");
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource_transform__uniform_resource_id__content_digest" ON "uniform_resource_transform"("uniform_resource_id", "content_digest");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path_entry__ingest_session_id__file_path_abs" ON "ur_ingest_session_fs_path_entry"("ingest_session_id", "file_path_abs");
+CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_task_entry__ingest_session_id" ON "ur_ingest_session_task_entry"("ingest_session_id");
 
 
 DROP VIEW IF EXISTS "ingest_session_stats";
@@ -905,7 +945,7 @@ CREATE VIEW IF NOT EXISTS "ingest_session_stats" AS
         ingest_session_finished_at,
         file_extension;
     
-      ', 'd1314b6f7d9125f973c04702a3e40f897d3a31dc', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', 'c83cc0071571144ada6eb8d725d839921e33c06f', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -968,7 +1008,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     --
     * device_id: VARCHAR
     * ingest_session_id: VARCHAR
-    * ingest_fs_path_id: VARCHAR
+      ingest_fs_path_id: VARCHAR
     * uri: TEXT
     * content_digest: TEXT
       content: BLOB
@@ -1010,6 +1050,18 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       elaboration: TEXT
   }
 
+  entity "ur_ingest_session_task_entry" as ur_ingest_session_task_entry {
+    * **ur_ingest_session_task_entry_id**: VARCHAR
+    --
+    * ingest_session_id: VARCHAR
+      uniform_resource_id: VARCHAR
+    * captured_executable: TEXT
+      ur_status: TEXT
+      ur_diagnostics: TEXT
+      ur_transformations: TEXT
+      elaboration: TEXT
+  }
+
   device |o..o{ behavior
   device |o..o{ ur_ingest_session
   behavior |o..o{ ur_ingest_session
@@ -1021,7 +1073,9 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   ur_ingest_session |o..o{ ur_ingest_session_fs_path_entry
   ur_ingest_session_fs_path |o..o{ ur_ingest_session_fs_path_entry
   uniform_resource |o..o{ ur_ingest_session_fs_path_entry
-@enduml', '2d996eda800b6c1c19829a90f5a7180335494cc0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+  ur_ingest_session |o..o{ ur_ingest_session_task_entry
+  uniform_resource |o..o{ ur_ingest_session_task_entry
+@enduml', '59059283f183a7b925c210be46caa7638b250a65', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,

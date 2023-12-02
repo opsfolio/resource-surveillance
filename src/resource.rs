@@ -206,16 +206,16 @@ impl UriNatureSupplier<ContentResource> for UniformResource<ContentResource> {
 
     fn nature(&self) -> &Option<String> {
         match self {
-            crate::resource::UniformResource::CapturableExec(cer) => &cer.resource.nature,
-            crate::resource::UniformResource::Html(html) => &html.resource.nature,
-            crate::resource::UniformResource::Image(img) => &img.resource.nature,
-            crate::resource::UniformResource::Json(json) => &json.resource.nature,
-            crate::resource::UniformResource::JsonableText(jsonable) => &jsonable.resource.nature,
-            crate::resource::UniformResource::Markdown(md) => &md.resource.nature,
-            crate::resource::UniformResource::PlainText(txt) => &txt.resource.nature,
+            UniformResource::CapturableExec(cer) => &cer.resource.nature,
+            UniformResource::Html(html) => &html.resource.nature,
+            UniformResource::Image(img) => &img.resource.nature,
+            UniformResource::Json(json) => &json.resource.nature,
+            UniformResource::JsonableText(jsonable) => &jsonable.resource.nature,
+            UniformResource::Markdown(md) => &md.resource.nature,
+            UniformResource::PlainText(txt) => &txt.resource.nature,
             UniformResource::SourceCode(sc) => &sc.resource.nature,
-            crate::resource::UniformResource::Xml(xml) => &xml.resource.nature,
-            crate::resource::UniformResource::Unknown(_cr, _alternate) => &None::<String>,
+            UniformResource::Xml(xml) => &xml.resource.nature,
+            UniformResource::Unknown(_cr, _alternate) => &None::<String>,
         }
     }
 }
@@ -672,31 +672,36 @@ impl CapturableExecutable {
         std_in: ShellStdIn,
     ) -> anyhow::Result<(String, String, bool), serde_json::Value> {
         match self {
-            CapturableExecutable::UriShellExecutive(executive, _, nature, is_batched_sql) => {
-                match executive.execute(std_in) {
-                    Ok(shell_result) => {
-                        if shell_result.success() {
-                            Ok((shell_result.stdout, nature.clone(), *is_batched_sql))
-                        } else {
-                            Err(serde_json::json!({
-                                "src": self.uri(),
-                                "issue": "[CapturableExecutable::TextFromExecutableUri.executed_text] invalid exit status",
-                                "remediation": "ensure that executable is called with proper arguments and input formats",
-                                "nature": nature,
-                                "exit-status": format!("{:?}", shell_result.status),
-                                "stdout": shell_result.stdout,
-                                "stderr": shell_result.stderr
-                            }))
-                        }
+            CapturableExecutable::UriShellExecutive(
+                executive,
+                interpretable_code,
+                nature,
+                is_batched_sql,
+            ) => match executive.execute(std_in) {
+                Ok(shell_result) => {
+                    if shell_result.success() {
+                        Ok((shell_result.stdout, nature.clone(), *is_batched_sql))
+                    } else {
+                        Err(serde_json::json!({
+                            "src": self.uri(),
+                            "interpretable-code": interpretable_code,
+                            "issue": "[CapturableExecutable::TextFromExecutableUri.executed_text] invalid exit status",
+                            "remediation": "ensure that executable is called with proper arguments and input formats",
+                            "nature": nature,
+                            "exit-status": format!("{:?}", shell_result.status),
+                            "stdout": shell_result.stdout,
+                            "stderr": shell_result.stderr
+                        }))
                     }
-                    Err(err) => Err(serde_json::json!({
-                        "src": self.uri(),
-                        "issue": "[CapturableExecutable::TextFromExecutableUri.executed_text] execution error",
-                        "rust-err": format!("{:?}", err),
-                        "nature": nature,
-                    })),
                 }
-            }
+                Err(err) => Err(serde_json::json!({
+                    "src": self.uri(),
+                    "interpretable-code": interpretable_code,
+                    "issue": "[CapturableExecutable::TextFromExecutableUri.executed_text] execution error",
+                    "rust-err": format!("{:?}", err),
+                    "nature": nature,
+                })),
+            },
             CapturableExecutable::RequestedButNoNature(src, regex) => Err(serde_json::json!({
                 "src": src,
                 "issue": "[CapturableExecutable::RequestedButNoNature.executed_sql] unable to determine nature",
@@ -716,47 +721,52 @@ impl CapturableExecutable {
         std_in: ShellStdIn,
     ) -> anyhow::Result<(serde_json::Value, String, bool), serde_json::Value> {
         match self {
-            CapturableExecutable::UriShellExecutive(executive, _, nature, is_batched_sql) => {
-                match executive.execute(std_in) {
-                    Ok(shell_result) => {
-                        if shell_result.success() {
-                            let captured_text = shell_result.stdout;
-                            let value: serde_json::Result<serde_json::Value> =
-                                serde_json::from_str(&captured_text);
-                            match value {
-                                Ok(value) => Ok((value, nature.clone(), *is_batched_sql)),
-                                Err(_) => Err(serde_json::json!({
-                                    "src": self.uri(),
-                                    "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_json] unable to deserialize JSON",
-                                    "remediation": "ensure that executable is emitting JSON (e.g. `--json`)",
-                                    "nature": nature,
-                                    "is-batched-sql": is_batched_sql,
-                                    "stdout": captured_text,
-                                    "exit-status": format!("{:?}", shell_result.status),
-                                    "stderr": shell_result.stderr
-                                })),
-                            }
-                        } else {
-                            Err(serde_json::json!({
+            CapturableExecutable::UriShellExecutive(
+                executive,
+                interpretable_code,
+                nature,
+                is_batched_sql,
+            ) => match executive.execute(std_in) {
+                Ok(shell_result) => {
+                    if shell_result.success() {
+                        let captured_text = shell_result.stdout;
+                        let value: serde_json::Result<serde_json::Value> =
+                            serde_json::from_str(&captured_text);
+                        match value {
+                            Ok(value) => Ok((value, nature.clone(), *is_batched_sql)),
+                            Err(_) => Err(serde_json::json!({
                                 "src": self.uri(),
-                                "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_json] invalid exit status",
-                                "remediation": "ensure that executable is called with proper arguments and input formats",
+                                "interpretable-code": interpretable_code,
+                                "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_json] unable to deserialize JSON",
+                                "remediation": "ensure that executable is emitting JSON (e.g. `--json`)",
                                 "nature": nature,
                                 "is-batched-sql": is_batched_sql,
+                                "stdout": captured_text,
                                 "exit-status": format!("{:?}", shell_result.status),
                                 "stderr": shell_result.stderr
-                            }))
+                            })),
                         }
+                    } else {
+                        Err(serde_json::json!({
+                            "src": self.uri(),
+                            "interpretable-code": interpretable_code,
+                            "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_json] invalid exit status",
+                            "remediation": "ensure that executable is called with proper arguments and input formats",
+                            "nature": nature,
+                            "is-batched-sql": is_batched_sql,
+                            "exit-status": format!("{:?}", shell_result.status),
+                            "stderr": shell_result.stderr
+                        }))
                     }
-                    Err(err) => Err(serde_json::json!({
-                        "src": self.uri(),
-                        "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_json] execution error",
-                        "rust-err": format!("{:?}", err),
-                        "nature": nature,
-                        "is-batched-sql": is_batched_sql,
-                    })),
                 }
-            }
+                Err(err) => Err(serde_json::json!({
+                    "src": self.uri(),
+                    "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_json] execution error",
+                    "rust-err": format!("{:?}", err),
+                    "nature": nature,
+                    "is-batched-sql": is_batched_sql,
+                })),
+            },
             CapturableExecutable::RequestedButNoNature(src, regex) => Err(serde_json::json!({
                 "src": src,
                 "issue": "[CapturableExecutable::RequestedButNoNature.executed_result_as_json] unable to determine nature",
@@ -776,7 +786,12 @@ impl CapturableExecutable {
         std_in: ShellStdIn,
     ) -> anyhow::Result<(String, String), serde_json::Value> {
         match self {
-            CapturableExecutable::UriShellExecutive(executive, _, nature, is_batched_sql) => {
+            CapturableExecutable::UriShellExecutive(
+                executive,
+                interpretable_code,
+                nature,
+                is_batched_sql,
+            ) => {
                 if *is_batched_sql {
                     match executive.execute(std_in) {
                         Ok(shell_result) => {
@@ -785,6 +800,7 @@ impl CapturableExecutable {
                             } else {
                                 Err(serde_json::json!({
                                     "src": self.uri(),
+                                    "interpretable-code": interpretable_code,
                                     "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_sql] invalid exit status",
                                     "remediation": "ensure that executable is called with proper arguments and input formats",
                                     "nature": nature,
@@ -796,6 +812,7 @@ impl CapturableExecutable {
                         }
                         Err(err) => Err(serde_json::json!({
                             "src": self.uri(),
+                            "interpretable-code": interpretable_code,
                             "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_sql] execution error",
                             "rust-err": format!("{:?}", err),
                             "nature": nature,
@@ -804,6 +821,7 @@ impl CapturableExecutable {
                 } else {
                     Err(serde_json::json!({
                         "src": self.uri(),
+                        "interpretable-code": interpretable_code,
                         "issue": "[CapturableExecutable::TextFromExecutableUri.executed_result_as_sql] is not classified as batch SQL",
                         "nature": nature,
                     }))

@@ -1284,7 +1284,7 @@ dependencies = [
 
 [[package]]
 name = "surveilr"
-version = "0.10.3"
+version = "0.11.0"
 dependencies = [
  "anyhow",
  "base64",

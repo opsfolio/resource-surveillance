@@ -130,14 +130,14 @@ impl IngestCommands {
 
     fn tasks(&self, cli: &super::Cli, args: &super::IngestTasksArgs) -> anyhow::Result<()> {
         match crate::ingest::ingest_tasks(cli, args) {
-            Ok(ingest_session_id) => {
-                self.session_stats(
-                    &args.state_db_fs_path,
-                    &["cli-tasks".to_string()],
-                    ingest_session_id,
-                    true,
-                    false,
-                );
+            Ok(_ingest_session_id) => {
+                // self.session_stats(
+                //     &args.state_db_fs_path,
+                //     &["cli-tasks".to_string()],
+                //     ingest_session_id,
+                //     true,
+                //     false,
+                // );
                 Ok(())
             }
             Err(err) => Err(err),
