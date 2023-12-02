@@ -135,6 +135,17 @@ $ deno eval "fetch(                                                             
   | surveilr ingest tasks
 ```
 
+### Testing shell tasks
+
+If you want to test the output of shell tasks without persisting with
+`ingest tasks`:
+
+```bash
+$ surveilr capturable-exec test task --help
+$ surveilr capturable-exec test task -t 'osqueryi "select * from users" --json' # nature defaults to JSON
+$ surveilr capturable-exec test task -t 'osqueryi "select * from users"' --nature text
+```
+
 ## Merging multiple `RSSD`s into one using `surveilr` (`admin merge`)
 
 Merging multiple _Resource Surveillance State SQLite Databases_ into one using

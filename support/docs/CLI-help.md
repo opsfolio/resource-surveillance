@@ -12,15 +12,14 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr capturable-exec`↴](#surveilr-capturable-exec)
 * [`surveilr capturable-exec ls`↴](#surveilr-capturable-exec-ls)
 * [`surveilr capturable-exec test`↴](#surveilr-capturable-exec-test)
+* [`surveilr capturable-exec test file`↴](#surveilr-capturable-exec-test-file)
+* [`surveilr capturable-exec test task`↴](#surveilr-capturable-exec-test-task)
 * [`surveilr ingest`↴](#surveilr-ingest)
 * [`surveilr ingest files`↴](#surveilr-ingest-files)
 * [`surveilr ingest tasks`↴](#surveilr-ingest-tasks)
 * [`surveilr notebooks`↴](#surveilr-notebooks)
 * [`surveilr notebooks cat`↴](#surveilr-notebooks-cat)
 * [`surveilr notebooks ls`↴](#surveilr-notebooks-ls)
-* [`surveilr shell`↴](#surveilr-shell)
-* [`surveilr shell json`↴](#surveilr-shell-json)
-* [`surveilr shell plain`↴](#surveilr-shell-plain)
 
 ## `surveilr`
 
@@ -32,7 +31,6 @@ This document contains the help content for the `surveilr` command-line program.
 * `capturable-exec` — Capturable Executables (CE) maintenance tools
 * `ingest` — Ingest content from device file system and other sources
 * `notebooks` — Notebooks maintenance utilities
-* `shell` — Deno Task Shell utilities
 
 ###### **Options:**
 
@@ -112,7 +110,7 @@ Capturable Executables (CE) maintenance tools
 ###### **Subcommands:**
 
 * `ls` — list potential capturable executables
-* `test` — test capturable executables
+* `test` — test capturable executables files
 
 
 
@@ -142,9 +140,22 @@ list potential capturable executables
 
 ## `surveilr capturable-exec test`
 
-test capturable executables
+test capturable executables files
 
-**Usage:** `surveilr capturable-exec test [OPTIONS] --fs-path <FS_PATH>`
+**Usage:** `surveilr capturable-exec test <COMMAND>`
+
+###### **Subcommands:**
+
+* `file` — test capturable executables files
+* `task` — Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner)
+
+
+
+## `surveilr capturable-exec test file`
+
+test capturable executables files
+
+**Usage:** `surveilr capturable-exec test file [OPTIONS] --fs-path <FS_PATH>`
 
 ###### **Options:**
 
@@ -155,6 +166,25 @@ test capturable executables
 * `--captured-fs-exec-sql <CAPTURED_FS_EXEC_SQL>` — reg-exes that will signify which captured executables' output should be treated as batch SQL
 
   Default value: `surveilr-SQL`
+
+
+
+## `surveilr capturable-exec test task`
+
+Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner)
+
+**Usage:** `surveilr capturable-exec test task [OPTIONS] --task <TASK>`
+
+###### **Options:**
+
+* `-t`, `--task <TASK>` — the command that would work as a Deno Task line
+* `--cwd <CWD>` — use this as the current working directory (CWD)
+* `-s`, `--stdout-only` — emit stdout only, without the exec status code and stderr
+
+  Default value: `false`
+* `--nature <NATURE>` — nature of the expected output
+
+  Default value: `json`
 
 
 
@@ -271,48 +301,6 @@ list all notebooks
 ###### **Options:**
 
 * `-m`, `--migratable` — list all SQL cells that will be handled by execute_migrations
-
-
-
-## `surveilr shell`
-
-Deno Task Shell utilities
-
-**Usage:** `surveilr shell <COMMAND>`
-
-###### **Subcommands:**
-
-* `json` — Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) that returns JSON
-* `plain` — Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) that returns plain text
-
-
-
-## `surveilr shell json`
-
-Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) that returns JSON
-
-**Usage:** `surveilr shell json [OPTIONS] --command <COMMAND>`
-
-###### **Options:**
-
-* `-c`, `--command <COMMAND>` — the command that would work as a Deno Task
-* `--cwd <CWD>` — use this as the current working directory (CWD)
-* `-s`, `--stdout-only` — emit stdout only, without the exec status code and stderr
-
-  Default value: `false`
-
-
-
-## `surveilr shell plain`
-
-Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) that returns plain text
-
-**Usage:** `surveilr shell plain [OPTIONS] --command <COMMAND>`
-
-###### **Options:**
-
-* `-c`, `--command <COMMAND>` — the command that would work as a Deno Task
-* `--cwd <CWD>` — use this as the current working directory (CWD)
 
 
 

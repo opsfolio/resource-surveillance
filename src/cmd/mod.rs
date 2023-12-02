@@ -8,7 +8,6 @@ pub mod admin;
 pub mod capexec;
 pub mod ingest;
 pub mod notebooks;
-pub mod shell;
 
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 const DEFAULT_MERGED_STATEDB_FS_PATH: &str = "resource-surveillance-aggregated.sqlite.db";
@@ -52,7 +51,6 @@ pub enum CliCommands {
     CapturableExec(CapturableExecArgs),
     Ingest(IngestArgs),
     Notebooks(NotebooksArgs),
-    Shell(ShellArgs),
 }
 
 /// Admin / maintenance utilities
@@ -155,8 +153,21 @@ pub enum CapturableExecCommands {
         markdown: bool,
     },
 
-    /// test capturable executables
-    Test {
+    /// test capturable executables files
+    Test(CapturableExecTestArgs),
+}
+
+/// Capturable Executables (CE) maintenance tools
+#[derive(Debug, Serialize, Args)]
+pub struct CapturableExecTestArgs {
+    #[command(subcommand)]
+    pub command: CapturableExecTestCommands,
+}
+
+#[derive(Debug, Serialize, Subcommand)]
+pub enum CapturableExecTestCommands {
+    /// test capturable executables files
+    File {
         #[arg(short, long)]
         fs_path: String,
 
@@ -175,6 +186,25 @@ pub enum CapturableExecCommands {
             default_value = DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN,
             default_missing_value = "always")]
         captured_fs_exec_sql: Vec<Regex>,
+    },
+
+    /// Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner)
+    Task {
+        /// the command that would work as a Deno Task line
+        #[arg(short, long)]
+        task: String,
+
+        /// use this as the current working directory (CWD)
+        #[arg(long)]
+        cwd: Option<String>,
+
+        /// emit stdout only, without the exec status code and stderr
+        #[arg(short, long, default_value = "false")]
+        stdout_only: bool,
+
+        /// nature of the expected output
+        #[arg(long, default_value = "json", default_missing_value = "always")]
+        nature: String,
     },
 }
 
@@ -348,42 +378,6 @@ pub enum NotebooksCommands {
     },
 }
 
-/// Deno Task Shell utilities
-#[derive(Debug, Serialize, Args)]
-pub struct ShellArgs {
-    #[command(subcommand)]
-    pub command: ShellCommands,
-}
-
-#[derive(Debug, Serialize, Subcommand)]
-pub enum ShellCommands {
-    /// Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) that returns JSON
-    Json {
-        /// the command that would work as a Deno Task
-        #[arg(short, long)]
-        command: String,
-
-        /// use this as the current working directory (CWD)
-        #[arg(long)]
-        cwd: Option<String>,
-
-        /// emit stdout only, without the exec status code and stderr
-        #[arg(short, long, default_value = "false")]
-        stdout_only: bool,
-    },
-
-    /// Execute a command string in [Deno Task Shell](https://docs.deno.com/runtime/manual/tools/task_runner) that returns plain text
-    Plain {
-        /// the command that would work as a Deno Task
-        #[arg(short, long)]
-        command: String,
-
-        /// use this as the current working directory (CWD)
-        #[arg(long)]
-        cwd: Option<String>,
-    },
-}
-
 impl CliCommands {
     pub fn execute(&self, cli: &Cli) -> anyhow::Result<()> {
         match self {
@@ -391,7 +385,6 @@ impl CliCommands {
             CliCommands::CapturableExec(args) => args.command.execute(cli, args),
             CliCommands::Ingest(args) => args.command.execute(cli, args),
             CliCommands::Notebooks(args) => args.command.execute(cli, args),
-            CliCommands::Shell(args) => args.command.execute(cli, args),
         }
     }
 }

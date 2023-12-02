@@ -6,8 +6,9 @@ use regex::Regex;
 use serde_json::json;
 
 use super::CapturableExecCommands;
+use super::CapturableExecTestCommands;
 use crate::resource::*;
-use crate::shell::ShellStdIn;
+use crate::shell::*;
 
 // Implement methods for `CapturableExecCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
@@ -43,11 +44,9 @@ impl CapturableExecCommands {
                     )
                 }
             }
-            CapturableExecCommands::Test {
-                fs_path,
-                capture_fs_exec: capture_exec,
-                captured_fs_exec_sql: captured_exec_sql,
-            } => self.test_fs_path(cli, args, fs_path, capture_exec, captured_exec_sql),
+            CapturableExecCommands::Test(test_args) => {
+                test_args.command.execute(cli, args, test_args)
+            }
         }
     }
 
@@ -286,11 +285,44 @@ impl CapturableExecCommands {
 
         Ok(())
     }
+}
+
+// Implement methods for `CapturableExecCommands`, ensure that whether the commands
+// are called from CLI or natively within Rust, all the calls remain ergonomic.
+impl CapturableExecTestCommands {
+    pub fn execute(
+        &self,
+        cli: &super::Cli,
+        parent_args: &super::CapturableExecArgs,
+        cmd_args: &super::CapturableExecTestArgs,
+    ) -> anyhow::Result<()> {
+        match self {
+            CapturableExecTestCommands::File {
+                fs_path,
+                capture_fs_exec: capture_exec,
+                captured_fs_exec_sql: captured_exec_sql,
+            } => self.test_fs_path(
+                cli,
+                parent_args,
+                cmd_args,
+                fs_path,
+                capture_exec,
+                captured_exec_sql,
+            ),
+            CapturableExecTestCommands::Task {
+                task,
+                cwd,
+                stdout_only,
+                nature,
+            } => self.task(cli, task, nature, cwd.as_ref(), *stdout_only),
+        }
+    }
 
     fn test_fs_path(
         &self,
         cli: &super::Cli,
-        args: &super::CapturableExecArgs,
+        _parent_args: &super::CapturableExecArgs,
+        cmd_args: &super::CapturableExecTestArgs,
         fs_path: &String,
         capture_exec: &[Regex],
         captured_exec_sql: &[Regex],
@@ -303,7 +335,7 @@ impl CapturableExecCommands {
                 // pass in synthetic JSON into STDIN since some scripts may try to consume stdin
                 let stdin = ShellStdIn::Json(serde_json::json!({
                     "cli": cli,
-                    "args": args
+                    "args": cmd_args
                 }));
                 let (src, nature, is_batch_sql) = match &ce {
                     CapturableExecutable::UriShellExecutive(_, uri, nature, is_batch_sql) => {
@@ -345,6 +377,48 @@ impl CapturableExecCommands {
                 "Did not match capturable executable regex rules: {:?}",
                 cerr
             ),
+        }
+
+        Ok(())
+    }
+
+    fn task(
+        &self,
+        cli: &super::Cli,
+        command: &str,
+        nature: &str,
+        _cwd: Option<&String>,
+        _stdout_only: bool,
+    ) -> anyhow::Result<()> {
+        if cli.debug > 0 {
+            println!("{:?}", command);
+        }
+
+        let stdin = crate::shell::ShellStdIn::None;
+        let ce = CapturableExecutable::UriShellExecutive(
+            Box::new(DenoTaskShellExecutive::new(command.to_owned(), None)),
+            format!("cli://capturable-exec/test/task/{}", command),
+            nature.to_owned(),
+            false,
+        );
+
+        match nature {
+            "json" | "text/json" | "application/json" => match ce.executed_result_as_json(stdin) {
+                Ok((json_value, _nature, _is_sql_exec)) => {
+                    print!("{}", serde_json::to_string_pretty(&json_value).unwrap());
+                }
+                Err(err) => {
+                    print!("{:?}", err);
+                }
+            },
+            _ => match ce.executed_result_as_text(stdin) {
+                Ok((stdout, _nature, _is_sql_exec)) => {
+                    print!("{stdout}");
+                }
+                Err(err) => {
+                    print!("{:?}", err);
+                }
+            },
         }
 
         Ok(())
