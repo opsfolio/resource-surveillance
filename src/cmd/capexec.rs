@@ -1,6 +1,5 @@
 use std::env;
 
-use regex::Regex;
 use serde_json::json;
 
 use super::CapturableExecCommands;
@@ -19,27 +18,12 @@ impl CapturableExecCommands {
         match self {
             CapturableExecCommands::Ls {
                 root_fs_path: root_path,
-                ignore_fs_entry: ignore_entry,
-                capture_fs_exec: capture_exec,
-                captured_fs_exec_sql: captured_exec_sql,
                 markdown,
             } => {
                 if *markdown {
-                    self.ls_markdown(
-                        cli,
-                        root_path,
-                        capture_exec,
-                        captured_exec_sql,
-                        ignore_entry,
-                    )
+                    self.ls_markdown(cli, root_path)
                 } else {
-                    self.ls_table(
-                        cli,
-                        root_path,
-                        capture_exec,
-                        captured_exec_sql,
-                        ignore_entry,
-                    )
+                    self.ls_table(cli, root_path)
                 }
             }
             CapturableExecCommands::Test(test_args) => {
@@ -48,20 +32,9 @@ impl CapturableExecCommands {
         }
     }
 
-    fn ls_table(
-        &self,
-        _cli: &super::Cli,
-        root_paths: &[String],
-        _capture_exec: &[Regex],
-        _captured_exec_sql: &[Regex],
-        _ignore_entries: &[Regex],
-    ) -> anyhow::Result<()> {
-        let resources = ResourcesCollection::from_smart_ignore(
-            root_paths,
-            Default::default(),
-            super::DEFAULT_IGNORE_GLOBS_CONF_FILE,
-            false,
-        );
+    fn ls_table(&self, _cli: &super::Cli, root_paths: &[String]) -> anyhow::Result<()> {
+        let resources =
+            ResourcesCollection::from_smart_ignore(root_paths, &Default::default(), false);
 
         let mut found: Vec<Vec<String>> = vec![];
         for resource_result in resources.uniform_resources() {
@@ -131,20 +104,9 @@ impl CapturableExecCommands {
         Ok(())
     }
 
-    fn ls_markdown(
-        &self,
-        _cli: &super::Cli,
-        root_paths: &[String],
-        capture_exec: &[Regex],
-        captured_exec_sql: &[Regex],
-        ignore_entries: &[Regex],
-    ) -> anyhow::Result<()> {
-        let resources = ResourcesCollection::from_smart_ignore(
-            root_paths,
-            Default::default(),
-            super::DEFAULT_IGNORE_GLOBS_CONF_FILE,
-            false,
-        );
+    fn ls_markdown(&self, _cli: &super::Cli, root_paths: &[String]) -> anyhow::Result<()> {
+        let classifier: EncounterableResourcePathClassifier = Default::default();
+        let resources = ResourcesCollection::from_smart_ignore(root_paths, &classifier, false);
 
         let mut markdown: Vec<String> = vec!["# `surveilr` Capturable Executables\n\n".to_string()];
 
@@ -157,22 +119,37 @@ impl CapturableExecCommands {
 
         markdown.push("\nCapturable Executables RegExes\n".to_string());
         markdown.push(
-            capture_exec
+            classifier
+                .flaggables
                 .iter()
+                .filter(|f| {
+                    f.flags
+                        .contains(EncounterableResourceFlags::CAPTURABLE_EXECUTABLE)
+                })
+                .map(|f| f.regex.clone())
                 .fold("".to_string(), |_acc, x| format!("- `{}`\n", x)),
         );
 
         markdown.push("\nCapturable Executables Batched SQL RegExes\n".to_string());
         markdown.push(
-            captured_exec_sql
+            classifier
+                .flaggables
                 .iter()
+                .filter(|f| f.flags.contains(EncounterableResourceFlags::CAPTURABLE_SQL))
+                .map(|f| f.regex.clone())
                 .fold("".to_string(), |_acc, x| format!("- `{}`\n", x)),
         );
 
         markdown.push("\nIgnore Entries\n".to_string());
         markdown.push(
-            ignore_entries
+            classifier
+                .flaggables
                 .iter()
+                .filter(|f| {
+                    f.flags
+                        .contains(EncounterableResourceFlags::IGNORE_RESOURCE)
+                })
+                .map(|f| f.regex.clone())
                 .fold("".to_string(), |_acc, x| format!("- `{}`\n", x)),
         );
         markdown.push("\n".to_string());
@@ -273,18 +250,9 @@ impl CapturableExecTestCommands {
         cmd_args: &super::CapturableExecTestArgs,
     ) -> anyhow::Result<()> {
         match self {
-            CapturableExecTestCommands::File {
-                fs_path,
-                capture_fs_exec: capture_exec,
-                captured_fs_exec_sql: captured_exec_sql,
-            } => self.test_fs_path(
-                cli,
-                parent_args,
-                cmd_args,
-                fs_path,
-                capture_exec,
-                captured_exec_sql,
-            ),
+            CapturableExecTestCommands::File { fs_path } => {
+                self.test_fs_path(cli, parent_args, cmd_args, fs_path)
+            }
             CapturableExecTestCommands::Task { stdin, task, cwd } => {
                 self.task(cli, *stdin, task, cwd.as_ref())
             }
@@ -293,64 +261,66 @@ impl CapturableExecTestCommands {
 
     fn test_fs_path(
         &self,
-        _cli: &super::Cli,
+        cli: &super::Cli,
         _parent_args: &super::CapturableExecArgs,
-        _cmd_args: &super::CapturableExecTestArgs,
-        _fs_path: &str,
-        _capture_exec: &[Regex],
-        _captured_exec_sql: &[Regex],
+        cmd_args: &super::CapturableExecTestArgs,
+        fs_path: &str,
     ) -> anyhow::Result<()> {
-        // let cerr = CapturableExecutableRegexRules::new(Some(capture_exec), Some(captured_exec_sql))
-        //     .with_context(|| "unable to create CapturableExecutableRegexRules")?;
-        // match cerr.path_capturable_executable(std::path::Path::new(fs_path)) {
-        //     Some(ce) => {
-        //         let unknown_nature = "UNKNOWN_NATURE".to_string();
-        //         // pass in synthetic JSON into STDIN since some scripts may try to consume stdin
-        //         let stdin = ShellStdIn::Json(serde_json::json!({
-        //             "cli": cli,
-        //             "args": cmd_args
-        //         }));
-        //         let (src, nature, is_batch_sql) = match &ce {
-        //             CapturableExecutable::UriShellExecutive(_, uri, nature, is_batch_sql) => {
-        //                 (uri.clone(), nature, is_batch_sql)
-        //             }
-        //             CapturableExecutable::RequestedButNoNature(uri, _) => {
-        //                 (uri.clone(), &unknown_nature, &false)
-        //             }
-        //             CapturableExecutable::RequestedButNotExecutable(uri) => {
-        //                 (uri.clone(), &unknown_nature, &false)
-        //             }
-        //         };
-        //         println!("src: {}", src);
-        //         println!("nature: {} (is batch SQL: {})", nature, is_batch_sql);
-        //         let mut emitted = 0;
+        let classifier: EncounterableResourcePathClassifier = Default::default();
+        let mut erc = EncounterableResourceClass {
+            flags: EncounterableResourceFlags::empty(),
+            nature: None,
+        };
+        if classifier.classify(fs_path, &mut erc, None)
+            && erc
+                .flags
+                .contains(EncounterableResourceFlags::CAPTURABLE_EXECUTABLE)
+        {
+            let ce = CapturableExecutable::from_executable_file_path(
+                std::path::Path::new(fs_path),
+                &erc,
+            );
+            let unknown_nature = "UNKNOWN_NATURE".to_string();
+            // pass in synthetic JSON into STDIN since some scripts may try to consume stdin
+            let stdin = ShellStdIn::Json(serde_json::json!({
+                "cli": cli,
+                "args": cmd_args
+            }));
+            let (src, nature, is_batch_sql) = match &ce {
+                CapturableExecutable::UriShellExecutive(_, uri, nature, is_batch_sql) => {
+                    (uri.clone(), nature, is_batch_sql)
+                }
+                CapturableExecutable::RequestedButNotExecutable(uri) => {
+                    (uri.clone(), &unknown_nature, &false)
+                }
+            };
+            println!("src: {}", src);
+            println!("nature: {} (is batch SQL: {})", nature, is_batch_sql);
+            let mut emitted = 0;
 
-        //         if nature == "json" {
-        //             println!("{:?}", ce.executed_result_as_json(stdin.clone()));
-        //             emitted += 1;
-        //         }
+            if nature == "json" {
+                println!("{:?}", ce.executed_result_as_json(stdin.clone()));
+                emitted += 1;
+            }
 
-        //         if nature == "surveilr-SQL" {
-        //             println!("{:?}", ce.executed_result_as_sql(stdin.clone()));
-        //             emitted += 1;
-        //         }
+            if nature == "surveilr-SQL" {
+                println!("{:?}", ce.executed_result_as_sql(stdin.clone()));
+                emitted += 1;
+            }
 
-        //         if emitted == 0 {
-        //             match ce.executed_result_as_text(stdin) {
-        //                 Ok((stdout_text, _nature, _is_batch_sql)) => {
-        //                     println!("{}", stdout_text)
-        //                 }
-        //                 Err(error_json) => {
-        //                     eprintln!("{}", serde_json::to_string_pretty(&error_json).unwrap())
-        //                 }
-        //             }
-        //         }
-        //     }
-        //     None => println!(
-        //         "Did not match capturable executable regex rules: {:?}",
-        //         cerr
-        //     ),
-        // }
+            if emitted == 0 {
+                match ce.executed_result_as_text(stdin) {
+                    Ok((stdout_text, _nature, _is_batch_sql)) => {
+                        println!("{}", stdout_text)
+                    }
+                    Err(error_json) => {
+                        eprintln!("{}", serde_json::to_string_pretty(&error_json).unwrap())
+                    }
+                }
+            }
+        } else {
+            eprintln!("Unable to classify {} as a capturable executable.", fs_path)
+        }
 
         Ok(())
     }
@@ -376,7 +346,7 @@ impl CapturableExecTestCommands {
             task_cmds.to_vec()
         };
 
-        let (_, resources) = ResourcesCollection::from_tasks_lines(&tasks, Default::default());
+        let (_, resources) = ResourcesCollection::from_tasks_lines(&tasks, &Default::default());
         for ur in resources.uniform_resources() {
             match ur {
                 Ok(resource) => match &resource {

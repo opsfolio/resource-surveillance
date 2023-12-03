@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use anyhow::{Context, Result};
 use indoc::indoc;
 use rusqlite::{params, Connection};
@@ -655,21 +653,8 @@ impl UniformResource<ContentResource> {
 
 #[derive(Serialize, Deserialize)]
 pub struct IngestFilesBehavior {
+    pub classifier: EncounterableResourcePathClassifier,
     pub root_fs_paths: Vec<String>,
-
-    #[serde(with = "serde_regex")]
-    pub ignore_fs_entry_regexs: Vec<regex::Regex>,
-
-    #[serde(with = "serde_regex")]
-    pub ingest_content_fs_entry_regexs: Vec<regex::Regex>,
-
-    #[serde(with = "serde_regex")]
-    pub capturable_executables_fs_entry_regexs: Vec<regex::Regex>,
-
-    #[serde(with = "serde_regex")]
-    pub captured_exec_sql_fs_entry_regexs: Vec<regex::Regex>,
-
-    pub nature_bind: HashMap<String, String>,
 }
 
 impl IngestFilesBehavior {
@@ -709,29 +694,12 @@ impl IngestFilesBehavior {
     }
 
     pub fn from_ingest_args(args: &crate::cmd::IngestFilesArgs) -> Self {
-        let mut nature_bind: HashMap<String, String> =
-            if let Some(supplied_binds) = &args.nature_bind {
-                supplied_binds.clone()
-            } else {
-                HashMap::new()
-            };
-        if !nature_bind.contains_key("text") {
-            nature_bind.insert("text".to_string(), "text/plain".to_string());
-        }
-        if !nature_bind.contains_key("yaml") {
-            nature_bind.insert("yaml".to_string(), "application/yaml".to_string());
-        }
-
         // the names in `args` are convenient for CLI usage but the struct
         // field names in IngestBehavior should be longer and more descriptive
         // since IngestBehavior is stored as activity in the database.
         IngestFilesBehavior {
+            classifier: Default::default(),
             root_fs_paths: args.root_fs_path.clone(),
-            ingest_content_fs_entry_regexs: args.surveil_fs_content.clone(),
-            ignore_fs_entry_regexs: args.ignore_fs_entry.clone(),
-            capturable_executables_fs_entry_regexs: args.capture_fs_exec.clone(),
-            captured_exec_sql_fs_entry_regexs: args.captured_fs_exec_sql.clone(),
-            nature_bind,
         }
     }
 
@@ -741,11 +709,6 @@ impl IngestFilesBehavior {
 
     pub fn persistable_json_text(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)
-    }
-
-    pub fn add_ignore_exact(&mut self, pattern: &str) {
-        self.ignore_fs_entry_regexs
-            .push(regex::Regex::new(format!("^{}$", regex::escape(pattern)).as_str()).unwrap());
     }
 
     pub fn save(
@@ -816,9 +779,15 @@ pub fn ingest_files(
         let mut db_journal_path = std::path::PathBuf::from(&canonical_db_fs_path);
         wal_path.set_extension("wal");
         db_journal_path.set_extension("db-journal");
-        behavior.add_ignore_exact(canonical_db_fs_path.as_str());
-        behavior.add_ignore_exact(wal_path.to_string_lossy().to_string().as_str());
-        behavior.add_ignore_exact(db_journal_path.to_string_lossy().to_string().as_str());
+        behavior
+            .classifier
+            .add_ignore_exact(canonical_db_fs_path.as_str());
+        behavior
+            .classifier
+            .add_ignore_exact(wal_path.to_string_lossy().to_string().as_str());
+        behavior
+            .classifier
+            .add_ignore_exact(db_journal_path.to_string_lossy().to_string().as_str());
     }
 
     if let Some(save_behavior_name) = &ingest_args.save_behavior {
@@ -901,12 +870,8 @@ pub fn ingest_files(
             }
 
             let rp: Vec<String> = vec![canonical_path.clone()];
-            let resources = ResourcesCollection::from_smart_ignore(
-                &rp,
-                Default::default(),
-                &ingest_args.ignore_globs_conf_file,
-                !ingest_args.surveil_hidden_files,
-            );
+            let resources =
+                ResourcesCollection::from_smart_ignore(&rp, &behavior.classifier, false);
 
             let mut urw_state = UniformResourceWriterState {
                 state_db_fs_path: &db_fs_path,
@@ -1099,7 +1064,7 @@ pub fn ingest_tasks(
 
     let mut behavior = IngestTasksBehavior::from_stdin();
     let (encounterable, resources) =
-        ResourcesCollection::from_tasks_lines(&behavior.lines, Default::default());
+        ResourcesCollection::from_tasks_lines(&behavior.lines, &Default::default());
     behavior.encounterable = encounterable;
 
     let ingest_session_id: String = tx

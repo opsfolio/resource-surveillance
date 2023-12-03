@@ -125,15 +125,6 @@ list potential capturable executables
 * `-r`, `--root-fs-path <ROOT_FS_PATH>` — one or more root paths to ingest
 
   Default value: `.`
-* `-i`, `--ignore-fs-entry <IGNORE_FS_ENTRY>` — reg-exes to use to ignore files in root-path(s)
-
-  Default value: `/(\.git|node_modules)/`
-* `--capture-fs-exec <CAPTURE_FS_EXEC>` — reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
-
-  Default value: `surveilr\[(?P<nature>[^\]]*)\]`
-* `--captured-fs-exec-sql <CAPTURED_FS_EXEC_SQL>` — reg-exes that will signify which captured executables' output should be treated as batch SQL
-
-  Default value: `surveilr-SQL`
 * `--markdown` — emit the results as markdown, not a simple table
 
 
@@ -155,17 +146,11 @@ test capturable executables files
 
 test capturable executables files
 
-**Usage:** `surveilr capturable-exec test file [OPTIONS] --fs-path <FS_PATH>`
+**Usage:** `surveilr capturable-exec test file --fs-path <FS_PATH>`
 
 ###### **Options:**
 
 * `-f`, `--fs-path <FS_PATH>`
-* `--capture-fs-exec <CAPTURE_FS_EXEC>` — reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
-
-  Default value: `surveilr\[(?P<nature>[^\]]*)\]`
-* `--captured-fs-exec-sql <CAPTURED_FS_EXEC_SQL>` — reg-exes that will signify which captured executables' output should be treated as batch SQL
-
-  Default value: `surveilr-SQL`
 
 
 
@@ -209,23 +194,6 @@ Ingest content from device file system and other sources
 * `-r`, `--root-fs-path <ROOT_FS_PATH>` — one or more root paths to ingest
 
   Default value: `.`
-* `-i`, `--ignore-fs-entry <IGNORE_FS_ENTRY>` — reg-exes to use to ignore files in root-path(s)
-
-  Default value: `/(\.git|node_modules)/`
-* `--ignore-globs-conf-file <IGNORE_GLOBS_CONF_FILE>` — similar to .gitignore, ignore globs specified within it (works only with SmartIgnore walkers)
-
-  Default value: `.surveilr_ignore`
-* `-s`, `--surveil-hidden-files` — surveil hidden files (they are ignored by default)
-* `--surveil-fs-content <SURVEIL_FS_CONTENT>` — reg-exes to use to load content for entry instead of just walking
-
-  Default values: `\.(md|mdx|html|json|jsonc|tap|txt|text|toml|yaml)$`, `surveilr\[(?P<nature>[^\]]*)\]`
-* `--capture-fs-exec <CAPTURE_FS_EXEC>` — reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
-
-  Default value: `surveilr\[(?P<nature>[^\]]*)\]`
-* `--captured-fs-exec-sql <CAPTURED_FS_EXEC_SQL>` — reg-exes that will signify which captured executables' output should be treated as batch SQL
-
-  Default value: `surveilr-SQL`
-* `-N`, `--nature-bind <NATURE_BIND>` — bind an unknown nature (file extension), the key, to a known nature the value "text=text/plain,yaml=application/yaml"
 * `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
 
   Default value: `resource-surveillance.sqlite.db`

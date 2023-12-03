@@ -39,6 +39,10 @@ state Resource {
 state CapturableExec {
 }
 
+state ContentResource {
+
+}
+
 state UniformResource {
 }
 
@@ -96,8 +100,10 @@ EncounteredResource --> CapturableExec
 EncounteredResource --> DenoTaskShellLine
 DenoTaskShellLine --> CapturableExec
 
-Resource --> UniformResource
-CapturableExec --> UniformResource
+Resource --> ContentResource
+CapturableExec --> ContentResource
+
+ContentResource --> UniformResource
 
 UniformResource --> HTML
 UniformResource --> Image

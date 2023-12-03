@@ -41,7 +41,7 @@ pub type BinaryContentSupplier = Box<dyn Fn() -> Result<Box<dyn BinaryContent>, 
 pub type TextContentSupplier = Box<dyn Fn() -> Result<Box<dyn TextContent>, Box<dyn Error>>>;
 
 bitflags! {
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
     pub struct EncounterableResourceFlags: u32 {
         const CONTENT_ACQUIRABLE    = 0b00000001;
         const IGNORE_RESOURCE       = EncounterableResourceFlags::CONTENT_ACQUIRABLE.bits() << 1;
@@ -55,7 +55,7 @@ bitflags! {
     }
 
     // EncounteredResourceFlags "inherits" flags from EncounterableResourceFlags
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
     pub struct EncounteredResourceFlags: u32 {
         const CONTENT_ACQUIRABLE    = EncounterableResourceFlags::CONTENT_ACQUIRABLE.bits();
         const IGNORE_RESOURCE       = EncounterableResourceFlags::IGNORE_RESOURCE.bits();
@@ -70,7 +70,7 @@ bitflags! {
     }
 
     // ContentResourceFlags "inherits" flags from EncounteredResourceFlags
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
     pub struct ContentResourceFlags: u32 {
         const CONTENT_ACQUIRABLE    = EncounteredResourceFlags::CONTENT_ACQUIRABLE.bits();
         const IGNORE_RESOURCE       = EncounteredResourceFlags::IGNORE_RESOURCE.bits();
@@ -82,7 +82,7 @@ bitflags! {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NatureRewriteRule {
     #[serde(with = "serde_regex")]
     pub regex: Regex,
@@ -105,8 +105,15 @@ const DEFAULT_ACQUIRE_CONTENT_EXTNS_REGEX_PATTERNS: [&str; 1] =
     [r"\.(?P<nature>md|mdx|html|json|jsonc|txt|toml|yaml)$"];
 const DEFAULT_CAPTURE_EXEC_REGEX_PATTERNS: [&str; 1] = [r"surveilr\[(?P<nature>[^\]]*)\]"];
 const DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERNS: [&str; 1] = [r"surveilr-SQL"];
-const DEFAULT_REWRITE_NATURE_PATTERNS: [(&str, &str); 1] =
-    [(r"\.(?P<nature>tap|text)$", "text/plain")];
+
+const DEFAULT_REWRITE_NATURE_PATTERNS: [(&str, &str); 2] = [
+    (r"\.(?P<nature>text)$", "text/plain"),
+    (r"\.(?P<nature>yaml)$", "text/yaml"),
+];
+
+// this file is similar to .gitignore and, if it appears in a directory or
+// parent, it allows `surveilr` to ignore globs specified within it
+const SMART_IGNORE_CONF_FILES: [&str; 1] = [".surveilr_ignore"];
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PersistableFlaggableRegEx {
@@ -119,6 +126,7 @@ pub struct PersistableFlaggableRegEx {
 pub struct EncounterableResourcePathRules {
     pub flaggables: Vec<PersistableFlaggableRegEx>,
     pub rewrite_nature_regexs: Vec<NatureRewriteRule>,
+    pub smart_ignore_conf_files: Vec<String>,
 }
 
 impl Default for EncounterableResourcePathRules {
@@ -162,6 +170,7 @@ impl Default for EncounterableResourcePathRules {
                     nature: p.1.to_string(),
                 })
                 .to_vec(),
+            smart_ignore_conf_files: SMART_IGNORE_CONF_FILES.map(|s| s.to_string()).to_vec(),
         }
     }
 }
@@ -191,8 +200,9 @@ pub trait EncounterableResourceUriClassifier {
     ) -> bool;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FlaggableRegEx {
+    #[serde(with = "serde_regex")]
     pub regex: regex::Regex, // untyped to make it easier to serialize/deserialize
     pub flags: EncounterableResourceFlags, // untyped to make it easier to serialize/deserialize
     pub nature_regex_capture: Option<String>,
@@ -208,9 +218,11 @@ impl FlaggableRegEx {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EncounterableResourcePathClassifier {
     pub flaggables: Vec<FlaggableRegEx>,
     pub rewrite_nature_regexs: Vec<NatureRewriteRule>, // we need to capture `nature` so we loop through each one
+    pub smart_ignore_conf_files: Vec<String>,
 }
 
 impl Default for EncounterableResourcePathClassifier {
@@ -231,10 +243,11 @@ impl EncounterableResourcePathClassifier {
         Ok(EncounterableResourcePathClassifier {
             flaggables,
             rewrite_nature_regexs,
+            smart_ignore_conf_files: erpr.smart_ignore_conf_files.to_owned(),
         })
     }
 
-    pub fn _add_ignore_exact(&mut self, pattern: &str) {
+    pub fn add_ignore_exact(&mut self, pattern: &str) {
         self.flaggables.push(FlaggableRegEx {
             regex: regex::Regex::new(format!("^{}$", regex::escape(pattern)).as_str()).unwrap(),
             flags: EncounterableResourceFlags::IGNORE_RESOURCE,
@@ -547,12 +560,12 @@ pub struct EncounteredResourceContentSuppliers {
 impl EncounteredResourceContentSuppliers {
     pub fn from_fs_path(
         fs_path: &Path,
-        options: &EncounterableResourceClass,
+        erc: &EncounterableResourceClass,
     ) -> EncounteredResourceContentSuppliers {
         let binary: Option<BinaryContentSupplier>;
         let text: Option<TextContentSupplier>;
 
-        if options
+        if erc
             .flags
             .contains(EncounterableResourceFlags::CONTENT_ACQUIRABLE)
         {
@@ -599,12 +612,12 @@ impl EncounteredResourceContentSuppliers {
 
     pub fn from_vfs_path(
         vfs_path: &vfs::VfsPath,
-        options: &EncounterableResourceClass,
+        erc: &EncounterableResourceClass,
     ) -> EncounteredResourceContentSuppliers {
         let binary: Option<BinaryContentSupplier>;
         let text: Option<TextContentSupplier>;
 
-        if options
+        if erc
             .flags
             .contains(EncounterableResourceFlags::CONTENT_ACQUIRABLE)
         {
@@ -1096,18 +1109,18 @@ pub struct ResourcesCollection {
 impl ResourcesCollection {
     pub fn new(
         encounterable: Vec<EncounterableResource>,
-        classifier: EncounterableResourcePathClassifier,
+        classifier: &EncounterableResourcePathClassifier,
     ) -> ResourcesCollection {
         ResourcesCollection {
             encounterable,
-            classifier,
+            classifier: classifier.clone(),
         }
     }
 
     // create a physical file system mapped via VFS, mainly for testing and experimental use
     pub fn from_vfs_physical_fs(
         fs_root_paths: &[String],
-        classifier: EncounterableResourcePathClassifier,
+        classifier: &EncounterableResourcePathClassifier,
     ) -> ResourcesCollection {
         let physical_fs = vfs::PhysicalFS::new("/");
         let vfs_fs_root = vfs::VfsPath::new(physical_fs);
@@ -1140,16 +1153,16 @@ impl ResourcesCollection {
     // files in the walk path as well as the ignore and other directives passed in via options
     pub fn from_smart_ignore(
         fs_root_paths: &[String],
-        classifier: EncounterableResourcePathClassifier,
-        ignore_globs_conf_file: &str,
+        classifier: &EncounterableResourcePathClassifier,
         ignore_hidden: bool,
     ) -> ResourcesCollection {
         let vfs_iter = fs_root_paths.iter().flat_map(move |root_path| {
-            let ignorable_walk = ignore::WalkBuilder::new(root_path)
-                .hidden(ignore_hidden)
-                .add_custom_ignore_filename(ignore_globs_conf_file)
-                .build();
-            ignorable_walk.into_iter().flatten()
+            let mut walk_builder = ignore::WalkBuilder::new(root_path);
+            walk_builder.hidden(ignore_hidden);
+            for cf in &classifier.smart_ignore_conf_files {
+                walk_builder.add_custom_ignore_filename(cf);
+            }
+            walk_builder.build().flatten()
         });
 
         ResourcesCollection::new(
@@ -1161,7 +1174,7 @@ impl ResourcesCollection {
     // create a traditional walkdir::WalkDir which only ignore files based on file names rules passed in
     pub fn from_walk_dir(
         fs_root_paths: &[String],
-        classifier: EncounterableResourcePathClassifier,
+        classifier: &EncounterableResourcePathClassifier,
     ) -> ResourcesCollection {
         let vfs_iter = fs_root_paths
             .iter()
@@ -1175,7 +1188,7 @@ impl ResourcesCollection {
 
     pub fn from_tasks_lines(
         tasks: &[String],
-        classifier: EncounterableResourcePathClassifier,
+        classifier: &EncounterableResourcePathClassifier,
     ) -> (Vec<String>, ResourcesCollection) {
         let encounterable: Vec<_> = tasks
             .iter()

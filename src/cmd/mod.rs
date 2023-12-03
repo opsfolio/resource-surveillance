@@ -1,7 +1,4 @@
-use std::collections::HashMap;
-
 use clap::{Args, Parser, Subcommand};
-use regex::Regex;
 use serde::Serialize;
 
 pub mod admin;
@@ -11,23 +8,6 @@ pub mod notebooks;
 
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 const DEFAULT_MERGED_STATEDB_FS_PATH: &str = "resource-surveillance-aggregated.sqlite.db";
-
-const DEFAULT_INGEST_FS_IGNORE_PATHS: &str = r"/(\.git|node_modules)/";
-const DEFAULT_CAPTURE_EXEC_REGEX_PATTERN: &str = r"surveilr\[(?P<nature>[^\]]*)\]";
-const DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN: &str = r"surveilr-SQL";
-
-// this file is similar to .gitignore and, if it appears in a directory or
-// parent, it allows `surveilr` to ignore globs specified within it
-const DEFAULT_IGNORE_GLOBS_CONF_FILE: &str = ".surveilr_ignore";
-
-// Function to parse a key-value pair in the form of `key=value`.
-fn parse_key_val(s: &str) -> Result<(String, String), String> {
-    let parts: Vec<&str> = s.splitn(2, '=').collect();
-    if parts.len() != 2 {
-        return Err(format!("Invalid key-value pair: {}", s));
-    }
-    Ok((parts[0].to_string(), parts[1].to_string()))
-}
 
 #[derive(Debug, Serialize, Parser)]
 #[command(author, version, about, long_about = None)]
@@ -127,27 +107,6 @@ pub enum CapturableExecCommands {
         #[arg(short, long, default_value = ".", default_missing_value = "always")]
         root_fs_path: Vec<String>,
 
-        /// reg-exes to use to ignore files in root-path(s)
-        #[serde(with = "serde_regex")]
-        #[arg(short, long, default_value = DEFAULT_INGEST_FS_IGNORE_PATHS, default_missing_value = "always")]
-        ignore_fs_entry: Vec<Regex>,
-
-        /// reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
-        #[serde(with = "serde_regex")]
-        #[arg(long,
-            // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
-            default_value = DEFAULT_CAPTURE_EXEC_REGEX_PATTERN,
-            default_missing_value = "always")]
-        capture_fs_exec: Vec<regex::Regex>,
-
-        /// reg-exes that will signify which captured executables' output should be treated as batch SQL
-        #[serde(with = "serde_regex")]
-        #[arg(long,
-            // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
-            default_value = DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN,
-            default_missing_value = "always")]
-        captured_fs_exec_sql: Vec<regex::Regex>,
-
         /// emit the results as markdown, not a simple table
         #[arg(long)]
         markdown: bool,
@@ -170,22 +129,6 @@ pub enum CapturableExecTestCommands {
     File {
         #[arg(short, long)]
         fs_path: String,
-
-        /// reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
-        #[serde(with = "serde_regex")]
-        #[arg(long,
-            // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
-            default_value = DEFAULT_CAPTURE_EXEC_REGEX_PATTERN,
-            default_missing_value = "always")]
-        capture_fs_exec: Vec<Regex>,
-
-        /// reg-exes that will signify which captured executables' output should be treated as batch SQL
-        #[serde(with = "serde_regex")]
-        #[arg(long,
-            // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
-            default_value = DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN,
-            default_missing_value = "always")]
-        captured_fs_exec_sql: Vec<Regex>,
     },
 
     /// Execute a task string as if it was run by `ingest tasks` and show the output
@@ -225,65 +168,6 @@ pub struct IngestFilesArgs {
     /// one or more root paths to ingest
     #[arg(short, long, default_value = ".", default_missing_value = "always")]
     pub root_fs_path: Vec<String>,
-
-    /// reg-exes to use to ignore files in root-path(s)
-    #[serde(with = "serde_regex")]
-    #[arg(
-        short,
-        long,
-        default_value = DEFAULT_INGEST_FS_IGNORE_PATHS,
-        default_missing_value = "always"
-    )]
-    pub ignore_fs_entry: Vec<Regex>,
-
-    /// similar to .gitignore, ignore globs specified within it (works only with SmartIgnore walkers)
-    #[arg(
-        long,
-        default_value = DEFAULT_IGNORE_GLOBS_CONF_FILE,
-        default_missing_value = "always"
-    )]
-    pub ignore_globs_conf_file: String,
-
-    /// surveil hidden files (they are ignored by default)
-    #[arg(short, long)]
-    pub surveil_hidden_files: bool,
-
-    /// reg-exes to use to load content for entry instead of just walking
-    #[serde(with = "serde_regex")]
-    #[arg(
-        long,
-        default_values_t = [
-            Regex::new(r"\.(md|mdx|html|json|jsonc|tap|txt|text|toml|yaml)$").unwrap(),
-            // if you don't want capturable executables stored in uniform_resource, remove the following
-            Regex::new(DEFAULT_CAPTURE_EXEC_REGEX_PATTERN).unwrap()],
-        default_missing_value = "always"
-    )]
-    pub surveil_fs_content: Vec<Regex>,
-
-    /// reg-exes to use to execute and capture STDOUT, STDERR (e.g. *.surveilr[json].sh) with "nature" capture group
-    #[serde(with = "serde_regex")]
-    #[arg(
-        long,
-        // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
-        default_value = DEFAULT_CAPTURE_EXEC_REGEX_PATTERN,
-        default_missing_value = "always"
-    )]
-    pub capture_fs_exec: Vec<Regex>,
-
-    /// reg-exes that will signify which captured executables' output should be treated as batch SQL
-    #[serde(with = "serde_regex")]
-    #[arg(
-        long,
-        // if you want capturable executables stored in uniform_resource, be sure it's also in surveil_content
-        default_value = DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN,
-        default_missing_value = "always"
-    )]
-    pub captured_fs_exec_sql: Vec<regex::Regex>,
-
-    /// bind an unknown nature (file extension), the key, to a known nature the value
-    /// "text=text/plain,yaml=application/yaml"
-    #[arg(short = 'N', long, value_parser=parse_key_val)]
-    pub nature_bind: Option<HashMap<String, String>>,
 
     /// target SQLite database
     #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
