@@ -98,11 +98,11 @@ impl NatureRewriteRule {
     }
 }
 
-const DEFAULT_IGNORE_PATHS_REGEX_PATTERN: &str = r"/(\.git|node_modules)/";
-const DEFAULT_ACQUIRE_CONTENT_EXTNS_REGEX_PATTERN: &str =
-    r"\.(?P<nature>md|mdx|html|json|jsonc|txt|toml|yaml)$";
-const DEFAULT_CAPTURE_EXEC_REGEX_PATTERN: &str = r"surveilr\[(?P<nature>[^\]]*)\]";
-const DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN: &str = r"surveilr-SQL";
+const DEFAULT_IGNORE_PATHS_REGEX_PATTERNS: [&str; 1] = [r"/(\.git|node_modules)/"];
+const DEFAULT_ACQUIRE_CONTENT_EXTNS_REGEX_PATTERNS: [&str; 1] =
+    [r"\.(?P<nature>md|mdx|html|json|jsonc|txt|toml|yaml)$"];
+const DEFAULT_CAPTURE_EXEC_REGEX_PATTERNS: [&str; 1] = [r"surveilr\[(?P<nature>[^\]]*)\]"];
+const DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERNS: [&str; 1] = [r"surveilr-SQL"];
 const DEFAULT_REWRITE_NATURE_PATTERNS: [(&str, &str); 1] =
     [(r"\.(?P<nature>tap|text)$", "text/plain")];
 
@@ -129,19 +129,18 @@ pub struct EncounterableResourcePathRules {
 impl Default for EncounterableResourcePathRules {
     fn default() -> Self {
         EncounterableResourcePathRules {
-            ignore_paths_regexs: vec![Regex::new(DEFAULT_IGNORE_PATHS_REGEX_PATTERN).unwrap()],
-            acquire_content_for_paths_regexs: vec![Regex::new(
-                DEFAULT_ACQUIRE_CONTENT_EXTNS_REGEX_PATTERN,
-            )
-            .unwrap()],
-            capturable_executables_paths_regexs: vec![Regex::new(
-                DEFAULT_CAPTURE_EXEC_REGEX_PATTERN,
-            )
-            .unwrap()],
-            captured_exec_sql_paths_regexs: vec![Regex::new(
-                DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN,
-            )
-            .unwrap()],
+            ignore_paths_regexs: DEFAULT_IGNORE_PATHS_REGEX_PATTERNS
+                .map(|p| Regex::new(p).unwrap())
+                .to_vec(),
+            acquire_content_for_paths_regexs: DEFAULT_ACQUIRE_CONTENT_EXTNS_REGEX_PATTERNS
+                .map(|p| Regex::new(p).unwrap())
+                .to_vec(),
+            capturable_executables_paths_regexs: DEFAULT_CAPTURE_EXEC_REGEX_PATTERNS
+                .map(|p| Regex::new(p).unwrap())
+                .to_vec(),
+            captured_exec_sql_paths_regexs: DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERNS
+                .map(|p| Regex::new(p).unwrap())
+                .to_vec(),
             rewrite_nature_regexs: DEFAULT_REWRITE_NATURE_PATTERNS
                 .map(|p| NatureRewriteRule {
                     regex: Regex::new(p.0).unwrap(),
