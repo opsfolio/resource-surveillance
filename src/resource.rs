@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use bitflags::bitflags;
 use chrono::{DateTime, Utc};
 use is_executable::IsExecutable;
-use regex::{Regex, RegexSet};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use sha1::{Digest, Sha1};
@@ -107,40 +107,53 @@ const DEFAULT_REWRITE_NATURE_PATTERNS: [(&str, &str); 1] =
     [(r"\.(?P<nature>tap|text)$", "text/plain")];
 
 #[derive(Clone, Serialize, Deserialize)]
+pub struct PersistableFlaggableRegEx {
+    pub regex: String, // untyped to make it easier to serialize/deserialize
+    pub flags: String, // untyped to make it easier to serialize/deserialize
+    pub nature_regex_capture: Option<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct EncounterableResourcePathRules {
-    #[serde(with = "serde_regex")]
-    pub ignore_paths_regexs: Vec<regex::Regex>,
-
-    #[serde(with = "serde_regex")]
-    // each regex must include a `nature` capture group
-    pub acquire_content_for_paths_regexs: Vec<regex::Regex>,
-
-    #[serde(with = "serde_regex")]
-    // each regex must include a `nature` capture group
-    pub capturable_executables_paths_regexs: Vec<regex::Regex>,
-
-    #[serde(with = "serde_regex")]
-    pub captured_exec_sql_paths_regexs: Vec<regex::Regex>,
-
-    // each regex must include a `nature` capture group
+    pub flaggables: Vec<PersistableFlaggableRegEx>,
     pub rewrite_nature_regexs: Vec<NatureRewriteRule>,
 }
 
 impl Default for EncounterableResourcePathRules {
     fn default() -> Self {
+        let ignore = DEFAULT_IGNORE_PATHS_REGEX_PATTERNS.map(|p| PersistableFlaggableRegEx {
+            regex: p.to_string(),
+            flags: "IGNORE_RESOURCE".to_string(),
+            nature_regex_capture: None,
+        });
+        let content_acquirable =
+            DEFAULT_ACQUIRE_CONTENT_EXTNS_REGEX_PATTERNS.map(|p| PersistableFlaggableRegEx {
+                regex: p.to_string(),
+                flags: "CONTENT_ACQUIRABLE".to_string(),
+                nature_regex_capture: Some("nature".to_string()),
+            });
+        let capturable_executables =
+            DEFAULT_CAPTURE_EXEC_REGEX_PATTERNS.map(|p| PersistableFlaggableRegEx {
+                regex: p.to_string(),
+                flags: "CAPTURABLE_EXECUTABLE".to_string(),
+                nature_regex_capture: Some("nature".to_string()),
+            });
+        let capturable_executables_sql =
+            DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERNS.map(|p| PersistableFlaggableRegEx {
+                regex: p.to_string(),
+                flags: "CAPTURABLE_EXECUTABLE | CAPTURABLE_SQL".to_string(),
+                nature_regex_capture: None,
+            });
+
+        // using strings to set flags to show how to obtain rules from DB/external
+        let flaggables_iter = ignore
+            .into_iter()
+            .chain(content_acquirable)
+            .chain(capturable_executables)
+            .chain(capturable_executables_sql);
+
         EncounterableResourcePathRules {
-            ignore_paths_regexs: DEFAULT_IGNORE_PATHS_REGEX_PATTERNS
-                .map(|p| Regex::new(p).unwrap())
-                .to_vec(),
-            acquire_content_for_paths_regexs: DEFAULT_ACQUIRE_CONTENT_EXTNS_REGEX_PATTERNS
-                .map(|p| Regex::new(p).unwrap())
-                .to_vec(),
-            capturable_executables_paths_regexs: DEFAULT_CAPTURE_EXEC_REGEX_PATTERNS
-                .map(|p| Regex::new(p).unwrap())
-                .to_vec(),
-            captured_exec_sql_paths_regexs: DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERNS
-                .map(|p| Regex::new(p).unwrap())
-                .to_vec(),
+            flaggables: flaggables_iter.collect(),
             rewrite_nature_regexs: DEFAULT_REWRITE_NATURE_PATTERNS
                 .map(|p| NatureRewriteRule {
                     regex: Regex::new(p.0).unwrap(),
@@ -159,14 +172,9 @@ impl EncounterableResourcePathRules {
     pub fn _persistable_json_text(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)
     }
-
-    pub fn _add_ignore_exact(&mut self, pattern: &str) {
-        self.ignore_paths_regexs
-            .push(regex::Regex::new(format!("^{}$", regex::escape(pattern)).as_str()).unwrap());
-    }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct EncounterableResourceClass {
     pub flags: EncounterableResourceFlags,
     pub nature: Option<String>,
@@ -181,41 +189,55 @@ pub trait EncounterableResourceUriClassifier {
     ) -> bool;
 }
 
+#[derive(Debug, Clone)]
+pub struct FlaggableRegEx {
+    pub regex: regex::Regex, // untyped to make it easier to serialize/deserialize
+    pub flags: EncounterableResourceFlags, // untyped to make it easier to serialize/deserialize
+    pub nature_regex_capture: Option<String>,
+}
+
+impl FlaggableRegEx {
+    pub fn from_persistable(pfre: &PersistableFlaggableRegEx) -> anyhow::Result<Self> {
+        Ok(FlaggableRegEx {
+            regex: regex::Regex::new(&pfre.regex)?,
+            flags: bitflags::parser::from_str(&pfre.flags)?,
+            nature_regex_capture: pfre.nature_regex_capture.clone(),
+        })
+    }
+}
+
 pub struct EncounterableResourcePathClassifier {
-    pub ignore_paths_regex_set: RegexSet, // we do not care about which one matched so we use a set
-    pub acquire_content_for_paths_regex_set: Vec<regex::Regex>, // we need to capture `nature` so we loop through each one
-    pub capturable_executables_paths_regexs: Vec<regex::Regex>, // we need to capture `nature` so we loop through each one
-    pub captured_exec_sql_paths_regex_set: RegexSet, // we do not care about which one matched so we use a set
+    pub flaggables: Vec<FlaggableRegEx>,
     pub rewrite_nature_regexs: Vec<NatureRewriteRule>, // we need to capture `nature` so we loop through each one
 }
 
 impl Default for EncounterableResourcePathClassifier {
     fn default() -> Self {
-        let default_rules = EncounterableResourcePathRules::default();
-        EncounterableResourcePathClassifier::from_path_rules(default_rules).unwrap()
+        let erpr = EncounterableResourcePathRules::default();
+        EncounterableResourcePathClassifier::from_path_rules(erpr).unwrap()
     }
 }
 
 impl EncounterableResourcePathClassifier {
     pub fn from_path_rules(erpr: EncounterableResourcePathRules) -> anyhow::Result<Self> {
-        let ignore_paths_regex_set =
-            RegexSet::new(erpr.ignore_paths_regexs.iter().map(|r| r.as_str())).unwrap();
-        let acquire_content_for_paths_regex_set = erpr.acquire_content_for_paths_regexs.to_vec();
-        let capturable_executables_paths_regexs = erpr.capturable_executables_paths_regexs.to_vec();
-        let captured_exec_sql_paths_regex_set = RegexSet::new(
-            erpr.captured_exec_sql_paths_regexs
-                .iter()
-                .map(|r| r.as_str()),
-        )?;
-        let rewrite_nature_regexs = erpr.rewrite_nature_regexs.to_vec();
+        let mut flaggables: Vec<FlaggableRegEx> = vec![];
+        for f in &erpr.flaggables {
+            flaggables.push(FlaggableRegEx::from_persistable(f)?)
+        }
 
+        let rewrite_nature_regexs = erpr.rewrite_nature_regexs.to_vec();
         Ok(EncounterableResourcePathClassifier {
-            ignore_paths_regex_set,
-            acquire_content_for_paths_regex_set,
-            capturable_executables_paths_regexs,
-            captured_exec_sql_paths_regex_set,
+            flaggables,
             rewrite_nature_regexs,
         })
+    }
+
+    pub fn _add_ignore_exact(&mut self, pattern: &str) {
+        self.flaggables.push(FlaggableRegEx {
+            regex: regex::Regex::new(format!("^{}$", regex::escape(pattern)).as_str()).unwrap(),
+            flags: EncounterableResourceFlags::IGNORE_RESOURCE,
+            nature_regex_capture: None,
+        });
     }
 }
 
@@ -226,71 +248,33 @@ impl EncounterableResourceUriClassifier for EncounterableResourcePathClassifier 
         class: &mut EncounterableResourceClass,
         rewritten_natures: Option<&mut Vec<(String, String, String)>>,
     ) -> bool {
-        if self.ignore_paths_regex_set.is_match(text) {
-            class
-                .flags
-                .insert(EncounterableResourceFlags::IGNORE_RESOURCE);
-            return true;
-        }
-
-        for regex in &self.acquire_content_for_paths_regex_set {
-            if let Some(caps) = regex.captures(text) {
-                if let Some(nature) = caps.name("nature") {
-                    class
-                        .flags
-                        .insert(EncounterableResourceFlags::CONTENT_ACQUIRABLE);
-                    let mut class_nature = nature.as_str().to_string();
-                    for rnr in &self.rewrite_nature_regexs {
-                        if let Some(rewritten) = rnr.is_match(text) {
-                            if let Some(rewritten_natures) = rewritten_natures {
-                                rewritten_natures.push((
-                                    text.to_string(),
-                                    class_nature,
-                                    rewritten.to_owned(),
-                                ));
+        for f in &self.flaggables {
+            if let Some(nature_cap) = &f.nature_regex_capture {
+                if let Some(caps) = f.regex.captures(text) {
+                    if let Some(nature) = caps.name(nature_cap) {
+                        class.flags.insert(f.flags);
+                        let mut class_nature = nature.as_str().to_string();
+                        for rnr in &self.rewrite_nature_regexs {
+                            if let Some(rewritten) = rnr.is_match(text) {
+                                if let Some(rewritten_natures) = rewritten_natures {
+                                    rewritten_natures.push((
+                                        text.to_string(),
+                                        class_nature,
+                                        rewritten.to_owned(),
+                                    ));
+                                }
+                                class_nature = rewritten.to_owned();
+                                break;
                             }
-                            class_nature = rewritten.to_owned();
-                            break;
                         }
+                        class.nature = Some(class_nature);
+                        return true;
                     }
-                    class.nature = Some(class_nature);
-                    return true;
                 }
+            } else if f.regex.is_match(text) {
+                class.flags.insert(f.flags);
+                return true;
             }
-        }
-
-        for regex in &self.capturable_executables_paths_regexs {
-            if let Some(caps) = regex.captures(text) {
-                if let Some(nature) = caps.name("nature") {
-                    class
-                        .flags
-                        .insert(EncounterableResourceFlags::CAPTURABLE_EXECUTABLE);
-                    let mut class_nature = nature.as_str().to_string();
-                    for rnr in &self.rewrite_nature_regexs {
-                        if let Some(rewritten) = rnr.is_match(text) {
-                            if let Some(rewritten_natures) = rewritten_natures {
-                                rewritten_natures.push((
-                                    text.to_string(),
-                                    class_nature,
-                                    rewritten.to_owned(),
-                                ));
-                            }
-                            class_nature = rewritten.to_owned();
-                            break;
-                        }
-                    }
-                    class.nature = Some(class_nature);
-                    return true;
-                }
-            }
-        }
-
-        if self.captured_exec_sql_paths_regex_set.is_match(text) {
-            class.flags.insert(
-                EncounterableResourceFlags::CAPTURABLE_EXECUTABLE
-                    | EncounterableResourceFlags::CAPTURABLE_SQL,
-            );
-            return true;
         }
 
         false
