@@ -113,14 +113,15 @@ impl IngestCommands {
         root_fs_path: &[String],
         args: &super::IngestFilesArgs,
     ) -> anyhow::Result<()> {
-        let wd_resources = ResourcesCollection::from_walk_dir(root_fs_path, None);
+        let wd_resources = ResourcesCollection::from_walk_dir(root_fs_path, Default::default());
         let si_resources = ResourcesCollection::from_smart_ignore(
             root_fs_path,
-            None,
+            Default::default(),
             &args.ignore_globs_conf_file,
             !args.surveil_hidden_files,
         );
-        let vfs_pfs_resources = ResourcesCollection::from_vfs_physical_fs(root_fs_path, None);
+        let vfs_pfs_resources =
+            ResourcesCollection::from_vfs_physical_fs(root_fs_path, Default::default());
 
         let mut table = Table::new();
         table
@@ -165,17 +166,17 @@ impl IngestCommands {
             "Encountered Resources",
             &wd_resources
                 .encountered()
-                .filter(|crs| !matches!(crs, EncounteredResource::Ignored(_)))
+                .filter(|crs| !matches!(crs, EncounteredResource::Ignored(_, _)))
                 .count()
                 .to_string(),
             &si_resources
                 .encountered()
-                .filter(|crs| !matches!(crs, EncounteredResource::Ignored(_)))
+                .filter(|crs| !matches!(crs, EncounteredResource::Ignored(_, _)))
                 .count()
                 .to_string(),
             &vfs_pfs_resources
                 .encountered()
-                .filter(|crs| !matches!(crs, EncounteredResource::Ignored(_)))
+                .filter(|crs| !matches!(crs, EncounteredResource::Ignored(_, _)))
                 .count()
                 .to_string(),
             "Files surveilr knows how to handle",
@@ -305,7 +306,7 @@ impl IngestCommands {
                 wd_resources
                     .encountered()
                     .filter(|crs| match crs {
-                        EncounteredResource::Resource(cr) => cr.content_text_supplier.is_some(),
+                        EncounteredResource::Resource(cr, _) => cr.content_text_supplier.is_some(),
                         _ => false,
                     })
                     .count()
@@ -315,7 +316,7 @@ impl IngestCommands {
                 si_resources
                     .encountered()
                     .filter(|crs| match crs {
-                        EncounteredResource::Resource(cr) => cr.content_text_supplier.is_some(),
+                        EncounteredResource::Resource(cr, _) => cr.content_text_supplier.is_some(),
                         _ => false,
                     })
                     .count()
@@ -325,7 +326,7 @@ impl IngestCommands {
                 vfs_pfs_resources
                     .encountered()
                     .filter(|crs| match crs {
-                        EncounteredResource::Resource(cr) => cr.content_text_supplier.is_some(),
+                        EncounteredResource::Resource(cr, _) => cr.content_text_supplier.is_some(),
                         _ => false,
                     })
                     .count()

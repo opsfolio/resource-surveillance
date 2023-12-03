@@ -903,7 +903,7 @@ pub fn ingest_files(
             let rp: Vec<String> = vec![canonical_path.clone()];
             let resources = ResourcesCollection::from_smart_ignore(
                 &rp,
-                None,
+                Default::default(),
                 &ingest_args.ignore_globs_conf_file,
                 !ingest_args.surveil_hidden_files,
             );
@@ -1098,7 +1098,8 @@ pub fn ingest_tasks(
     })?;
 
     let mut behavior = IngestTasksBehavior::from_stdin();
-    let (encounterable, resources) = ResourcesCollection::from_tasks_lines(&behavior.lines, None);
+    let (encounterable, resources) =
+        ResourcesCollection::from_tasks_lines(&behavior.lines, Default::default());
     behavior.encounterable = encounterable;
 
     let ingest_session_id: String = tx

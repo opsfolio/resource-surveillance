@@ -58,7 +58,7 @@ impl CapturableExecCommands {
     ) -> anyhow::Result<()> {
         let resources = ResourcesCollection::from_smart_ignore(
             root_paths,
-            None,
+            Default::default(),
             super::DEFAULT_IGNORE_GLOBS_CONF_FILE,
             false,
         );
@@ -141,7 +141,7 @@ impl CapturableExecCommands {
     ) -> anyhow::Result<()> {
         let resources = ResourcesCollection::from_smart_ignore(
             root_paths,
-            None,
+            Default::default(),
             super::DEFAULT_IGNORE_GLOBS_CONF_FILE,
             false,
         );
@@ -376,7 +376,7 @@ impl CapturableExecTestCommands {
             task_cmds.to_vec()
         };
 
-        let (_, resources) = ResourcesCollection::from_tasks_lines(&tasks, None);
+        let (_, resources) = ResourcesCollection::from_tasks_lines(&tasks, Default::default());
         for ur in resources.uniform_resources() {
             match ur {
                 Ok(resource) => match &resource {

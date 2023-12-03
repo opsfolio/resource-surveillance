@@ -7,9 +7,9 @@ use std::path::PathBuf;
 
 use bitflags::bitflags;
 use chrono::{DateTime, Utc};
-use globset::Glob;
 use is_executable::IsExecutable;
-use regex::Regex;
+use regex::{Regex, RegexSet};
+use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use sha1::{Digest, Sha1};
 
@@ -80,110 +80,221 @@ bitflags! {
     }
 }
 
-pub struct EncounterableResourceOptions {
-    pub nature: Option<String>,
-    pub flags: EncounterableResourceFlags,
+#[derive(Clone, Serialize, Deserialize)]
+pub struct NatureRewriteRule {
+    #[serde(with = "serde_regex")]
+    pub regex: Regex,
+    pub nature: String,
 }
 
-pub trait EncounterableResourceClassifier {
-    fn classify(&self, text: &str, class: &mut EncounterableResourceOptions) -> bool;
-}
-
-#[derive(Debug, Clone)]
-pub struct ExactResourceClassifier {
-    pub exact: String,
-    pub flags: EncounterableResourceFlags,
-    pub nature: Option<String>,
-}
-
-impl EncounterableResourceClassifier for ExactResourceClassifier {
-    fn classify(&self, text: &str, class: &mut EncounterableResourceOptions) -> bool {
-        if self.exact == text {
-            class.flags.insert(self.flags);
-            if self.nature.is_some() {
-                class.nature = self.nature.clone();
-            }
-            return true;
-        }
-        false
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct GlobClassifier {
-    pub glob: Glob,
-    pub matcher: globset::GlobMatcher,
-    pub flags: EncounterableResourceFlags,
-    pub nature: Option<String>,
-}
-
-impl EncounterableResourceClassifier for GlobClassifier {
-    fn classify(&self, text: &str, class: &mut EncounterableResourceOptions) -> bool {
-        if self.matcher.is_match(text) {
-            class.flags.insert(self.flags);
-            if self.nature.is_some() {
-                class.nature = self.nature.clone();
-            }
-            return true;
-        }
-        false
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct RegexClassifier {
-    pub regex: regex::Regex,
-    pub flags: EncounterableResourceFlags,
-    pub nature: Option<String>,
-}
-
-impl EncounterableResourceClassifier for RegexClassifier {
-    fn classify(&self, text: &str, class: &mut EncounterableResourceOptions) -> bool {
-        if self.regex.is_match(text) {
-            class.flags.insert(self.flags);
-            if self.nature.is_some() {
-                class.nature = self.nature.clone();
-            }
-            return true;
-        }
-        false
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct RegexNatureCapClassifier {
-    pub regex: regex::Regex,
-    pub flags: EncounterableResourceFlags,
-}
-
-impl EncounterableResourceClassifier for RegexNatureCapClassifier {
-    fn classify(&self, text: &str, class: &mut EncounterableResourceOptions) -> bool {
+impl NatureRewriteRule {
+    pub fn is_match(&self, text: &str) -> Option<String> {
         if let Some(caps) = self.regex.captures(text) {
             if let Some(nature) = caps.name("nature") {
-                class.flags.insert(self.flags);
-                class.nature = Some(nature.as_str().to_string());
-                return true;
+                return Some(nature.as_str().to_string());
             }
         }
+        None
+    }
+}
+
+const DEFAULT_IGNORE_PATHS_REGEX_PATTERN: &str = r"/(\.git|node_modules)/";
+const DEFAULT_ACQUIRE_CONTENT_EXTNS_REGEX_PATTERN: &str =
+    r"\.(?P<nature>md|mdx|html|json|jsonc|txt|toml|yaml)$";
+const DEFAULT_CAPTURE_EXEC_REGEX_PATTERN: &str = r"surveilr\[(?P<nature>[^\]]*)\]";
+const DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN: &str = r"surveilr-SQL";
+const DEFAULT_REWRITE_NATURE_PATTERNS: [(&str, &str); 1] =
+    [(r"\.(?P<nature>tap|text)$", "text/plain")];
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct EncounterableResourcePathRules {
+    #[serde(with = "serde_regex")]
+    pub ignore_paths_regexs: Vec<regex::Regex>,
+
+    #[serde(with = "serde_regex")]
+    // each regex must include a `nature` capture group
+    pub acquire_content_for_paths_regexs: Vec<regex::Regex>,
+
+    #[serde(with = "serde_regex")]
+    // each regex must include a `nature` capture group
+    pub capturable_executables_paths_regexs: Vec<regex::Regex>,
+
+    #[serde(with = "serde_regex")]
+    pub captured_exec_sql_paths_regexs: Vec<regex::Regex>,
+
+    // each regex must include a `nature` capture group
+    pub rewrite_nature_regexs: Vec<NatureRewriteRule>,
+}
+
+impl Default for EncounterableResourcePathRules {
+    fn default() -> Self {
+        EncounterableResourcePathRules {
+            ignore_paths_regexs: vec![Regex::new(DEFAULT_IGNORE_PATHS_REGEX_PATTERN).unwrap()],
+            acquire_content_for_paths_regexs: vec![Regex::new(
+                DEFAULT_ACQUIRE_CONTENT_EXTNS_REGEX_PATTERN,
+            )
+            .unwrap()],
+            capturable_executables_paths_regexs: vec![Regex::new(
+                DEFAULT_CAPTURE_EXEC_REGEX_PATTERN,
+            )
+            .unwrap()],
+            captured_exec_sql_paths_regexs: vec![Regex::new(
+                DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERN,
+            )
+            .unwrap()],
+            rewrite_nature_regexs: DEFAULT_REWRITE_NATURE_PATTERNS
+                .map(|p| NatureRewriteRule {
+                    regex: Regex::new(p.0).unwrap(),
+                    nature: p.1.to_string(),
+                })
+                .to_vec(),
+        }
+    }
+}
+
+impl EncounterableResourcePathRules {
+    pub fn _from_json_text(json_text: &str) -> Result<Self, serde_json::Error> {
+        serde_json::from_str(json_text)
+    }
+
+    pub fn _persistable_json_text(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string_pretty(self)
+    }
+
+    pub fn _add_ignore_exact(&mut self, pattern: &str) {
+        self.ignore_paths_regexs
+            .push(regex::Regex::new(format!("^{}$", regex::escape(pattern)).as_str()).unwrap());
+    }
+}
+
+#[derive(Clone)]
+pub struct EncounterableResourceClass {
+    pub flags: EncounterableResourceFlags,
+    pub nature: Option<String>,
+}
+
+pub trait EncounterableResourceUriClassifier {
+    fn classify(
+        &self,
+        uri: &str,
+        class: &mut EncounterableResourceClass,
+        rewritten_natures: Option<&mut Vec<(String, String, String)>>,
+    ) -> bool;
+}
+
+pub struct EncounterableResourcePathClassifier {
+    pub ignore_paths_regex_set: RegexSet, // we do not care about which one matched so we use a set
+    pub acquire_content_for_paths_regex_set: Vec<regex::Regex>, // we need to capture `nature` so we loop through each one
+    pub capturable_executables_paths_regexs: Vec<regex::Regex>, // we need to capture `nature` so we loop through each one
+    pub captured_exec_sql_paths_regex_set: RegexSet, // we do not care about which one matched so we use a set
+    pub rewrite_nature_regexs: Vec<NatureRewriteRule>, // we need to capture `nature` so we loop through each one
+}
+
+impl Default for EncounterableResourcePathClassifier {
+    fn default() -> Self {
+        let default_rules = EncounterableResourcePathRules::default();
+        EncounterableResourcePathClassifier::from_path_rules(default_rules).unwrap()
+    }
+}
+
+impl EncounterableResourcePathClassifier {
+    pub fn from_path_rules(erpr: EncounterableResourcePathRules) -> anyhow::Result<Self> {
+        let ignore_paths_regex_set =
+            RegexSet::new(erpr.ignore_paths_regexs.iter().map(|r| r.as_str())).unwrap();
+        let acquire_content_for_paths_regex_set = erpr.acquire_content_for_paths_regexs.to_vec();
+        let capturable_executables_paths_regexs = erpr.capturable_executables_paths_regexs.to_vec();
+        let captured_exec_sql_paths_regex_set = RegexSet::new(
+            erpr.captured_exec_sql_paths_regexs
+                .iter()
+                .map(|r| r.as_str()),
+        )?;
+        let rewrite_nature_regexs = erpr.rewrite_nature_regexs.to_vec();
+
+        Ok(EncounterableResourcePathClassifier {
+            ignore_paths_regex_set,
+            acquire_content_for_paths_regex_set,
+            capturable_executables_paths_regexs,
+            captured_exec_sql_paths_regex_set,
+            rewrite_nature_regexs,
+        })
+    }
+}
+
+impl EncounterableResourceUriClassifier for EncounterableResourcePathClassifier {
+    fn classify(
+        &self,
+        text: &str,
+        class: &mut EncounterableResourceClass,
+        rewritten_natures: Option<&mut Vec<(String, String, String)>>,
+    ) -> bool {
+        if self.ignore_paths_regex_set.is_match(text) {
+            class
+                .flags
+                .insert(EncounterableResourceFlags::IGNORE_RESOURCE);
+            return true;
+        }
+
+        for regex in &self.acquire_content_for_paths_regex_set {
+            if let Some(caps) = regex.captures(text) {
+                if let Some(nature) = caps.name("nature") {
+                    class
+                        .flags
+                        .insert(EncounterableResourceFlags::CONTENT_ACQUIRABLE);
+                    let mut class_nature = nature.as_str().to_string();
+                    for rnr in &self.rewrite_nature_regexs {
+                        if let Some(rewritten) = rnr.is_match(text) {
+                            if let Some(rewritten_natures) = rewritten_natures {
+                                rewritten_natures.push((
+                                    text.to_string(),
+                                    class_nature,
+                                    rewritten.to_owned(),
+                                ));
+                            }
+                            class_nature = rewritten.to_owned();
+                            break;
+                        }
+                    }
+                    class.nature = Some(class_nature);
+                    return true;
+                }
+            }
+        }
+
+        for regex in &self.capturable_executables_paths_regexs {
+            if let Some(caps) = regex.captures(text) {
+                if let Some(nature) = caps.name("nature") {
+                    class
+                        .flags
+                        .insert(EncounterableResourceFlags::CAPTURABLE_EXECUTABLE);
+                    let mut class_nature = nature.as_str().to_string();
+                    for rnr in &self.rewrite_nature_regexs {
+                        if let Some(rewritten) = rnr.is_match(text) {
+                            if let Some(rewritten_natures) = rewritten_natures {
+                                rewritten_natures.push((
+                                    text.to_string(),
+                                    class_nature,
+                                    rewritten.to_owned(),
+                                ));
+                            }
+                            class_nature = rewritten.to_owned();
+                            break;
+                        }
+                    }
+                    class.nature = Some(class_nature);
+                    return true;
+                }
+            }
+        }
+
+        if self.captured_exec_sql_paths_regex_set.is_match(text) {
+            class.flags.insert(
+                EncounterableResourceFlags::CAPTURABLE_EXECUTABLE
+                    | EncounterableResourceFlags::CAPTURABLE_SQL,
+            );
+            return true;
+        }
+
         false
-    }
-}
-
-pub struct ClassificationRules {
-    pub classifiers: Vec<Box<dyn EncounterableResourceClassifier>>,
-}
-
-impl ClassificationRules {
-    pub fn new(rules: Vec<Box<dyn EncounterableResourceClassifier>>) -> ClassificationRules {
-        ClassificationRules { classifiers: rules }
-    }
-
-    pub fn first_match(&self, text: &str, class: &mut EncounterableResourceOptions) {
-        for rule in &self.classifiers {
-            if rule.classify(text, class) {
-                return;
-            }
-        }
     }
 }
 
@@ -451,7 +562,7 @@ pub struct EncounteredResourceContentSuppliers {
 impl EncounteredResourceContentSuppliers {
     pub fn from_fs_path(
         fs_path: &Path,
-        options: &EncounterableResourceOptions,
+        options: &EncounterableResourceClass,
     ) -> EncounteredResourceContentSuppliers {
         let binary: Option<BinaryContentSupplier>;
         let text: Option<TextContentSupplier>;
@@ -503,7 +614,7 @@ impl EncounteredResourceContentSuppliers {
 
     pub fn from_vfs_path(
         vfs_path: &vfs::VfsPath,
-        options: &EncounterableResourceOptions,
+        options: &EncounterableResourceClass,
     ) -> EncounteredResourceContentSuppliers {
         let binary: Option<BinaryContentSupplier>;
         let text: Option<TextContentSupplier>;
@@ -621,11 +732,11 @@ impl EncounterableResource {
 }
 
 pub enum EncounteredResource<T> {
-    Ignored(String),
-    NotFound(String),
-    NotFile(String),
-    Resource(T),
-    CapturableExec(T, CapturableExecutable),
+    Ignored(String, EncounterableResourceClass),
+    NotFound(String, EncounterableResourceClass),
+    NotFile(String, EncounterableResourceClass),
+    Resource(T, EncounterableResourceClass),
+    CapturableExec(T, CapturableExecutable, EncounterableResourceClass),
 }
 
 impl ShellExecutive for EncounterableResource {
@@ -669,7 +780,7 @@ impl EncounterableResource {
 
     pub fn content_suppliers(
         &self,
-        options: &EncounterableResourceOptions,
+        options: &EncounterableResourceClass,
     ) -> EncounteredResourceContentSuppliers {
         match self {
             EncounterableResource::WalkDir(de) => {
@@ -692,15 +803,15 @@ impl EncounterableResource {
 
     pub fn encountered(
         &self,
-        options: &EncounterableResourceOptions,
+        erc: &EncounterableResourceClass,
     ) -> EncounteredResource<ContentResource> {
         let uri = self.uri();
 
-        if options
+        if erc
             .flags
             .contains(EncounterableResourceFlags::IGNORE_RESOURCE)
         {
-            return EncounteredResource::Ignored(uri);
+            return EncounteredResource::Ignored(uri, erc.to_owned());
         }
 
         let metadata = match self.meta_data() {
@@ -709,18 +820,18 @@ impl EncounterableResource {
                 | EncounterableResource::SmartIgnore(_)
                 | EncounterableResource::Vfs(_) => {
                     if !metadata.flags.contains(EncounteredResourceFlags::IS_FILE) {
-                        return EncounteredResource::NotFile(uri);
+                        return EncounteredResource::NotFile(uri, erc.to_owned());
                     }
                     metadata
                 }
                 EncounterableResource::DenoTaskShellLine(_, _, _) => metadata,
             },
-            Err(_) => return EncounteredResource::NotFound(uri),
+            Err(_) => return EncounteredResource::NotFound(uri, erc.to_owned()),
         };
 
-        let content_suppliers = self.content_suppliers(options);
+        let content_suppliers = self.content_suppliers(erc);
         let nature: String;
-        match &options.nature {
+        match &erc.nature {
             Some(classification_nature) => nature = classification_nature.to_owned(),
             None => match &metadata.nature {
                 Some(md_nature) => nature = md_nature.to_owned(),
@@ -728,7 +839,7 @@ impl EncounterableResource {
             },
         }
         let cr: ContentResource = ContentResource {
-            flags: ContentResourceFlags::from_bits_truncate(options.flags.bits()),
+            flags: ContentResourceFlags::from_bits_truncate(erc.flags.bits()),
             uri: uri.to_string(),
             nature: Some(nature.clone()),
             size: Some(metadata.file_size),
@@ -742,22 +853,24 @@ impl EncounterableResource {
             EncounterableResource::WalkDir(_)
             | EncounterableResource::SmartIgnore(_)
             | EncounterableResource::Vfs(_) => {
-                if options
+                if erc
                     .flags
                     .contains(EncounterableResourceFlags::CAPTURABLE_EXECUTABLE)
                 {
                     EncounteredResource::CapturableExec(
                         cr,
-                        CapturableExecutable::from_encountered_content(self, nature),
+                        CapturableExecutable::from_encountered_content(self, erc),
+                        erc.to_owned(),
                     )
                 } else {
-                    EncounteredResource::Resource(cr)
+                    EncounteredResource::Resource(cr, erc.to_owned())
                 }
             }
             EncounterableResource::DenoTaskShellLine(_, _, _) => {
                 EncounteredResource::CapturableExec(
                     cr,
-                    CapturableExecutable::from_encountered_content(self, nature),
+                    CapturableExecutable::from_encountered_content(self, erc),
+                    erc.to_owned(),
                 )
             }
         }
@@ -772,17 +885,17 @@ pub enum CapturableExecutable {
 impl CapturableExecutable {
     pub fn from_encountered_content(
         er: &EncounterableResource,
-        nature: String,
+        erc: &EncounterableResourceClass,
     ) -> CapturableExecutable {
         match er {
             EncounterableResource::WalkDir(de) => {
-                CapturableExecutable::from_executable_file_path(de.path(), nature)
+                CapturableExecutable::from_executable_file_path(de.path(), erc)
             }
             EncounterableResource::SmartIgnore(de) => {
-                CapturableExecutable::from_executable_file_path(de.path(), nature)
+                CapturableExecutable::from_executable_file_path(de.path(), erc)
             }
             EncounterableResource::Vfs(path) => {
-                CapturableExecutable::from_executable_file_uri(path.as_str(), nature)
+                CapturableExecutable::from_executable_file_uri(path.as_str(), erc)
             }
             EncounterableResource::DenoTaskShellLine(line, identity, nature) => {
                 CapturableExecutable::UriShellExecutive(
@@ -792,30 +905,35 @@ impl CapturableExecutable {
                     )),
                     line.clone(),
                     nature.to_string(),
-                    false,
+                    erc.flags
+                        .contains(EncounterableResourceFlags::CAPTURABLE_SQL),
                 )
             }
         }
     }
 
     // check if URI is executable based only on the filename pattern
-    pub fn from_executable_file_uri(uri: &str, nature: String) -> CapturableExecutable {
+    pub fn from_executable_file_uri(
+        uri: &str,
+        erc: &EncounterableResourceClass,
+    ) -> CapturableExecutable {
         let executable_file_uri = uri.to_string();
         CapturableExecutable::UriShellExecutive(
             Box::new(executable_file_uri.clone()), // String has the `ShellExecutive` trait
             executable_file_uri,
-            nature,
-            false,
+            erc.nature.clone().unwrap_or("?nature".to_string()),
+            erc.flags
+                .contains(EncounterableResourceFlags::CAPTURABLE_SQL),
         )
     }
 
     // check if URI is executable based the filename pattern first, then physical FS validation of execute permission
     pub fn from_executable_file_path(
         path: &std::path::Path,
-        nature: String,
+        erc: &EncounterableResourceClass,
     ) -> CapturableExecutable {
         if path.is_executable() {
-            CapturableExecutable::from_executable_file_uri(path.to_str().unwrap(), nature)
+            CapturableExecutable::from_executable_file_uri(path.to_str().unwrap(), erc)
         } else {
             CapturableExecutable::RequestedButNotExecutable(path.to_string_lossy().to_string())
         }
@@ -987,63 +1105,24 @@ impl CapturableExecutable {
 
 pub struct ResourcesCollection {
     pub encounterable: Vec<EncounterableResource>,
-    pub classifiables: ClassificationRules,
+    pub classifier: EncounterableResourcePathClassifier,
 }
 
 impl ResourcesCollection {
     pub fn new(
         encounterable: Vec<EncounterableResource>,
-        options: Option<ClassificationRules>,
+        classifier: EncounterableResourcePathClassifier,
     ) -> ResourcesCollection {
-        let classifiables = if let Some(options) = options {
-            options
-        } else {
-            let ignore = RegexClassifier {
-                regex: Regex::new(r"/(\.git|node_modules)/").unwrap(),
-                flags: EncounterableResourceFlags::IGNORE_RESOURCE,
-                nature: None,
-            };
-
-            let ac_glob = Glob::new("*.{md,mdx,html,json,jsonc,tap,txt,text,toml,yaml}").unwrap();
-            let acquire_content = GlobClassifier {
-                glob: ac_glob.clone(),
-                matcher: ac_glob.compile_matcher(),
-                flags: EncounterableResourceFlags::CONTENT_ACQUIRABLE,
-                nature: None,
-            };
-
-            let capturable_executable = RegexNatureCapClassifier {
-                regex: Regex::new(r"surveilr\[(?P<nature>[^\]]*)\]").unwrap(),
-                flags: EncounterableResourceFlags::CONTENT_ACQUIRABLE
-                    | EncounterableResourceFlags::CAPTURABLE_EXECUTABLE,
-            };
-
-            let capturable_sql = RegexClassifier {
-                regex: Regex::new("surveilr-SQL").unwrap(),
-                flags: EncounterableResourceFlags::CONTENT_ACQUIRABLE
-                    | EncounterableResourceFlags::CAPTURABLE_EXECUTABLE
-                    | EncounterableResourceFlags::CAPTURABLE_SQL,
-                nature: Some("surveilr-SQL".to_owned()),
-            };
-
-            ClassificationRules::new(vec![
-                Box::new(ignore),
-                Box::new(acquire_content),
-                Box::new(capturable_executable),
-                Box::new(capturable_sql),
-            ])
-        };
-
         ResourcesCollection {
             encounterable,
-            classifiables,
+            classifier,
         }
     }
 
     // create a physical file system mapped via VFS, mainly for testing and experimental use
     pub fn from_vfs_physical_fs(
         fs_root_paths: &[String],
-        options: Option<ClassificationRules>,
+        classifier: EncounterableResourcePathClassifier,
     ) -> ResourcesCollection {
         let physical_fs = vfs::PhysicalFS::new("/");
         let vfs_fs_root = vfs::VfsPath::new(physical_fs);
@@ -1066,14 +1145,17 @@ impl ResourcesCollection {
                 path.walk_dir().unwrap().flatten()
             });
 
-        ResourcesCollection::new(vfs_iter.map(EncounterableResource::Vfs).collect(), options)
+        ResourcesCollection::new(
+            vfs_iter.map(EncounterableResource::Vfs).collect(),
+            classifier,
+        )
     }
 
     // create a ignore::Walk instance which is a "smart" ignore because it honors .gitigore and .ignore
     // files in the walk path as well as the ignore and other directives passed in via options
     pub fn from_smart_ignore(
         fs_root_paths: &[String],
-        options: Option<ClassificationRules>,
+        classifier: EncounterableResourcePathClassifier,
         ignore_globs_conf_file: &str,
         ignore_hidden: bool,
     ) -> ResourcesCollection {
@@ -1087,14 +1169,14 @@ impl ResourcesCollection {
 
         ResourcesCollection::new(
             vfs_iter.map(EncounterableResource::SmartIgnore).collect(),
-            options,
+            classifier,
         )
     }
 
     // create a traditional walkdir::WalkDir which only ignore files based on file names rules passed in
     pub fn from_walk_dir(
         fs_root_paths: &[String],
-        options: Option<ClassificationRules>,
+        classifier: EncounterableResourcePathClassifier,
     ) -> ResourcesCollection {
         let vfs_iter = fs_root_paths
             .iter()
@@ -1102,13 +1184,13 @@ impl ResourcesCollection {
 
         ResourcesCollection::new(
             vfs_iter.map(EncounterableResource::WalkDir).collect(),
-            options,
+            classifier,
         )
     }
 
     pub fn from_tasks_lines(
         tasks: &[String],
-        options: Option<ClassificationRules>,
+        classifier: EncounterableResourcePathClassifier,
     ) -> (Vec<String>, ResourcesCollection) {
         let encounterable: Vec<_> = tasks
             .iter()
@@ -1124,24 +1206,24 @@ impl ResourcesCollection {
                     .iter()
                     .map(EncounterableResource::from_deno_task_shell_line)
                     .collect(),
-                options,
+                classifier,
             ),
         )
     }
 
     pub fn ignored(&self) -> impl Iterator<Item = EncounteredResource<ContentResource>> + '_ {
         self.encountered()
-            .filter(|er| matches!(er, EncounteredResource::Ignored(_)))
+            .filter(|er| matches!(er, EncounteredResource::Ignored(_, _)))
     }
 
     pub fn not_ignored(&self) -> impl Iterator<Item = EncounteredResource<ContentResource>> + '_ {
         self.encountered()
-            .filter(|er| !matches!(er, EncounteredResource::Ignored(_)))
+            .filter(|er| !matches!(er, EncounteredResource::Ignored(_, _)))
     }
 
     pub fn capturable_executables(&self) -> impl Iterator<Item = CapturableExecutable> + '_ {
         self.encountered().filter_map(|er| match er {
-            EncounteredResource::CapturableExec(_, ce) => Some(ce),
+            EncounteredResource::CapturableExec(_, ce, _) => Some(ce),
             _ => None,
         })
     }
@@ -1149,11 +1231,11 @@ impl ResourcesCollection {
     pub fn encountered(&self) -> impl Iterator<Item = EncounteredResource<ContentResource>> + '_ {
         self.encounterable.iter().map(move |er| {
             let uri = er.uri();
-            let mut ero = EncounterableResourceOptions {
+            let mut ero = EncounterableResourceClass {
                 nature: None,
                 flags: EncounterableResourceFlags::empty(),
             };
-            self.classifiables.first_match(&uri, &mut ero);
+            self.classifier.classify(&uri, &mut ero, None);
             er.encountered(&ero)
         })
     }
@@ -1164,21 +1246,21 @@ impl ResourcesCollection {
     {
         self.encountered()
             .filter_map(move |er: EncounteredResource<ContentResource>| match er {
-                EncounteredResource::Resource(resource) => {
+                EncounteredResource::Resource(resource, _) => {
                     match self.uniform_resource(resource) {
                         Ok(uniform_resource) => Some(Ok(*uniform_resource)),
                         Err(e) => Some(Err(e)), // error will be returned
                     }
                 }
-                EncounteredResource::CapturableExec(resource, executable) => Some(Ok(
+                EncounteredResource::CapturableExec(resource, executable, _) => Some(Ok(
                     UniformResource::CapturableExec(CapturableExecResource {
                         resource,
                         executable,
                     }),
                 )),
-                EncounteredResource::Ignored(_)
-                | EncounteredResource::NotFile(_)
-                | EncounteredResource::NotFound(_) => None, // these will be filtered via `filter_map`
+                EncounteredResource::Ignored(_, _)
+                | EncounteredResource::NotFile(_, _)
+                | EncounteredResource::NotFound(_, _) => None, // these will be filtered via `filter_map`
             })
     }
 
