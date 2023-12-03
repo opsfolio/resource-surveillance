@@ -148,7 +148,6 @@ pub enum UniformResourceWriterAction {
     ContentSupplierError(Box<dyn std::error::Error>),
     ContentUnavailable(),
     CapturableExecNotExecutable(),
-    CapturableExecNoNature(regex::Regex),
     CapturableExecError(anyhow::Error),
     CapturableExecUrCreateError(Box<dyn std::error::Error>),
     Error(anyhow::Error),
@@ -171,7 +170,6 @@ impl UniformResourceWriterAction {
             | UniformResourceWriterAction::CapturableExecUrCreateError(_) => {
                 Some(String::from("ERROR"))
             }
-            UniformResourceWriterAction::CapturableExecNoNature(_) => Some(String::from("ISSUE")),
             UniformResourceWriterAction::ContentUnavailable()
             | UniformResourceWriterAction::CapturableExecNotExecutable() => {
                 Some(String::from("ISSUE"))
@@ -207,12 +205,6 @@ impl UniformResourceWriterAction {
                 Some(serde_json::to_string_pretty(&json!({
                     "instance": "UniformResourceWriterAction::CapturableExecNotExecutable",
                     "message": "File matched as a potential capturable executable but the file permissions do not allow execution",
-                })).unwrap()),
-            UniformResourceWriterAction::CapturableExecNoNature(re)  =>
-                Some(serde_json::to_string_pretty(&json!({
-                    "instance": "UniformResourceWriterAction::CapturableExecNoNature",
-                    "message": "File matched as a potential capturable executable but no 'nature' capture was found in RegEx",
-                    "regex": re.to_string()
                 })).unwrap()),
             UniformResourceWriterAction::CapturableExecError(err) =>
                 Some(serde_json::to_string_pretty(&json!({
@@ -476,10 +468,6 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
                     },
                 }
             }
-            CapturableExecutable::RequestedButNoNature(_src, re) => UniformResourceWriterResult {
-                uri: self.resource.uri.clone(),
-                action: UniformResourceWriterAction::CapturableExecNoNature(re.clone()),
-            },
             CapturableExecutable::RequestedButNotExecutable(_src) => UniformResourceWriterResult {
                 uri: self.resource.uri.clone(),
                 action: UniformResourceWriterAction::CapturableExecNotExecutable(),
@@ -913,19 +901,9 @@ pub fn ingest_files(
             }
 
             let rp: Vec<String> = vec![canonical_path.clone()];
-            let rw_options = ResourcesCollectionOptions {
-                ingest_content_regexs: behavior.ingest_content_fs_entry_regexs.to_vec(),
-                ignore_paths_regexs: behavior.ignore_fs_entry_regexs.to_vec(),
-                capturable_executables_regexs: behavior
-                    .capturable_executables_fs_entry_regexs
-                    .to_vec(),
-                captured_exec_sql_regexs: behavior.captured_exec_sql_fs_entry_regexs.to_vec(),
-                nature_bind: behavior.nature_bind.clone(),
-            };
-
             let resources = ResourcesCollection::from_smart_ignore(
                 &rp,
-                &rw_options,
+                None,
                 &ingest_args.ignore_globs_conf_file,
                 !ingest_args.surveil_hidden_files,
             );
@@ -1120,15 +1098,7 @@ pub fn ingest_tasks(
     })?;
 
     let mut behavior = IngestTasksBehavior::from_stdin();
-    let rc_options = ResourcesCollectionOptions {
-        ingest_content_regexs: vec![],
-        ignore_paths_regexs: vec![],
-        capturable_executables_regexs: vec![],
-        captured_exec_sql_regexs: vec![],
-        nature_bind: Default::default(),
-    };
-    let (encounterable, resources) =
-        ResourcesCollection::from_tasks_lines(&behavior.lines, &rc_options);
+    let (encounterable, resources) = ResourcesCollection::from_tasks_lines(&behavior.lines, None);
     behavior.encounterable = encounterable;
 
     let ingest_session_id: String = tx

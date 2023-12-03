@@ -15,18 +15,7 @@ impl IngestCommands {
         match self {
             IngestCommands::Files(ifa) => {
                 if ifa.dry_run {
-                    self.files_dry_run(
-                        cli,
-                        &ifa.root_fs_path,
-                        &ResourcesCollectionOptions {
-                            ingest_content_regexs: ifa.surveil_fs_content.to_vec(),
-                            ignore_paths_regexs: ifa.ignore_fs_entry.to_vec(),
-                            capturable_executables_regexs: ifa.capture_fs_exec.to_vec(),
-                            captured_exec_sql_regexs: ifa.captured_fs_exec_sql.to_vec(),
-                            nature_bind: ifa.nature_bind.clone().unwrap_or(HashMap::default()),
-                        },
-                        ifa,
-                    )
+                    self.files_dry_run(cli, &ifa.root_fs_path, ifa)
                 } else {
                     self.files(cli, ifa)
                 }
@@ -122,17 +111,16 @@ impl IngestCommands {
         &self,
         _cli: &super::Cli,
         root_fs_path: &[String],
-        options: &ResourcesCollectionOptions,
         args: &super::IngestFilesArgs,
     ) -> anyhow::Result<()> {
-        let wd_resources = ResourcesCollection::from_walk_dir(root_fs_path, options);
+        let wd_resources = ResourcesCollection::from_walk_dir(root_fs_path, None);
         let si_resources = ResourcesCollection::from_smart_ignore(
             root_fs_path,
-            options,
+            None,
             &args.ignore_globs_conf_file,
             !args.surveil_hidden_files,
         );
-        let vfs_pfs_resources = ResourcesCollection::from_vfs_physical_fs(root_fs_path, options);
+        let vfs_pfs_resources = ResourcesCollection::from_vfs_physical_fs(root_fs_path, None);
 
         let mut table = Table::new();
         table
@@ -165,14 +153,6 @@ impl IngestCommands {
             Cell::new(wd_resources.ignored().count().to_string()),
             Cell::new(si_resources.ignored().count().to_string()),
             Cell::new(vfs_pfs_resources.ignored().count().to_string()),
-            Cell::new(
-                options
-                    .ignore_paths_regexs
-                    .iter()
-                    .map(|re| re.to_string())
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-            ),
         ]);
         table.add_row(vec![
             Cell::new("Available"),
@@ -291,16 +271,6 @@ impl IngestCommands {
                     .count()
                     .to_string(),
             ),
-            Cell::new(
-                options
-                    .capturable_executables_regexs
-                    .clone()
-                    .into_iter()
-                    .chain(options.captured_exec_sql_regexs.clone())
-                    .map(|re| re.to_string())
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-            ),
         ]);
 
         table.add_row(vec![
@@ -360,14 +330,6 @@ impl IngestCommands {
                     })
                     .count()
                     .to_string(),
-            ),
-            Cell::new(
-                options
-                    .ingest_content_regexs
-                    .iter()
-                    .map(|re| re.to_string())
-                    .collect::<Vec<_>>()
-                    .join("\n"),
             ),
         ]);
 
