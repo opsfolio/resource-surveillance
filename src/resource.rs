@@ -17,6 +17,8 @@ use crate::shell::*;
 
 use crate::frontmatter::frontmatter;
 
+// See src/resources.states.puml for PlantUML specification of the state machine
+
 pub trait BinaryContent {
     fn content_digest_hash(&self) -> &str;
     fn content_binary(&self) -> &Vec<u8>;

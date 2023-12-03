@@ -1,0 +1,117 @@
+@startuml Resources State Machine
+
+state WalkDir {
+}
+
+state SmartIgnore {
+}
+
+state VFS {
+}
+
+state TaskLines {
+}
+
+state EncounterableResource {
+}
+
+state Ignored {
+}
+
+state EncounteredResource {
+}
+
+state NotFile {
+}
+
+state NotFound {
+}
+
+state ERROR {
+}
+
+state DenoTaskShellLine {
+}
+
+state Resource {
+}
+
+state CapturableExec {
+}
+
+state UniformResource {
+}
+
+state HTML {
+}
+
+state Markdown {
+}
+
+state Image {
+}
+
+state JSON {
+}
+
+state JsonableTextResource {
+}
+
+state TAP {
+}
+
+state TOML {
+}
+
+state YAML {
+}
+
+state Text {
+}
+
+state XML {
+}
+
+state SVG {
+}
+
+state SourceCode {
+}
+
+WalkDir --> EncounterableResource
+SmartIgnore --> EncounterableResource
+VFS --> EncounterableResource
+TaskLines --> EncounterableResource
+
+EncounterableResource --> Ignored
+EncounterableResource --> ERROR
+EncounterableResource --> EncounteredResource
+EncounteredResource --> Ignored
+EncounteredResource --> ERROR
+EncounteredResource --> NotFile
+EncounteredResource --> NotFound
+EncounteredResource --> Resource
+EncounteredResource --> CapturableExec
+
+EncounteredResource --> DenoTaskShellLine
+DenoTaskShellLine --> CapturableExec
+
+Resource --> UniformResource
+CapturableExec --> UniformResource
+
+UniformResource --> HTML
+UniformResource --> Image
+UniformResource --> Markdown
+UniformResource --> Text
+UniformResource --> SourceCode
+
+UniformResource --> JSON
+UniformResource --> JsonableTextResource
+JsonableTextResource --> TAP
+JsonableTextResource --> TOML
+JsonableTextResource --> YAML
+
+UniformResource --> XML
+XML -> SVG
+
+@enduml
