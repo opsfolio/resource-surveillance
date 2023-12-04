@@ -16,7 +16,9 @@ CREATE TABLE "ur_ingest_resource_path_match_rule" (
     "regex" TEXT NOT NULL,
     "flags" TEXT NOT NULL,
     "nature_regex_capture" TEXT,
+    "priority" TEXT,
     "description" TEXT,
+    "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT 'UNKNOWN',
     "updated_at" TIMESTAMP,
@@ -39,7 +41,9 @@ CREATE TABLE "ur_ingest_resource_path_match_rule" (
 | regex                                 | TEXT      |                   | false    |                                                         |
 | flags                                 | TEXT      |                   | false    |                                                         |
 | nature_regex_capture                  | TEXT      |                   | true     |                                                         |
+| priority                              | TEXT      |                   | true     |                                                         |
 | description                           | TEXT      |                   | true     |                                                         |
+| elaboration                           | TEXT      |                   | true     | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |
 | created_at                            | TIMESTAMP | CURRENT_TIMESTAMP | true     |                                                         |
 | created_by                            | TEXT      | 'UNKNOWN'         | true     |                                                         |
 | updated_at                            | TIMESTAMP |                   | true     |                                                         |
@@ -50,11 +54,12 @@ CREATE TABLE "ur_ingest_resource_path_match_rule" (
 
 ## Constraints
 
-| Name                                                  | Type        | Definition                                          |
-| ----------------------------------------------------- | ----------- | --------------------------------------------------- |
-| ur_ingest_resource_path_match_rule_id                 | PRIMARY KEY | PRIMARY KEY (ur_ingest_resource_path_match_rule_id) |
-| sqlite_autoindex_ur_ingest_resource_path_match_rule_2 | UNIQUE      | UNIQUE (namespace, regex)                           |
-| sqlite_autoindex_ur_ingest_resource_path_match_rule_1 | PRIMARY KEY | PRIMARY KEY (ur_ingest_resource_path_match_rule_id) |
+| Name                                                  | Type        | Definition                                            |
+| ----------------------------------------------------- | ----------- | ----------------------------------------------------- |
+| ur_ingest_resource_path_match_rule_id                 | PRIMARY KEY | PRIMARY KEY (ur_ingest_resource_path_match_rule_id)   |
+| sqlite_autoindex_ur_ingest_resource_path_match_rule_2 | UNIQUE      | UNIQUE (namespace, regex)                             |
+| sqlite_autoindex_ur_ingest_resource_path_match_rule_1 | PRIMARY KEY | PRIMARY KEY (ur_ingest_resource_path_match_rule_id)   |
+| -                                                     | CHECK       | CHECK(json_valid(elaboration) OR elaboration IS NULL) |
 
 ## Indexes
 

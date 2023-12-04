@@ -2,9 +2,8 @@
 
 ## Description
 
-A regular expression can determine the flags to apply to an ingestion path  
-and if the regular expr contains a nature capture group that pattern match  
-will assign the nature too.
+A regular expression can determine whether certain paths should be  
+rewritten before ur_ingest_resource_path_match_rule matches occur.
 
 <details>
 <summary><strong>Table Definition</strong></summary>
@@ -15,7 +14,9 @@ CREATE TABLE "ur_ingest_resource_path_rewrite_rule" (
     "namespace" TEXT NOT NULL,
     "regex" TEXT NOT NULL,
     "replace" TEXT NOT NULL,
+    "priority" TEXT,
     "description" TEXT,
+    "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT 'UNKNOWN',
     "updated_at" TIMESTAMP,
@@ -37,7 +38,9 @@ CREATE TABLE "ur_ingest_resource_path_rewrite_rule" (
 | namespace                               | TEXT      |                   | false    |                                                         |
 | regex                                   | TEXT      |                   | false    |                                                         |
 | replace                                 | TEXT      |                   | false    |                                                         |
+| priority                                | TEXT      |                   | true     |                                                         |
 | description                             | TEXT      |                   | true     |                                                         |
+| elaboration                             | TEXT      |                   | true     | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |
 | created_at                              | TIMESTAMP | CURRENT_TIMESTAMP | true     |                                                         |
 | created_by                              | TEXT      | 'UNKNOWN'         | true     |                                                         |
 | updated_at                              | TIMESTAMP |                   | true     |                                                         |
@@ -53,6 +56,7 @@ CREATE TABLE "ur_ingest_resource_path_rewrite_rule" (
 | ur_ingest_resource_path_rewrite_rule_id                 | PRIMARY KEY | PRIMARY KEY (ur_ingest_resource_path_rewrite_rule_id) |
 | sqlite_autoindex_ur_ingest_resource_path_rewrite_rule_2 | UNIQUE      | UNIQUE (namespace, regex, replace)                    |
 | sqlite_autoindex_ur_ingest_resource_path_rewrite_rule_1 | PRIMARY KEY | PRIMARY KEY (ur_ingest_resource_path_rewrite_rule_id) |
+| -                                                       | CHECK       | CHECK(json_valid(elaboration) OR elaboration IS NULL) |
 
 ## Indexes
 

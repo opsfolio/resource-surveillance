@@ -59,6 +59,7 @@ comments:
   - table: ur_ingest_resource_path_match_rule
     columnComments:
       ur_ingest_resource_path_match_rule_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: |-
       A regular expression can determine the flags to apply to an ingestion path
@@ -67,11 +68,11 @@ comments:
   - table: ur_ingest_resource_path_rewrite_rule
     columnComments:
       ur_ingest_resource_path_rewrite_rule_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: |-
-      A regular expression can determine the flags to apply to an ingestion path
-      and if the regular expr contains a nature capture group that pattern match
-      will assign the nature too.
+      A regular expression can determine whether certain paths should be
+      rewritten before ur_ingest_resource_path_match_rule matches occur.
   - table: ur_ingest_session
     columnComments:
       ur_ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'

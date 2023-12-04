@@ -90,6 +90,30 @@ pub enum AdminCommands {
 
     /// generate CLI help markdown
     CliHelpMd,
+
+    /// generate CLI help markdown
+    Test(AdminTestArgs),
+}
+
+/// Capturable Executables (CE) assurance tools
+#[derive(Debug, Serialize, Args)]
+pub struct AdminTestArgs {
+    #[command(subcommand)]
+    pub command: AdminTestCommands,
+}
+
+#[derive(Debug, Serialize, Subcommand)]
+pub enum AdminTestCommands {
+    /// test capturable executables files
+    Classifiers {
+        /// target SQLite database
+        #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
+        state_db_fs_path: String,
+
+        /// one or more globs to match as SQL files and batch execute them in alpha order
+        #[arg(short = 'I', long)]
+        state_db_init_sql: Vec<String>,
+    },
 }
 
 /// Capturable Executables (CE) maintenance tools
@@ -116,7 +140,7 @@ pub enum CapturableExecCommands {
     Test(CapturableExecTestArgs),
 }
 
-/// Capturable Executables (CE) maintenance tools
+/// Capturable Executables (CE) assurance tools
 #[derive(Debug, Serialize, Args)]
 pub struct CapturableExecTestArgs {
     #[command(subcommand)]

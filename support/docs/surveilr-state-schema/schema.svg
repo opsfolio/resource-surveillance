@@ -117,95 +117,107 @@
 <!-- ur_ingest_resource_path_match_rule -->
 <g id="node3" class="node">
 <title>ur_ingest_resource_path_match_rule</title>
-<polygon fill="#efefef" stroke="transparent" points="1312.5,-3497.5 1312.5,-3532.5 1696.5,-3532.5 1696.5,-3497.5 1312.5,-3497.5"/>
-<polygon fill="none" stroke="#000000" points="1312.5,-3497.5 1312.5,-3532.5 1696.5,-3532.5 1696.5,-3497.5 1312.5,-3497.5"/>
-<text text-anchor="start" x="1319.2945" y="-3510.3" font-family="Arial Bold" font-size="18.00" fill="#000000">ur_ingest_resource_path_match_rule</text>
-<text text-anchor="start" x="1617.3745" y="-3510.3" font-family="Arial" font-size="14.00" fill="#000000">    </text>
-<text text-anchor="start" x="1651.5793" y="-3510.3" font-family="Arial" font-size="14.00" fill="#666666">[table]</text>
+<polygon fill="#efefef" stroke="transparent" points="1312.5,-3527.5 1312.5,-3562.5 1696.5,-3562.5 1696.5,-3527.5 1312.5,-3527.5"/>
+<polygon fill="none" stroke="#000000" points="1312.5,-3527.5 1312.5,-3562.5 1696.5,-3562.5 1696.5,-3527.5 1312.5,-3527.5"/>
+<text text-anchor="start" x="1319.2945" y="-3540.3" font-family="Arial Bold" font-size="18.00" fill="#000000">ur_ingest_resource_path_match_rule</text>
+<text text-anchor="start" x="1617.3745" y="-3540.3" font-family="Arial" font-size="14.00" fill="#000000">    </text>
+<text text-anchor="start" x="1651.5793" y="-3540.3" font-family="Arial" font-size="14.00" fill="#666666">[table]</text>
+<polygon fill="none" stroke="#000000" points="1312.5,-3497.5 1312.5,-3527.5 1696.5,-3527.5 1696.5,-3497.5 1312.5,-3497.5"/>
+<text text-anchor="start" x="1319.5" y="-3508.9" font-family="Arial" font-size="14.00" fill="#000000">ur_ingest_resource_path_match_rule_id    </text>
+<text text-anchor="start" x="1604.2166" y="-3508.9" font-family="Arial" font-size="14.00" fill="#666666">[VARCHAR]</text>
 <polygon fill="none" stroke="#000000" points="1312.5,-3467.5 1312.5,-3497.5 1696.5,-3497.5 1696.5,-3467.5 1312.5,-3467.5"/>
-<text text-anchor="start" x="1319.5" y="-3478.9" font-family="Arial" font-size="14.00" fill="#000000">ur_ingest_resource_path_match_rule_id    </text>
-<text text-anchor="start" x="1604.2166" y="-3478.9" font-family="Arial" font-size="14.00" fill="#666666">[VARCHAR]</text>
+<text text-anchor="start" x="1319.5" y="-3478.9" font-family="Arial" font-size="14.00" fill="#000000">namespace    </text>
+<text text-anchor="start" x="1426.061" y="-3478.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="1312.5,-3437.5 1312.5,-3467.5 1696.5,-3467.5 1696.5,-3437.5 1312.5,-3437.5"/>
-<text text-anchor="start" x="1319.5" y="-3448.9" font-family="Arial" font-size="14.00" fill="#000000">namespace    </text>
-<text text-anchor="start" x="1426.061" y="-3448.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="1319.5" y="-3448.9" font-family="Arial" font-size="14.00" fill="#000000">regex    </text>
+<text text-anchor="start" x="1388.7132" y="-3448.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="1312.5,-3407.5 1312.5,-3437.5 1696.5,-3437.5 1696.5,-3407.5 1312.5,-3407.5"/>
-<text text-anchor="start" x="1319.5" y="-3418.9" font-family="Arial" font-size="14.00" fill="#000000">regex    </text>
-<text text-anchor="start" x="1388.7132" y="-3418.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="1319.5" y="-3418.9" font-family="Arial" font-size="14.00" fill="#000000">flags    </text>
+<text text-anchor="start" x="1383.2672" y="-3418.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="1312.5,-3377.5 1312.5,-3407.5 1696.5,-3407.5 1696.5,-3377.5 1312.5,-3377.5"/>
-<text text-anchor="start" x="1319.5" y="-3388.9" font-family="Arial" font-size="14.00" fill="#000000">flags    </text>
-<text text-anchor="start" x="1383.2672" y="-3388.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="1319.5" y="-3388.9" font-family="Arial" font-size="14.00" fill="#000000">nature_regex_capture    </text>
+<text text-anchor="start" x="1490.6416" y="-3388.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="1312.5,-3347.5 1312.5,-3377.5 1696.5,-3377.5 1696.5,-3347.5 1312.5,-3347.5"/>
-<text text-anchor="start" x="1319.5" y="-3358.9" font-family="Arial" font-size="14.00" fill="#000000">nature_regex_capture    </text>
-<text text-anchor="start" x="1490.6416" y="-3358.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="1319.5" y="-3358.9" font-family="Arial" font-size="14.00" fill="#000000">priority    </text>
+<text text-anchor="start" x="1395.695" y="-3358.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="1312.5,-3317.5 1312.5,-3347.5 1696.5,-3347.5 1696.5,-3317.5 1312.5,-3317.5"/>
 <text text-anchor="start" x="1319.5" y="-3328.9" font-family="Arial" font-size="14.00" fill="#000000">description    </text>
 <text text-anchor="start" x="1421.3822" y="-3328.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="1312.5,-3287.5 1312.5,-3317.5 1696.5,-3317.5 1696.5,-3287.5 1312.5,-3287.5"/>
-<text text-anchor="start" x="1319.5" y="-3298.9" font-family="Arial" font-size="14.00" fill="#000000">created_at    </text>
-<text text-anchor="start" x="1419.8422" y="-3298.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
+<text text-anchor="start" x="1319.5" y="-3298.9" font-family="Arial" font-size="14.00" fill="#000000">elaboration    </text>
+<text text-anchor="start" x="1422.9474" y="-3298.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="1312.5,-3257.5 1312.5,-3287.5 1696.5,-3287.5 1696.5,-3257.5 1312.5,-3257.5"/>
-<text text-anchor="start" x="1319.5" y="-3268.9" font-family="Arial" font-size="14.00" fill="#000000">created_by    </text>
-<text text-anchor="start" x="1422.9516" y="-3268.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="1319.5" y="-3268.9" font-family="Arial" font-size="14.00" fill="#000000">created_at    </text>
+<text text-anchor="start" x="1419.8422" y="-3268.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
 <polygon fill="none" stroke="#000000" points="1312.5,-3227.5 1312.5,-3257.5 1696.5,-3257.5 1696.5,-3227.5 1312.5,-3227.5"/>
-<text text-anchor="start" x="1319.5" y="-3238.9" font-family="Arial" font-size="14.00" fill="#000000">updated_at    </text>
-<text text-anchor="start" x="1423.7468" y="-3238.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
+<text text-anchor="start" x="1319.5" y="-3238.9" font-family="Arial" font-size="14.00" fill="#000000">created_by    </text>
+<text text-anchor="start" x="1422.9516" y="-3238.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="1312.5,-3197.5 1312.5,-3227.5 1696.5,-3227.5 1696.5,-3197.5 1312.5,-3197.5"/>
-<text text-anchor="start" x="1319.5" y="-3208.9" font-family="Arial" font-size="14.00" fill="#000000">updated_by    </text>
-<text text-anchor="start" x="1426.8562" y="-3208.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="1319.5" y="-3208.9" font-family="Arial" font-size="14.00" fill="#000000">updated_at    </text>
+<text text-anchor="start" x="1423.7468" y="-3208.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
 <polygon fill="none" stroke="#000000" points="1312.5,-3167.5 1312.5,-3197.5 1696.5,-3197.5 1696.5,-3167.5 1312.5,-3167.5"/>
-<text text-anchor="start" x="1319.5" y="-3178.9" font-family="Arial" font-size="14.00" fill="#000000">deleted_at    </text>
-<text text-anchor="start" x="1419.0708" y="-3178.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
+<text text-anchor="start" x="1319.5" y="-3178.9" font-family="Arial" font-size="14.00" fill="#000000">updated_by    </text>
+<text text-anchor="start" x="1426.8562" y="-3178.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="1312.5,-3137.5 1312.5,-3167.5 1696.5,-3167.5 1696.5,-3137.5 1312.5,-3137.5"/>
-<text text-anchor="start" x="1319.5" y="-3148.9" font-family="Arial" font-size="14.00" fill="#000000">deleted_by    </text>
-<text text-anchor="start" x="1422.1802" y="-3148.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="1319.5" y="-3148.9" font-family="Arial" font-size="14.00" fill="#000000">deleted_at    </text>
+<text text-anchor="start" x="1419.0708" y="-3148.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
 <polygon fill="none" stroke="#000000" points="1312.5,-3107.5 1312.5,-3137.5 1696.5,-3137.5 1696.5,-3107.5 1312.5,-3107.5"/>
-<text text-anchor="start" x="1319.5" y="-3118.9" font-family="Arial" font-size="14.00" fill="#000000">activity_log    </text>
-<text text-anchor="start" x="1422.9362" y="-3118.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="1319.5" y="-3118.9" font-family="Arial" font-size="14.00" fill="#000000">deleted_by    </text>
+<text text-anchor="start" x="1422.1802" y="-3118.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<polygon fill="none" stroke="#000000" points="1312.5,-3077.5 1312.5,-3107.5 1696.5,-3107.5 1696.5,-3077.5 1312.5,-3077.5"/>
+<text text-anchor="start" x="1319.5" y="-3088.9" font-family="Arial" font-size="14.00" fill="#000000">activity_log    </text>
+<text text-anchor="start" x="1422.9362" y="-3088.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 </g>
 <!-- ur_ingest_resource_path_rewrite_rule -->
 <g id="node4" class="node">
 <title>ur_ingest_resource_path_rewrite_rule</title>
-<polygon fill="#efefef" stroke="transparent" points="1801.5,-3482.5 1801.5,-3517.5 2190.5,-3517.5 2190.5,-3482.5 1801.5,-3482.5"/>
-<polygon fill="none" stroke="#000000" points="1801.5,-3482.5 1801.5,-3517.5 2190.5,-3517.5 2190.5,-3482.5 1801.5,-3482.5"/>
-<text text-anchor="start" x="1808.3042" y="-3495.3" font-family="Arial Bold" font-size="18.00" fill="#000000">ur_ingest_resource_path_rewrite_rule</text>
-<text text-anchor="start" x="2111.3648" y="-3495.3" font-family="Arial" font-size="14.00" fill="#000000">    </text>
-<text text-anchor="start" x="2145.5696" y="-3495.3" font-family="Arial" font-size="14.00" fill="#666666">[table]</text>
+<polygon fill="#efefef" stroke="transparent" points="1801.5,-3512.5 1801.5,-3547.5 2190.5,-3547.5 2190.5,-3512.5 1801.5,-3512.5"/>
+<polygon fill="none" stroke="#000000" points="1801.5,-3512.5 1801.5,-3547.5 2190.5,-3547.5 2190.5,-3512.5 1801.5,-3512.5"/>
+<text text-anchor="start" x="1808.3042" y="-3525.3" font-family="Arial Bold" font-size="18.00" fill="#000000">ur_ingest_resource_path_rewrite_rule</text>
+<text text-anchor="start" x="2111.3648" y="-3525.3" font-family="Arial" font-size="14.00" fill="#000000">    </text>
+<text text-anchor="start" x="2145.5696" y="-3525.3" font-family="Arial" font-size="14.00" fill="#666666">[table]</text>
+<polygon fill="none" stroke="#000000" points="1801.5,-3482.5 1801.5,-3512.5 2190.5,-3512.5 2190.5,-3482.5 1801.5,-3482.5"/>
+<text text-anchor="start" x="1808.5" y="-3493.9" font-family="Arial" font-size="14.00" fill="#000000">ur_ingest_resource_path_rewrite_rule_id    </text>
+<text text-anchor="start" x="2097.0904" y="-3493.9" font-family="Arial" font-size="14.00" fill="#666666">[VARCHAR]</text>
 <polygon fill="none" stroke="#000000" points="1801.5,-3452.5 1801.5,-3482.5 2190.5,-3482.5 2190.5,-3452.5 1801.5,-3452.5"/>
-<text text-anchor="start" x="1808.5" y="-3463.9" font-family="Arial" font-size="14.00" fill="#000000">ur_ingest_resource_path_rewrite_rule_id    </text>
-<text text-anchor="start" x="2097.0904" y="-3463.9" font-family="Arial" font-size="14.00" fill="#666666">[VARCHAR]</text>
+<text text-anchor="start" x="1808.5" y="-3463.9" font-family="Arial" font-size="14.00" fill="#000000">namespace    </text>
+<text text-anchor="start" x="1915.061" y="-3463.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="1801.5,-3422.5 1801.5,-3452.5 2190.5,-3452.5 2190.5,-3422.5 1801.5,-3422.5"/>
-<text text-anchor="start" x="1808.5" y="-3433.9" font-family="Arial" font-size="14.00" fill="#000000">namespace    </text>
-<text text-anchor="start" x="1915.061" y="-3433.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="1808.5" y="-3433.9" font-family="Arial" font-size="14.00" fill="#000000">regex    </text>
+<text text-anchor="start" x="1877.7132" y="-3433.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="1801.5,-3392.5 1801.5,-3422.5 2190.5,-3422.5 2190.5,-3392.5 1801.5,-3392.5"/>
-<text text-anchor="start" x="1808.5" y="-3403.9" font-family="Arial" font-size="14.00" fill="#000000">regex    </text>
-<text text-anchor="start" x="1877.7132" y="-3403.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="1808.5" y="-3403.9" font-family="Arial" font-size="14.00" fill="#000000">replace    </text>
+<text text-anchor="start" x="1888.6024" y="-3403.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="1801.5,-3362.5 1801.5,-3392.5 2190.5,-3392.5 2190.5,-3362.5 1801.5,-3362.5"/>
-<text text-anchor="start" x="1808.5" y="-3373.9" font-family="Arial" font-size="14.00" fill="#000000">replace    </text>
-<text text-anchor="start" x="1888.6024" y="-3373.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="1808.5" y="-3373.9" font-family="Arial" font-size="14.00" fill="#000000">priority    </text>
+<text text-anchor="start" x="1884.695" y="-3373.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="1801.5,-3332.5 1801.5,-3362.5 2190.5,-3362.5 2190.5,-3332.5 1801.5,-3332.5"/>
 <text text-anchor="start" x="1808.5" y="-3343.9" font-family="Arial" font-size="14.00" fill="#000000">description    </text>
 <text text-anchor="start" x="1910.3822" y="-3343.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="1801.5,-3302.5 1801.5,-3332.5 2190.5,-3332.5 2190.5,-3302.5 1801.5,-3302.5"/>
-<text text-anchor="start" x="1808.5" y="-3313.9" font-family="Arial" font-size="14.00" fill="#000000">created_at    </text>
-<text text-anchor="start" x="1908.8422" y="-3313.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
+<text text-anchor="start" x="1808.5" y="-3313.9" font-family="Arial" font-size="14.00" fill="#000000">elaboration    </text>
+<text text-anchor="start" x="1911.9474" y="-3313.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="1801.5,-3272.5 1801.5,-3302.5 2190.5,-3302.5 2190.5,-3272.5 1801.5,-3272.5"/>
-<text text-anchor="start" x="1808.5" y="-3283.9" font-family="Arial" font-size="14.00" fill="#000000">created_by    </text>
-<text text-anchor="start" x="1911.9516" y="-3283.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="1808.5" y="-3283.9" font-family="Arial" font-size="14.00" fill="#000000">created_at    </text>
+<text text-anchor="start" x="1908.8422" y="-3283.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
 <polygon fill="none" stroke="#000000" points="1801.5,-3242.5 1801.5,-3272.5 2190.5,-3272.5 2190.5,-3242.5 1801.5,-3242.5"/>
-<text text-anchor="start" x="1808.5" y="-3253.9" font-family="Arial" font-size="14.00" fill="#000000">updated_at    </text>
-<text text-anchor="start" x="1912.7468" y="-3253.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
+<text text-anchor="start" x="1808.5" y="-3253.9" font-family="Arial" font-size="14.00" fill="#000000">created_by    </text>
+<text text-anchor="start" x="1911.9516" y="-3253.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="1801.5,-3212.5 1801.5,-3242.5 2190.5,-3242.5 2190.5,-3212.5 1801.5,-3212.5"/>
-<text text-anchor="start" x="1808.5" y="-3223.9" font-family="Arial" font-size="14.00" fill="#000000">updated_by    </text>
-<text text-anchor="start" x="1915.8562" y="-3223.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="1808.5" y="-3223.9" font-family="Arial" font-size="14.00" fill="#000000">updated_at    </text>
+<text text-anchor="start" x="1912.7468" y="-3223.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
 <polygon fill="none" stroke="#000000" points="1801.5,-3182.5 1801.5,-3212.5 2190.5,-3212.5 2190.5,-3182.5 1801.5,-3182.5"/>
-<text text-anchor="start" x="1808.5" y="-3193.9" font-family="Arial" font-size="14.00" fill="#000000">deleted_at    </text>
-<text text-anchor="start" x="1908.0708" y="-3193.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
+<text text-anchor="start" x="1808.5" y="-3193.9" font-family="Arial" font-size="14.00" fill="#000000">updated_by    </text>
+<text text-anchor="start" x="1915.8562" y="-3193.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="1801.5,-3152.5 1801.5,-3182.5 2190.5,-3182.5 2190.5,-3152.5 1801.5,-3152.5"/>
-<text text-anchor="start" x="1808.5" y="-3163.9" font-family="Arial" font-size="14.00" fill="#000000">deleted_by    </text>
-<text text-anchor="start" x="1911.1802" y="-3163.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="1808.5" y="-3163.9" font-family="Arial" font-size="14.00" fill="#000000">deleted_at    </text>
+<text text-anchor="start" x="1908.0708" y="-3163.9" font-family="Arial" font-size="14.00" fill="#666666">[TIMESTAMP]</text>
 <polygon fill="none" stroke="#000000" points="1801.5,-3122.5 1801.5,-3152.5 2190.5,-3152.5 2190.5,-3122.5 1801.5,-3122.5"/>
-<text text-anchor="start" x="1808.5" y="-3133.9" font-family="Arial" font-size="14.00" fill="#000000">activity_log    </text>
-<text text-anchor="start" x="1911.9362" y="-3133.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="1808.5" y="-3133.9" font-family="Arial" font-size="14.00" fill="#000000">deleted_by    </text>
+<text text-anchor="start" x="1911.1802" y="-3133.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<polygon fill="none" stroke="#000000" points="1801.5,-3092.5 1801.5,-3122.5 2190.5,-3122.5 2190.5,-3092.5 1801.5,-3092.5"/>
+<text text-anchor="start" x="1808.5" y="-3103.9" font-family="Arial" font-size="14.00" fill="#000000">activity_log    </text>
+<text text-anchor="start" x="1911.9362" y="-3103.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 </g>
 <!-- ur_ingest_session -->
 <g id="node5" class="node">

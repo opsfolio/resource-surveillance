@@ -334,7 +334,9 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       regex: gd.text(),
       flags: gd.text(),
       nature_regex_capture: gd.textNullable(),
+      priority: gd.textNullable(),
       description: gd.text().optional(),
+      elaboration: gd.jsonTextNullable(),
       ...gm.housekeeping.columns,
     },
     {
@@ -361,7 +363,9 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       namespace: gd.text(),
       regex: gd.text(),
       replace: gd.text(),
+      priority: gd.textNullable(),
       description: gd.text().optional(),
+      elaboration: gd.jsonTextNullable(),
       ...gm.housekeeping.columns,
     },
     {
@@ -374,9 +378,8 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       },
       populateQS: (t, _c, _cols, _tableName) => {
         t.description = markdown`
-        A regular expression can determine the flags to apply to an ingestion path
-        and if the regular expr contains a nature capture group that pattern match
-        will assign the nature too.`;
+        A regular expression can determine whether certain paths should be
+        rewritten before ${urIngestPathMatchRule.tableName} matches occur.`;
       },
     },
   );

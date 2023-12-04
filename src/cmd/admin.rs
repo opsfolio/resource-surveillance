@@ -1,12 +1,13 @@
 use anyhow::Context;
 
 use super::AdminCommands;
+use super::AdminTestCommands;
 use crate::persist::*;
 
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
 impl AdminCommands {
-    pub fn execute(&self, cli: &super::Cli, _args: &super::AdminArgs) -> anyhow::Result<()> {
+    pub fn execute(&self, cli: &super::Cli, args: &super::AdminArgs) -> anyhow::Result<()> {
         match self {
             AdminCommands::Init {
                 state_db_fs_path,
@@ -38,6 +39,7 @@ impl AdminCommands {
                 *sql_only,
             ),
             AdminCommands::CliHelpMd => self.cli_help_markdown(),
+            AdminCommands::Test(test_args) => test_args.command.execute(cli, args, test_args),
         }
     }
 
@@ -210,5 +212,58 @@ impl AdminCommands {
                 Some(sql_script.as_str()),
             )
         }
+    }
+}
+
+impl AdminTestCommands {
+    pub fn execute(
+        &self,
+        cli: &super::Cli,
+        parent_args: &super::AdminArgs,
+        cmd_args: &super::AdminTestArgs,
+    ) -> anyhow::Result<()> {
+        match self {
+            AdminTestCommands::Classifiers {
+                state_db_fs_path,
+                state_db_init_sql,
+            } => self.classifiers(
+                cli,
+                parent_args,
+                cmd_args,
+                state_db_fs_path.as_ref(),
+                state_db_init_sql.as_ref(),
+            ),
+        }
+    }
+
+    pub fn classifiers(
+        &self,
+        cli: &super::Cli,
+        _parent_args: &super::AdminArgs,
+        _cmd_args: &super::AdminTestArgs,
+        state_db_fs_path: &str,
+        state_db_init_sql: &[String],
+    ) -> anyhow::Result<()> {
+        let mut dbc = DbConn::new(state_db_fs_path, cli.debug)?;
+        let tx = dbc.init(Some(state_db_init_sql))?;
+        tx.commit()?; // in case the database was created
+
+        let query_result = dbc.query_result_as_formatted_table(
+            r#"
+            SELECT namespace as 'Name', regex as 'RE', flags as 'Flags', nature_regex_capture as 'RE-Nature', description as 'Help'
+              FROM ur_ingest_resource_path_match_rule"#,
+            &[],
+        )?;
+        println!("{query_result}\n");
+
+        let query_result = dbc.query_result_as_formatted_table(
+            r#"
+            SELECT namespace, regex, replace, description 
+              FROM ur_ingest_resource_path_rewrite_rule"#,
+            &[],
+        )?;
+        println!("{query_result}");
+
+        Ok(())
     }
 }

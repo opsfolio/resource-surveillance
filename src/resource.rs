@@ -112,6 +112,10 @@ impl ResourcePathRewriteRule {
     }
 }
 
+// "?P<nature>" in the `nature` field means read it from the Regex via group capture
+const PFRE_READ_NATURE_FROM_REGEX: &str = "?P<nature>";
+const PFRE_READ_NATURE_FROM_REGEX_CAPTURE: &str = "nature";
+
 const DEFAULT_IGNORE_PATHS_REGEX_PATTERNS: [&str; 1] = [r"/(\.git|node_modules)/"];
 const DEFAULT_ACQUIRE_CONTENT_EXTNS_REGEX_PATTERNS: [&str; 1] =
     [r"\.(?P<nature>md|mdx|html|json|jsonc|puml|txt|toml|yml)$"];
@@ -124,9 +128,9 @@ const DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERNS: [&str; 1] = [r"surveilr-SQL"];
 // Rewrite rules are best for cases where you want an extension to "act like"
 // another extension.
 const DEFAULT_REWRITE_NATURE_PATTERNS: [(&str, &str); 3] = [
-    (r"(?P<nature>\.plantuml)$", ".puml"),
-    (r"(?P<nature>\.text)$", ".txt"),
-    (r"(?P<nature>\.yaml)$", ".yml"),
+    (r"(\.plantuml)$", ".puml"),
+    (r"(\.text)$", ".txt"),
+    (r"(\.yaml)$", ".yml"),
 ];
 
 // this file is similar to .gitignore and, if it appears in a directory or
@@ -135,9 +139,9 @@ const SMART_IGNORE_CONF_FILES: [&str; 1] = [".surveilr_ignore"];
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PersistableFlaggableRegEx {
-    pub regex: String, // untyped to make it easier to serialize/deserialize
-    pub flags: String, // untyped to make it easier to serialize/deserialize
-    pub nature_regex_capture: Option<String>,
+    pub regex: String,          // untyped to make it easier to serialize/deserialize
+    pub flags: String,          // untyped to make it easier to serialize/deserialize
+    pub nature: Option<String>, // if this is ?P<nature> then we read nature from reg-ex otherwise it's forced
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -152,25 +156,25 @@ impl Default for EncounterableResourcePathRules {
         let ignore = DEFAULT_IGNORE_PATHS_REGEX_PATTERNS.map(|p| PersistableFlaggableRegEx {
             regex: p.to_string(),
             flags: "IGNORE_RESOURCE".to_string(),
-            nature_regex_capture: None,
+            nature: None,
         });
         let content_acquirable =
             DEFAULT_ACQUIRE_CONTENT_EXTNS_REGEX_PATTERNS.map(|p| PersistableFlaggableRegEx {
                 regex: p.to_string(),
                 flags: "CONTENT_ACQUIRABLE".to_string(),
-                nature_regex_capture: Some("nature".to_string()),
+                nature: Some(PFRE_READ_NATURE_FROM_REGEX.to_string()),
             });
         let capturable_executables =
             DEFAULT_CAPTURE_EXEC_REGEX_PATTERNS.map(|p| PersistableFlaggableRegEx {
                 regex: p.to_string(),
                 flags: "CAPTURABLE_EXECUTABLE".to_string(),
-                nature_regex_capture: Some("nature".to_string()),
+                nature: Some(PFRE_READ_NATURE_FROM_REGEX.to_string()),
             });
         let capturable_executables_sql =
             DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERNS.map(|p| PersistableFlaggableRegEx {
                 regex: p.to_string(),
                 flags: "CAPTURABLE_EXECUTABLE | CAPTURABLE_SQL".to_string(),
-                nature_regex_capture: None,
+                nature: None,
             });
 
         // using strings to set flags to show how to obtain rules from DB/external
@@ -218,7 +222,7 @@ pub struct FlaggableRegEx {
     #[serde(with = "serde_regex")]
     pub regex: regex::Regex, // untyped to make it easier to serialize/deserialize
     pub flags: EncounterableResourceFlags, // untyped to make it easier to serialize/deserialize
-    pub nature_regex_capture: Option<String>,
+    pub nature: Option<String>,            // either None, `?P<nature>` or the actual nature
 }
 
 impl FlaggableRegEx {
@@ -226,8 +230,8 @@ impl FlaggableRegEx {
         Ok(FlaggableRegEx {
             regex: regex::Regex::new(&pfre.regex)?,
             flags: bitflags::parser::from_str(&pfre.flags)
-               .map_err(|e| anyhow::Error::msg(format!("{}", e)))?,
-            nature_regex_capture: pfre.nature_regex_capture.clone(),
+                .map_err(|e| anyhow::Error::msg(format!("{}", e)))?,
+            nature: pfre.nature.clone(),
         })
     }
 }
@@ -265,7 +269,7 @@ impl EncounterableResourcePathClassifier {
         self.flaggables.push(FlaggableRegEx {
             regex: regex::Regex::new(format!("^{}$", regex::escape(pattern)).as_str()).unwrap(),
             flags: EncounterableResourceFlags::IGNORE_RESOURCE,
-            nature_regex_capture: None,
+            nature: None,
         });
     }
 }
@@ -281,13 +285,21 @@ impl EncounterableResourceUriClassifier for EncounterableResourcePathClassifier 
         }
 
         for f in &self.flaggables {
-            if let Some(nature_cap) = &f.nature_regex_capture {
-                if let Some(caps) = f.regex.captures(text) {
-                    if let Some(nature) = caps.name(nature_cap) {
-                        class.flags.insert(f.flags);
-                        class.nature = Some(nature.as_str().to_string());
-                        return true;
+            if let Some(potential_nature) = &f.nature {
+                // if the nature is "?P<nature>" it means that we want to read nature from Regex
+                if potential_nature == PFRE_READ_NATURE_FROM_REGEX {
+                    if let Some(caps) = f.regex.captures(text) {
+                        if let Some(nature) = caps.name(PFRE_READ_NATURE_FROM_REGEX_CAPTURE) {
+                            class.flags.insert(f.flags);
+                            class.nature = Some(nature.as_str().to_string());
+                            return true;
+                        }
                     }
+                } else {
+                    // Since nature is NOT "?P<nature>", we take the nature value literally
+                    class.flags.insert(f.flags);
+                    class.nature = Some(potential_nature.clone());
+                    return true;
                 }
             } else if f.regex.is_match(text) {
                 class.flags.insert(f.flags);

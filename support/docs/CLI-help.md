@@ -9,6 +9,8 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr admin init`↴](#surveilr-admin-init)
 * [`surveilr admin merge`↴](#surveilr-admin-merge)
 * [`surveilr admin cli-help-md`↴](#surveilr-admin-cli-help-md)
+* [`surveilr admin test`↴](#surveilr-admin-test)
+* [`surveilr admin test classifiers`↴](#surveilr-admin-test-classifiers)
 * [`surveilr capturable-exec`↴](#surveilr-capturable-exec)
 * [`surveilr capturable-exec ls`↴](#surveilr-capturable-exec-ls)
 * [`surveilr capturable-exec test`↴](#surveilr-capturable-exec-test)
@@ -52,6 +54,7 @@ Admin / maintenance utilities
 * `init` — initialize an empty database with bootstrap.sql
 * `merge` — merge multiple surveillance state databases into a single one
 * `cli-help-md` — generate CLI help markdown
+* `test` — generate CLI help markdown
 
 
 
@@ -98,6 +101,33 @@ merge multiple surveillance state databases into a single one
 generate CLI help markdown
 
 **Usage:** `surveilr admin cli-help-md`
+
+
+
+## `surveilr admin test`
+
+generate CLI help markdown
+
+**Usage:** `surveilr admin test <COMMAND>`
+
+###### **Subcommands:**
+
+* `classifiers` — test capturable executables files
+
+
+
+## `surveilr admin test classifiers`
+
+test capturable executables files
+
+**Usage:** `surveilr admin test classifiers [OPTIONS]`
+
+###### **Options:**
+
+* `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
+
+  Default value: `resource-surveillance.sqlite.db`
+* `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
 
 
 

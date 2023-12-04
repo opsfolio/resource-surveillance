@@ -311,46 +311,53 @@ export class BootstrapSqlNotebook<
   }
 
   bootstrapSeedDML() {
-    const {
-      nbh,
-      nbh: { models: { codeNbModels: { codeNotebookKernel: kernel } } },
-    } = this;
+    const { nbh } = this;
     const created_at = nbh.sqlEngineNow;
-    const options = {
-      onConflict: {
-        SQL: () =>
-          `ON CONFLICT(kernel_name) DO UPDATE SET mime_type = EXCLUDED.mime_type, file_extn = EXCLUDED.file_extn`,
-      },
+
+    const kernels = () => {
+      const {
+        nbh: { models: { codeNbModels: { codeNotebookKernel: kernel } } },
+      } = this;
+      const options = {
+        onConflict: {
+          SQL: () =>
+            `ON CONFLICT(kernel_name) DO UPDATE SET mime_type = EXCLUDED.mime_type, file_extn = EXCLUDED.file_extn`,
+        },
+      };
+      const sql = kernel.insertDML({
+        code_notebook_kernel_id: "SQL",
+        kernel_name: "Dialect-independent ANSI SQL",
+        mime_type: "application/sql",
+        file_extn: ".sql",
+        created_at,
+      }, options);
+      const denoTaskShell = kernel.insertDML({
+        code_notebook_kernel_id: "DenoTaskShell",
+        kernel_name: "Deno Task Shell",
+        mime_type: "application/x-deno-task-sh",
+        file_extn: ".deno-task-sh",
+        created_at,
+      }, options);
+      const puml = kernel.insertDML({
+        code_notebook_kernel_id: "PlantUML",
+        kernel_name: "PlantUML ER Diagram",
+        mime_type: "text/vnd.plantuml",
+        file_extn: ".puml",
+        created_at,
+      }, options);
+      const llmPrompt = kernel.insertDML({
+        code_notebook_kernel_id: "LLM Prompt",
+        kernel_name: "Large Lanugage Model (LLM) Prompt",
+        mime_type: "text/vnd.netspective.llm-prompt",
+        file_extn: ".llm-prompt.txt",
+        created_at,
+      }, options);
+      return [sql, denoTaskShell, puml, llmPrompt];
     };
-    const sql = kernel.insertDML({
-      code_notebook_kernel_id: "SQL",
-      kernel_name: "Dialect-independent ANSI SQL",
-      mime_type: "application/sql",
-      file_extn: ".sql",
-      created_at,
-    }, options);
-    const denoTaskShell = kernel.insertDML({
-      code_notebook_kernel_id: "DenoTaskShell",
-      kernel_name: "Deno Task Shell",
-      mime_type: "application/x-deno-task-sh",
-      file_extn: ".deno-task-sh",
-      created_at,
-    }, options);
-    const puml = kernel.insertDML({
-      code_notebook_kernel_id: "PlantUML",
-      kernel_name: "PlantUML ER Diagram",
-      mime_type: "text/vnd.plantuml",
-      file_extn: ".puml",
-      created_at,
-    }, options);
-    const llmPrompt = kernel.insertDML({
-      code_notebook_kernel_id: "LLM Prompt",
-      kernel_name: "Large Lanugage Model (LLM) Prompt",
-      mime_type: "text/vnd.netspective.llm-prompt",
-      file_extn: ".llm-prompt.txt",
-      created_at,
-    }, options);
-    return [sql, denoTaskShell, puml, llmPrompt];
+
+    return [
+      ...kernels(),
+    ];
   }
 }
 
@@ -385,6 +392,101 @@ export class ConstructionSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
       ${models.informationSchema.tables}
 
       ${models.informationSchema.tableIndexes}
+      `;
+  }
+
+  // note since `once_` pragma is not present, it will be run each time
+  // so be sure to setup "on conflict" properly
+  v001_seedDML() {
+    const { nbh } = this;
+    const created_at = nbh.sqlEngineNow;
+    const namespace = "default";
+
+    const urIngestPathMatchRules = () => {
+      const { nbh: { models: { urIngestPathMatchRule } } } = this;
+      const options = { onConflict: { SQL: () => `ON CONFLICT DO NOTHING` } };
+      const ur_ingest_resource_path_match_rule_id = nbh.sqlEngineNewUlid;
+      // NOTE: all `\\` will be replaced by JS runtime with single `\`
+      return [
+        urIngestPathMatchRule.insertDML({
+          ur_ingest_resource_path_match_rule_id,
+          namespace,
+          regex: "/(\\.git|node_modules)/",
+          flags: "IGNORE_RESOURCE",
+          description:
+            "Ignore any entry with `/.git/` or `/node_modules/` in the path.",
+          created_at,
+        }, options),
+        urIngestPathMatchRule.insertDML({
+          ur_ingest_resource_path_match_rule_id,
+          namespace,
+          regex: "\\.(?P<nature>md|mdx|html|json|jsonc|puml|txt|toml|yml)$",
+          flags: "CONTENT_ACQUIRABLE",
+          nature_regex_capture: "?P<nature>", // should be same as src/resource.rs::PFRE_READ_NATURE_FROM_REGEX
+          description:
+            "Ingest the content for md, mdx, html, json, jsonc, puml, txt, toml, and yml extensions. Assume the nature is the same as the extension.",
+          created_at,
+        }, options),
+        urIngestPathMatchRule.insertDML({
+          ur_ingest_resource_path_match_rule_id,
+          namespace,
+          regex: "surveilr\\[(?P<nature>[^\\]]*)\\]",
+          flags: "CAPTURABLE_EXECUTABLE",
+          nature_regex_capture: "?P<nature>", // should be same as src/resource.rs::PFRE_READ_NATURE_FROM_REGEX
+          description:
+            "Any entry with `surveilr-[XYZ]` in the path will be treated as a capturable executable extracting `XYZ` as the nature",
+          created_at,
+        }, options),
+        urIngestPathMatchRule.insertDML({
+          ur_ingest_resource_path_match_rule_id,
+          namespace,
+          regex: "surveilr-SQL",
+          flags: "CAPTURABLE_EXECUTABLE | CAPTURABLE_SQL",
+          description:
+            "Any entry with surveilr-SQL in the path will be treated as a capturable SQL executable and allow execution of the SQL",
+          created_at,
+        }, options),
+      ];
+    };
+
+    const urIngestPathRewriteRules = () => {
+      const { nbh: { models: { urIngestPathRewriteRule } } } = this;
+      const options = { onConflict: { SQL: () => `ON CONFLICT DO NOTHING` } };
+      const ur_ingest_resource_path_rewrite_rule_id = nbh.sqlEngineNewUlid;
+      // NOTE: all `\\` will be replaced by JS runtime with single `\`
+      return [
+        urIngestPathRewriteRule.insertDML({
+          ur_ingest_resource_path_rewrite_rule_id,
+          namespace,
+          regex: "(\\.plantuml)$",
+          replace: ".puml",
+          description: "Treat .plantuml as .puml files",
+          created_at,
+        }, options),
+        urIngestPathRewriteRule.insertDML({
+          ur_ingest_resource_path_rewrite_rule_id,
+          namespace,
+          regex: "(\\.text)$",
+          replace: ".txt",
+          description: "Treat .text as .txt files",
+          created_at,
+        }, options),
+        urIngestPathRewriteRule.insertDML({
+          ur_ingest_resource_path_rewrite_rule_id,
+          namespace,
+          regex: "(\\.yaml)$",
+          replace: ".yml",
+          description: "Treat .yaml as .yml files",
+          created_at,
+        }, options),
+      ];
+    };
+
+    // deno-fmt-ignore
+    return nbh.SQL`
+      ${urIngestPathMatchRules()}
+
+      ${urIngestPathRewriteRules()}
       `;
   }
 
