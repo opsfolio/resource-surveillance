@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::{Context, Result};
 use indoc::indoc;
 use rusqlite::{params, Connection};
@@ -870,8 +872,12 @@ pub fn ingest_files(
             }
 
             let rp: Vec<String> = vec![canonical_path.clone()];
-            let resources =
-                ResourcesCollection::from_smart_ignore(&rp, &behavior.classifier, false);
+            let resources = ResourcesCollection::from_smart_ignore(
+                &rp,
+                &behavior.classifier,
+                &None::<HashMap<_, _>>,
+                false,
+            );
 
             let mut urw_state = UniformResourceWriterState {
                 state_db_fs_path: &db_fs_path,
@@ -1063,8 +1069,11 @@ pub fn ingest_tasks(
     })?;
 
     let mut behavior = IngestTasksBehavior::from_stdin();
-    let (encounterable, resources) =
-        ResourcesCollection::from_tasks_lines(&behavior.lines, &Default::default());
+    let (encounterable, resources) = ResourcesCollection::from_tasks_lines(
+        &behavior.lines,
+        &Default::default(),
+        &None::<HashMap<_, _>>,
+    );
     behavior.encounterable = encounterable;
 
     let ingest_session_id: String = tx

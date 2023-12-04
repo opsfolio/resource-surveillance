@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::env;
 
 use serde_json::json;
@@ -33,8 +34,12 @@ impl CapturableExecCommands {
     }
 
     fn ls_table(&self, _cli: &super::Cli, root_paths: &[String]) -> anyhow::Result<()> {
-        let resources =
-            ResourcesCollection::from_smart_ignore(root_paths, &Default::default(), false);
+        let resources = ResourcesCollection::from_smart_ignore(
+            root_paths,
+            &Default::default(),
+            &None::<HashMap<_, _>>,
+            false,
+        );
 
         let mut found: Vec<Vec<String>> = vec![];
         for resource_result in resources.uniform_resources() {
@@ -106,7 +111,12 @@ impl CapturableExecCommands {
 
     fn ls_markdown(&self, _cli: &super::Cli, root_paths: &[String]) -> anyhow::Result<()> {
         let classifier: EncounterableResourcePathClassifier = Default::default();
-        let resources = ResourcesCollection::from_smart_ignore(root_paths, &classifier, false);
+        let resources = ResourcesCollection::from_smart_ignore(
+            root_paths,
+            &classifier,
+            &None::<HashMap<_, _>>,
+            false,
+        );
 
         let mut markdown: Vec<String> = vec!["# `surveilr` Capturable Executables\n\n".to_string()];
 
@@ -271,7 +281,7 @@ impl CapturableExecTestCommands {
             flags: EncounterableResourceFlags::empty(),
             nature: None,
         };
-        if classifier.classify(fs_path, &mut erc, None)
+        if classifier.classify(fs_path, &mut erc)
             && erc
                 .flags
                 .contains(EncounterableResourceFlags::CAPTURABLE_EXECUTABLE)
@@ -346,7 +356,11 @@ impl CapturableExecTestCommands {
             task_cmds.to_vec()
         };
 
-        let (_, resources) = ResourcesCollection::from_tasks_lines(&tasks, &Default::default());
+        let (_, resources) = ResourcesCollection::from_tasks_lines(
+            &tasks,
+            &Default::default(),
+            &None::<HashMap<_, _>>,
+        );
         for ur in resources.uniform_resources() {
             match ur {
                 Ok(resource) => match &resource {

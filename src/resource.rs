@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::fs::canonicalize;
@@ -8,6 +9,7 @@ use std::path::PathBuf;
 use bitflags::bitflags;
 use chrono::{DateTime, Utc};
 use is_executable::IsExecutable;
+use regex::Captures;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -90,7 +92,7 @@ pub struct NatureRewriteRule {
 }
 
 impl NatureRewriteRule {
-    pub fn is_match(&self, text: &str) -> Option<String> {
+    pub fn _is_match(&self, text: &str) -> Option<String> {
         if let Some(caps) = self.regex.captures(text) {
             if let Some(nature) = caps.name("nature") {
                 return Some(nature.as_str().to_string());
@@ -98,17 +100,31 @@ impl NatureRewriteRule {
         }
         None
     }
+
+    pub fn rewritten_text(&self, text: &str) -> Option<String> {
+        if let Some(_caps) = self.regex.captures(text) {
+            let rewritten_text = self
+                .regex
+                .replace(text, |_caps: &Captures| self.nature.to_string());
+            return Some(rewritten_text.to_string());
+        }
+        None
+    }
 }
 
 const DEFAULT_IGNORE_PATHS_REGEX_PATTERNS: [&str; 1] = [r"/(\.git|node_modules)/"];
 const DEFAULT_ACQUIRE_CONTENT_EXTNS_REGEX_PATTERNS: [&str; 1] =
-    [r"\.(?P<nature>md|mdx|html|json|jsonc|txt|toml|yaml)$"];
+    [r"\.(?P<nature>md|mdx|html|json|jsonc|puml|txt|toml|yml)$"];
 const DEFAULT_CAPTURE_EXEC_REGEX_PATTERNS: [&str; 1] = [r"surveilr\[(?P<nature>[^\]]*)\]"];
 const DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERNS: [&str; 1] = [r"surveilr-SQL"];
 
-const DEFAULT_REWRITE_NATURE_PATTERNS: [(&str, &str); 2] = [
-    (r"\.(?P<nature>text)$", "text/plain"),
-    (r"\.(?P<nature>yaml)$", "text/yaml"),
+// Rewrite patterns will look for a single capture group and replace it in the
+// path (allows "rewriting" of extensions / nature to allow "aliases"). Rewritten
+// extensions are only used for nature lookups, original text remains unchanged.
+const DEFAULT_REWRITE_NATURE_PATTERNS: [(&str, &str); 3] = [
+    (r"(?P<nature>\.plantuml)$", ".puml"),
+    (r"(?P<nature>\.text)$", ".txt"),
+    (r"(?P<nature>\.yaml)$", ".yml"),
 ];
 
 // this file is similar to .gitignore and, if it appears in a directory or
@@ -192,12 +208,7 @@ pub struct EncounterableResourceClass {
 }
 
 pub trait EncounterableResourceUriClassifier {
-    fn classify(
-        &self,
-        uri: &str,
-        class: &mut EncounterableResourceClass,
-        rewritten_natures: Option<&mut Vec<(String, String, String)>>,
-    ) -> bool;
+    fn classify(&self, uri: &str, class: &mut EncounterableResourceClass) -> bool;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -257,32 +268,21 @@ impl EncounterableResourcePathClassifier {
 }
 
 impl EncounterableResourceUriClassifier for EncounterableResourcePathClassifier {
-    fn classify(
-        &self,
-        text: &str,
-        class: &mut EncounterableResourceClass,
-        rewritten_natures: Option<&mut Vec<(String, String, String)>>,
-    ) -> bool {
+    fn classify(&self, text: &str, class: &mut EncounterableResourceClass) -> bool {
+        for rnr in &self.rewrite_nature_regexs {
+            if let Some(rewritten_text) = rnr.rewritten_text(text) {
+                // since we've rewritten the text, now recursively determine class
+                // using the new path/text
+                return self.classify(&rewritten_text, class);
+            }
+        }
+
         for f in &self.flaggables {
             if let Some(nature_cap) = &f.nature_regex_capture {
                 if let Some(caps) = f.regex.captures(text) {
                     if let Some(nature) = caps.name(nature_cap) {
                         class.flags.insert(f.flags);
-                        let mut class_nature = nature.as_str().to_string();
-                        for rnr in &self.rewrite_nature_regexs {
-                            if let Some(rewritten) = rnr.is_match(text) {
-                                if let Some(rewritten_natures) = rewritten_natures {
-                                    rewritten_natures.push((
-                                        text.to_string(),
-                                        class_nature,
-                                        rewritten.to_owned(),
-                                    ));
-                                }
-                                class_nature = rewritten.to_owned();
-                                break;
-                            }
-                        }
-                        class.nature = Some(class_nature);
+                        class.nature = Some(nature.as_str().to_string());
                         return true;
                     }
                 }
@@ -355,6 +355,7 @@ pub enum SourceCodeInterpreter {
     TypeScript,
     JavaScript,
     Rust,
+    PlantUml,
     Unknown,
 }
 
@@ -1104,16 +1105,19 @@ impl CapturableExecutable {
 pub struct ResourcesCollection {
     pub encounterable: Vec<EncounterableResource>,
     pub classifier: EncounterableResourcePathClassifier,
+    pub nature_aliases: Option<HashMap<String, String>>,
 }
 
 impl ResourcesCollection {
     pub fn new(
         encounterable: Vec<EncounterableResource>,
         classifier: &EncounterableResourcePathClassifier,
+        nature_aliases: &Option<HashMap<String, String>>,
     ) -> ResourcesCollection {
         ResourcesCollection {
             encounterable,
             classifier: classifier.clone(),
+            nature_aliases: nature_aliases.clone(),
         }
     }
 
@@ -1121,6 +1125,7 @@ impl ResourcesCollection {
     pub fn from_vfs_physical_fs(
         fs_root_paths: &[String],
         classifier: &EncounterableResourcePathClassifier,
+        nature_aliases: &Option<HashMap<String, String>>,
     ) -> ResourcesCollection {
         let physical_fs = vfs::PhysicalFS::new("/");
         let vfs_fs_root = vfs::VfsPath::new(physical_fs);
@@ -1146,6 +1151,7 @@ impl ResourcesCollection {
         ResourcesCollection::new(
             vfs_iter.map(EncounterableResource::Vfs).collect(),
             classifier,
+            nature_aliases,
         )
     }
 
@@ -1154,6 +1160,7 @@ impl ResourcesCollection {
     pub fn from_smart_ignore(
         fs_root_paths: &[String],
         classifier: &EncounterableResourcePathClassifier,
+        nature_aliases: &Option<HashMap<String, String>>,
         ignore_hidden: bool,
     ) -> ResourcesCollection {
         let vfs_iter = fs_root_paths.iter().flat_map(move |root_path| {
@@ -1168,6 +1175,7 @@ impl ResourcesCollection {
         ResourcesCollection::new(
             vfs_iter.map(EncounterableResource::SmartIgnore).collect(),
             classifier,
+            nature_aliases,
         )
     }
 
@@ -1175,6 +1183,7 @@ impl ResourcesCollection {
     pub fn from_walk_dir(
         fs_root_paths: &[String],
         classifier: &EncounterableResourcePathClassifier,
+        nature_aliases: &Option<HashMap<String, String>>,
     ) -> ResourcesCollection {
         let vfs_iter = fs_root_paths
             .iter()
@@ -1183,12 +1192,14 @@ impl ResourcesCollection {
         ResourcesCollection::new(
             vfs_iter.map(EncounterableResource::WalkDir).collect(),
             classifier,
+            nature_aliases,
         )
     }
 
     pub fn from_tasks_lines(
         tasks: &[String],
         classifier: &EncounterableResourcePathClassifier,
+        nature_aliases: &Option<HashMap<String, String>>,
     ) -> (Vec<String>, ResourcesCollection) {
         let encounterable: Vec<_> = tasks
             .iter()
@@ -1205,6 +1216,7 @@ impl ResourcesCollection {
                     .map(EncounterableResource::from_deno_task_shell_line)
                     .collect(),
                 classifier,
+                nature_aliases,
             ),
         )
     }
@@ -1233,7 +1245,7 @@ impl ResourcesCollection {
                 nature: None,
                 flags: EncounterableResourceFlags::empty(),
             };
-            self.classifier.classify(&uri, &mut ero, None);
+            self.classifier.classify(&uri, &mut ero);
             er.encountered(&ero)
         })
     }
@@ -1267,8 +1279,16 @@ impl ResourcesCollection {
         cr: ContentResource,
     ) -> Result<Box<UniformResource<ContentResource>>, Box<dyn Error>> {
         // Based on the nature of the resource, we determine the type of UniformResource
-        if let Some(candidate_nature) = &cr.nature {
-            let candidate_nature = candidate_nature.as_str();
+        if let Some(cr_nature) = &cr.nature {
+            let candidate_nature = if let Some(aliases) = &self.nature_aliases {
+                if let Some(alias) = aliases.get(cr_nature.as_str()) {
+                    alias.as_str()
+                } else {
+                    cr_nature.as_str()
+                }
+            } else {
+                cr_nature.as_str()
+            };
 
             match candidate_nature {
                 // Match different file extensions
@@ -1308,9 +1328,10 @@ impl ResourcesCollection {
                     };
                     Ok(Box::new(UniformResource::JsonableText(yaml)))
                 }
-                "js" | "rs" | "ts" => {
+                "js" | "rs" | "ts" | "puml" => {
                     let interpreter = match candidate_nature {
                         "js" => SourceCodeInterpreter::JavaScript,
+                        "puml" => SourceCodeInterpreter::PlantUml,
                         "rs" => SourceCodeInterpreter::Rust,
                         "ts" => SourceCodeInterpreter::TypeScript,
                         _ => SourceCodeInterpreter::Unknown,
