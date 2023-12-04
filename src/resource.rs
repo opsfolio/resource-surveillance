@@ -225,7 +225,8 @@ impl FlaggableRegEx {
     pub fn from_persistable(pfre: &PersistableFlaggableRegEx) -> anyhow::Result<Self> {
         Ok(FlaggableRegEx {
             regex: regex::Regex::new(&pfre.regex)?,
-            flags: bitflags::parser::from_str(&pfre.flags)?,
+            flags: bitflags::parser::from_str(&pfre.flags)
+               .map_err(|e| anyhow::Error::msg(format!("{}", e)))?,
             nature_regex_capture: pfre.nature_regex_capture.clone(),
         })
     }
