@@ -9,6 +9,8 @@ er:
 include:
   - device
   - behavior
+  - ur_ingest_resource_path_match_rule
+  - ur_ingest_resource_path_rewrite_rule
   - ur_ingest_session
   - ur_ingest_session_fs_path
   - uniform_resource
@@ -54,6 +56,22 @@ comments:
 
       behavior has a foreign key reference to the device table since
       behaviors might be device-specific.
+  - table: ur_ingest_resource_path_match_rule
+    columnComments:
+      ur_ingest_resource_path_match_rule_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
+    tableComment: |-
+      A regular expression can determine the flags to apply to an ingestion path
+      and if the regular expr contains a nature capture group that pattern match
+      will assign the nature too.
+  - table: ur_ingest_resource_path_rewrite_rule
+    columnComments:
+      ur_ingest_resource_path_rewrite_rule_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
+    tableComment: |-
+      A regular expression can determine the flags to apply to an ingestion path
+      and if the regular expr contains a nature capture group that pattern match
+      will assign the nature too.
   - table: ur_ingest_session
     columnComments:
       ur_ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'

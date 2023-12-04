@@ -6,7 +6,7 @@ use comfy_table::*;
 use globset::Glob;
 use is_executable::IsExecutable; // adds path.is_executable
 use rusqlite::functions::FunctionFlags;
-use rusqlite::{types::ValueRef, Connection, Result as RusqliteResult, ToSql};
+use rusqlite::{params, types::ValueRef, Connection, Result as RusqliteResult, ToSql};
 use serde_json::{json, Value as JsonValue};
 use ulid::Ulid;
 
@@ -78,6 +78,9 @@ impl DbConn {
         execute_migrations(&tx, "ingest")
             .with_context(|| format!("[DbConn::new] execute_migrations in {}", self.db_fs_path))?;
 
+        // this should really be self.init_defaults but lost the argument with borrow checker
+        DbConn::init_defaults(&tx)?;
+
         if let Some(state_db_init_sql) = db_init_sql {
             // TODO: add the executed files into the behaviors or other activity log!?
             execute_globs_batch(
@@ -97,6 +100,50 @@ impl DbConn {
         }
 
         Ok(tx)
+    }
+
+    fn init_defaults(conn: &Connection) -> Result<()> {
+        let classifier: EncounterableResourcePathClassifier = Default::default();
+        let default_namespace = "default";
+
+        {
+            conn.execute(
+                "DELETE FROM ur_ingest_resource_path_match_rule WHERE namespace = ?",
+                params![default_namespace],
+            )?;
+            let mut match_stmt = conn.prepare(r#"
+            INSERT INTO ur_ingest_resource_path_match_rule (ur_ingest_resource_path_match_rule_id, namespace, regex, flags, nature_regex_capture) 
+                                                    VALUES (ulid(), ?, ?, ?, ?)"#)?;
+            for f in &classifier.flaggables {
+                let mut flags_text = String::new();
+                bitflags::parser::to_writer(&f.flags, &mut flags_text)?;
+                match_stmt.execute(params![
+                    default_namespace,
+                    f.regex.to_string(),
+                    flags_text,
+                    f.nature_regex_capture
+                ])?;
+            }
+        }
+
+        {
+            conn.execute(
+                "DELETE FROM ur_ingest_resource_path_rewrite_rule WHERE namespace = ?",
+                params![default_namespace],
+            )?;
+            let mut rewrite_stmt = conn.prepare(r#"
+            INSERT INTO ur_ingest_resource_path_rewrite_rule (ur_ingest_resource_path_rewrite_rule_id, namespace, regex, replace) 
+                                                    VALUES (ulid(), ?, ?, ?)"#)?;
+            for rprr in &classifier.rewrite_path_regexs {
+                rewrite_stmt.execute(params![
+                    default_namespace,
+                    rprr.regex.to_string(),
+                    rprr.replace,
+                ])?;
+            }
+        }
+
+        Ok(())
     }
 
     pub fn query_result_as_formatted_table(

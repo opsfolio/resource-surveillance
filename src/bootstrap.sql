@@ -195,6 +195,37 @@ CREATE TABLE IF NOT EXISTS "behavior" (
     FOREIGN KEY("assurance_schema_id") REFERENCES "assurance_schema"("assurance_schema_id"),
     UNIQUE("device_id", "behavior_name")
 );
+CREATE TABLE IF NOT EXISTS "ur_ingest_resource_path_match_rule" (
+    "ur_ingest_resource_path_match_rule_id" VARCHAR PRIMARY KEY NOT NULL,
+    "namespace" TEXT NOT NULL,
+    "regex" TEXT NOT NULL,
+    "flags" TEXT NOT NULL,
+    "nature_regex_capture" TEXT,
+    "description" TEXT,
+    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT DEFAULT ''UNKNOWN'',
+    "updated_at" TIMESTAMP,
+    "updated_by" TEXT,
+    "deleted_at" TIMESTAMP,
+    "deleted_by" TEXT,
+    "activity_log" TEXT,
+    UNIQUE("namespace", "regex")
+);
+CREATE TABLE IF NOT EXISTS "ur_ingest_resource_path_rewrite_rule" (
+    "ur_ingest_resource_path_rewrite_rule_id" VARCHAR PRIMARY KEY NOT NULL,
+    "namespace" TEXT NOT NULL,
+    "regex" TEXT NOT NULL,
+    "replace" TEXT NOT NULL,
+    "description" TEXT,
+    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT DEFAULT ''UNKNOWN'',
+    "updated_at" TIMESTAMP,
+    "updated_by" TEXT,
+    "deleted_at" TIMESTAMP,
+    "deleted_by" TEXT,
+    "activity_log" TEXT,
+    UNIQUE("namespace", "regex", "replace")
+);
 CREATE TABLE IF NOT EXISTS "ur_ingest_session" (
     "ur_ingest_session_id" VARCHAR PRIMARY KEY NOT NULL,
     "device_id" VARCHAR NOT NULL,
@@ -326,7 +357,7 @@ CREATE INDEX IF NOT EXISTS "idx_uniform_resource__device_id__uri" ON "uniform_re
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource_transform__uniform_resource_id__content_digest" ON "uniform_resource_transform"("uniform_resource_id", "content_digest");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path_entry__ingest_session_id__file_path_abs" ON "ur_ingest_session_fs_path_entry"("ingest_session_id", "file_path_abs");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_task__ingest_session_id" ON "ur_ingest_session_task"("ingest_session_id");
-', '17e790455fd1954f84a25af9de669d504817c567', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', '97f42f7fe1404859b562903cfa71a3b486dca898', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -822,6 +853,37 @@ CREATE TABLE IF NOT EXISTS "behavior" (
     FOREIGN KEY("assurance_schema_id") REFERENCES "assurance_schema"("assurance_schema_id"),
     UNIQUE("device_id", "behavior_name")
 );
+CREATE TABLE IF NOT EXISTS "ur_ingest_resource_path_match_rule" (
+    "ur_ingest_resource_path_match_rule_id" VARCHAR PRIMARY KEY NOT NULL,
+    "namespace" TEXT NOT NULL,
+    "regex" TEXT NOT NULL,
+    "flags" TEXT NOT NULL,
+    "nature_regex_capture" TEXT,
+    "description" TEXT,
+    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT DEFAULT ''UNKNOWN'',
+    "updated_at" TIMESTAMP,
+    "updated_by" TEXT,
+    "deleted_at" TIMESTAMP,
+    "deleted_by" TEXT,
+    "activity_log" TEXT,
+    UNIQUE("namespace", "regex")
+);
+CREATE TABLE IF NOT EXISTS "ur_ingest_resource_path_rewrite_rule" (
+    "ur_ingest_resource_path_rewrite_rule_id" VARCHAR PRIMARY KEY NOT NULL,
+    "namespace" TEXT NOT NULL,
+    "regex" TEXT NOT NULL,
+    "replace" TEXT NOT NULL,
+    "description" TEXT,
+    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT DEFAULT ''UNKNOWN'',
+    "updated_at" TIMESTAMP,
+    "updated_by" TEXT,
+    "deleted_at" TIMESTAMP,
+    "deleted_by" TEXT,
+    "activity_log" TEXT,
+    UNIQUE("namespace", "regex", "replace")
+);
 CREATE TABLE IF NOT EXISTS "ur_ingest_session" (
     "ur_ingest_session_id" VARCHAR PRIMARY KEY NOT NULL,
     "device_id" VARCHAR NOT NULL,
@@ -1014,7 +1076,7 @@ CREATE VIEW IF NOT EXISTS "ur_ingest_session_files_stats" AS
         device_id,
         ingest_session_finished_at,
         file_extension;
-      ', '9a91f2bf6f132785ab361a3cf1caf7ac71193563', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', 'd23110bcb8f139a16ca8793111d8016bbda90dab', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -1051,6 +1113,25 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     * behavior_conf_json: TEXT
       assurance_schema_id: VARCHAR
       governance: TEXT
+  }
+
+  entity "ur_ingest_resource_path_match_rule" as ur_ingest_resource_path_match_rule {
+    * **ur_ingest_resource_path_match_rule_id**: VARCHAR
+    --
+    * namespace: TEXT
+    * regex: TEXT
+    * flags: TEXT
+      nature_regex_capture: TEXT
+      description: TEXT
+  }
+
+  entity "ur_ingest_resource_path_rewrite_rule" as ur_ingest_resource_path_rewrite_rule {
+    * **ur_ingest_resource_path_rewrite_rule_id**: VARCHAR
+    --
+    * namespace: TEXT
+    * regex: TEXT
+    * replace: TEXT
+      description: TEXT
   }
 
   entity "ur_ingest_session" as ur_ingest_session {
@@ -1144,7 +1225,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   uniform_resource |o..o{ ur_ingest_session_fs_path_entry
   ur_ingest_session |o..o{ ur_ingest_session_task
   uniform_resource |o..o{ ur_ingest_session_task
-@enduml', '8802321d448f13f176ba8ff09529001d19e36d9b', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', 'b3b94cecd3132a120741f0b8018f71e123d20210', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,

@@ -85,13 +85,13 @@ bitflags! {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NatureRewriteRule {
+pub struct ResourcePathRewriteRule {
     #[serde(with = "serde_regex")]
     pub regex: Regex,
-    pub nature: String,
+    pub replace: String,
 }
 
-impl NatureRewriteRule {
+impl ResourcePathRewriteRule {
     pub fn _is_match(&self, text: &str) -> Option<String> {
         if let Some(caps) = self.regex.captures(text) {
             if let Some(nature) = caps.name("nature") {
@@ -105,7 +105,7 @@ impl NatureRewriteRule {
         if let Some(_caps) = self.regex.captures(text) {
             let rewritten_text = self
                 .regex
-                .replace(text, |_caps: &Captures| self.nature.to_string());
+                .replace(text, |_caps: &Captures| self.replace.to_string());
             return Some(rewritten_text.to_string());
         }
         None
@@ -121,6 +121,8 @@ const DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERNS: [&str; 1] = [r"surveilr-SQL"];
 // Rewrite patterns will look for a single capture group and replace it in the
 // path (allows "rewriting" of extensions / nature to allow "aliases"). Rewritten
 // extensions are only used for nature lookups, original text remains unchanged.
+// Rewrite rules are best for cases where you want an extension to "act like"
+// another extension.
 const DEFAULT_REWRITE_NATURE_PATTERNS: [(&str, &str); 3] = [
     (r"(?P<nature>\.plantuml)$", ".puml"),
     (r"(?P<nature>\.text)$", ".txt"),
@@ -141,7 +143,7 @@ pub struct PersistableFlaggableRegEx {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct EncounterableResourcePathRules {
     pub flaggables: Vec<PersistableFlaggableRegEx>,
-    pub rewrite_nature_regexs: Vec<NatureRewriteRule>,
+    pub rewrite_nature_regexs: Vec<ResourcePathRewriteRule>,
     pub smart_ignore_conf_files: Vec<String>,
 }
 
@@ -181,9 +183,9 @@ impl Default for EncounterableResourcePathRules {
         EncounterableResourcePathRules {
             flaggables: flaggables_iter.collect(),
             rewrite_nature_regexs: DEFAULT_REWRITE_NATURE_PATTERNS
-                .map(|p| NatureRewriteRule {
+                .map(|p| ResourcePathRewriteRule {
                     regex: Regex::new(p.0).unwrap(),
-                    nature: p.1.to_string(),
+                    replace: p.1.to_string(),
                 })
                 .to_vec(),
             smart_ignore_conf_files: SMART_IGNORE_CONF_FILES.map(|s| s.to_string()).to_vec(),
@@ -232,7 +234,7 @@ impl FlaggableRegEx {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EncounterableResourcePathClassifier {
     pub flaggables: Vec<FlaggableRegEx>,
-    pub rewrite_nature_regexs: Vec<NatureRewriteRule>, // we need to capture `nature` so we loop through each one
+    pub rewrite_path_regexs: Vec<ResourcePathRewriteRule>, // we need to capture `nature` so we loop through each one
     pub smart_ignore_conf_files: Vec<String>,
 }
 
@@ -253,7 +255,7 @@ impl EncounterableResourcePathClassifier {
         let rewrite_nature_regexs = erpr.rewrite_nature_regexs.to_vec();
         Ok(EncounterableResourcePathClassifier {
             flaggables,
-            rewrite_nature_regexs,
+            rewrite_path_regexs: rewrite_nature_regexs,
             smart_ignore_conf_files: erpr.smart_ignore_conf_files.to_owned(),
         })
     }
@@ -269,7 +271,7 @@ impl EncounterableResourcePathClassifier {
 
 impl EncounterableResourceUriClassifier for EncounterableResourcePathClassifier {
     fn classify(&self, text: &str, class: &mut EncounterableResourceClass) -> bool {
-        for rnr in &self.rewrite_nature_regexs {
+        for rnr in &self.rewrite_path_regexs {
             if let Some(rewritten_text) = rnr.rewritten_text(text) {
                 // since we've rewritten the text, now recursively determine class
                 // using the new path/text

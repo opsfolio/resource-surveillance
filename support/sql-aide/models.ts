@@ -326,6 +326,61 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     },
   });
 
+  const urIngestPathMatchRule = gm.textPkTable(
+    "ur_ingest_resource_path_match_rule",
+    {
+      ur_ingest_resource_path_match_rule_id: gm.keys.varcharPrimaryKey(),
+      namespace: gd.text(),
+      regex: gd.text(),
+      flags: gd.text(),
+      nature_regex_capture: gd.textNullable(),
+      description: gd.text().optional(),
+      ...gm.housekeeping.columns,
+    },
+    {
+      isIdempotent: true,
+      constraints: (props, tableName) => {
+        const c = SQLa.tableConstraints(tableName, props);
+        return [
+          c.unique("namespace", "regex"),
+        ];
+      },
+      populateQS: (t, _c, _cols, _tableName) => {
+        t.description = markdown`
+        A regular expression can determine the flags to apply to an ingestion path
+        and if the regular expr contains a nature capture group that pattern match
+        will assign the nature too.`;
+      },
+    },
+  );
+
+  const urIngestPathRewriteRule = gm.textPkTable(
+    "ur_ingest_resource_path_rewrite_rule",
+    {
+      ur_ingest_resource_path_rewrite_rule_id: gm.keys.varcharPrimaryKey(),
+      namespace: gd.text(),
+      regex: gd.text(),
+      replace: gd.text(),
+      description: gd.text().optional(),
+      ...gm.housekeeping.columns,
+    },
+    {
+      isIdempotent: true,
+      constraints: (props, tableName) => {
+        const c = SQLa.tableConstraints(tableName, props);
+        return [
+          c.unique("namespace", "regex", "replace"),
+        ];
+      },
+      populateQS: (t, _c, _cols, _tableName) => {
+        t.description = markdown`
+        A regular expression can determine the flags to apply to an ingestion path
+        and if the regular expr contains a nature capture group that pattern match
+        will assign the nature too.`;
+      },
+    },
+  );
+
   const urIngestSession = gm.textPkTable("ur_ingest_session", {
     ur_ingest_session_id: gm.keys.varcharPrimaryKey(),
     device_id: device.references.device_id(),
@@ -599,6 +654,8 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     tables: [
       device,
       behavior,
+      urIngestPathMatchRule,
+      urIngestPathRewriteRule,
       urIngestSession,
       urIngestSessionFsPath,
       uniformResource,
@@ -609,6 +666,8 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     tableIndexes: [
       ...device.indexes,
       ...behavior.indexes,
+      ...urIngestPathMatchRule.indexes,
+      ...urIngestPathRewriteRule.indexes,
       ...urIngestSession.indexes,
       ...urIngestSessionFsPath.indexes,
       ...uniformResource.indexes,
@@ -622,6 +681,8 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     codeNbModels,
     device,
     behavior,
+    urIngestPathMatchRule,
+    urIngestPathRewriteRule,
     urIngestSession,
     urIngestSessionFsPath,
     uniformResource,
