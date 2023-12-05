@@ -260,7 +260,7 @@ impl AdminTestCommands {
         let tx = dbc.init(Some(state_db_init_sql))?;
         tx.commit()?; // in case the database was created
 
-        println!("==> What the data looks like in the database");
+        println!("==> `ur_ingest_resource_path_match_rule` rows");
         let query_result = dbc.query_result_as_formatted_table(
             r#"
             SELECT namespace as 'Name', regex as 'RE', flags as 'Flags', nature as 'Nature', description as 'Help'
@@ -269,6 +269,7 @@ impl AdminTestCommands {
         )?;
         println!("{query_result}\n");
 
+        println!("==> `ur_ingest_resource_path_rewrite_rule` rows");
         let query_result = dbc.query_result_as_formatted_table(
             r#"
             SELECT namespace, regex, replace, description 
@@ -285,7 +286,7 @@ impl AdminTestCommands {
                 println!("{rewrite}\n");
             }
             Err(err) => println!(
-                "Unable to prepare EncounterableResourcePathClassifier from EncounterableResourcePathRules:\n{:?}",
+                "Unable to prepare EncounterableResourcePathClassifier from rules in the database:\n{:?}",
                 err
             ),
         }
