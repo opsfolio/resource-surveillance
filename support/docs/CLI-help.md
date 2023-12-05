@@ -128,6 +128,7 @@ test capturable executables files
 
   Default value: `resource-surveillance.sqlite.db`
 * `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
+* `--builtins` — only show the builtins, not from the database
 
 
 

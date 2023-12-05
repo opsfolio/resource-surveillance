@@ -23,6 +23,20 @@ where
     table.to_string()
 }
 
+pub fn prepare_table<T>(headers: T) -> Table
+where
+    T: IntoIterator,
+    T::Item: AsRef<str> + Display,
+{
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_FULL_CONDENSED)
+        .apply_modifier(UTF8_ROUND_CORNERS)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_header(headers);
+    table
+}
+
 #[allow(dead_code)]
 pub fn as_markdown_table<T, U, V, W>(headers: T, rows: U) -> String
 where

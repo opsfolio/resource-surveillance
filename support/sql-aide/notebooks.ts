@@ -422,7 +422,7 @@ export class ConstructionSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
           namespace,
           regex: "\\.(?P<nature>md|mdx|html|json|jsonc|puml|txt|toml|yml)$",
           flags: "CONTENT_ACQUIRABLE",
-          nature_regex_capture: "?P<nature>", // should be same as src/resource.rs::PFRE_READ_NATURE_FROM_REGEX
+          nature: "?P<nature>", // should be same as src/resource.rs::PFRE_READ_NATURE_FROM_REGEX
           description:
             "Ingest the content for md, mdx, html, json, jsonc, puml, txt, toml, and yml extensions. Assume the nature is the same as the extension.",
           created_at,
@@ -432,7 +432,7 @@ export class ConstructionSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
           namespace,
           regex: "surveilr\\[(?P<nature>[^\\]]*)\\]",
           flags: "CAPTURABLE_EXECUTABLE",
-          nature_regex_capture: "?P<nature>", // should be same as src/resource.rs::PFRE_READ_NATURE_FROM_REGEX
+          nature: "?P<nature>", // should be same as src/resource.rs::PFRE_READ_NATURE_FROM_REGEX
           description:
             "Any entry with `surveilr-[XYZ]` in the path will be treated as a capturable executable extracting `XYZ` as the nature",
           created_at,

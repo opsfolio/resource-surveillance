@@ -15,7 +15,7 @@ CREATE TABLE "ur_ingest_resource_path_match_rule" (
     "namespace" TEXT NOT NULL,
     "regex" TEXT NOT NULL,
     "flags" TEXT NOT NULL,
-    "nature_regex_capture" TEXT,
+    "nature" TEXT,
     "priority" TEXT,
     "description" TEXT,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
@@ -40,7 +40,7 @@ CREATE TABLE "ur_ingest_resource_path_match_rule" (
 | namespace                             | TEXT      |                   | false    |                                                         |
 | regex                                 | TEXT      |                   | false    |                                                         |
 | flags                                 | TEXT      |                   | false    |                                                         |
-| nature_regex_capture                  | TEXT      |                   | true     |                                                         |
+| nature                                | TEXT      |                   | true     |                                                         |
 | priority                              | TEXT      |                   | true     |                                                         |
 | description                           | TEXT      |                   | true     |                                                         |
 | elaboration                           | TEXT      |                   | true     | {"isSqlDomainZodDescrMeta":true,"isJsonText":true}      |

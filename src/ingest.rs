@@ -691,18 +691,24 @@ impl IngestFilesBehavior {
             })?;
             Ok((behavior, Some(behavior_id)))
         } else {
-            Ok((IngestFilesBehavior::from_ingest_args(ingest_args), None))
+            Ok((
+                IngestFilesBehavior::from_ingest_args(ingest_args, conn)?,
+                None,
+            ))
         }
     }
 
-    pub fn from_ingest_args(args: &crate::cmd::IngestFilesArgs) -> Self {
+    pub fn from_ingest_args(
+        args: &crate::cmd::IngestFilesArgs,
+        conn: &Connection,
+    ) -> anyhow::Result<Self> {
         // the names in `args` are convenient for CLI usage but the struct
         // field names in IngestBehavior should be longer and more descriptive
         // since IngestBehavior is stored as activity in the database.
-        IngestFilesBehavior {
-            classifier: Default::default(),
+        Ok(IngestFilesBehavior {
+            classifier: EncounterableResourcePathClassifier::default_from_conn(conn)?,
             root_fs_paths: args.root_fs_path.clone(),
-        }
+        })
     }
 
     pub fn from_json(json_text: &str) -> Result<Self, serde_json::Error> {
@@ -1069,11 +1075,9 @@ pub fn ingest_tasks(
     })?;
 
     let mut behavior = IngestTasksBehavior::from_stdin();
-    let (encounterable, resources) = ResourcesCollection::from_tasks_lines(
-        &behavior.lines,
-        &Default::default(),
-        &None::<HashMap<_, _>>,
-    );
+    let classifier = EncounterableResourcePathClassifier::default_from_conn(&tx)?;
+    let (encounterable, resources) =
+        ResourcesCollection::from_tasks_lines(&behavior.lines, &classifier, &None::<HashMap<_, _>>);
     behavior.encounterable = encounterable;
 
     let ingest_session_id: String = tx

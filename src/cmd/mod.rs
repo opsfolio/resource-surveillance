@@ -113,6 +113,10 @@ pub enum AdminTestCommands {
         /// one or more globs to match as SQL files and batch execute them in alpha order
         #[arg(short = 'I', long)]
         state_db_init_sql: Vec<String>,
+
+        /// only show the builtins, not from the database
+        #[arg(long)]
+        builtins: bool,
     },
 }
 

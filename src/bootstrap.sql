@@ -200,7 +200,7 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_resource_path_match_rule" (
     "namespace" TEXT NOT NULL,
     "regex" TEXT NOT NULL,
     "flags" TEXT NOT NULL,
-    "nature_regex_capture" TEXT,
+    "nature" TEXT,
     "priority" TEXT,
     "description" TEXT,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
@@ -361,20 +361,20 @@ CREATE INDEX IF NOT EXISTS "idx_uniform_resource__device_id__uri" ON "uniform_re
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource_transform__uniform_resource_id__content_digest" ON "uniform_resource_transform"("uniform_resource_id", "content_digest");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path_entry__ingest_session_id__file_path_abs" ON "ur_ingest_session_fs_path_entry"("ingest_session_id", "file_path_abs");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_task__ingest_session_id" ON "ur_ingest_session_task"("ingest_session_id");
-', '2aeef34777acf8a9805db6cd2ce9240f47b0b66b', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', '9bc44d7755e8634dafc9ac44c8bbce4b44499345', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
             activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v001_seedDML', NULL, 'INSERT INTO "ur_ingest_resource_path_match_rule" ("ur_ingest_resource_path_match_rule_id", "namespace", "regex", "flags", "nature_regex_capture", "priority", "description", "elaboration", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), ''default'', ''/(\.git|node_modules)/'', ''IGNORE_RESOURCE'', NULL, NULL, ''Ignore any entry with `/.git/` or `/node_modules/` in the path.'', NULL, (CURRENT_TIMESTAMP), NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT DO NOTHING;
-INSERT INTO "ur_ingest_resource_path_match_rule" ("ur_ingest_resource_path_match_rule_id", "namespace", "regex", "flags", "nature_regex_capture", "priority", "description", "elaboration", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), ''default'', ''\.(?P<nature>md|mdx|html|json|jsonc|puml|txt|toml|yml)$'', ''CONTENT_ACQUIRABLE'', ''?P<nature>'', NULL, ''Ingest the content for md, mdx, html, json, jsonc, puml, txt, toml, and yml extensions. Assume the nature is the same as the extension.'', NULL, (CURRENT_TIMESTAMP), NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT DO NOTHING;
-INSERT INTO "ur_ingest_resource_path_match_rule" ("ur_ingest_resource_path_match_rule_id", "namespace", "regex", "flags", "nature_regex_capture", "priority", "description", "elaboration", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), ''default'', ''surveilr\[(?P<nature>[^\]]*)\]'', ''CAPTURABLE_EXECUTABLE'', ''?P<nature>'', NULL, ''Any entry with `surveilr-[XYZ]` in the path will be treated as a capturable executable extracting `XYZ` as the nature'', NULL, (CURRENT_TIMESTAMP), NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT DO NOTHING;
-INSERT INTO "ur_ingest_resource_path_match_rule" ("ur_ingest_resource_path_match_rule_id", "namespace", "regex", "flags", "nature_regex_capture", "priority", "description", "elaboration", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), ''default'', ''surveilr-SQL'', ''CAPTURABLE_EXECUTABLE | CAPTURABLE_SQL'', NULL, NULL, ''Any entry with surveilr-SQL in the path will be treated as a capturable SQL executable and allow execution of the SQL'', NULL, (CURRENT_TIMESTAMP), NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT DO NOTHING;
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'SQL', 'ConstructionSqlNotebook', 'v001_seedDML', NULL, 'INSERT INTO "ur_ingest_resource_path_match_rule" ("ur_ingest_resource_path_match_rule_id", "namespace", "regex", "flags", "nature", "priority", "description", "elaboration", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), ''default'', ''/(\.git|node_modules)/'', ''IGNORE_RESOURCE'', NULL, NULL, ''Ignore any entry with `/.git/` or `/node_modules/` in the path.'', NULL, (CURRENT_TIMESTAMP), NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT DO NOTHING;
+INSERT INTO "ur_ingest_resource_path_match_rule" ("ur_ingest_resource_path_match_rule_id", "namespace", "regex", "flags", "nature", "priority", "description", "elaboration", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), ''default'', ''\.(?P<nature>md|mdx|html|json|jsonc|puml|txt|toml|yml)$'', ''CONTENT_ACQUIRABLE'', ''?P<nature>'', NULL, ''Ingest the content for md, mdx, html, json, jsonc, puml, txt, toml, and yml extensions. Assume the nature is the same as the extension.'', NULL, (CURRENT_TIMESTAMP), NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT DO NOTHING;
+INSERT INTO "ur_ingest_resource_path_match_rule" ("ur_ingest_resource_path_match_rule_id", "namespace", "regex", "flags", "nature", "priority", "description", "elaboration", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), ''default'', ''surveilr\[(?P<nature>[^\]]*)\]'', ''CAPTURABLE_EXECUTABLE'', ''?P<nature>'', NULL, ''Any entry with `surveilr-[XYZ]` in the path will be treated as a capturable executable extracting `XYZ` as the nature'', NULL, (CURRENT_TIMESTAMP), NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT DO NOTHING;
+INSERT INTO "ur_ingest_resource_path_match_rule" ("ur_ingest_resource_path_match_rule_id", "namespace", "regex", "flags", "nature", "priority", "description", "elaboration", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), ''default'', ''surveilr-SQL'', ''CAPTURABLE_EXECUTABLE | CAPTURABLE_SQL'', NULL, NULL, ''Any entry with surveilr-SQL in the path will be treated as a capturable SQL executable and allow execution of the SQL'', NULL, (CURRENT_TIMESTAMP), NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT DO NOTHING;
 
 INSERT INTO "ur_ingest_resource_path_rewrite_rule" ("ur_ingest_resource_path_rewrite_rule_id", "namespace", "regex", "replace", "priority", "description", "elaboration", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), ''default'', ''(\.plantuml)$'', ''.puml'', NULL, ''Treat .plantuml as .puml files'', NULL, (CURRENT_TIMESTAMP), NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT DO NOTHING;
 INSERT INTO "ur_ingest_resource_path_rewrite_rule" ("ur_ingest_resource_path_rewrite_rule_id", "namespace", "regex", "replace", "priority", "description", "elaboration", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), ''default'', ''(\.text)$'', ''.txt'', NULL, ''Treat .text as .txt files'', NULL, (CURRENT_TIMESTAMP), NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT DO NOTHING;
 INSERT INTO "ur_ingest_resource_path_rewrite_rule" ("ur_ingest_resource_path_rewrite_rule_id", "namespace", "regex", "replace", "priority", "description", "elaboration", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), ''default'', ''(\.yaml)$'', ''.yml'', NULL, ''Treat .yaml as .yml files'', NULL, (CURRENT_TIMESTAMP), NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT DO NOTHING;
-', '6cca3f2e2d0745ac39cb0a681a9ad0ad666373d5', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', '95761992d84fb875692f3682b38b9461f2fe94e0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -875,7 +875,7 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_resource_path_match_rule" (
     "namespace" TEXT NOT NULL,
     "regex" TEXT NOT NULL,
     "flags" TEXT NOT NULL,
-    "nature_regex_capture" TEXT,
+    "nature" TEXT,
     "priority" TEXT,
     "description" TEXT,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
@@ -1097,7 +1097,7 @@ CREATE VIEW IF NOT EXISTS "ur_ingest_session_files_stats" AS
         device_id,
         ingest_session_finished_at,
         file_extension;
-      ', '7b5fca8ead408a946a038f3f7871cdd3bbd144ea', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', '91ca992b42d299e604fee0c7aded6ab9563fdae7', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -1142,7 +1142,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     * namespace: TEXT
     * regex: TEXT
     * flags: TEXT
-      nature_regex_capture: TEXT
+      nature: TEXT
       priority: TEXT
       description: TEXT
       elaboration: TEXT
@@ -1250,7 +1250,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   uniform_resource |o..o{ ur_ingest_session_fs_path_entry
   ur_ingest_session |o..o{ ur_ingest_session_task
   uniform_resource |o..o{ ur_ingest_session_task
-@enduml', '06d262743618d2a508ff94cb7efb207479c82a48', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', '574058df361c93d7d76f18b0de235efcc6c7710d', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,

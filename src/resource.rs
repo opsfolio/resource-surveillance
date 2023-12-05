@@ -11,13 +11,13 @@ use chrono::{DateTime, Utc};
 use is_executable::IsExecutable;
 use regex::Captures;
 use regex::Regex;
+use rusqlite::{Connection, Result as RusqliteResult};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use sha1::{Digest, Sha1};
 
-use crate::shell::*;
-
 use crate::frontmatter::frontmatter;
+use crate::shell::*;
 
 // See src/resources.states.puml for PlantUML specification of the state machine
 
@@ -151,6 +151,29 @@ pub struct EncounterableResourcePathRules {
     pub smart_ignore_conf_files: Vec<String>,
 }
 
+query_sql_rows_no_args!(
+    ur_ingest_resource_path_match_rules_default,
+    r"  SELECT regex, flags, nature, description
+          FROM ur_ingest_resource_path_match_rule
+         WHERE namespace = 'default'
+      ORDER BY priority ";
+    regex: String,
+    flags: String,
+    nature: Option<String>,
+    description: String
+);
+
+query_sql_rows_no_args!(
+    ur_ingest_resource_path_rewrite_rules_default,
+    r"  SELECT regex, replace, description
+          FROM ur_ingest_resource_path_rewrite_rule
+         WHERE namespace = 'default'
+      ORDER BY priority ";
+    regex: String,
+    replace: String,
+    description: String
+);
+
 impl Default for EncounterableResourcePathRules {
     fn default() -> Self {
         let ignore = DEFAULT_IGNORE_PATHS_REGEX_PATTERNS.map(|p| PersistableFlaggableRegEx {
@@ -198,6 +221,33 @@ impl Default for EncounterableResourcePathRules {
 }
 
 impl EncounterableResourcePathRules {
+    pub fn default_from_conn(conn: &Connection) -> rusqlite::Result<Self> {
+        let mut flaggables: Vec<PersistableFlaggableRegEx> = vec![];
+        ur_ingest_resource_path_match_rules_default(conn, |_, regex, flags, nature, _| {
+            flaggables.push(PersistableFlaggableRegEx {
+                regex,
+                flags,
+                nature,
+            });
+            Ok(())
+        })?;
+
+        let mut rewrite_nature_regexs: Vec<ResourcePathRewriteRule> = vec![];
+        ur_ingest_resource_path_rewrite_rules_default(conn, |_, regex, replace, _| {
+            rewrite_nature_regexs.push(ResourcePathRewriteRule {
+                regex: regex::Regex::new(&regex).unwrap(),
+                replace,
+            });
+            Ok(())
+        })?;
+
+        Ok(EncounterableResourcePathRules {
+            flaggables,
+            rewrite_nature_regexs,
+            smart_ignore_conf_files: SMART_IGNORE_CONF_FILES.map(|s| s.to_string()).to_vec(),
+        })
+    }
+
     pub fn _from_json_text(json_text: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(json_text)
     }
@@ -265,12 +315,37 @@ impl EncounterableResourcePathClassifier {
         })
     }
 
+    pub fn default_from_conn(conn: &Connection) -> anyhow::Result<Self> {
+        let rules = EncounterableResourcePathRules::default_from_conn(conn)?;
+        Self::from_path_rules(rules)
+    }
+
     pub fn add_ignore_exact(&mut self, pattern: &str) {
         self.flaggables.push(FlaggableRegEx {
             regex: regex::Regex::new(format!("^{}$", regex::escape(pattern)).as_str()).unwrap(),
             flags: EncounterableResourceFlags::IGNORE_RESOURCE,
             nature: None,
         });
+    }
+
+    pub fn as_formatted_tables(&self) -> (comfy_table::Table, comfy_table::Table) {
+        let mut flaggables: comfy_table::Table =
+            crate::format::prepare_table(vec!["Regex", "Flags", "Nature"]);
+        for f in &self.flaggables {
+            flaggables.add_row(vec![
+                f.regex.to_string(),
+                format!("{:?}", f.flags),
+                f.nature.clone().unwrap_or("".to_string()),
+            ]);
+        }
+
+        let mut rewrite_path_regexs: comfy_table::Table =
+            crate::format::prepare_table(vec!["Rewrite Regex", "Replace With"]);
+        for rprr in &self.rewrite_path_regexs {
+            rewrite_path_regexs.add_row(vec![rprr.regex.to_string(), rprr.replace.to_string()]);
+        }
+
+        (flaggables, rewrite_path_regexs)
     }
 }
 

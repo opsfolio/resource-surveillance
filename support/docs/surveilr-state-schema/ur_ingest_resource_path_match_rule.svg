@@ -30,8 +30,8 @@
 <text text-anchor="start" x="53" y="-386.9" font-family="Arial" font-size="14.00" fill="#000000">flags </text>
 <text text-anchor="start" x="86.453" y="-386.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="46,-345.5 46,-375.5 430,-375.5 430,-345.5 46,-345.5"/>
-<text text-anchor="start" x="53" y="-356.9" font-family="Arial" font-size="14.00" fill="#000000">nature_regex_capture </text>
-<text text-anchor="start" x="193.8274" y="-356.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
+<text text-anchor="start" x="53" y="-356.9" font-family="Arial" font-size="14.00" fill="#000000">nature </text>
+<text text-anchor="start" x="96.5722" y="-356.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>
 <polygon fill="none" stroke="#000000" points="46,-315.5 46,-345.5 430,-345.5 430,-315.5 46,-315.5"/>
 <text text-anchor="start" x="53" y="-326.9" font-family="Arial" font-size="14.00" fill="#000000">priority </text>
 <text text-anchor="start" x="98.8808" y="-326.9" font-family="Arial" font-size="14.00" fill="#666666">[TEXT]</text>

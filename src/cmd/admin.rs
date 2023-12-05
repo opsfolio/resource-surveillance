@@ -3,6 +3,7 @@ use anyhow::Context;
 use super::AdminCommands;
 use super::AdminTestCommands;
 use crate::persist::*;
+use crate::resource::EncounterableResourcePathClassifier;
 
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
@@ -226,12 +227,14 @@ impl AdminTestCommands {
             AdminTestCommands::Classifiers {
                 state_db_fs_path,
                 state_db_init_sql,
+                builtins,
             } => self.classifiers(
                 cli,
                 parent_args,
                 cmd_args,
                 state_db_fs_path.as_ref(),
                 state_db_init_sql.as_ref(),
+                *builtins,
             ),
         }
     }
@@ -243,14 +246,24 @@ impl AdminTestCommands {
         _cmd_args: &super::AdminTestArgs,
         state_db_fs_path: &str,
         state_db_init_sql: &[String],
+        builtins: bool,
     ) -> anyhow::Result<()> {
+        if builtins {
+            let classifier: EncounterableResourcePathClassifier = Default::default();
+            let (flaggables, rewrite) = classifier.as_formatted_tables();
+            println!("{flaggables}\n");
+            println!("{rewrite}\n");
+            return Ok(());
+        }
+
         let mut dbc = DbConn::new(state_db_fs_path, cli.debug)?;
         let tx = dbc.init(Some(state_db_init_sql))?;
         tx.commit()?; // in case the database was created
 
+        println!("==> What the data looks like in the database");
         let query_result = dbc.query_result_as_formatted_table(
             r#"
-            SELECT namespace as 'Name', regex as 'RE', flags as 'Flags', nature_regex_capture as 'RE-Nature', description as 'Help'
+            SELECT namespace as 'Name', regex as 'RE', flags as 'Flags', nature as 'Nature', description as 'Help'
               FROM ur_ingest_resource_path_match_rule"#,
             &[],
         )?;
@@ -262,7 +275,20 @@ impl AdminTestCommands {
               FROM ur_ingest_resource_path_rewrite_rule"#,
             &[],
         )?;
-        println!("{query_result}");
+        println!("{query_result}\n");
+
+        println!("==> What the data looks like after it's been parsed (namespace 'default')");
+        match EncounterableResourcePathClassifier::default_from_conn(&dbc.conn) {
+            Ok(classifier) => {
+                let (flaggables, rewrite) = classifier.as_formatted_tables();
+                println!("{flaggables}\n");
+                println!("{rewrite}\n");
+            }
+            Err(err) => println!(
+                "Unable to prepare EncounterableResourcePathClassifier from EncounterableResourcePathRules:\n{:?}",
+                err
+            ),
+        }
 
         Ok(())
     }

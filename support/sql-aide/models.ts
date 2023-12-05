@@ -333,7 +333,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       namespace: gd.text(),
       regex: gd.text(),
       flags: gd.text(),
-      nature_regex_capture: gd.textNullable(),
+      nature: gd.textNullable(),
       priority: gd.textNullable(),
       description: gd.text().optional(),
       elaboration: gd.jsonTextNullable(),
