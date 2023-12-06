@@ -2,6 +2,7 @@
 
 import { cliffy, path, SQLa, yaml } from "./deps.ts";
 import * as nbooks from "./notebooks.ts";
+import * as p from "./polygenix.ts";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -55,6 +56,13 @@ async function CLI() {
         path.join(sqlHome, "bootstrap.sql"),
         initSQL.SQL(sno.nbh.emitCtx),
       );
+
+      for (const psc of await sno.polygenSrcCode()) {
+        await Deno.writeTextFile(
+          path.join(sqlHome, psc.identity),
+          psc.emit,
+        );
+      }
 
       for (const tc of sno.tblsYAML()) {
         await Deno.writeTextFile(

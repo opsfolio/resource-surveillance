@@ -1,5 +1,7 @@
+import { SqlDomainQS } from "https://raw.githubusercontent.com/netspective-labs/sql-aide/v0.10.5/render/mod.ts";
 import { chainNB, SQLa, SQLa_tp as typical, tbls } from "./deps.ts";
 import * as m from "./models.ts";
+import * as p from "./polygenix.ts";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -1456,6 +1458,47 @@ export class SqlNotebooksOrchestrator<EmitContext extends SQLa.SqlEmitContext> {
           },
           tbls.defaultTblsOptions(),
           { name: "Resource Surveillance Notebooks Schema" },
+        ),
+      },
+    ];
+  }
+
+  async polygenSrcCode() {
+    const { nbh: { models, models: { codeNbModels } } } = this;
+    const pso = p.typicalPolygenInfoSchemaOptions<Any, EmitContext, Any, Any>();
+    const engine = new p.RustPolygenEngine<Any, EmitContext, Any, Any>(
+      this.nbh.emitCtx,
+      pso,
+    );
+    const schemaNB = new p.PolygenInfoSchemaNotebook<
+      Any,
+      Any,
+      EmitContext,
+      Any,
+      Any
+    >(
+      engine,
+      this.nbh.emitCtx,
+      function* () {
+        for (const table of models.informationSchema.tables) {
+          if (SQLa.isGraphEntityDefinitionSupplier(table)) {
+            yield table.graphEntityDefn() as Any; // TODO: why is "Any" required here???
+          }
+        }
+        for (const table of codeNbModels.informationSchema.tables) {
+          if (SQLa.isGraphEntityDefinitionSupplier(table)) {
+            yield table.graphEntityDefn() as Any; // TODO: why is "Any" required here???
+          }
+        }
+      },
+      pso,
+    );
+    return [
+      {
+        identity: "models_polygenix.rs",
+        emit: await p.sourceCodeText(
+          engine.polygenEmitCtx(),
+          await schemaNB.entitiesSrcCode(),
         ),
       },
     ];
