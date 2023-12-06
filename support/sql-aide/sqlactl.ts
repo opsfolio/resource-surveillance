@@ -2,7 +2,6 @@
 
 import { cliffy, path, SQLa, yaml } from "./deps.ts";
 import * as nbooks from "./notebooks.ts";
-import * as p from "./polygenix.ts";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;

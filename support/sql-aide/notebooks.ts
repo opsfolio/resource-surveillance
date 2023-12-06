@@ -1,7 +1,12 @@
-import { SqlDomainQS } from "https://raw.githubusercontent.com/netspective-labs/sql-aide/v0.10.5/render/mod.ts";
-import { chainNB, SQLa, SQLa_tp as typical, tbls } from "./deps.ts";
+import {
+  chainNB,
+  pgenRust as pr,
+  polygen as p,
+  SQLa,
+  SQLa_tp as typical,
+  tbls,
+} from "./deps.ts";
 import * as m from "./models.ts";
-import * as p from "./polygenix.ts";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -1025,7 +1030,7 @@ export class SQLPageNotebook<EmitContext extends SQLa.SqlEmitContext>
         const irs = await kernel.initRunState();
         const { model: gm, domains: gd, keys: gk } = nbh.modelsGovn;
         const sqlPageFiles = gm.table("sqlpage_files", {
-          path: gk.varcharPrimaryKey(),
+          path: gk.varCharPrimaryKey(),
           contents: gd.text(),
           last_modified: gd.createdAt(),
         }, {
@@ -1465,13 +1470,12 @@ export class SqlNotebooksOrchestrator<EmitContext extends SQLa.SqlEmitContext> {
 
   async polygenSrcCode() {
     const { nbh: { models, models: { codeNbModels } } } = this;
-    const pso = p.typicalPolygenInfoSchemaOptions<Any, EmitContext, Any, Any>();
-    const engine = new p.RustPolygenEngine<Any, EmitContext, Any, Any>(
+    const pso = p.typicalPolygenInfoModelOptions<EmitContext, Any, Any>();
+    const engine = new pr.RustSerDePolygenEngine<EmitContext, Any, Any>(
       this.nbh.emitCtx,
       pso,
     );
-    const schemaNB = new p.PolygenInfoSchemaNotebook<
-      Any,
+    const schemaNB = new p.PolygenInfoModelNotebook<
       Any,
       EmitContext,
       Any,
@@ -1496,8 +1500,8 @@ export class SqlNotebooksOrchestrator<EmitContext extends SQLa.SqlEmitContext> {
     return [
       {
         identity: "models_polygenix.rs",
-        emit: await p.sourceCodeText(
-          engine.polygenEmitCtx(),
+        emit: await SQLa.sourceCodeText(
+          this.nbh.emitCtx,
           await schemaNB.entitiesSrcCode(),
         ),
       },

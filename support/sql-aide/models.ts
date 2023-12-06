@@ -66,7 +66,7 @@ export function codeNotebooksModels<
   const { keys: gk, domains: gd, model: gm } = modelsGovn;
 
   const assuranceSchema = gm.textPkTable("assurance_schema", {
-    assurance_schema_id: gk.varcharPrimaryKey(),
+    assurance_schema_id: gk.varCharPrimaryKey(),
     assurance_type: gd.text(),
     code: gd.text(),
     code_json: gd.jsonTextNullable(),
@@ -101,7 +101,7 @@ export function codeNotebooksModels<
   });
 
   const codeNotebookKernel = gm.textPkTable("code_notebook_kernel", {
-    code_notebook_kernel_id: gk.varcharPrimaryKey(),
+    code_notebook_kernel_id: gk.varCharPrimaryKey(),
     kernel_name: gd.text(),
     description: gd.textNullable(),
     mime_type: gd.textNullable(),
@@ -152,7 +152,7 @@ export function codeNotebooksModels<
   // You can pass in arguments using .parameter or `sql_parameters` table, like:
   //    echo ".parameter set X Y; $(sqlite3 xyz.db \"SELECT sql FROM code_notebook_cell where code_notebook_cell_id = 'init'\")" | sqlite3 xyz.db
   const codeNotebookCell = gm.textPkTable("code_notebook_cell", {
-    code_notebook_cell_id: gk.varcharPrimaryKey(),
+    code_notebook_cell_id: gk.varCharPrimaryKey(),
     notebook_kernel_id: codeNotebookKernel.references.code_notebook_kernel_id(),
     notebook_name: gd.text(),
     cell_name: gd.text(),
@@ -183,7 +183,7 @@ export function codeNotebooksModels<
   });
 
   const codeNotebookState = gm.textPkTable("code_notebook_state", {
-    code_notebook_state_id: gk.varcharPrimaryKey(),
+    code_notebook_state_id: gk.varCharPrimaryKey(),
     code_notebook_cell_id: codeNotebookCell.references
       .code_notebook_cell_id(),
     from_state: gd.text(),
@@ -254,7 +254,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   const UNIFORM_RESOURCE = "uniform_resource" as const;
 
   const device = gm.textPkTable("device", {
-    device_id: gm.keys.varcharPrimaryKey(),
+    device_id: gm.keys.varCharPrimaryKey(),
     name: gd.text(),
     state: gd.jsonText(),
     boundary: gd.text(),
@@ -291,7 +291,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   });
 
   const behavior = gm.textPkTable("behavior", {
-    behavior_id: gm.keys.varcharPrimaryKey(),
+    behavior_id: gm.keys.varCharPrimaryKey(),
     device_id: device.references.device_id(),
     behavior_name: gd.text(),
     behavior_conf_json: gd.jsonText(),
@@ -329,7 +329,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   const urIngestPathMatchRule = gm.textPkTable(
     "ur_ingest_resource_path_match_rule",
     {
-      ur_ingest_resource_path_match_rule_id: gm.keys.varcharPrimaryKey(),
+      ur_ingest_resource_path_match_rule_id: gm.keys.varCharPrimaryKey(),
       namespace: gd.text(),
       regex: gd.text(),
       flags: gd.text(),
@@ -359,7 +359,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   const urIngestPathRewriteRule = gm.textPkTable(
     "ur_ingest_resource_path_rewrite_rule",
     {
-      ur_ingest_resource_path_rewrite_rule_id: gm.keys.varcharPrimaryKey(),
+      ur_ingest_resource_path_rewrite_rule_id: gm.keys.varCharPrimaryKey(),
       namespace: gd.text(),
       regex: gd.text(),
       replace: gd.text(),
@@ -385,7 +385,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   );
 
   const urIngestSession = gm.textPkTable("ur_ingest_session", {
-    ur_ingest_session_id: gm.keys.varcharPrimaryKey(),
+    ur_ingest_session_id: gm.keys.varCharPrimaryKey(),
     device_id: device.references.device_id(),
     behavior_id: behavior.references.behavior_id().optional(),
     behavior_json: gd.jsonTextNullable(),
@@ -414,7 +414,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   });
 
   const urIngestSessionFsPath = gm.textPkTable("ur_ingest_session_fs_path", {
-    ur_ingest_session_fs_path_id: gm.keys.varcharPrimaryKey(),
+    ur_ingest_session_fs_path_id: gm.keys.varCharPrimaryKey(),
     ingest_session_id: urIngestSession.references
       .ur_ingest_session_id(),
     root_path: gd.text(),
@@ -445,7 +445,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   });
 
   const uniformResource = gm.textPkTable(UNIFORM_RESOURCE, {
-    uniform_resource_id: gm.keys.varcharPrimaryKey(),
+    uniform_resource_id: gm.keys.varCharPrimaryKey(),
     device_id: device.references.device_id(),
     ingest_session_id: urIngestSession.references.ur_ingest_session_id(),
     ingest_fs_path_id: urIngestSessionFsPath.references
@@ -516,7 +516,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   const uniformResourceTransform = gm.textPkTable(
     `uniform_resource_transform`,
     {
-      uniform_resource_transform_id: gm.keys.varcharPrimaryKey(),
+      uniform_resource_transform_id: gm.keys.varCharPrimaryKey(),
       uniform_resource_id: uniformResource.references.uniform_resource_id(),
       uri: gd.text(),
       content_digest: gd.text(),
@@ -570,7 +570,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   const urIngestSessionFsPathEntry = gm.textPkTable(
     "ur_ingest_session_fs_path_entry",
     {
-      ur_ingest_session_fs_path_entry_id: gm.keys.varcharPrimaryKey(),
+      ur_ingest_session_fs_path_entry_id: gm.keys.varCharPrimaryKey(),
       ingest_session_id: urIngestSession.references
         .ur_ingest_session_id(),
       ingest_fs_path_id: urIngestSessionFsPath.references
@@ -617,7 +617,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   const urIngestSessionTaskEntry = gm.textPkTable(
     "ur_ingest_session_task",
     {
-      ur_ingest_session_task_id: gm.keys.varcharPrimaryKey(),
+      ur_ingest_session_task_id: gm.keys.varCharPrimaryKey(),
       ingest_session_id: urIngestSession.references
         .ur_ingest_session_id(),
       uniform_resource_id: uniformResource.references.uniform_resource_id()
