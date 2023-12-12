@@ -80,10 +80,10 @@ async function CLI() {
         );
       }
 
-      for (const tc of await sno.entityRelDiagrams()) {
+      for (const erd of await sno.entityRelDiagrams()) {
         await Deno.writeTextFile(
-          path.join(tblsConfHome, tc.identity),
-          tc.emit,
+          path.join(docsHome, erd.identity),
+          erd.emit,
         );
       }
     })
