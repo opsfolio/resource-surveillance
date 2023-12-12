@@ -153,7 +153,7 @@ export function codeNotebooksModels<
   //    echo ".parameter set X Y; $(sqlite3 xyz.db \"SELECT sql FROM code_notebook_cell where code_notebook_cell_id = 'init'\")" | sqlite3 xyz.db
   const codeNotebookCell = gm.textPkTable("code_notebook_cell", {
     code_notebook_cell_id: gk.varCharPrimaryKey(),
-    notebook_kernel_id: codeNotebookKernel.references.code_notebook_kernel_id(),
+    notebook_kernel_id: codeNotebookKernel.belongsTo.code_notebook_kernel_id(),
     notebook_name: gd.text(),
     cell_name: gd.text(),
     cell_governance: gd.jsonTextNullable(),
@@ -292,7 +292,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
 
   const behavior = gm.textPkTable("behavior", {
     behavior_id: gm.keys.varCharPrimaryKey(),
-    device_id: device.references.device_id(),
+    device_id: device.belongsTo.device_id(),
     behavior_name: gd.text(),
     behavior_conf_json: gd.jsonText(),
     assurance_schema_id: codeNbModels.assuranceSchema.references
@@ -386,8 +386,8 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
 
   const urIngestSession = gm.textPkTable("ur_ingest_session", {
     ur_ingest_session_id: gm.keys.varCharPrimaryKey(),
-    device_id: device.references.device_id(),
-    behavior_id: behavior.references.behavior_id().optional(),
+    device_id: device.belongsTo.device_id(),
+    behavior_id: behavior.belongsTo.behavior_id().optional(),
     behavior_json: gd.jsonTextNullable(),
     ingest_started_at: gd.dateTime(),
     ingest_finished_at: gd.dateTimeNullable(),
@@ -415,7 +415,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
 
   const urIngestSessionFsPath = gm.textPkTable("ur_ingest_session_fs_path", {
     ur_ingest_session_fs_path_id: gm.keys.varCharPrimaryKey(),
-    ingest_session_id: urIngestSession.references
+    ingest_session_id: urIngestSession.belongsTo
       .ur_ingest_session_id(),
     root_path: gd.text(),
     elaboration: gd.jsonTextNullable(),
@@ -446,8 +446,8 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
 
   const uniformResource = gm.textPkTable(UNIFORM_RESOURCE, {
     uniform_resource_id: gm.keys.varCharPrimaryKey(),
-    device_id: device.references.device_id(),
-    ingest_session_id: urIngestSession.references.ur_ingest_session_id(),
+    device_id: device.belongsTo.device_id(),
+    ingest_session_id: urIngestSession.belongsTo.ur_ingest_session_id(),
     ingest_fs_path_id: urIngestSessionFsPath.references
       .ur_ingest_session_fs_path_id().optional(),
     uri: gd.text(),
@@ -517,7 +517,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     `uniform_resource_transform`,
     {
       uniform_resource_transform_id: gm.keys.varCharPrimaryKey(),
-      uniform_resource_id: uniformResource.references.uniform_resource_id(),
+      uniform_resource_id: uniformResource.belongsTo.uniform_resource_id(),
       uri: gd.text(),
       content_digest: gd.text(),
       content: gd.blobTextNullable(),
@@ -571,9 +571,9 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     "ur_ingest_session_fs_path_entry",
     {
       ur_ingest_session_fs_path_entry_id: gm.keys.varCharPrimaryKey(),
-      ingest_session_id: urIngestSession.references
+      ingest_session_id: urIngestSession.belongsTo
         .ur_ingest_session_id(),
-      ingest_fs_path_id: urIngestSessionFsPath.references
+      ingest_fs_path_id: urIngestSessionFsPath.belongsTo
         .ur_ingest_session_fs_path_id(),
       uniform_resource_id: uniformResource.references.uniform_resource_id()
         .optional(), // if a uniform_resource was prepared for this or already existed

@@ -4,11 +4,11 @@ CREATE TABLE IF NOT EXISTS "assurance_schema" (
     "code" TEXT NOT NULL,
     "code_json" TEXT CHECK(json_valid(code_json) OR code_json IS NULL),
     "governance" TEXT CHECK(json_valid(governance) OR governance IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT 'UNKNOWN',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT
 );
@@ -20,11 +20,11 @@ CREATE TABLE IF NOT EXISTS "code_notebook_kernel" (
     "file_extn" TEXT,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "governance" TEXT CHECK(json_valid(governance) OR governance IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT 'UNKNOWN',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     UNIQUE("kernel_name")
@@ -39,11 +39,11 @@ CREATE TABLE IF NOT EXISTS "code_notebook_cell" (
     "interpretable_code_hash" TEXT NOT NULL,
     "description" TEXT,
     "arguments" TEXT CHECK(json_valid(arguments) OR arguments IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT 'UNKNOWN',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("notebook_kernel_id") REFERENCES "code_notebook_kernel"("code_notebook_kernel_id"),
@@ -56,13 +56,13 @@ CREATE TABLE IF NOT EXISTS "code_notebook_state" (
     "to_state" TEXT NOT NULL,
     "transition_result" TEXT CHECK(json_valid(transition_result) OR transition_result IS NULL),
     "transition_reason" TEXT,
-    "transitioned_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "transitioned_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT 'UNKNOWN',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("code_notebook_cell_id") REFERENCES "code_notebook_cell"("code_notebook_cell_id"),
@@ -84,11 +84,11 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     "code" TEXT NOT NULL,
     "code_json" TEXT CHECK(json_valid(code_json) OR code_json IS NULL),
     "governance" TEXT CHECK(json_valid(governance) OR governance IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT
 );
@@ -100,11 +100,11 @@ CREATE TABLE IF NOT EXISTS "code_notebook_kernel" (
     "file_extn" TEXT,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "governance" TEXT CHECK(json_valid(governance) OR governance IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     UNIQUE("kernel_name")
@@ -119,11 +119,11 @@ CREATE TABLE IF NOT EXISTS "code_notebook_cell" (
     "interpretable_code_hash" TEXT NOT NULL,
     "description" TEXT,
     "arguments" TEXT CHECK(json_valid(arguments) OR arguments IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("notebook_kernel_id") REFERENCES "code_notebook_kernel"("code_notebook_kernel_id"),
@@ -136,13 +136,13 @@ CREATE TABLE IF NOT EXISTS "code_notebook_state" (
     "to_state" TEXT NOT NULL,
     "transition_result" TEXT CHECK(json_valid(transition_result) OR transition_result IS NULL),
     "transition_reason" TEXT,
-    "transitioned_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "transitioned_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("code_notebook_cell_id") REFERENCES "code_notebook_cell"("code_notebook_cell_id"),
@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS "code_notebook_state" (
 );
 
 
-', 'd5467b378e45b513fe81238521bb7d8d9b1bdf0e', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', '95906133bce514389f13fcc6d1cd72f4231155c6', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -168,11 +168,11 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     "segmentation" TEXT CHECK(json_valid(segmentation) OR segmentation IS NULL),
     "state_sysinfo" TEXT CHECK(json_valid(state_sysinfo) OR state_sysinfo IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     UNIQUE("name", "state", "boundary")
@@ -184,11 +184,11 @@ CREATE TABLE IF NOT EXISTS "behavior" (
     "behavior_conf_json" TEXT CHECK(json_valid(behavior_conf_json)) NOT NULL,
     "assurance_schema_id" VARCHAR,
     "governance" TEXT CHECK(json_valid(governance) OR governance IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("device_id") REFERENCES "device"("device_id"),
@@ -204,11 +204,11 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_resource_path_match_rule" (
     "priority" TEXT,
     "description" TEXT,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     UNIQUE("namespace", "regex")
@@ -221,11 +221,11 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_resource_path_rewrite_rule" (
     "priority" TEXT,
     "description" TEXT,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     UNIQUE("namespace", "regex", "replace")
@@ -235,14 +235,14 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session" (
     "device_id" VARCHAR NOT NULL,
     "behavior_id" VARCHAR,
     "behavior_json" TEXT CHECK(json_valid(behavior_json) OR behavior_json IS NULL),
-    "ingest_started_at" TIMESTAMP NOT NULL,
-    "ingest_finished_at" TIMESTAMP,
+    "ingest_started_at" TIMESTAMPTZ NOT NULL,
+    "ingest_finished_at" TIMESTAMPTZ,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("device_id") REFERENCES "device"("device_id"),
@@ -254,11 +254,11 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path" (
     "ingest_session_id" VARCHAR NOT NULL,
     "root_path" TEXT NOT NULL,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
@@ -274,15 +274,15 @@ CREATE TABLE IF NOT EXISTS "uniform_resource" (
     "content" BLOB,
     "nature" TEXT,
     "size_bytes" INTEGER,
-    "last_modified_at" TIMESTAMP,
+    "last_modified_at" TIMESTAMPTZ,
     "content_fm_body_attrs" TEXT CHECK(json_valid(content_fm_body_attrs) OR content_fm_body_attrs IS NULL),
     "frontmatter" TEXT CHECK(json_valid(frontmatter) OR frontmatter IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("device_id") REFERENCES "device"("device_id"),
@@ -299,11 +299,11 @@ CREATE TABLE IF NOT EXISTS "uniform_resource_transform" (
     "nature" TEXT,
     "size_bytes" INTEGER,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id"),
@@ -324,11 +324,11 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path_entry" (
     "ur_diagnostics" TEXT CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL),
     "ur_transformations" TEXT CHECK(json_valid(ur_transformations) OR ur_transformations IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
@@ -344,11 +344,11 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_task" (
     "ur_diagnostics" TEXT CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL),
     "ur_transformations" TEXT CHECK(json_valid(ur_transformations) OR ur_transformations IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
@@ -361,7 +361,7 @@ CREATE INDEX IF NOT EXISTS "idx_uniform_resource__device_id__uri" ON "uniform_re
 CREATE INDEX IF NOT EXISTS "idx_uniform_resource_transform__uniform_resource_id__content_digest" ON "uniform_resource_transform"("uniform_resource_id", "content_digest");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path_entry__ingest_session_id__file_path_abs" ON "ur_ingest_session_fs_path_entry"("ingest_session_id", "file_path_abs");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_task__ingest_session_id" ON "ur_ingest_session_task"("ingest_session_id");
-', '9bc44d7755e8634dafc9ac44c8bbce4b44499345', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', '341201936bc9fb3b80f238ca5347eef5a543cc8b', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -755,11 +755,11 @@ CREATE TABLE IF NOT EXISTS "assurance_schema" (
     "code" TEXT NOT NULL,
     "code_json" TEXT CHECK(json_valid(code_json) OR code_json IS NULL),
     "governance" TEXT CHECK(json_valid(governance) OR governance IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT
 );
@@ -771,11 +771,11 @@ CREATE TABLE IF NOT EXISTS "code_notebook_kernel" (
     "file_extn" TEXT,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "governance" TEXT CHECK(json_valid(governance) OR governance IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     UNIQUE("kernel_name")
@@ -790,11 +790,11 @@ CREATE TABLE IF NOT EXISTS "code_notebook_cell" (
     "interpretable_code_hash" TEXT NOT NULL,
     "description" TEXT,
     "arguments" TEXT CHECK(json_valid(arguments) OR arguments IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("notebook_kernel_id") REFERENCES "code_notebook_kernel"("code_notebook_kernel_id"),
@@ -807,13 +807,13 @@ CREATE TABLE IF NOT EXISTS "code_notebook_state" (
     "to_state" TEXT NOT NULL,
     "transition_result" TEXT CHECK(json_valid(transition_result) OR transition_result IS NULL),
     "transition_reason" TEXT,
-    "transitioned_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "transitioned_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("code_notebook_cell_id") REFERENCES "code_notebook_cell"("code_notebook_cell_id"),
@@ -822,7 +822,7 @@ CREATE TABLE IF NOT EXISTS "code_notebook_state" (
 
 
 
-      ', '43f5aa0f274dacd9df5d0fd9f9643c3e2a1dc624', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', '85958d3630a5761a53dade44c67533e246de074e', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -843,11 +843,11 @@ CREATE TABLE IF NOT EXISTS "device" (
     "segmentation" TEXT CHECK(json_valid(segmentation) OR segmentation IS NULL),
     "state_sysinfo" TEXT CHECK(json_valid(state_sysinfo) OR state_sysinfo IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     UNIQUE("name", "state", "boundary")
@@ -859,11 +859,11 @@ CREATE TABLE IF NOT EXISTS "behavior" (
     "behavior_conf_json" TEXT CHECK(json_valid(behavior_conf_json)) NOT NULL,
     "assurance_schema_id" VARCHAR,
     "governance" TEXT CHECK(json_valid(governance) OR governance IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("device_id") REFERENCES "device"("device_id"),
@@ -879,11 +879,11 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_resource_path_match_rule" (
     "priority" TEXT,
     "description" TEXT,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     UNIQUE("namespace", "regex")
@@ -896,11 +896,11 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_resource_path_rewrite_rule" (
     "priority" TEXT,
     "description" TEXT,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     UNIQUE("namespace", "regex", "replace")
@@ -910,14 +910,14 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session" (
     "device_id" VARCHAR NOT NULL,
     "behavior_id" VARCHAR,
     "behavior_json" TEXT CHECK(json_valid(behavior_json) OR behavior_json IS NULL),
-    "ingest_started_at" TIMESTAMP NOT NULL,
-    "ingest_finished_at" TIMESTAMP,
+    "ingest_started_at" TIMESTAMPTZ NOT NULL,
+    "ingest_finished_at" TIMESTAMPTZ,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("device_id") REFERENCES "device"("device_id"),
@@ -929,11 +929,11 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path" (
     "ingest_session_id" VARCHAR NOT NULL,
     "root_path" TEXT NOT NULL,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
@@ -949,15 +949,15 @@ CREATE TABLE IF NOT EXISTS "uniform_resource" (
     "content" BLOB,
     "nature" TEXT,
     "size_bytes" INTEGER,
-    "last_modified_at" TIMESTAMP,
+    "last_modified_at" TIMESTAMPTZ,
     "content_fm_body_attrs" TEXT CHECK(json_valid(content_fm_body_attrs) OR content_fm_body_attrs IS NULL),
     "frontmatter" TEXT CHECK(json_valid(frontmatter) OR frontmatter IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("device_id") REFERENCES "device"("device_id"),
@@ -974,11 +974,11 @@ CREATE TABLE IF NOT EXISTS "uniform_resource_transform" (
     "nature" TEXT,
     "size_bytes" INTEGER,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id"),
@@ -999,11 +999,11 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_fs_path_entry" (
     "ur_diagnostics" TEXT CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL),
     "ur_transformations" TEXT CHECK(json_valid(ur_transformations) OR ur_transformations IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
@@ -1019,11 +1019,11 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_task" (
     "ur_diagnostics" TEXT CHECK(json_valid(ur_diagnostics) OR ur_diagnostics IS NULL),
     "ur_transformations" TEXT CHECK(json_valid(ur_transformations) OR ur_transformations IS NULL),
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMP,
+    "updated_at" TIMESTAMPTZ,
     "updated_by" TEXT,
-    "deleted_at" TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
@@ -1097,13 +1097,13 @@ CREATE VIEW IF NOT EXISTS "ur_ingest_session_files_stats" AS
         device_id,
         ingest_session_finished_at,
         file_extension;
-      ', '91ca992b42d299e604fee0c7aded6ab9563fdae7', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', '6ea2cad03f88fe171015d92f06d7657f36d598f7', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
                    activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));;
 
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'PlantUML', 'SqlNotebooksOrchestrator', 'surveilrInfoSchemaDiagram', NULL, '@startuml IE
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'PlantUML', 'SqlNotebooksOrchestrator', 'surveilrInfoSchemaDiagram', NULL, '@startuml surveilr-state
   hide circle
   skinparam linetype ortho
   skinparam roundcorner 20
@@ -1124,6 +1124,10 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       segmentation: TEXT
       state_sysinfo: TEXT
       elaboration: TEXT
+    --
+    behaviors: Behavior[]
+    urIngestSessions: UrIngestSession[]
+    uniformResources: UniformResource[]
   }
 
   entity "behavior" as behavior {
@@ -1134,6 +1138,8 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     * behavior_conf_json: TEXT
       assurance_schema_id: VARCHAR
       governance: TEXT
+    --
+    urIngestSessions: UrIngestSession[]
   }
 
   entity "ur_ingest_resource_path_match_rule" as ur_ingest_resource_path_match_rule {
@@ -1165,9 +1171,13 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     * device_id: VARCHAR
       behavior_id: VARCHAR
       behavior_json: TEXT
-    * ingest_started_at: TIMESTAMP
-      ingest_finished_at: TIMESTAMP
+    * ingest_started_at: TIMESTAMPTZ
+      ingest_finished_at: TIMESTAMPTZ
       elaboration: TEXT
+    --
+    urIngestSessionFsPaths: UrIngestSessionFsPath[]
+    uniformResources: UniformResource[]
+    urIngestSessionFsPathEntrys: UrIngestSessionFsPathEntry[]
   }
 
   entity "ur_ingest_session_fs_path" as ur_ingest_session_fs_path {
@@ -1176,6 +1186,8 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     * ingest_session_id: VARCHAR
     * root_path: TEXT
       elaboration: TEXT
+    --
+    urIngestSessionFsPathEntrys: UrIngestSessionFsPathEntry[]
   }
 
   entity "uniform_resource" as uniform_resource {
@@ -1189,10 +1201,12 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       content: BLOB
       nature: TEXT
       size_bytes: INTEGER
-      last_modified_at: TIMESTAMP
+      last_modified_at: TIMESTAMPTZ
       content_fm_body_attrs: TEXT
       frontmatter: TEXT
       elaboration: TEXT
+    --
+    uniformResourceTransforms: UniformResourceTransform[]
   }
 
   entity "uniform_resource_transform" as uniform_resource_transform {
@@ -1250,12 +1264,12 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   uniform_resource |o..o{ ur_ingest_session_fs_path_entry
   ur_ingest_session |o..o{ ur_ingest_session_task
   uniform_resource |o..o{ ur_ingest_session_task
-@enduml', '574058df361c93d7d76f18b0de235efcc6c7710d', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', 'dd25e8dfae54aad8ebe8d19fe12b83043dbef1ad', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,
              activity_log = json_insert(COALESCE(activity_log, '[]'), '$[' || json_array_length(COALESCE(activity_log, '[]')) || ']', json_object('code_notebook_cell_id', code_notebook_cell_id, 'notebook_kernel_id', notebook_kernel_id, 'notebook_name', notebook_name, 'cell_name', cell_name, 'cell_governance', cell_governance, 'interpretable_code', interpretable_code, 'interpretable_code_hash', interpretable_code_hash, 'description', description, 'arguments', arguments, 'created_at', created_at, 'created_by', created_by, 'updated_at', updated_at, 'updated_by', updated_by, 'deleted_at', deleted_at, 'deleted_by', deleted_by, 'activity_log', activity_log));
-INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'PlantUML', 'SqlNotebooksOrchestrator', 'notebooksInfoSchemaDiagram', NULL, '@startuml IE
+INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id", "notebook_name", "cell_name", "cell_governance", "interpretable_code", "interpretable_code_hash", "description", "arguments", "created_at", "created_by", "updated_at", "updated_by", "deleted_at", "deleted_by", "activity_log") VALUES ((ulid()), 'PlantUML', 'SqlNotebooksOrchestrator', 'notebooksInfoSchemaDiagram', NULL, '@startuml surveilr-code-notebooks
   hide circle
   skinparam linetype ortho
   skinparam roundcorner 20
@@ -1274,13 +1288,6 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     * code: TEXT
       code_json: TEXT
       governance: TEXT
-      created_at: TIMESTAMP
-      created_by: TEXT
-      updated_at: TIMESTAMP
-      updated_by: TEXT
-      deleted_at: TIMESTAMP
-      deleted_by: TEXT
-      activity_log: TEXT
   }
 
   entity "code_notebook_kernel" as code_notebook_kernel {
@@ -1292,13 +1299,8 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       file_extn: TEXT
       elaboration: TEXT
       governance: TEXT
-      created_at: TIMESTAMP
-      created_by: TEXT
-      updated_at: TIMESTAMP
-      updated_by: TEXT
-      deleted_at: TIMESTAMP
-      deleted_by: TEXT
-      activity_log: TEXT
+    --
+    codeNotebookCells: CodeNotebookCell[]
   }
 
   entity "code_notebook_cell" as code_notebook_cell {
@@ -1312,13 +1314,6 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     * interpretable_code_hash: TEXT
       description: TEXT
       arguments: TEXT
-      created_at: TIMESTAMP
-      created_by: TEXT
-      updated_at: TIMESTAMP
-      updated_by: TEXT
-      deleted_at: TIMESTAMP
-      deleted_by: TEXT
-      activity_log: TEXT
   }
 
   entity "code_notebook_state" as code_notebook_state {
@@ -1329,20 +1324,13 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     * to_state: TEXT
       transition_result: TEXT
       transition_reason: TEXT
-      transitioned_at: TIMESTAMP
+      transitioned_at: TIMESTAMPTZ
       elaboration: TEXT
-      created_at: TIMESTAMP
-      created_by: TEXT
-      updated_at: TIMESTAMP
-      updated_by: TEXT
-      deleted_at: TIMESTAMP
-      deleted_by: TEXT
-      activity_log: TEXT
   }
 
   code_notebook_kernel |o..o{ code_notebook_cell
   code_notebook_cell |o..o{ code_notebook_state
-@enduml', '01c0bd47bb8a280723738c121ba158fab85ce68e', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', '84e0fc3aa026060b7e071785c89d02eaf87e6cbf', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,
@@ -1353,7 +1341,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
 CREATE TABLE IF NOT EXISTS "sqlpage_files" (
     "path" VARCHAR PRIMARY KEY NOT NULL,
     "contents" TEXT NOT NULL,
-    "last_modified" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    "last_modified" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 INSERT INTO "sqlpage_files" ("path", "contents", "last_modified") VALUES ('index.sql', 'SELECT
   ''list'' as component,

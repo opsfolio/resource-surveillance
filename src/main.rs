@@ -16,6 +16,7 @@ mod cmd;
 mod format;
 mod frontmatter;
 mod ingest;
+mod models_polygenix;
 mod persist;
 mod resource;
 mod shell;

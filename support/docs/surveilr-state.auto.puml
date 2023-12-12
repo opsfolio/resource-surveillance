@@ -1,0 +1,162 @@
+@startuml surveilr-state
+  hide circle
+  skinparam linetype ortho
+  skinparam roundcorner 20
+  skinparam class {
+    BackgroundColor White
+    ArrowColor Silver
+    BorderColor Silver
+    FontColor Black
+    FontSize 12
+  }
+
+  entity "device" as device {
+    * **device_id**: VARCHAR
+    --
+    * name: TEXT
+    * state: TEXT
+    * boundary: TEXT
+      segmentation: TEXT
+      state_sysinfo: TEXT
+      elaboration: TEXT
+    --
+    behaviors: Behavior[]
+    urIngestSessions: UrIngestSession[]
+    uniformResources: UniformResource[]
+  }
+
+  entity "behavior" as behavior {
+    * **behavior_id**: VARCHAR
+    --
+    * device_id: VARCHAR
+    * behavior_name: TEXT
+    * behavior_conf_json: TEXT
+      assurance_schema_id: VARCHAR
+      governance: TEXT
+    --
+    urIngestSessions: UrIngestSession[]
+  }
+
+  entity "ur_ingest_resource_path_match_rule" as ur_ingest_resource_path_match_rule {
+    * **ur_ingest_resource_path_match_rule_id**: VARCHAR
+    --
+    * namespace: TEXT
+    * regex: TEXT
+    * flags: TEXT
+      nature: TEXT
+      priority: TEXT
+      description: TEXT
+      elaboration: TEXT
+  }
+
+  entity "ur_ingest_resource_path_rewrite_rule" as ur_ingest_resource_path_rewrite_rule {
+    * **ur_ingest_resource_path_rewrite_rule_id**: VARCHAR
+    --
+    * namespace: TEXT
+    * regex: TEXT
+    * replace: TEXT
+      priority: TEXT
+      description: TEXT
+      elaboration: TEXT
+  }
+
+  entity "ur_ingest_session" as ur_ingest_session {
+    * **ur_ingest_session_id**: VARCHAR
+    --
+    * device_id: VARCHAR
+      behavior_id: VARCHAR
+      behavior_json: TEXT
+    * ingest_started_at: TIMESTAMPTZ
+      ingest_finished_at: TIMESTAMPTZ
+      elaboration: TEXT
+    --
+    urIngestSessionFsPaths: UrIngestSessionFsPath[]
+    uniformResources: UniformResource[]
+    urIngestSessionFsPathEntrys: UrIngestSessionFsPathEntry[]
+  }
+
+  entity "ur_ingest_session_fs_path" as ur_ingest_session_fs_path {
+    * **ur_ingest_session_fs_path_id**: VARCHAR
+    --
+    * ingest_session_id: VARCHAR
+    * root_path: TEXT
+      elaboration: TEXT
+    --
+    urIngestSessionFsPathEntrys: UrIngestSessionFsPathEntry[]
+  }
+
+  entity "uniform_resource" as uniform_resource {
+    * **uniform_resource_id**: VARCHAR
+    --
+    * device_id: VARCHAR
+    * ingest_session_id: VARCHAR
+      ingest_fs_path_id: VARCHAR
+    * uri: TEXT
+    * content_digest: TEXT
+      content: BLOB
+      nature: TEXT
+      size_bytes: INTEGER
+      last_modified_at: TIMESTAMPTZ
+      content_fm_body_attrs: TEXT
+      frontmatter: TEXT
+      elaboration: TEXT
+    --
+    uniformResourceTransforms: UniformResourceTransform[]
+  }
+
+  entity "uniform_resource_transform" as uniform_resource_transform {
+    * **uniform_resource_transform_id**: VARCHAR
+    --
+    * uniform_resource_id: VARCHAR
+    * uri: TEXT
+    * content_digest: TEXT
+      content: BLOB
+      nature: TEXT
+      size_bytes: INTEGER
+      elaboration: TEXT
+  }
+
+  entity "ur_ingest_session_fs_path_entry" as ur_ingest_session_fs_path_entry {
+    * **ur_ingest_session_fs_path_entry_id**: VARCHAR
+    --
+    * ingest_session_id: VARCHAR
+    * ingest_fs_path_id: VARCHAR
+      uniform_resource_id: VARCHAR
+    * file_path_abs: TEXT
+    * file_path_rel_parent: TEXT
+    * file_path_rel: TEXT
+    * file_basename: TEXT
+      file_extn: TEXT
+      captured_executable: TEXT
+      ur_status: TEXT
+      ur_diagnostics: TEXT
+      ur_transformations: TEXT
+      elaboration: TEXT
+  }
+
+  entity "ur_ingest_session_task" as ur_ingest_session_task {
+    * **ur_ingest_session_task_id**: VARCHAR
+    --
+    * ingest_session_id: VARCHAR
+      uniform_resource_id: VARCHAR
+    * captured_executable: TEXT
+      ur_status: TEXT
+      ur_diagnostics: TEXT
+      ur_transformations: TEXT
+      elaboration: TEXT
+  }
+
+  device |o..o{ behavior
+  device |o..o{ ur_ingest_session
+  behavior |o..o{ ur_ingest_session
+  ur_ingest_session |o..o{ ur_ingest_session_fs_path
+  device |o..o{ uniform_resource
+  ur_ingest_session |o..o{ uniform_resource
+  ur_ingest_session_fs_path |o..o{ uniform_resource
+  uniform_resource |o..o{ uniform_resource_transform
+  ur_ingest_session |o..o{ ur_ingest_session_fs_path_entry
+  ur_ingest_session_fs_path |o..o{ ur_ingest_session_fs_path_entry
+  uniform_resource |o..o{ ur_ingest_session_fs_path_entry
+  ur_ingest_session |o..o{ ur_ingest_session_task
+  uniform_resource |o..o{ ur_ingest_session_task
+@enduml

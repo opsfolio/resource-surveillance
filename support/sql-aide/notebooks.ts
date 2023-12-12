@@ -1,6 +1,5 @@
 import {
   chainNB,
-  pgenRust as pr,
   polygen as p,
   SQLa,
   SQLa_tp as typical,
@@ -1336,57 +1335,12 @@ export class SqlNotebooksOrchestrator<EmitContext extends SQLa.SqlEmitContext> {
     };
   }
 
-  surveilrInfoSchemaDiagram() {
-    const { nbh: { modelsGovn, models } } = this;
-    const ctx = modelsGovn.sqlEmitContext();
-    return typical.diaPUML.plantUmlIE(
-      ctx,
-      function* () {
-        for (const table of models.informationSchema.tables) {
-          if (SQLa.isGraphEntityDefinitionSupplier(table)) {
-            yield table.graphEntityDefn() as Any; // TODO: why is "Any" required here???
-          }
-        }
-      },
-      typical.diaPUML.typicalPlantUmlIeOptions({
-        // don't put housekeeping columns in the diagram
-        includeEntityAttr: (ea) =>
-          [
-              "created_at",
-              "created_by",
-              "updated_at",
-              "updated_by",
-              "deleted_at",
-              "deleted_by",
-              "activity_log",
-            ].find((c) => c == ea.attr.identity)
-            ? false
-            : true,
-      }),
-    ).content;
-  }
-
-  notebooksInfoSchemaDiagram() {
-    const { nbh: { modelsGovn, models: { codeNbModels } } } = this;
-    const ctx = modelsGovn.sqlEmitContext();
-    return typical.diaPUML.plantUmlIE(
-      ctx,
-      function* () {
-        for (const table of codeNbModels.informationSchema.tables) {
-          if (SQLa.isGraphEntityDefinitionSupplier(table)) {
-            yield table.graphEntityDefn() as Any; // TODO: why is "Any" required here???
-          }
-        }
-      },
-      typical.diaPUML.typicalPlantUmlIeOptions(),
-    ).content;
-  }
-
   async infoSchemaDiagramDML() {
     const { nbh: { models } } = this;
     const { codeNbModels: { codeNotebookCell } } = models;
-    const surveilrInfoSchemaDiagram = this.surveilrInfoSchemaDiagram();
-    const notebooksInfoSchemaDiagram = this.notebooksInfoSchemaDiagram();
+    const diagrams = await this.entityRelDiagrams();
+    const surveilrInfoSchemaDiagram = diagrams[0].emit;
+    const notebooksInfoSchemaDiagram = diagrams[1].emit;
     const options = {
       onConflict: this.nbh
         .SQL`ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
@@ -1438,6 +1392,75 @@ export class SqlNotebooksOrchestrator<EmitContext extends SQLa.SqlEmitContext> {
     return cells;
   }
 
+  async entityRelDiagrams() {
+    const { nbh: { models, models: { codeNbModels } } } = this;
+    const pso: Parameters<
+      typeof p.diagram.typicalPlantUmlIeOptions<
+        EmitContext,
+        SQLa.SqlDomainQS,
+        SQLa.SqlDomainsQS<SQLa.SqlDomainQS>
+      >
+    >[0] = {
+      // emit without housekeeping since rusqlite_serde doesn't support Date/Timestamp
+      includeEntityAttr: (ea) =>
+        [
+            "created_at",
+            "created_by",
+            "updated_at",
+            "updated_by",
+            "deleted_at",
+            "deleted_by",
+            "activity_log",
+          ].find((c) => c == ea.attr.identity)
+          ? false
+          : true,
+    };
+    const statePumlIE = new p.diagram.PlantUmlIe<EmitContext, Any, Any>(
+      this.nbh.emitCtx,
+      function* () {
+        for (const table of models.informationSchema.tables) {
+          if (SQLa.isGraphEntityDefinitionSupplier(table)) {
+            yield table.graphEntityDefn();
+          }
+        }
+      },
+      p.diagram.typicalPlantUmlIeOptions({
+        diagramName: "surveilr-state",
+        ...pso,
+      }),
+    );
+    const nbPumlIE = new p.diagram.PlantUmlIe<EmitContext, Any, Any>(
+      this.nbh.emitCtx,
+      function* () {
+        for (const table of codeNbModels.informationSchema.tables) {
+          if (SQLa.isGraphEntityDefinitionSupplier(table)) {
+            yield table.graphEntityDefn();
+          }
+        }
+      },
+      p.diagram.typicalPlantUmlIeOptions({
+        diagramName: "surveilr-code-notebooks",
+        ...pso,
+      }),
+    );
+    return [
+      {
+        identity: "surveilr-state.auto.puml",
+        emit: await SQLa.polygenCellContent(
+          this.nbh.emitCtx,
+          await statePumlIE.polygenContent(),
+        ),
+      },
+      {
+        identity: "surveilr-code-notebooks.auto.puml",
+        emit: await SQLa.polygenCellContent(
+          this.nbh.emitCtx,
+          await nbPumlIE.polygenContent(),
+        ),
+      },
+    ];
+  }
+
   tblsYAML() {
     const { nbh: { models, models: { codeNbModels } } } = this;
     return [
@@ -1470,28 +1493,32 @@ export class SqlNotebooksOrchestrator<EmitContext extends SQLa.SqlEmitContext> {
 
   async polygenSrcCode() {
     const { nbh: { models, models: { codeNbModels } } } = this;
-    const pso = p.typicalPolygenInfoModelOptions<EmitContext, Any, Any>();
-    const engine = new pr.RustSerDePolygenEngine<EmitContext, Any, Any>(
-      this.nbh.emitCtx,
-      pso,
-    );
-    const schemaNB = new p.PolygenInfoModelNotebook<
-      Any,
-      EmitContext,
-      Any,
-      Any
-    >(
-      engine,
+    const pso = p.typicalPolygenInfoModelOptions<EmitContext, Any, Any>({
+      // emit without housekeeping since rusqlite_serde doesn't support Date/Timestamp
+      includeEntityAttr: (ea) =>
+        [
+            "created_at",
+            "created_by",
+            "updated_at",
+            "updated_by",
+            "deleted_at",
+            "deleted_by",
+            "activity_log",
+          ].find((c) => c == ea.attr.identity)
+          ? false
+          : true,
+    });
+    const schemaNB = new p.rust.RustSerDeModels<EmitContext, Any, Any>(
       this.nbh.emitCtx,
       function* () {
         for (const table of models.informationSchema.tables) {
           if (SQLa.isGraphEntityDefinitionSupplier(table)) {
-            yield table.graphEntityDefn() as Any; // TODO: why is "Any" required here???
+            yield table.graphEntityDefn();
           }
         }
         for (const table of codeNbModels.informationSchema.tables) {
           if (SQLa.isGraphEntityDefinitionSupplier(table)) {
-            yield table.graphEntityDefn() as Any; // TODO: why is "Any" required here???
+            yield table.graphEntityDefn();
           }
         }
       },
@@ -1500,9 +1527,9 @@ export class SqlNotebooksOrchestrator<EmitContext extends SQLa.SqlEmitContext> {
     return [
       {
         identity: "models_polygenix.rs",
-        emit: await SQLa.sourceCodeText(
+        emit: await SQLa.polygenCellContent(
           this.nbh.emitCtx,
-          await schemaNB.entitiesSrcCode(),
+          await schemaNB.polygenContent(),
         ),
       },
     ];

@@ -28,8 +28,8 @@ async function CLI() {
       },
     )
     .option(
-      "--tbls-conf-home <path:string>",
-      "Store the generated SQL in the provided directory",
+      "--docs-home <path:string>",
+      "Store generated documentation in the provided directory",
       {
         default: path.relative(
           Deno.cwd(),
@@ -37,7 +37,17 @@ async function CLI() {
         ),
       },
     )
-    .action(async ({ sqlHome, tblsConfHome }) => {
+    .option(
+      "--tbls-conf-home <path:string>",
+      "Store generated `tbls` YAML conf files in the provided directory",
+      {
+        default: path.relative(
+          Deno.cwd(),
+          path.fromFileUrl(import.meta.resolve("../../support/docs")),
+        ),
+      },
+    )
+    .action(async ({ sqlHome, tblsConfHome, docsHome }) => {
       const sqlPageNB = nbooks.SQLPageNotebook.create(sno.nbh);
       const initSQL = nbh.SQL`
         ${sno.bootstrapNB.bootstrapDDL()}
@@ -69,26 +79,16 @@ async function CLI() {
           yaml.stringify(tc.emit),
         );
       }
+
+      for (const tc of await sno.entityRelDiagrams()) {
+        await Deno.writeTextFile(
+          path.join(tblsConfHome, tc.identity),
+          tc.emit,
+        );
+      }
     })
     .command("help", new cliffy.HelpCommand().global())
     .command("completions", new cliffy.CompletionsCommand())
-    .command(
-      "diagram",
-      new cliffy.Command()
-        .description("Emit Diagram")
-        .option(
-          "-d, --dest <file:string>",
-          "Output destination, STDOUT if not supplied",
-        )
-        .action((options) => {
-          const diagram = sno.surveilrInfoSchemaDiagram();
-          if (options.dest) {
-            Deno.writeTextFileSync(options.dest, diagram);
-          } else {
-            console.log(diagram);
-          }
-        }),
-    )
     .parse();
 }
 

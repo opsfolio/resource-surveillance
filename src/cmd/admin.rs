@@ -1,4 +1,5 @@
 use anyhow::Context;
+use serde_rusqlite::from_rows;
 
 use super::AdminCommands;
 use super::AdminTestCommands;
@@ -259,6 +260,18 @@ impl AdminTestCommands {
         let mut dbc = DbConn::new(state_db_fs_path, cli.debug)?;
         let tx = dbc.init(Some(state_db_init_sql))?;
         tx.commit()?; // in case the database was created
+
+        let mut statement = dbc
+            .conn
+            .prepare("SELECT * FROM ur_ingest_resource_path_match_rule")?;
+        let rows = from_rows::<crate::models_polygenix::UrIngestResourcePathMatchRule>(
+            statement.query([]).unwrap(),
+        );
+        println!("==> `ur_ingest_resource_path_match_rule` serde rows");
+
+        for r in rows.flatten() {
+            println!("{:?}", r);
+        }
 
         println!("==> `ur_ingest_resource_path_match_rule` rows");
         let query_result = dbc.query_result_as_formatted_table(

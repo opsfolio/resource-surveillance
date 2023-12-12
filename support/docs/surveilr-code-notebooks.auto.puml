@@ -1,0 +1,62 @@
+@startuml surveilr-code-notebooks
+  hide circle
+  skinparam linetype ortho
+  skinparam roundcorner 20
+  skinparam class {
+    BackgroundColor White
+    ArrowColor Silver
+    BorderColor Silver
+    FontColor Black
+    FontSize 12
+  }
+
+  entity "assurance_schema" as assurance_schema {
+    * **assurance_schema_id**: VARCHAR
+    --
+    * assurance_type: TEXT
+    * code: TEXT
+      code_json: TEXT
+      governance: TEXT
+  }
+
+  entity "code_notebook_kernel" as code_notebook_kernel {
+    * **code_notebook_kernel_id**: VARCHAR
+    --
+    * kernel_name: TEXT
+      description: TEXT
+      mime_type: TEXT
+      file_extn: TEXT
+      elaboration: TEXT
+      governance: TEXT
+    --
+    codeNotebookCells: CodeNotebookCell[]
+  }
+
+  entity "code_notebook_cell" as code_notebook_cell {
+    * **code_notebook_cell_id**: VARCHAR
+    --
+    * notebook_kernel_id: VARCHAR
+    * notebook_name: TEXT
+    * cell_name: TEXT
+      cell_governance: TEXT
+    * interpretable_code: TEXT
+    * interpretable_code_hash: TEXT
+      description: TEXT
+      arguments: TEXT
+  }
+
+  entity "code_notebook_state" as code_notebook_state {
+    * **code_notebook_state_id**: VARCHAR
+    --
+    * code_notebook_cell_id: VARCHAR
+    * from_state: TEXT
+    * to_state: TEXT
+      transition_result: TEXT
+      transition_reason: TEXT
+      transitioned_at: TIMESTAMPTZ
+      elaboration: TEXT
+  }
+
+  code_notebook_kernel |o..o{ code_notebook_cell
+  code_notebook_cell |o..o{ code_notebook_state
+@enduml
