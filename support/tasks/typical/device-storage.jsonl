@@ -1,0 +1,2 @@
+# Steampipe
+{ "steampipeListAllAwsBuckets": "steampipe query \"select * from aws_s3_bucket\" --output json", "nature": "json" }

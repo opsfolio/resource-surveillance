@@ -1,0 +1,8 @@
+# Osquery
+{ "osqueryAllProcesses": "osqueryi \"select pid,name, path from processes\" --json", "nature": "json" }
+{ "osqueryUpTime":  "osqueryi \"SELECT days, hours, minutes, seconds FROM uptime\" --json", "nature": "json" }
+{ "osqueryAllProcesses": "osqueryi \"select pid,name, path from processes\" --json", "nature": "json" }
+{ "osqueryUpTime":  "osqueryi \"SELECT days, hours, minutes, seconds FROM uptime\" --json", "nature": "json" }
+
+# cnquery
+{ "cnqueryListAllAwsInstances": "cnquery run aws -c aws.ec2.instances --json", "nature": "json" }

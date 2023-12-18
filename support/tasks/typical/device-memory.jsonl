@@ -1,0 +1,2 @@
+# Osquery
+{ "osqueryMemoryInfo": "osqueryi \"SELECT * FROM memory_info\" --json", "nature": "json" }
