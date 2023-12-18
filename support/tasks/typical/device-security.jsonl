@@ -1,12 +1,9 @@
 # Osquery
-{ "osqueryAllUsers": "osqueryi \"SELECT * from users\" --json", "nature": "json" }
-{ "osqueryAllGroups": "osqueryi \"SELECT * from groups\" --json", "nature": "json" }
+{ "osqueryMfaEnabled": "osqueryi \"SELECT  node, value, label, path FROM augeas WHERE path='/etc/pam.d/sshd' AND value like '%pam_google_authenticator.so%'\" --json", "nature": "json" }
+{ "osqueryDenyRootLogin": "osqueryi \"SELECT node, value, label, path FROM augeas WHERE path='/etc/ssh/sshd_config' AND label like 'PermitRootLogin' AND value like 'no'\" --json", "nature": "json" }
 {"osqueryRemovedUserAccounts": "osqueryi \"SELECT * FROM users WHERE shell = 'disabled'\" --json", "nature": "json" }
 { "osqueryEncryptedPasswords": "osqueryi \"SELECT md5, sha1, sha256 from hash where path = '/etc/passwd'\" --json", "nature": "json" }
 { "osquerySshdProcess": "osqueryi \"SELECT name, cmdline, path FROM processes WHERE name = 'sshd'\" --json", "nature": "json" }
-{ "osqueryMfaEnabled": "osqueryi \"SELECT  node, value, label, path FROM augeas WHERE path='/etc/pam.d/sshd' AND value like '%pam_google_authenticator.so%'\" --json", "nature": "json" }
-{ "osqueryDenyRootLogin": "osqueryi \"SELECT node, value, label, path FROM augeas WHERE path='/etc/ssh/sshd_config' AND label like 'PermitRootLogin' AND value like 'no'\" --json", "nature": "json" }
-{ "osqueryWebsiteSslCertificate": "osqueryi \"SELECT valid_to, hostname FROM curl_certificate WHERE hostname in ('www.medigy.com', 'co.medigy.com')\" --json", "nature": "json" }
 { "osqueryAntivirusStatus": "osqueryi \"SELECT score FROM (SELECT case when COUNT(*) = 2 then 1 ELSE 0 END AS score FROM processes WHERE (name = 'clamd') OR (name = 'freshclam')) WHERE score == 1\" --json", "nature": "json" }
 
 #Steampipe

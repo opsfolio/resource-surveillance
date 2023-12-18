@@ -1,0 +1,8 @@
+# Osquery
+{ "osqueryUpTime":  "osqueryi \"SELECT days, hours, minutes, seconds FROM uptime\" --json", "nature": "json" }
+{ "osqueryAllUsers": "osqueryi \"SELECT * from users\" --json", "nature": "json" }
+{ "osqueryAllGroups": "osqueryi \"SELECT * from groups\" --json", "nature": "json" }
+{ "osqueryWebsiteSslCertificate": "osqueryi \"SELECT valid_to, hostname FROM curl_certificate WHERE hostname in ('www.medigy.com', 'co.medigy.com')\" --json", "nature": "json" }
+
+# Syslog
+{"sysLogInfo": "cat /var/log/syslog | grep \"$(date +\"%b %d\")\" | awk 'BEGIN { print \"[\" } { printf \"{\\\"date\\\":\\\"%s %s %s\\\", \\\"message\\\":\\\"\", $1, $2, $3; for (i=6; i<=NF; i++) printf \"%s \", $i; print \"\\\"},\" } END { print \"]\" }'"}

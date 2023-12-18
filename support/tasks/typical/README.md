@@ -1,8 +1,9 @@
 
 ### Executing shell tasks
 
-Persist the output of the shell task via surveilr ingest tasks
+Persist the output of the shell task via `surveilr ingest tasks`  in to the RSSD SQLite DB. example:
+
 
 ```bash
-cat support/tasks/typical/device-compute.jsonl | surveilr ingest tasks
+curl -sL https://raw.githubusercontent.com/opsfolio/resource-surveillance/main/support/tasks/typical/device-security.jsonl | surveilr ingest tasks
 ```
