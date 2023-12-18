@@ -1,4 +1,6 @@
 # Osquery
+{ "osquerySystemInfo": "osqueryi \"SELECT *  from system_info\" --json", "nature": "json" }
+// osqueryi "SELECT hostname, cpu_brand, cpu_physical_cores , cpu_logical_cores , computer_name, local_hostname  from system_info;"
 { "osqueryAllProcesses": "osqueryi \"select pid,name, path from processes\" --json", "nature": "json" }
 
 # cnquery
