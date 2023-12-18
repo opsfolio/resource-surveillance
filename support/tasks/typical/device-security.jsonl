@@ -7,6 +7,7 @@
 { "osqueryMfaEnabled": "osqueryi \"SELECT  node, value, label, path FROM augeas WHERE path='/etc/pam.d/sshd' AND value like '%pam_google_authenticator.so%'\" --json", "nature": "json" }
 { "osqueryDenyRootLogin": "osqueryi \"SELECT node, value, label, path FROM augeas WHERE path='/etc/ssh/sshd_config' AND label like 'PermitRootLogin' AND value like 'no'\" --json", "nature": "json" }
 { "osqueryWebsiteSslCertificate": "osqueryi \"SELECT valid_to, hostname FROM curl_certificate WHERE hostname in ('www.medigy.com', 'co.medigy.com')\" --json", "nature": "json" }
+{ "osqueryAntivirusStatus": "osqueryi \"SELECT score FROM (SELECT case when COUNT(*) = 2 then 1 ELSE 0 END AS score FROM processes WHERE (name = 'clamd') OR (name = 'freshclam')) WHERE score == 1\" --json", "nature": "json" }
 
 #Steampipe
 { "steampipeListDoFirewalls": "steampipe query \"SELECT status,  count(d.*) as Firewalls from  digitalocean_firewall as d group by  status\" --output json", "nature": "json" }
