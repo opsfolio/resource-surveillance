@@ -1,2 +1,3 @@
 # Osquery
 { "osqueryMemoryInfo": "osqueryi \"SELECT * FROM memory_info\" --json", "nature": "json" }
+{ "osqueryMemoryUtilization": "osqueryi \"SELECT CAST(memory_total AS REAL) / 1024 / 1024 / 1024 AS memory_total_gb, CAST(memory_free AS REAL) / 1024 / 1024 / 1024 AS memory_free_gb, (1.0 - CAST(memory_free AS REAL) / CAST(memory_total AS REAL)) * 100 AS memory_percentage_used, (CAST(memory_free AS REAL) / CAST(memory_total AS REAL)) * 100 AS memory_percentage_free FROM memory_info\" --json", "nature": "json" }
