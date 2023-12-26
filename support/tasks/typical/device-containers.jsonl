@@ -1,0 +1,11 @@
+#  Osquery ContainerInfo
+{ "listContainers": "osqueryi \"SELECT * FROM docker_containers\" --json", "nature": "json" }
+{ "listContainerImages": "osqueryi \"SELECT * FROM docker_images\" --json", "nature": "json" }
+{ "containerNetworkInformation": "osqueryi \"SELECT id, ip_address FROM docker_container_networks\" --json", "nature": "json" }
+{ "listContainerVolumes": "osqueryi \"SELECT mount_point, name FROM docker_volumes\" --json", "nature": "json" }
+{ "containerDaemonInfo": "osqueryi \"SELECT * FROM processes WHERE name = 'dockerd'\" --json", "nature": "json" }
+{ "dockerInfo": "osqueryi \"SELECT containers, containers_running AS running, containers_paused AS paused, containers_stopped AS stopped, images FROM docker_info\" --json", "nature": "json" }
+{ "dockerhostInfo": "osqueryi \"SELECT os, os_type, architecture, cpus, memory FROM docker_info\" --json", "nature": "json" }
+{ "dockerVersion": "osqueryi \"SELECT version, os, arch, git_commit FROM docker_version\" --json", "nature": "json" }
+{ "dockerImage": "osqueryi \"SELECT SUBSTR(id, 0, 8) AS id, strftime('%d-%m-%Y ', datetime(created, 'unixepoch')) AS created, size_bytes, tags FROM docker_images WHERE LENGTH(tags) < 20 AND tags <> '' AND tags != '<none>:<none>' LIMIT 5\" --json", "nature": "json" }
+{ "dockerNetwork": "osqueryi \"SELECT SUBSTR(id, 0, 8) AS container, name, SUBSTR(network_id, 0, 8) AS network, gateway, ip_address FROM docker_container_networks WHERE name = 'appliance'\" --json", "nature": "json" }
