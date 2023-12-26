@@ -93,5 +93,5 @@ sudo dpkg -i $OSQ_APT_CACHE/$OSQ_DEB_FILE
 ###  Independent RSSD DB generation from inside each device terminal
 
 ```bash
-curl -sL https://raw.githubusercontent.com/opsfolio/resource-surveillance/main/support/tasks/typical/device-evidence-collector.sh
+curl -fsSL https://raw.githubusercontent.com/opsfolio/resource-surveillance/main/support/tasks/typical/device-evidence-collector.sh | bash
 ```
