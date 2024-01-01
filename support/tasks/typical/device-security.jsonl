@@ -18,4 +18,4 @@
 { "cnqueryListAllPorts": "cnquery run -c \"ports.listening { port process }\" --json", "nature": "json" }
 
 # Authlog
-{"authLogInfo": "grep \"$(date +\\\"%b %d\\\")\" /var/log/auth.log | jq -R -s -c 'split(\"\\n\") | .[:-1] | map(split(\" \") | {date: \"\\(.[0]) \\(.[1]) \\(.[2])\", message: \"\\(.[5:] | join(\" \"))\"})'", "nature": "json"}
+# {"authLogInfo": "grep \"$(date +\\\"%b %d\\\")\" /var/log/auth.log | jq -R -s -c 'split(\"\\n\") | .[:-1] | map(split(\" \") | {date: \"\\(.[0]) \\(.[1]) \\(.[2])\", message: \"\\(.[5:] | join(\" \"))\"})'", "nature": "json"}
