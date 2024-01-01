@@ -1,5 +1,5 @@
 #  Osquery ContainerInfo
-{ "listContainers": "osqueryi \"SELECT * FROM docker_containers\" --json", "nature": "json" }
+{ "listContainers": "osqueryi \"SELECT id, name, image, status FROM docker_containers\" --json", "nature": "json" }
 { "listContainerImages": "osqueryi \"SELECT * FROM docker_images\" --json", "nature": "json" }
 { "containerNetworkInformation": "osqueryi \"SELECT id, ip_address FROM docker_container_networks\" --json", "nature": "json" }
 { "listContainerVolumes": "osqueryi \"SELECT mount_point, name FROM docker_volumes\" --json", "nature": "json" }
