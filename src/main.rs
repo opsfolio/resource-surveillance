@@ -16,10 +16,12 @@ mod cmd;
 mod format;
 mod frontmatter;
 mod ingest;
+mod keys;
 mod models_polygenix;
 mod persist;
 mod resource;
 mod shell;
+mod sign;
 
 fn main() -> anyhow::Result<()> {
     let cli = cmd::Cli::parse();

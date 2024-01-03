@@ -6,9 +6,14 @@ use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use crate::cmd::ingest;
+use crate::keys::key_management::update_private_key;
 use crate::persist::*;
 use crate::resource::*;
 use crate::shell::*;
+use crate::sign;
+use base64::{engine::general_purpose, Engine as _};
+use std::fs;
 
 // separate the SQL from the execute so we can use it in logging, errors, etc.
 const INS_UR_INGEST_SESSION_SQL: &str = indoc! {"
@@ -26,8 +31,8 @@ const INS_UR_ISFSP_SQL: &str = indoc! {"
 
 // in INS_UR_SQL the `DO UPDATE SET size_bytes = EXCLUDED.size_bytes` is a workaround to allow RETURNING uniform_resource_id when the row already exists
 const INS_UR_SQL: &str = indoc! {"
-        INSERT INTO uniform_resource (uniform_resource_id, device_id, ingest_session_id, ingest_fs_path_id, uri, nature, content, content_digest, size_bytes, last_modified_at, content_fm_body_attrs, frontmatter)
-                              VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+        INSERT INTO uniform_resource (uniform_resource_id, device_id, ingest_session_id, ingest_fs_path_id, uri, nature, content, content_digest, size_bytes, last_modified_at, content_fm_body_attrs, frontmatter, digital_signature)
+                              VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
                          ON CONFLICT (device_id, content_digest, uri, size_bytes, last_modified_at) 
                            DO UPDATE SET size_bytes = EXCLUDED.size_bytes
                            RETURNING uniform_resource_id"};
@@ -46,6 +51,18 @@ const INS_UR_ISFSP_ENTRY_SQL: &str = indoc! {"
 const INS_UR_IS_TASK_SQL: &str = indoc! {"
         INSERT INTO ur_ingest_session_task (ur_ingest_session_task_id, ingest_session_id, uniform_resource_id, captured_executable, ur_status, ur_diagnostics) 
                                             VALUES (ulid(), ?, ?, ?, ?, ?)"};
+
+// Add similar update statements for the digital signature
+// const UPD_UR_DS_SQL: &str = indoc! { "UPDATE uniform_resource SET digital_signature = ?, last_modified_at = ? WHERE uniform_resource_id = ?;" };
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ResourceMessage {
+    pub(crate) uri: String,
+    pub(crate) nature: String,
+    pub(crate) size: i64,
+    // last_modified_at: DateTime<Utc>, // Using DateTime<Utc> for a consistent representation
+    pub(crate) content_text: String,
+}
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -249,31 +266,80 @@ pub trait UniformResourceWriter<Resource> {
         let uri = resource.uri.clone();
         match resource.content_text_supplier.as_ref() {
             Some(text_supplier) => match text_supplier() {
-                Ok(text) => match urw_state.ingest_stmts.ins_ur_stmt.query_row(
-                    params![
-                        urw_state.device_id,
-                        urw_state.ingest_session_id,
-                        urw_state.ingest_fs_path_id,
-                        resource.uri,
-                        resource.nature,
-                        text.content_text(),
-                        text.content_digest_hash(),
-                        resource.size,
-                        resource.last_modified_at.unwrap().to_string(),
-                        &None::<String>, // content_fm_body_attrs
-                        &None::<String>, // frontmatter
-                    ],
-                    |row| row.get(0),
-                ) {
-                    Ok(new_or_existing_ur_id) => UniformResourceWriterResult {
-                        uri,
-                        action: UniformResourceWriterAction::Inserted(new_or_existing_ur_id, None),
-                    },
-                    Err(err) => UniformResourceWriterResult {
-                        uri,
-                        action: UniformResourceWriterAction::Error(err.into()),
-                    },
-                },
+                Ok(text) => {
+                    let resource_message = ResourceMessage {
+                        uri: resource.uri.clone(),
+                        nature: resource
+                            .nature
+                            .clone()
+                            .unwrap_or("defaultNature".to_string()),
+                        size: resource.size.map(|s| s as i64).unwrap_or(0),
+                        // last_modified_at: Utc::now(), // This will be the ingestion timestamp
+                        content_text: text.content_text().to_string(), // Convert &str to String
+                    };
+                    let serialized_message = serde_json::to_string(&resource_message)
+                        .expect("Failed to serialize resource message");
+
+                    let digital_signature =
+                        sign::sign_message_with_privkey_bytes(serialized_message.as_bytes());
+
+                    // println!("Serialized message: {}", serialized_message);
+                    // println!(
+                    //     "Digital signature before base64 encode: {:?}",
+                    //     digital_signature
+                    // );
+                    let digital_signature_base64 = match digital_signature {
+                        Ok(sig) => general_purpose::STANDARD.encode(sig),
+                        Err(_) => {
+                            return UniformResourceWriterResult {
+                                uri,
+                                action: UniformResourceWriterAction::Error(anyhow::anyhow!(
+                                    "insert_text(): Digital signature calculation failed"
+                                )),
+                            }
+                        }
+                    };
+
+                    // Proceed with database insertion
+                    match urw_state.ingest_stmts.ins_ur_stmt.query_row(
+                        params![
+                            urw_state.device_id,
+                            urw_state.ingest_session_id,
+                            urw_state.ingest_fs_path_id,
+                            resource.uri,
+                            resource.nature,
+                            text.content_text(),
+                            text.content_digest_hash(),
+                            resource.size,
+                            resource.last_modified_at.unwrap().to_string(),
+                            &None::<String>,          // content_fm_body_attrs
+                            &None::<String>,          // frontmatter
+                            digital_signature_base64, // Insert the digital_signature here.
+                        ],
+                        |row| row.get(0),
+                    ) {
+                        Ok(new_or_existing_ur_id) => {
+                            println!(
+                                "uniform_resource Insertion successful. ID: {:?}",
+                                new_or_existing_ur_id
+                            );
+                            UniformResourceWriterResult {
+                                uri,
+                                action: UniformResourceWriterAction::Inserted(
+                                    new_or_existing_ur_id,
+                                    None,
+                                ),
+                            }
+                        }
+                        Err(err) => {
+                            println!("uniform_resource Insertion failed with error: {:?}", err);
+                            UniformResourceWriterResult {
+                                uri,
+                                action: UniformResourceWriterAction::Error(err.into()),
+                            }
+                        }
+                    }
+                }
                 Err(err) => UniformResourceWriterResult {
                     uri,
                     action: UniformResourceWriterAction::ContentSupplierError(err),
@@ -765,13 +831,43 @@ pub fn ingest_files(
 
     // putting everything inside a transaction improves performance significantly
     let tx = dbc.init(Some(&ingest_args.state_db_init_sql))?;
-    let (device_id, _device_name) = upserted_device(&tx, &crate::DEVICE).with_context(|| {
-        format!(
-            "[ingest_files] upserted_device {} in {}",
-            crate::DEVICE.name,
-            db_fs_path
-        )
-    })?;
+
+    if let Some(sign_path) = ingest_args.sign.as_ref().filter(|s| !s.is_empty()) {
+        let private_key_result = fs::read_to_string(sign_path);
+
+        match private_key_result {
+            Ok(private_key_content) => {
+                // If the read was successful, update the private key
+                update_private_key(&private_key_content);
+            }
+            Err(e) => {
+                // If there was an error reading the file, handle it (e.g., by logging or exiting)
+                println!("Error reading private key: {}", e);
+                // Handle error appropriately here
+            }
+        }
+    }
+    println!("Signing device");
+    // TODO: Refactor DRY.
+    let device_boundary = crate::DEVICE
+        .boundary
+        .as_deref()
+        .unwrap_or("default_boundary");
+    // TODO: change the string formatting to the more stable method of json serialize/deserialize from a user-defined type.
+    let message = format!("{}{}", crate::DEVICE.name, device_boundary);
+    let digital_signature = sign::sign_message_with_privkey_bytes(message.as_bytes())?;
+    let digital_signature_base64 = general_purpose::STANDARD.encode(digital_signature);
+
+    let (device_id, _device_name) =
+        upserted_device(&tx, &crate::DEVICE, Some(&digital_signature_base64)).with_context(
+            || {
+                format!(
+                    "[ingest_files] upserted_device {} in {}",
+                    crate::DEVICE.name,
+                    db_fs_path
+                )
+            },
+        )?;
 
     // the ulid() function we're using below is not built into SQLite, we define
     // it in persist::prepare_conn so it's initialized as part of `dbc`.
@@ -1066,13 +1162,28 @@ pub fn ingest_tasks(
 
     // putting everything inside a transaction improves performance significantly
     let tx = dbc.init(Some(&ingest_args.state_db_init_sql))?;
-    let (device_id, _device_name) = upserted_device(&tx, &crate::DEVICE).with_context(|| {
-        format!(
-            "[ingest_tasks] upserted_device {} in {}",
-            crate::DEVICE.name,
-            db_fs_path
-        )
-    })?;
+
+    println!("Ingest tasks");
+    // TODO: Refactor DRY.
+    let device_boundary = crate::DEVICE
+        .boundary
+        .as_deref()
+        .unwrap_or("default_boundary");
+    // TODO: change the string formatting to the more stable method of json serialize/deserialize from a user-defined type.
+    let message = format!("{}{}", crate::DEVICE.name, device_boundary);
+    let digital_signature = sign::sign_message_with_privkey_bytes(message.as_bytes())?;
+    let digital_signature_base64 = general_purpose::STANDARD.encode(digital_signature);
+
+    let (device_id, _device_name) =
+        upserted_device(&tx, &crate::DEVICE, Some(&digital_signature_base64)).with_context(
+            || {
+                format!(
+                    "[ingest_tasks] upserted_device {} in {}",
+                    crate::DEVICE.name,
+                    db_fs_path
+                )
+            },
+        )?;
 
     let mut behavior = IngestTasksBehavior::from_stdin();
     let classifier = EncounterableResourcePathClassifier::default_from_conn(&tx)?;

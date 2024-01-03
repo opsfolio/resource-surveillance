@@ -69,3 +69,10 @@ run *args='--help':
 
 # Perform all the functions to prepare for a release
 prepare-release: lint help-markdown tbls test test-e2e
+
+generate-public-key:
+    openssl rsa -in zitadel-newline-edited-private-key.pem -pubout -out zitadel-openssl-generated-public-key.pem
+
+add-signature:
+
+verify-signature:

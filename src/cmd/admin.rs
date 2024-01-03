@@ -3,8 +3,96 @@ use serde_rusqlite::from_rows;
 
 use super::AdminCommands;
 use super::AdminTestCommands;
+use crate::ingest::ResourceMessage;
+use crate::keys::key_management::{update_private_key, update_public_key};
 use crate::persist::*;
 use crate::resource::EncounterableResourcePathClassifier;
+use crate::sign;
+// use anyhow::Error;
+use base64::{engine::general_purpose, Engine as _};
+use indoc::indoc;
+use serde_json::{json, to_string_pretty, Value};
+use std::fs;
+use std::fs::File;
+// use std::fs::OpenOptions;
+use std::io::Write;
+
+const QUERY_UR_DS_SQL: &str = indoc! { "
+    SELECT uniform_resource_id, uri, nature, size_bytes, last_modified_at, content, digital_signature 
+    FROM uniform_resource
+"};
+
+pub fn verify_all_uniform_resource_signatures(db_path: &str) -> Result<(), anyhow::Error> {
+    let mut log_entries: Vec<Value> = Vec::new();
+    let conn = rusqlite::Connection::open(db_path)?;
+    let mut stmt = conn.prepare(QUERY_UR_DS_SQL)?;
+
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>("uniform_resource_id")?,
+            ResourceMessage {
+                uri: row.get("uri")?,
+                nature: row.get("nature")?,
+                size: row.get("size_bytes")?,
+                content_text: row.get("content")?,
+            },
+            row.get::<_, String>("digital_signature")?,
+        ))
+    })?;
+
+    for row_result in rows {
+        let (uniform_resource_id, resource_message, digital_sig_base64): (
+            String,
+            ResourceMessage,
+            String,
+        ) = row_result?;
+
+        let mut verification_result: String = String::new();
+
+        let serialized_message = serde_json::to_string(&resource_message)?;
+
+        let digital_signature = general_purpose::STANDARD
+            .decode(&digital_sig_base64)
+            .map_err(|e| anyhow::anyhow!("Verify: Digital signature decoding failed: {}", e))?;
+
+        match sign::verify_signature_with_pubkey_bytes(
+            serialized_message.as_bytes(),
+            &digital_signature,
+        ) {
+            Ok(is_valid) => {
+                if is_valid {
+                    verification_result = "Signature verified".to_string();
+                    println!("Signature verified for {}", resource_message.uri);
+                } else {
+                    verification_result = "Signature verification failed".to_string();
+                    println!("Signature verification failed for {}", resource_message.uri);
+                }
+            }
+            Err(err) => {
+                verification_result = "Failed to verify signature".to_string();
+                eprintln!(
+                    "Failed to verify signature for {}: {}",
+                    resource_message.uri, err
+                );
+            }
+        };
+        let log_entry = json!({
+            "uniform_resource_id": uniform_resource_id,
+            "verification_result": verification_result
+        });
+        log_entries.push(log_entry);
+    }
+    let json_log_array = to_string_pretty(&log_entries)?;
+
+    let file_path = "verification_results.json";
+
+    let mut file = File::create(file_path)?;
+    file.write_all(json_log_array.as_bytes())?;
+
+    println!("Verification results written to {}", file_path);
+
+    Ok(())
+}
 
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
@@ -16,14 +104,27 @@ impl AdminCommands {
                 state_db_init_sql,
                 remove_existing_first,
                 with_device,
-            } => self.init(
-                cli,
-                state_db_fs_path,
-                state_db_init_sql,
-                *remove_existing_first,
-                *with_device,
-                None,
-            ),
+                sign,
+            } => {
+                // TODO: For accepting a private key from the environment, you might implement an option like
+                // --env-key ENV_VAR_NAME, where ENV_VAR_NAME is the name of the environment variable that contains
+                // the private key. This method allows for more secure handling of keys, as they won't be directly
+                // exposed in command history or logs.
+
+                // TODO: Remember to handle these keys securely and ensure that they are encrypted or protected at all
+                // stages of handling within the application. Also, proper error handling and user feedback would be
+                // crucial for these features, especially since they deal with sensitive information.
+
+                self.init(
+                    cli,
+                    state_db_fs_path,
+                    state_db_init_sql,
+                    *remove_existing_first,
+                    *with_device,
+                    None,
+                    sign,
+                )
+            }
             AdminCommands::Merge {
                 state_db_fs_path,
                 state_db_init_sql,
@@ -40,6 +141,10 @@ impl AdminCommands {
                 *remove_existing_first,
                 *sql_only,
             ),
+            AdminCommands::Verify {
+                pub_key,
+                db_to_verify,
+            } => self.verify(cli, pub_key.clone(), db_to_verify.clone()),
             AdminCommands::CliHelpMd => self.cli_help_markdown(),
             AdminCommands::Test(test_args) => test_args.command.execute(cli, args, test_args),
         }
@@ -53,9 +158,22 @@ impl AdminCommands {
         remove_existing_first: bool,
         with_device: bool,
         sql_script: Option<&str>,
+        sign: &str,
     ) -> anyhow::Result<()> {
         if cli.debug > 0 {
             println!("Initializing {}", db_fs_path);
+        }
+        if !sign.is_empty() {
+            let private_key_result = fs::read_to_string(sign);
+
+            match private_key_result {
+                Ok(private_key) => {
+                    update_private_key(&private_key);
+                }
+                Err(e) => {
+                    println!("Error reading private key: {}", e);
+                }
+            }
         }
         if remove_existing_first {
             match std::fs::remove_file(db_fs_path) {
@@ -71,16 +189,27 @@ impl AdminCommands {
             .init(Some(db_init_sql_globs))
             .with_context(|| format!("[AdminCommands::init] init transaction {}", db_fs_path))?;
 
+        println!("Entering with_device block");
         if with_device {
-            // insert the device or, if it exists, get its current ID and name
+            println!("In with_device block");
+            let device_boundary = crate::DEVICE
+                .boundary
+                .as_deref()
+                .unwrap_or("default_boundary");
+            let message = format!("{}{}", crate::DEVICE.name, device_boundary);
+            println!("invoking sign_message_with_private_keys()");
+            let digital_signature = sign::sign_message_with_privkey_bytes(message.as_bytes())?;
+            let digital_signature_base64 = general_purpose::STANDARD.encode(digital_signature);
+
             let (device_id, device_name) =
-                upserted_device(&tx, &crate::DEVICE).with_context(|| {
-                    format!(
-                        "[AdminCommands::init] upserted_device {} in {}",
-                        crate::DEVICE.name,
-                        db_fs_path
-                    )
-                })?;
+                upserted_device(&tx, &crate::DEVICE, Some(&digital_signature_base64))
+                    .with_context(|| {
+                        format!(
+                            "[AdminCommands::init] upserted_device {} in {}",
+                            crate::DEVICE.name,
+                            db_fs_path
+                        )
+                    })?;
 
             if cli.debug > 0 {
                 println!(
@@ -212,8 +341,33 @@ impl AdminCommands {
                 remove_existing_first,
                 false,
                 Some(sql_script.as_str()),
+                "", // using empty string to signal a merge.
             )
         }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn verify(
+        &self,
+        cli: &super::Cli,
+        pub_key: String, // Path to the public key.
+        db_to_verify: String,
+    ) -> Result<(), anyhow::Error> {
+        if !pub_key.is_empty() && !db_to_verify.is_empty() {
+            // println!("Verifying digital signatures in DB with public key");
+
+            let public_key_content =
+                fs::read_to_string(&pub_key).context("Error reading public key file")?;
+            update_public_key(&public_key_content);
+
+            let db_path = &db_to_verify;
+            verify_all_uniform_resource_signatures(db_path.as_ref())
+                .context("Failed to verify signatures")?;
+        } else {
+            return Err(anyhow::Error::msg("Public key or DB path is empty"));
+        }
+
+        Ok(())
     }
 }
 

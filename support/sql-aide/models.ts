@@ -261,6 +261,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     segmentation: gd.jsonTextNullable(),
     state_sysinfo: gd.jsonTextNullable(),
     elaboration: gd.jsonTextNullable(),
+    digital_signature: gd.text(),
     ...gm.housekeeping.columns,
   }, {
     isIdempotent: true,
@@ -287,6 +288,38 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
         "any sysinfo or other state data that is specific to this device (mutable)";
       c.elaboration.description =
         "any elaboration needed for the device (mutable)";
+    },
+  });
+
+  const deviceAuth = gm.textPkTable("device_auth", {
+    device_auth_id: gm.keys.varCharPrimaryKey(),
+    device_id: device.belongsTo.device_id(),
+    user_id: gd.text(),
+    key_id: gd.text(),
+    digital_signature: gd.text(),
+    ...gm.housekeeping.columns,
+  }, {
+    isIdempotent: true,
+    constraints: (props, tableName) => {
+      const c = SQLa.tableConstraints(tableName, props);
+      return [
+        c.unique("device_id", "key_id"),
+      ];
+    },
+    indexes: (props, tableName) => {
+      const tif = SQLa.tableIndexesFactory(tableName, props);
+      return []; // Add indexes as needed
+    },
+    populateQS: (t, c) => {
+      t.description = "Table for storing device authentication data including digital signatures.";
+      c.device_auth_id.description = "Primary key identifier for the device authentication record.";
+      c.device_id.description = "Foreign key reference to the device table.";
+      c.user_id.description = "Identifier for the user associated with this record.";
+      c.key_id.description = "Identifier for the key used in digital signature.";
+      c.digital_signature.description = "Digital signature for the authentication record.";
+      c.created_at.description = "Timestamp of when the record was created.";
+      c.updated_at.description = "Timestamp of when the record was last updated.";
+      c.deleted_at.description = "Timestamp of when the record was deleted, if applicable.";
     },
   });
 
@@ -392,6 +425,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     ingest_started_at: gd.dateTime(),
     ingest_finished_at: gd.dateTimeNullable(),
     elaboration: gd.jsonTextNullable(),
+    // digital_signature: gd.text(),
     ...gm.housekeeping.columns,
   }, {
     isIdempotent: true,
@@ -459,6 +493,8 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     content_fm_body_attrs: gd.jsonTextNullable(),
     frontmatter: gd.jsonTextNullable(),
     elaboration: gd.jsonTextNullable(),
+    // digital_signature: gd.text(),
+    digital_signature: gd.textNullable(),
     ...gm.housekeeping.columns,
   }, {
     isIdempotent: true,
@@ -656,6 +692,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   const informationSchema = {
     tables: [
       device,
+      deviceAuth,
       behavior,
       urIngestPathMatchRule,
       urIngestPathRewriteRule,
@@ -668,6 +705,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     ],
     tableIndexes: [
       ...device.indexes,
+      ...deviceAuth.indexes,
       ...behavior.indexes,
       ...urIngestPathMatchRule.indexes,
       ...urIngestPathRewriteRule.indexes,
@@ -683,6 +721,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
   return {
     codeNbModels,
     device,
+    deviceAuth,
     behavior,
     urIngestPathMatchRule,
     urIngestPathRewriteRule,

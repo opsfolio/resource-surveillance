@@ -7,3 +7,6 @@ resource-surveillance*.sqlite.db*
 
 # rust-specific
 /target
+
+# keys
+*.pem

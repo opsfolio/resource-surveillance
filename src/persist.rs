@@ -332,13 +332,14 @@ query_sql_rows_no_args!(
 // ulid() is not built into SQLite, be sure to register it with prepare_conn
 query_sql_single!(
     upsert_device,
-    r"INSERT INTO device (device_id, name, boundary, state, state_sysinfo) VALUES (ulid(), ?, ?, ?, ?)
-      ON CONFLICT(name, state, boundary) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+    r"INSERT INTO device (device_id, name, boundary, state, state_sysinfo, digital_signature) VALUES (ulid(), ?, ?, ?, ?, ?)
+      ON CONFLICT(name, state, boundary) DO UPDATE SET updated_at = CURRENT_TIMESTAMP, digital_signature = EXCLUDED.digital_signature
       RETURNING device_id, name",
     name: &str,
     boundary: &str,
     state: &str,
-    state_sysinfo: &str;
+    state_sysinfo: &str,
+    digital_signature: &str;
     device_id: String,
     name: String
 );
@@ -716,7 +717,11 @@ pub fn execute_batch_stateful(
     }
 }
 
-pub fn upserted_device(conn: &Connection, device: &Device) -> RusqliteResult<(String, String)> {
+pub fn upserted_device(
+    conn: &Connection,
+    device: &Device,
+    digital_signature: Option<&str>,
+) -> RusqliteResult<(String, String)> {
     upsert_device(
         conn,
         &device.name,
@@ -727,5 +732,6 @@ pub fn upserted_device(conn: &Connection, device: &Device) -> RusqliteResult<(St
         },
         &device.state_json(),
         &device.state_sysinfo_json(),
+        digital_signature.unwrap_or(String::from("").as_ref()), // passing digital signature to the query
     )
 }

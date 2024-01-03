@@ -59,6 +59,10 @@ pub enum AdminCommands {
         /// add the current device in the empty database's device table
         #[arg(long)]
         with_device: bool,
+
+        // Accept the private key as
+        #[arg(long)]
+        sign: String,
     },
 
     /// merge multiple surveillance state databases into a single one
@@ -86,6 +90,23 @@ pub enum AdminCommands {
         /// only generate SQL and emit to STDOUT (no actual merge)
         #[arg(long)]
         sql_only: bool,
+        // Accept the public key as an env variable name here.
+        // #[arg(long)]
+        // verify: String,
+
+        // Verify the signatures in the DB with the public key specified in the verify option.
+        // #[arg(long)]
+        // db_to_verify: String,
+    },
+
+    Verify {
+        // Accept the public key as an env variable name here.
+        #[arg(long)]
+        pub_key: String,
+
+        // Verify the signatures in the DB with the public key specified in the verify option.
+        #[arg(long)]
+        db_to_verify: String,
     },
 
     /// generate CLI help markdown
@@ -220,6 +241,10 @@ pub struct IngestFilesArgs {
     /// save the options as a new behavior
     #[arg(long)]
     pub save_behavior: Option<String>,
+
+    // Accept the private key as
+    #[arg(long)]
+    pub sign: Option<String>,
 }
 
 /// Notebooks maintenance utilities
@@ -244,6 +269,10 @@ pub struct IngestTasksArgs {
     /// show session stats as JSON after completion
     #[arg(long)]
     pub stats_json: bool,
+
+    // Accept the private key as
+    #[arg(long)]
+    pub sign: String,
 }
 
 /// Ingest uniform resources content from multiple sources

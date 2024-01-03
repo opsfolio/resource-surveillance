@@ -39,6 +39,25 @@ $ surveilr --help                         # get CLI help (pay special attention 
 $ surveilr --completions fish | source    # setup shell completions to reduce typing
 ```
 
+Here's how you could digitally sign the uniform resources table with a pem file. [WIP]
+TODO: accept from the private key from environment variables instead of pem files.
+
+```bash
+$ surveilr ingest files --sign priv-pem-file -r /fs-path
+```
+
+Run the following command to generate the public key from the Zitadel private key.
+(TODO: access the public key using the JWT provided from Zitadel).
+```bash
+$ openssl rsa -in private-key.pem -pubout -out public-key.pem
+```
+
+Here's how you could verify the digital signature added in the above step for a specified table. [WIP]
+TODO: Accept from the public key from environment variables instead of pem files.
+```bash
+$ surveilr admin verify --pub-key pub-pem-file --db-to-verify resource-surveillance.sqlite.db
+```
+
 See [CLI Help](support/docs/CLI-help.md) for summary of what `surveilr --help`
 provides. Though [CLI Help](support/docs/CLI-help.md) is a good reference, it's
 best to depend on `surveilr --help` and `surveilr <command> --help` because it
