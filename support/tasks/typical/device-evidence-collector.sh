@@ -4,20 +4,24 @@ set -o errexit -o nounset -o pipefail
 # Set environment variable
 export SURVEILR_STATEDB_FS_PATH="/tmp/resource-surveillance-$(hostname).sqlite.db"
 
-# Remove old resource-surveillance DB file
-rm -f ${SURVEILR_STATEDB_FS_PATH}
+# Define the file to be removed
+CURRENT_DB="resource-surveillance-$(hostname).sqlite.db"
 
-# Define an array of task URLs
-tasks_urls=(
-  "https://raw.githubusercontent.com/opsfolio/resource-surveillance/main/support/tasks/typical/device-security.jsonl"
-  "https://raw.githubusercontent.com/opsfolio/resource-surveillance/main/support/tasks/typical/device-elaboration.jsonl"
-  "https://raw.githubusercontent.com/opsfolio/resource-surveillance/main/support/tasks/typical/device-memory.jsonl"
-  "https://raw.githubusercontent.com/opsfolio/resource-surveillance/main/support/tasks/typical/device-security.jsonl"
-  "https://raw.githubusercontent.com/opsfolio/resource-surveillance/main/support/tasks/typical/device-storage.jsonl"
-  "https://raw.githubusercontent.com/opsfolio/resource-surveillance/main/support/tasks/typical/device-containers.jsonl"
-)
+# Remove the current file if it exists
+if [ -e "$CURRENT_DB" ]; then
+  rm "$CURRENT_DB"
+fi
+
+# Define the GitHub repository and API URL
+GITHUB_REPO_URL="https://api.github.com/repos/opsfolio/resource-surveillance/contents/support/tasks/typical"
+
+# Fetch the JSONL file URLs using GitHub API
+JSONL_URLS=($(curl -s "$GITHUB_REPO_URL" | jq -r '.[].download_url'))
 
 # Loop through the URLs and execute the curl command
-for url in "${tasks_urls[@]}"; do
-  curl -sL "$url" | surveilr ingest tasks
+for JSONL_URL in "${JSONL_URLS[@]}"; do
+  curl -sL "$JSONL_URL" | surveilr ingest tasks
 done
+
+# Copy the created file to AWS using rclone
+rclone -vv copy "${SURVEILR_STATEDB_FS_PATH}" sftp:/home/resource-surveillance/RSSD
