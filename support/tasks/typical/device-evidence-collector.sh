@@ -2,23 +2,25 @@
 set -o errexit -o nounset -o pipefail
 
 # Set environment variable
-export SURVEILR_STATEDB_FS_PATH="/tmp/resource-surveillance-$(hostname).sqlite.db"
+export SURVEILR_STATEDB_FS_PATH="/home/niba_nazar/surveilr/resource-surveillance-$(hostname).sqlite.db"
 
 # Remove the current file if it exists
 if [ -e "$SURVEILR_STATEDB_FS_PATH" ]; then
-  rm "$SURVEILR_STATEDB_FS_PATH"
+  rm "$SURVEILR_STATEDB_FS_PATH" || true  # Ignore errors during removal
 fi
+# Continue script execution even if the file removal fails
 
-
-# Define the GitHub repository and API URL
+# Define the GitHub repository and directory URL
 GITHUB_REPO_URL="https://api.github.com/repos/opsfolio/resource-surveillance/contents/support/tasks/typical"
 
-# Fetch the JSONL file URLs using GitHub API
-JSONL_URLS=($(curl -s "$GITHUB_REPO_URL" | jq -r '.[].download_url'))
+# Fetch all file URLs using GitHub API
+all_urls=($(curl -s "$GITHUB_REPO_URL" | grep -o 'https://raw.githubusercontent.com[^"]*'))
 
-# Loop through the URLs and execute the curl command
-for JSONL_URL in "${JSONL_URLS[@]}"; do
-  curl -sL "$JSONL_URL" | surveilr ingest tasks
+# Loop through the URLs and execute the curl command for those ending with ".jsonl"
+for url in "${all_urls[@]}"; do
+  if [[ "$url" == *".jsonl" ]]; then
+    curl -sL "$url" | surveilr ingest tasks
+  fi
 done
 
 # Copy the created file to AWS using rclone
