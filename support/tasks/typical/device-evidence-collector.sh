@@ -2,7 +2,7 @@
 set -o errexit -o nounset -o pipefail
 
 # Set environment variable
-export SURVEILR_STATEDB_FS_PATH="/tmp/surveilr/resource-surveillance-$(hostname).sqlite.db"
+export SURVEILR_STATEDB_FS_PATH="/tmp/resource-surveillance-$(hostname).sqlite.db"
 
 # Remove the current file if it exists
 if [ -e "$SURVEILR_STATEDB_FS_PATH" ]; then
