@@ -2,12 +2,13 @@
 set -o errexit -o nounset -o pipefail
 
 # Set environment variable
-export SURVEILR_STATEDB_FS_PATH="/home/niba_nazar/surveilr/resource-surveillance-$(hostname).sqlite.db"
+export SURVEILR_STATEDB_FS_PATH="/tmp/surveilr/resource-surveillance-$(hostname).sqlite.db"
 
 # Remove the current file if it exists
 if [ -e "$SURVEILR_STATEDB_FS_PATH" ]; then
   rm "$SURVEILR_STATEDB_FS_PATH" || true  # Ignore errors during removal
 fi
+
 # Continue script execution even if the file removal fails
 
 # Define the GitHub repository and directory URL
