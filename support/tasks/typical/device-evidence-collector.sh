@@ -4,13 +4,11 @@ set -o errexit -o nounset -o pipefail
 # Set environment variable
 export SURVEILR_STATEDB_FS_PATH="/tmp/resource-surveillance-$(hostname).sqlite.db"
 
-# Define the file to be removed
-CURRENT_DB="resource-surveillance-$(hostname).sqlite.db"
-
 # Remove the current file if it exists
-if [ -e "$CURRENT_DB" ]; then
-  rm "$CURRENT_DB"
+if [ -e "$SURVEILR_STATEDB_FS_PATH" ]; then
+  rm "$SURVEILR_STATEDB_FS_PATH"
 fi
+
 
 # Define the GitHub repository and API URL
 GITHUB_REPO_URL="https://api.github.com/repos/opsfolio/resource-surveillance/contents/support/tasks/typical"
