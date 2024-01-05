@@ -19,3 +19,6 @@
 
 # Authlog
 # {"authLogInfo": "grep \"$(date +\\\"%b %d\\\")\" /var/log/auth.log | jq -R -s -c 'split(\"\\n\") | .[:-1] | map(split(\" \") | {date: \"\\(.[0]) \\(.[1]) \\(.[2])\", message: \"\\(.[5:] | join(\" \"))\"})'", "nature": "json"}
+
+# Asymmetric Cryptography
+{ "AsymmetricCryptography": "osqueryi \"SELECT * FROM file WHERE (path LIKE '/home/%/.ssh/%.pub' OR path LIKE '/home/%/.ssh/authorized_keys')\" --json","nature": "json" }
