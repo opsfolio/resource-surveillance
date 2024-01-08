@@ -113,20 +113,13 @@ impl IngestCommands {
         root_fs_path: &[String],
         _args: &super::IngestFilesArgs,
     ) -> anyhow::Result<()> {
-        let classifier: EncounterableResourcePathClassifier = Default::default();
+        let classifier = EncounterableResourcePathClassifier::default();
         let wd_resources =
             ResourcesCollection::from_walk_dir(root_fs_path, &classifier, &None::<HashMap<_, _>>);
-        let si_resources = ResourcesCollection::from_smart_ignore(
-            root_fs_path,
-            &classifier,
-            &None::<HashMap<_, _>>,
-            false,
-        );
-        let vfs_pfs_resources = ResourcesCollection::from_vfs_physical_fs(
-            root_fs_path,
-            &classifier,
-            &None::<HashMap<_, _>>,
-        );
+        let si_resources =
+            ResourcesCollection::from_smart_ignore(root_fs_path, &classifier, None, false);
+        let vfs_pfs_resources =
+            ResourcesCollection::from_vfs_physical_fs(root_fs_path, &classifier, None);
 
         let mut table = Table::new();
         table

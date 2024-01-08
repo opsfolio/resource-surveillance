@@ -34,12 +34,8 @@ impl CapturableExecCommands {
     }
 
     fn ls_table(&self, _cli: &super::Cli, root_paths: &[String]) -> anyhow::Result<()> {
-        let resources = ResourcesCollection::from_smart_ignore(
-            root_paths,
-            &Default::default(),
-            &None::<HashMap<_, _>>,
-            false,
-        );
+        let resources =
+            ResourcesCollection::from_smart_ignore(root_paths, &Default::default(), None, false);
 
         let mut found: Vec<Vec<String>> = vec![];
         for resource_result in resources.uniform_resources() {
@@ -111,12 +107,8 @@ impl CapturableExecCommands {
 
     fn ls_markdown(&self, _cli: &super::Cli, root_paths: &[String]) -> anyhow::Result<()> {
         let classifier: EncounterableResourcePathClassifier = Default::default();
-        let resources = ResourcesCollection::from_smart_ignore(
-            root_paths,
-            &classifier,
-            &None::<HashMap<_, _>>,
-            false,
-        );
+        let resources =
+            ResourcesCollection::from_smart_ignore(root_paths, &classifier, None, false);
 
         let mut markdown: Vec<String> = vec!["# `surveilr` Capturable Executables\n\n".to_string()];
 

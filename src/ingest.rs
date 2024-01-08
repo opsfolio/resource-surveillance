@@ -100,10 +100,10 @@ impl<'conn> IngestContext<'conn> {
 }
 
 pub struct UniformResourceWriterState<'a, 'conn> {
-    state_db_fs_path: &'a String,
-    env_current_dir: &'a String,
-    device_id: &'a String,
-    ingest_session_id: &'a String,
+    state_db_fs_path: &'a str,
+    env_current_dir: &'a str,
+    device_id: &'a str,
+    ingest_session_id: &'a str,
     resources: &'a ResourcesCollection,
     ingest_stmts: &'a mut IngestContext<'conn>,
     ingest_files_behavior: Option<&'a IngestFilesBehavior>,
@@ -878,12 +878,8 @@ pub fn ingest_files(
             }
 
             let rp: Vec<String> = vec![canonical_path.clone()];
-            let resources = ResourcesCollection::from_smart_ignore(
-                &rp,
-                &behavior.classifier,
-                &None::<HashMap<_, _>>,
-                false,
-            );
+            let resources =
+                ResourcesCollection::from_smart_ignore(&rp, &behavior.classifier, None, false);
 
             let mut urw_state = UniformResourceWriterState {
                 state_db_fs_path: &db_fs_path,
