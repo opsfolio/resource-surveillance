@@ -403,3 +403,7 @@ understand the `surveilr` service SQL schema (`device`, `uniform_resource`,
 good way to help ChatGPT or other LLM to understand the `surveilr` notebooks
 schema and ask it questions to generate SQL specifically for the _code
 notebooks_ capability.
+
+## Contributing
+
+Check out [CONTRIBUTING.md](CONTRIBUTING.md).
