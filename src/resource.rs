@@ -1202,7 +1202,7 @@ impl ResourcesCollection {
     pub fn new(
         encounterable: Vec<EncounterableResource>,
         classifier: &EncounterableResourcePathClassifier,
-        nature_aliases: &Option<HashMap<String, String>>,
+        nature_aliases: Option<HashMap<String, String>>,
     ) -> ResourcesCollection {
         ResourcesCollection {
             encounterable,
@@ -1215,7 +1215,7 @@ impl ResourcesCollection {
     pub fn from_vfs_physical_fs(
         fs_root_paths: &[String],
         classifier: &EncounterableResourcePathClassifier,
-        nature_aliases: &Option<HashMap<String, String>>,
+        nature_aliases: Option<HashMap<String, String>>,
     ) -> ResourcesCollection {
         let physical_fs = vfs::PhysicalFS::new("/");
         let vfs_fs_root = vfs::VfsPath::new(physical_fs);
@@ -1250,7 +1250,7 @@ impl ResourcesCollection {
     pub fn from_smart_ignore(
         fs_root_paths: &[String],
         classifier: &EncounterableResourcePathClassifier,
-        nature_aliases: &Option<HashMap<String, String>>,
+        nature_aliases: Option<HashMap<String, String>>,
         ignore_hidden: bool,
     ) -> ResourcesCollection {
         let vfs_iter = fs_root_paths.iter().flat_map(move |root_path| {
@@ -1265,7 +1265,7 @@ impl ResourcesCollection {
         ResourcesCollection::new(
             vfs_iter.map(EncounterableResource::SmartIgnore).collect(),
             classifier,
-            nature_aliases,
+            nature_aliases.clone(),
         )
     }
 
@@ -1282,7 +1282,7 @@ impl ResourcesCollection {
         ResourcesCollection::new(
             vfs_iter.map(EncounterableResource::WalkDir).collect(),
             classifier,
-            nature_aliases,
+            nature_aliases.clone(),
         )
     }
 
@@ -1306,7 +1306,7 @@ impl ResourcesCollection {
                     .map(EncounterableResource::from_deno_task_shell_line)
                     .collect(),
                 classifier,
-                nature_aliases,
+                nature_aliases.clone(),
             ),
         )
     }
