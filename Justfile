@@ -48,6 +48,10 @@ test-e2e-fixtures:
 lint:
     @cargo clippy -- -D warnings
 
+# Format the code:
+fmt:
+    @cargo fmt
+
 # Create the release build and prepare for tagging
 release:
     @cargo build --release
