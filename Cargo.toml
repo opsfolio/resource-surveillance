@@ -39,3 +39,4 @@ toml = "0.8.8"
 ulid = { version = "1.1.0", features = ["rand", "std", "serde", "uuid"] }
 vfs = { version = "0.10.0", features = ["embedded-fs"] }
 walkdir = "2.4.0"
+sqlpage = "0.17.1"

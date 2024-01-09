@@ -1,10 +1,13 @@
 use clap::{Args, Parser, Subcommand};
 use serde::Serialize;
 
+use sql_page::SQLPageArgs;
+
 pub mod admin;
 pub mod capexec;
 pub mod ingest;
 pub mod notebooks;
+pub mod sql_page;
 
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 const DEFAULT_MERGED_STATEDB_FS_PATH: &str = "resource-surveillance-aggregated.sqlite.db";
@@ -31,6 +34,7 @@ pub enum CliCommands {
     CapturableExec(CapturableExecArgs),
     Ingest(IngestArgs),
     Notebooks(NotebooksArgs),
+    SQLPage(SQLPageArgs),
 }
 
 /// Admin / maintenance utilities
@@ -301,6 +305,7 @@ impl CliCommands {
             CliCommands::CapturableExec(args) => args.command.execute(cli, args),
             CliCommands::Ingest(args) => args.command.execute(cli, args),
             CliCommands::Notebooks(args) => args.command.execute(cli, args),
+            CliCommands::SQLPage(args) => args.execute(args)
         }
     }
 }
