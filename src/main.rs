@@ -1,5 +1,6 @@
-use anyhow::{Context, Ok};
 use clap::Parser;
+use opentelemetry::trace::Tracer;
+use tracing::error;
 
 #[macro_use]
 extern crate lazy_static;
@@ -38,6 +39,13 @@ fn main() -> anyhow::Result<()> {
         )?,
     };
 
-    cli.command.execute(&cli).with_context(|| "main")?;
+    let tracer = utils::otel::init()?;
+    let tracer = tracer.inner();
+    tracer.in_span("main", |_cx| {
+        if let Err(err) = cli.command.execute(&cli) {
+            error!("{}", err.to_string());
+        };
+    });
+
     Ok(())
 }

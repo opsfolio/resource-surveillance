@@ -8,7 +8,7 @@ use is_executable::IsExecutable; // adds path.is_executable
 use rusqlite::functions::FunctionFlags;
 use rusqlite::{types::ValueRef, Connection, Result as RusqliteResult, ToSql};
 use serde_json::{json, Value as JsonValue};
-use tracing::{debug, info, error};
+use tracing::{debug, error, info};
 use ulid::Ulid;
 
 extern crate globwalk;
@@ -44,8 +44,7 @@ impl DbConn {
             format!("[DbConn::new] prepare SQLite connection for {}", db_fs_path)
         })?;
 
-            debug!("RSSD: {}", db_fs_path);
-    
+        debug!("RSSD: {}", db_fs_path);
 
         Ok(DbConn {
             db_fs_path,
