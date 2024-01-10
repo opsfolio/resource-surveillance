@@ -20,24 +20,23 @@ mod models_polygenix;
 mod persist;
 mod resource;
 mod shell;
+mod utils;
 
 fn main() -> anyhow::Result<()> {
     let cli = cmd::Cli::parse();
 
-    // --debug can be passed more than once to increase level
-    match cli.debug {
-        0 => {}
-        1 => println!("Debug mode is kind of on"),
-        2 => println!("Debug mode is on"),
-        _ => println!("Don't be crazy"),
-    }
-
-    if cli.debug > 0 {
-        // You can check the value provided by positional arguments, or option arguments
-        if let Some(name) = cli.device_name.as_deref() {
-            println!("Device: {name}");
-        }
-    }
+    match (&cli.log_mode, &cli.debug, &cli.log_file) {
+        (_, _, Some(file)) => utils::logger::log(
+            cli.debug.into(),
+            cli.log_mode.unwrap_or_default().into(),
+            Some(file),
+        )?,
+        (_, _, None) => utils::logger::log(
+            cli.debug.into(),
+            cli.log_mode.unwrap_or_default().into(),
+            None,
+        )?,
+    };
 
     cli.command.execute(&cli).with_context(|| "main")?;
     Ok(())

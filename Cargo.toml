@@ -39,3 +39,6 @@ toml = "0.8.8"
 ulid = { version = "1.1.0", features = ["rand", "std", "serde", "uuid"] }
 vfs = { version = "0.10.0", features = ["embedded-fs"] }
 walkdir = "2.4.0"
+tracing = "0.1.40"
+tracing-log = "0.2.0"
+tracing-subscriber = {version = "0.3.18", features = ["std", "fmt", "json", "env-filter"] }
