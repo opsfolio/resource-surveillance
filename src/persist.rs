@@ -4,7 +4,10 @@ use std::hash::{Hash, Hasher};
 use anyhow::{Context, Result};
 use comfy_table::*;
 use globset::Glob;
-use is_executable::IsExecutable; // adds path.is_executable
+use is_executable::IsExecutable;
+use opentelemetry::trace::get_active_span;
+use opentelemetry::KeyValue;
+// adds path.is_executable
 use rusqlite::functions::FunctionFlags;
 use rusqlite::{types::ValueRef, Connection, Result as RusqliteResult, ToSql};
 use serde_json::{json, Value as JsonValue};
@@ -529,25 +532,44 @@ pub fn execute_migrations(conn: &Connection, context: &str) -> RusqliteResult<()
                     "execute_migrations",
                 ) {
                     None => {
-                        info!(
-                            "[TODO: move this to Otel, {}] {} {} migration not required ({})",
-                            context, notebook_name, cell_name, id
-                        );
+                        get_active_span(|span| {
+                            span.add_event(
+                                context.to_string(),
+                                vec![KeyValue::new(
+                                    id.clone(),
+                                    format!(
+                                        "{} {} migration not required ({})",
+                                        notebook_name, cell_name, id
+                                    ),
+                                )],
+                            );
+                        });
+
                         Ok(())
                     }
                     Some(_) => {
-                        info!(
-                            "[TODO: move this to Otel, {}] {} {} migrated ({})",
-                            context, notebook_name, cell_name, id
-                        );
+                        get_active_span(|span| {
+                            span.add_event(
+                                context.to_string(),
+                                vec![KeyValue::new(
+                                    id.clone(),
+                                    format!("{} {} migrated ({})", notebook_name, cell_name, id),
+                                )],
+                            );
+                        });
                         Ok(())
                     }
                 }
             } else {
-                info!(
-                    "[TODO: move this to Otel, {}] {} {} migrated ({})",
-                    context, notebook_name, cell_name, id
-                );
+                get_active_span(|span| {
+                    span.add_event(
+                        context.to_string(),
+                        vec![KeyValue::new(
+                            id.clone(),
+                            format!("{} {} migrated ({})", notebook_name, cell_name, id),
+                        )],
+                    );
+                });
                 conn.execute_batch(&sql)
             }
         },
