@@ -1,4 +1,6 @@
 use rusqlite::{Connection, OpenFlags};
+use tracing::error;
+use tracing::info;
 
 use super::NotebooksCommands;
 use crate::format::*;
@@ -45,10 +47,10 @@ impl NotebooksCommands {
                             println!("{code}");
                         }
                     }
-                    Err(err) => println!("Notebooks cells command error: {}", err),
+                    Err(err) => error!("Notebooks cells command error: {}", err),
                 }
             } else {
-                println!(
+                error!(
                     "Notebooks cells command requires a database: {}",
                     db_fs_path
                 );
@@ -73,7 +75,7 @@ impl NotebooksCommands {
                     as_ascii_table(&["Notebook", "Kernel", "Cell", "Versions", "ID"], &rows)
                 );
             } else {
-                println!("Notebooks command requires a database: {}", db_fs_path);
+                info!("Notebooks command requires a database: {}", db_fs_path);
             };
         }
         Ok(())
@@ -93,7 +95,7 @@ impl NotebooksCommands {
                     },
                 )
                 .unwrap();
-                println!("All cells that are candidates for migration (including duplicates)");
+                info!("All cells that are candidates for migration (including duplicates)");
                 println!(
                     "{}",
                     as_ascii_table(&["Notebook", "Cell", "Code Hash", "ID"], &rows)
@@ -108,7 +110,7 @@ impl NotebooksCommands {
                     },
                 )
                 .unwrap();
-                println!("All cells deemed to be migratable (unique rows)");
+                info!("All cells deemed to be migratable (unique rows)");
                 println!(
                     "{}",
                     as_ascii_table(&["Notebook", "Cell", "Code Hash", "ID"], &rows)
@@ -123,7 +125,7 @@ impl NotebooksCommands {
                     },
                 )
                 .unwrap();
-                println!("All cells that should be migrated because they have not been executed");
+                info!("All cells that should be migrated because they have not been executed");
                 println!(
                     "{}",
                     as_ascii_table(&["Notebook", "Cell", "Code Hash", "ID"], &rows)
@@ -156,7 +158,7 @@ impl NotebooksCommands {
                     },
                 )
                 .unwrap();
-                println!("code_notebook_state");
+                info!("code_notebook_state");
                 println!(
                     "{}",
                     as_ascii_table(

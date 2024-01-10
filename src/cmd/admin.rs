@@ -1,5 +1,8 @@
 use anyhow::Context;
 use serde_rusqlite::from_rows;
+use tracing::debug;
+use tracing::error;
+use tracing::info;
 
 use super::AdminCommands;
 use super::AdminTestCommands;
@@ -54,14 +57,13 @@ impl AdminCommands {
         with_device: bool,
         sql_script: Option<&str>,
     ) -> anyhow::Result<()> {
-        if cli.debug > 0 {
-            println!("Initializing {}", db_fs_path);
-        }
+        debug!("Initializing {}", db_fs_path);
+
         if remove_existing_first {
             match std::fs::remove_file(db_fs_path) {
                 Ok(_) => {}
                 Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
-                Err(err) => eprintln!("[AdminCommands::init] deleting {}: {}", db_fs_path, err),
+                Err(err) => error!("[AdminCommands::init] deleting {}: {}", db_fs_path, err),
             }
         }
 
@@ -82,12 +84,10 @@ impl AdminCommands {
                     )
                 })?;
 
-            if cli.debug > 0 {
-                println!(
-                    "Initialized {} with device {} ({})",
-                    db_fs_path, device_name, device_id
-                );
-            }
+            debug!(
+                "Initialized {} with device {} ({})",
+                db_fs_path, device_name, device_id
+            );
         }
 
         let result = match sql_script {
@@ -131,7 +131,7 @@ impl AdminCommands {
                     let _ = ignore_globset.add(glob);
                 }
                 Err(err) => {
-                    eprintln!(
+                    error!(
                         "[AdminCommands::merge] invalid ignore glob {}: {}",
                         db_ignore_path, err
                     );
@@ -150,7 +150,7 @@ impl AdminCommands {
                             db_paths.push(path.to_str().unwrap().to_owned());
                         }
                     }
-                    Err(e) => println!(
+                    Err(e) => error!(
                         "[AdminCommands::merge_sql] glob '{}' error {:?}",
                         db_glob, e
                     ),
@@ -252,8 +252,8 @@ impl AdminTestCommands {
         if builtins {
             let classifier: EncounterableResourcePathClassifier = Default::default();
             let (flaggables, rewrite) = classifier.as_formatted_tables();
-            println!("{flaggables}\n");
-            println!("{rewrite}\n");
+            info!("{flaggables}\n");
+            info!("{rewrite}\n");
             return Ok(());
         }
 
@@ -267,38 +267,38 @@ impl AdminTestCommands {
         let rows = from_rows::<crate::models_polygenix::UrIngestResourcePathMatchRule>(
             statement.query([]).unwrap(),
         );
-        println!("==> `ur_ingest_resource_path_match_rule` serde rows");
+        info!("==> `ur_ingest_resource_path_match_rule` serde rows");
 
         for r in rows.flatten() {
-            println!("{:?}", r);
+            info!("{:?}", r);
         }
 
-        println!("==> `ur_ingest_resource_path_match_rule` rows");
+        info!("==> `ur_ingest_resource_path_match_rule` rows");
         let query_result = dbc.query_result_as_formatted_table(
             r#"
             SELECT namespace as 'Name', regex as 'RE', flags as 'Flags', nature as 'Nature', description as 'Help'
               FROM ur_ingest_resource_path_match_rule"#,
             &[],
         )?;
-        println!("{query_result}\n");
+        info!("{query_result}\n");
 
-        println!("==> `ur_ingest_resource_path_rewrite_rule` rows");
+        info!("==> `ur_ingest_resource_path_rewrite_rule` rows");
         let query_result = dbc.query_result_as_formatted_table(
             r#"
             SELECT namespace, regex, replace, description 
               FROM ur_ingest_resource_path_rewrite_rule"#,
             &[],
         )?;
-        println!("{query_result}\n");
+        info!("{query_result}\n");
 
-        println!("==> What the data looks like after it's been parsed (namespace 'default')");
+        info!("==> What the data looks like after it's been parsed (namespace 'default')");
         match EncounterableResourcePathClassifier::default_from_conn(&dbc.conn) {
             Ok(classifier) => {
                 let (flaggables, rewrite) = classifier.as_formatted_tables();
-                println!("{flaggables}\n");
-                println!("{rewrite}\n");
+                info!("{flaggables}\n");
+                info!("{rewrite}\n");
             }
-            Err(err) => println!(
+            Err(err) => error!(
                 "Unable to prepare EncounterableResourcePathClassifier from rules in the database:\n{:?}",
                 err
             ),

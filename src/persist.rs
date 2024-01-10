@@ -8,6 +8,7 @@ use is_executable::IsExecutable; // adds path.is_executable
 use rusqlite::functions::FunctionFlags;
 use rusqlite::{types::ValueRef, Connection, Result as RusqliteResult, ToSql};
 use serde_json::{json, Value as JsonValue};
+use tracing::{debug, info, error};
 use ulid::Ulid;
 
 extern crate globwalk;
@@ -43,9 +44,8 @@ impl DbConn {
             format!("[DbConn::new] prepare SQLite connection for {}", db_fs_path)
         })?;
 
-        if vebose_level > 0 {
-            println!("RSSD: {}", db_fs_path);
-        }
+            debug!("RSSD: {}", db_fs_path);
+    
 
         Ok(DbConn {
             db_fs_path,
@@ -530,14 +530,14 @@ pub fn execute_migrations(conn: &Connection, context: &str) -> RusqliteResult<()
                     "execute_migrations",
                 ) {
                     None => {
-                        println!(
+                        info!(
                             "[TODO: move this to Otel, {}] {} {} migration not required ({})",
                             context, notebook_name, cell_name, id
                         );
                         Ok(())
                     }
                     Some(_) => {
-                        println!(
+                        info!(
                             "[TODO: move this to Otel, {}] {} {} migrated ({})",
                             context, notebook_name, cell_name, id
                         );
@@ -545,7 +545,7 @@ pub fn execute_migrations(conn: &Connection, context: &str) -> RusqliteResult<()
                     }
                 }
             } else {
-                println!(
+                info!(
                     "[TODO: move this to Otel, {}] {} {} migrated ({})",
                     context, notebook_name, cell_name, id
                 );
@@ -594,7 +594,7 @@ pub fn execute_globs_batch(
                 match ce.executed_result_as_sql(crate::shell::ShellStdIn::None) {
                     Ok((sql_from_captured_exec, _nature)) => (sql_from_captured_exec, true),
                     Err(err) => {
-                        eprintln!(
+                        error!(
                             "[execute_globs_batch({})] Unable to execute {}:\n{}",
                             context, uri, err
                         );
@@ -605,7 +605,7 @@ pub fn execute_globs_batch(
                 match std::fs::read_to_string(path) {
                     Ok(sql_from_file) => (sql_from_file, false),
                     Err(err) => {
-                        eprintln!(
+                        error!(
                             "[execute_globs_batch({})] Failed to read SQL file {}: {}",
                             context, uri, err
                         );
@@ -628,7 +628,7 @@ pub fn execute_globs_batch(
                     None,
                     is_captured_from_exec,
                 ));
-                eprintln!(
+                error!(
                     "[execute_globs_batch({})] Failed to execute SQL file: {}",
                     context, e
                 );
@@ -653,13 +653,13 @@ pub fn execute_globs_batch(
             })
             .collect();
         if !emit.is_empty() {
-            println!(
+            info!(
                 "[{}] executed SQL batches from: {}",
                 context,
                 emit.join(", ")
             )
         } else {
-            println!(
+            info!(
                 "[{}] did execute SQL batches, none requested/matched {}",
                 context,
                 candidates_globs.join(", ")

@@ -5,6 +5,8 @@ use indoc::indoc;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use tracing::debug;
+use tracing::error;
 
 use crate::persist::*;
 use crate::resource::*;
@@ -807,17 +809,15 @@ pub fn ingest_files(
                     save_behavior_name, db_fs_path
                 )
             })?;
-        if cli.debug > 0 {
-            println!("Saved behavior: {} ({})", save_behavior_name, saved_bid);
-        }
+
+        debug!("Saved behavior: {} ({})", save_behavior_name, saved_bid);
         behavior_id = Some(saved_bid);
     }
-    if cli.debug > 0 {
-        println!(
-            "Behavior: {}",
-            behavior_id.clone().unwrap_or(String::from("custom"))
-        );
-    }
+
+    debug!(
+        "Behavior: {}",
+        behavior_id.clone().unwrap_or(String::from("custom"))
+    );
 
     let ingest_session_id: String = tx
         .query_row(
@@ -840,9 +840,8 @@ pub fn ingest_files(
             )
         })?;
 
-    if cli.debug > 0 {
-        println!("Walk Session: {ingest_session_id}");
-    }
+    debug!("Walk Session: {ingest_session_id}");
+
     {
         let env_current_dir = std::env::current_dir()
             .unwrap()
@@ -873,9 +872,7 @@ pub fn ingest_files(
                     )
                 })?;
 
-            if cli.debug > 0 {
-                println!("  Walk Session Path: {root_path} ({ingest_fs_path_id})");
-            }
+            debug!("  Walk Session Path: {root_path} ({ingest_fs_path_id})");
 
             let rp: Vec<String> = vec![canonical_path.clone()];
             let resources =
@@ -983,14 +980,14 @@ pub fn ingest_files(
                                 ) {
                                     Ok(_) => {}
                                     Err(err) => {
-                                        eprintln!( "[ingest_files] unable to insert UR walk session path file system entry for {} in {}: {} ({})",
+                                        error!( "[ingest_files] unable to insert UR walk session path file system entry for {} in {}: {} ({})",
                                         &inserted.uri, db_fs_path, err, INS_UR_ISFSP_ENTRY_SQL
                                         )
                                     }
                                 }
                             }
                             None => {
-                                eprintln!(
+                                error!(
                                     "[ingest_files] error extracting path info for {} in {}",
                                     canonical_path, db_fs_path
                                 )
@@ -998,7 +995,7 @@ pub fn ingest_files(
                         }
                     }
                     Err(e) => {
-                        eprintln!("[ingest_files] Error processing a resource: {}", e);
+                        error!("[ingest_files] Error processing a resource: {}", e);
                     }
                 }
             }
@@ -1007,7 +1004,7 @@ pub fn ingest_files(
     match tx.execute(INS_UR_INGEST_SESSION_FINISH_SQL, params![ingest_session_id]) {
         Ok(_) => {}
         Err(err) => {
-            eprintln!(
+            error!(
                 "[ingest_files] unable to execute SQL {} in {}: {}",
                 INS_UR_INGEST_SESSION_FINISH_SQL, db_fs_path, err
             )
@@ -1096,9 +1093,8 @@ pub fn ingest_tasks(
                 INS_UR_INGEST_SESSION_SQL, db_fs_path
             )
         })?;
-    if cli.debug > 0 {
-        println!("Walk Session: {ingest_session_id}");
-    }
+
+    debug!("Walk Session: {ingest_session_id}");
 
     {
         let env_current_dir = std::env::current_dir()
@@ -1127,9 +1123,8 @@ pub fn ingest_tasks(
                         path: Some(resource.uri()),
                         tried_alternate_nature: None,
                     };
-                    if cli.debug > 0 {
-                        println!("{:?}", urw_entry.path);
-                    }
+
+                    debug!("{:?}", urw_entry.path);
 
                     let inserted = resource.insert(&mut urw_state, &mut urw_entry);
                     let mut ur_status = inserted.action.ur_status();
@@ -1192,14 +1187,14 @@ pub fn ingest_tasks(
                     ]) {
                         Ok(_) => {}
                         Err(err) => {
-                            eprintln!( "[ingest_tasks] unable to insert UR task entry for {} in {}: {} ({})",
+                            error!( "[ingest_tasks] unable to insert UR task entry for {} in {}: {} ({})",
                             &inserted.uri, db_fs_path, err, INS_UR_IS_TASK_SQL
                             )
                         }
                     }
                 }
                 Err(e) => {
-                    eprintln!("Error processing a ingest_tasks resource: {}", e);
+                    error!("Error processing a ingest_tasks resource: {}", e);
                 }
             }
         }
@@ -1208,7 +1203,7 @@ pub fn ingest_tasks(
     match tx.execute(INS_UR_INGEST_SESSION_FINISH_SQL, params![ingest_session_id]) {
         Ok(_) => {}
         Err(err) => {
-            eprintln!(
+            error!(
                 "[ingest_tasks] unable to execute SQL {} in {}: {}",
                 INS_UR_INGEST_SESSION_FINISH_SQL, db_fs_path, err
             )
