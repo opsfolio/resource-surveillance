@@ -4,6 +4,10 @@ set -o errexit -o nounset -o pipefail
 # Set environment variable
 export SURVEILR_STATEDB_FS_PATH="/tmp/resource-surveillance-$(hostname).sqlite.db"
 
+# Clone Cnquery-packs to the user home folder
+cd $HOME
+git clone https://github.com/mondoohq/cnquery-packs
+
 # Remove the current file if it exists
 if [ -e "$SURVEILR_STATEDB_FS_PATH" ]; then
   rm "$SURVEILR_STATEDB_FS_PATH" || true  # Ignore errors during removal
