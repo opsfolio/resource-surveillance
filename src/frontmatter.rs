@@ -1,3 +1,4 @@
+use autometrics::autometrics;
 use regex::Regex;
 use serde_json::Value as JsonValue;
 use std::error::Error;
@@ -16,6 +17,7 @@ pub type FrontmatterComponents = (
     String,
 );
 
+#[autometrics]
 pub fn frontmatter(text: &str) -> FrontmatterComponents {
     // Define regex patterns for YAML, TOML, and JSON frontmatter
     // The ending delimiter must be alone on its line and followed by a newline;

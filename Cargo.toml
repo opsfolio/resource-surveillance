@@ -39,3 +39,10 @@ toml = "0.8.8"
 ulid = { version = "1.1.0", features = ["rand", "std", "serde", "uuid"] }
 vfs = { version = "0.10.0", features = ["embedded-fs"] }
 walkdir = "2.4.0"
+tracing = "0.1.40"
+tracing-log = "0.2.0"
+tracing-subscriber = {version = "0.3.18", features = ["std", "fmt", "json", "env-filter"] }
+opentelemetry-otlp = { version = "0.14.0", features = ["tokio", "http", "reqwest-client", "reqwest-rustls", "http-proto", "tls", "logs"] }
+opentelemetry_sdk = { version = "0.21.2", features = ["opentelemetry-http", "trace", "metrics" , "logs", "rt-tokio"] }
+opentelemetry = { version = "0.21.0", features = ["trace"] }
+autometrics = { version = "1.0.0", features = ["otel-push-exporter-http", "otel-push-exporter-grpc", "otel-push-exporter-tokio-current-thread"] }

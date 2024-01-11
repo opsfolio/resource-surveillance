@@ -1,5 +1,10 @@
-use clap::{Args, Parser, Subcommand};
+use std::path::PathBuf;
+
+use autometrics::autometrics;
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use serde::Serialize;
+
+use crate::utils;
 
 pub mod admin;
 pub mod capexec;
@@ -8,6 +13,24 @@ pub mod notebooks;
 
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 const DEFAULT_MERGED_STATEDB_FS_PATH: &str = "resource-surveillance-aggregated.sqlite.db";
+
+#[derive(Debug, Clone, Copy, ValueEnum, Default, Serialize)]
+pub enum LogMode {
+    Full,
+    Json,
+    #[default]
+    Compact,
+}
+
+impl From<LogMode> for utils::logger::LoggingMode {
+    fn from(mode: LogMode) -> Self {
+        match mode {
+            LogMode::Full => utils::logger::LoggingMode::Full,
+            LogMode::Json => utils::logger::LoggingMode::Json,
+            LogMode::Compact => utils::logger::LoggingMode::Compact,
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Parser)]
 #[command(author, version, about, long_about = None)]
@@ -22,6 +45,14 @@ pub struct Cli {
 
     #[command(subcommand)]
     pub command: CliCommands,
+
+    /// Output logs in json format.
+    #[clap(long, value_enum)]
+    pub log_mode: Option<LogMode>,
+
+    /// File for logs to be written to
+    #[arg(long, value_parser)]
+    pub log_file: Option<PathBuf>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -295,6 +326,7 @@ pub enum NotebooksCommands {
 }
 
 impl CliCommands {
+    #[autometrics]
     pub fn execute(&self, cli: &Cli) -> anyhow::Result<()> {
         match self {
             CliCommands::Admin(args) => args.command.execute(cli, args),
