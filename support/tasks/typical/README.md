@@ -68,7 +68,7 @@ connection "digitalocean" {
 ```
 ---------------------------------------------
 
-##### 2. Cnquery
+##### 3. Cnquery
 
 Cnquery installation steps:
 
@@ -92,7 +92,7 @@ $ cnquery run local -c "services.list { name running }"
 For AWS access need to have authenticated aws-cli configured.
 
 
-Cnquery can also be installed using pkgx: 
+Cnquery installation using pkgx: 
 
 ```
 $ pkgx install cnquery
@@ -105,7 +105,7 @@ $ pkgx cnquery run local -c "services.list { name running }"
 
 ```
 
-##### 3. Osquery
+##### 4. Osquery
 
 ```bash
 OSQ_VERSION=`curl -fsSL https://api.github.com/repos/osquery/osquery/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")'`
