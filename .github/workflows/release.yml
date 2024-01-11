@@ -1,9 +1,6 @@
 on:
-  schedule:
-    # Schedule for every Thursday at 12:00 PM UTC/GMT
-    - cron: '0 12 * * 4'
-  # release:
-  #   types: [created]
+  release:
+    types: [created]
 
 jobs:
   linux-windows-release:
