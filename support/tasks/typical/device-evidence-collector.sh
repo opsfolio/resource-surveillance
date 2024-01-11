@@ -4,9 +4,17 @@ set -o errexit -o nounset -o pipefail
 # Set environment variable
 export SURVEILR_STATEDB_FS_PATH="/tmp/resource-surveillance-$(hostname).sqlite.db"
 
-# Clone Cnquery-packs to the user home folder
-cd $HOME
-git clone https://github.com/mondoohq/cnquery-packs
+# Set the directory for cnquery-packs
+CNQUERY_PACKS_DIR="$HOME/cnquery-packs"
+
+# Check if cnquery-packs directory already exists
+if [ ! -d "$CNQUERY_PACKS_DIR" ]; then
+  # Clone Cnquery-packs to the user home folder
+  cd "$HOME"
+  git clone https://github.com/mondoohq/cnquery-packs
+else
+  echo "cnquery-packs repository already exists. Skipping cloning."
+fi
 
 # Remove the current file if it exists
 if [ -e "$SURVEILR_STATEDB_FS_PATH" ]; then
@@ -19,12 +27,12 @@ fi
 GITHUB_REPO_URL="https://api.github.com/repos/opsfolio/resource-surveillance/contents/support/tasks/typical"
 
 # Fetch all file URLs using GitHub API
-all_urls=($(curl -s "$GITHUB_REPO_URL" | grep -o 'https://raw.githubusercontent.com[^"]*'))
+ALL_URLS=($(curl -s "$GITHUB_REPO_URL" | grep -o 'https://raw.githubusercontent.com[^"]*'))
 
 # Loop through the URLs and execute the curl command for those ending with ".jsonl"
-for url in "${all_urls[@]}"; do
-  if [[ "$url" == *".jsonl" ]]; then
-    curl -sL "$url" | surveilr ingest tasks
+for URL in "${ALL_URLS[@]}"; do
+  if [[ "$URL" == *".jsonl" ]]; then
+    curl -sL "$URL" | surveilr ingest tasks
   fi
 done
 
