@@ -1,3 +1,4 @@
+use autometrics::autometrics;
 use rusqlite::{Connection, OpenFlags};
 use tracing::error;
 use tracing::info;
@@ -9,6 +10,7 @@ use crate::persist::*;
 // Implement methods for `NotebooksCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
 impl NotebooksCommands {
+    #[autometrics]
     pub fn execute(&self, _cli: &super::Cli, args: &super::NotebooksArgs) -> anyhow::Result<()> {
         match self {
             NotebooksCommands::Cat {

@@ -8,6 +8,7 @@ use opentelemetry_sdk::{
     trace::{self, RandomIdGenerator, Sampler},
     Resource,
 };
+
 use tracing::instrument::{WithDispatch, WithSubscriber};
 
 pub fn init() -> anyhow::Result<WithDispatch<trace::Tracer>> {
@@ -16,7 +17,7 @@ pub fn init() -> anyhow::Result<WithDispatch<trace::Tracer>> {
         .with_exporter(
             opentelemetry_otlp::new_exporter()
                 .http()
-                .with_endpoint("http://localhost:5080/api/default/v1/traces")
+                .with_endpoint("http://localhost:4317")
                 .with_timeout(Duration::from_secs(3)),
         )
         .with_trace_config(
@@ -35,7 +36,7 @@ pub fn init() -> anyhow::Result<WithDispatch<trace::Tracer>> {
         .with_current_subscriber();
 
     let export_config = ExportConfig {
-        endpoint: "http://localhost:5080/api/default/v1/metrics".to_string(),
+        endpoint: "http://localhost:4317".to_string(),
         timeout: Duration::from_secs(3),
         protocol: Protocol::HttpBinary,
     };
@@ -64,6 +65,16 @@ pub fn init() -> anyhow::Result<WithDispatch<trace::Tracer>> {
         Some("https://opentelemetry.io/schema/1.0.0"),
         Some(vec![]),
     );
+
+    let _log_exporter = opentelemetry_otlp::new_pipeline()
+        .logging()
+        .with_exporter(
+            opentelemetry_otlp::new_exporter()
+                .http()
+                .with_endpoint("http://localhost:4317"),
+        )
+        .install_batch(opentelemetry_sdk::runtime::Tokio)?
+        .with_current_subscriber();
 
     Ok(tracer)
 }

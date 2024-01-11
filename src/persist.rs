@@ -2,6 +2,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use anyhow::{Context, Result};
+use autometrics::autometrics;
 use comfy_table::*;
 use globset::Glob;
 use is_executable::IsExecutable;
@@ -19,10 +20,12 @@ extern crate globwalk;
 use super::device::Device;
 use super::resource::*;
 
+#[autometrics]
 pub fn prepare_conn(db: &Connection) -> RusqliteResult<()> {
     declare_ulid_function(db)
 }
 
+#[autometrics]
 pub fn declare_ulid_function(db: &Connection) -> RusqliteResult<()> {
     db.create_scalar_function("ulid", 0, FunctionFlags::SQLITE_UTF8, move |ctx| {
         assert_eq!(ctx.len(), 0, "called with unexpected number of arguments");
@@ -39,6 +42,7 @@ pub struct DbConn {
 
 impl DbConn {
     // open an existing database or create a new one if it doesn't exist
+    #[autometrics]
     pub fn new(db_fs_path: &str, vebose_level: u8) -> Result<DbConn> {
         let db_fs_path = db_fs_path.to_string();
         let conn = Connection::open(db_fs_path.clone())
@@ -57,6 +61,7 @@ impl DbConn {
     }
 
     // open an existing database and error out if it doesn't exist
+    #[autometrics]
     pub fn open(db_fs_path: &str, vebose_level: u8) -> Result<DbConn> {
         let db_fs_path = db_fs_path.to_string();
         let conn = Connection::open_with_flags(
@@ -70,6 +75,7 @@ impl DbConn {
         })
     }
 
+    #[autometrics]
     pub fn init(&mut self, db_init_sql: Option<&[String]>) -> Result<rusqlite::Transaction> {
         // putting everything inside a transaction improves performance significantly
         let tx = self
@@ -101,6 +107,7 @@ impl DbConn {
         Ok(tx)
     }
 
+    #[autometrics]
     pub fn query_result_as_formatted_table(
         &self,
         query: &str,
@@ -144,6 +151,7 @@ impl DbConn {
         Ok(table)
     }
 
+    #[autometrics]
     pub fn query_result_as_json_value(
         &self,
         query: &str,
@@ -381,6 +389,7 @@ query_sql_single!(
 /// # Ok(())
 /// # }
 /// ```
+#[autometrics]
 pub fn select_notebooks_and_cells(
     conn: &Connection,
     notebooks: &Vec<String>,
@@ -480,6 +489,7 @@ pub enum ExecutableCode {
 }
 
 impl ExecutableCode {
+    #[autometrics]
     pub fn executable_code_latest(&self, conn: &Connection) -> RusqliteResult<String> {
         match self {
             ExecutableCode::NotebookCell {
@@ -495,6 +505,7 @@ impl ExecutableCode {
         }
     }
 
+    #[autometrics]
     pub fn _hash_key(&self) -> String {
         match self {
             ExecutableCode::_Sql { identifier, .. } => identifier.clone(),
@@ -513,6 +524,7 @@ impl ExecutableCode {
     }
 }
 
+#[autometrics]
 pub fn execute_migrations(conn: &Connection, context: &str) -> RusqliteResult<()> {
     // bootstrap_ddl is idempotent and should be called at start of every session
     // because it contains notebook entries, SQL used in migrations, etc.
@@ -576,6 +588,7 @@ pub fn execute_migrations(conn: &Connection, context: &str) -> RusqliteResult<()
     )
 }
 
+#[autometrics]
 pub fn execute_globs_batch(
     conn: &Connection,
     walk_paths: &[String],
@@ -691,6 +704,7 @@ pub fn execute_globs_batch(
     Ok(executed)
 }
 
+#[autometrics]
 pub fn execute_batch(conn: &Connection, ec: &ExecutableCode) -> RusqliteResult<()> {
     match ec.executable_code_latest(conn) {
         Ok(sql) => conn.execute_batch(&sql),
@@ -698,6 +712,7 @@ pub fn execute_batch(conn: &Connection, ec: &ExecutableCode) -> RusqliteResult<(
     }
 }
 
+#[autometrics]
 pub fn execute_batch_stateful(
     conn: &Connection,
     ec: &ExecutableCode,
@@ -737,6 +752,7 @@ pub fn execute_batch_stateful(
     }
 }
 
+#[autometrics]
 pub fn upserted_device(conn: &Connection, device: &Device) -> RusqliteResult<(String, String)> {
     upsert_device(
         conn,

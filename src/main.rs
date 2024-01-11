@@ -23,7 +23,8 @@ mod resource;
 mod shell;
 mod utils;
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     let cli = cmd::Cli::parse();
 
     match (&cli.log_mode, &cli.debug, &cli.log_file) {

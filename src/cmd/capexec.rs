@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::env;
 
+use autometrics::autometrics;
 use serde_json::json;
 use tracing::debug;
 use tracing::error;
@@ -14,6 +15,7 @@ use crate::shell::*;
 // Implement methods for `CapturableExecCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
 impl CapturableExecCommands {
+    #[autometrics]
     pub fn execute(
         &self,
         cli: &super::Cli,
@@ -248,6 +250,7 @@ impl CapturableExecCommands {
 // Implement methods for `CapturableExecCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
 impl CapturableExecTestCommands {
+    #[autometrics]
     pub fn execute(
         &self,
         cli: &super::Cli,

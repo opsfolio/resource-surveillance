@@ -153,6 +153,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
+name = "autometrics"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2699eba68422357620ca9c88278000d9abee07a1f78ce7fb59b24a12d4973e7"
+dependencies = [
+ "autometrics-macros",
+ "cfg_aliases",
+ "linkme",
+ "once_cell",
+ "opentelemetry",
+ "opentelemetry-otlp",
+ "opentelemetry_sdk",
+ "spez",
+ "thiserror",
+]
+
+[[package]]
+name = "autometrics-macros"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46acc192d74ccd0e6a27326d62bd364420b03fae0f22ec473ab3a8019da7d2f1"
+dependencies = [
+ "percent-encoding",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "syn 2.0.48",
+]
+
+[[package]]
 name = "axum"
 version = "0.6.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -278,6 +308,12 @@ name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
+
+[[package]]
+name = "cfg_aliases"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd16c4719339c4530435d38e511904438d07cce7950afa3718a84ac36c10e89e"
 
 [[package]]
 name = "chrono"
@@ -987,6 +1023,26 @@ dependencies = [
  "cc",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "linkme"
+version = "0.3.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b53ad6a33de58864705954edb5ad5d571a010f9e296865ed43dc72a5621b430"
+dependencies = [
+ "linkme-impl",
+]
+
+[[package]]
+name = "linkme-impl"
+version = "0.3.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04e542a18c94a9b6fcc7adb090fa3ba6b79ee220a16404f325672729f32a66ff"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.48",
 ]
 
 [[package]]
@@ -1878,6 +1934,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "spez"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c87e960f4dca2788eeb86bbdde8dd246be8948790b7618d656e68f9b720a86e8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.48",
+]
+
+[[package]]
 name = "spin"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1923,6 +1990,7 @@ name = "surveilr"
 version = "0.13.0"
 dependencies = [
  "anyhow",
+ "autometrics",
  "base64",
  "bitflags 2.4.1",
  "chrono",
@@ -2217,6 +2285,7 @@ dependencies = [
  "percent-encoding",
  "pin-project",
  "prost",
+ "rustls-native-certs",
  "rustls-pemfile",
  "tokio",
  "tokio-rustls",

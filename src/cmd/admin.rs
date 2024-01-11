@@ -1,4 +1,5 @@
 use anyhow::Context;
+use autometrics::autometrics;
 use serde_rusqlite::from_rows;
 use tracing::debug;
 use tracing::error;
@@ -12,6 +13,7 @@ use crate::resource::EncounterableResourcePathClassifier;
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
 impl AdminCommands {
+    #[autometrics]
     pub fn execute(&self, cli: &super::Cli, args: &super::AdminArgs) -> anyhow::Result<()> {
         match self {
             AdminCommands::Init {
@@ -48,6 +50,7 @@ impl AdminCommands {
         }
     }
 
+    #[autometrics]
     fn init(
         &self,
         cli: &super::Cli,
@@ -108,6 +111,7 @@ impl AdminCommands {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[autometrics]
     fn merge(
         &self,
         cli: &super::Cli,
@@ -218,6 +222,7 @@ impl AdminCommands {
 }
 
 impl AdminTestCommands {
+    #[autometrics]
     pub fn execute(
         &self,
         cli: &super::Cli,

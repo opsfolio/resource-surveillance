@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use autometrics::autometrics;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL_CONDENSED;
 use comfy_table::*;
@@ -12,6 +13,7 @@ use crate::resource::*;
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
 impl IngestCommands {
+    #[autometrics]
     pub fn execute(&self, cli: &super::Cli, _args: &super::IngestArgs) -> anyhow::Result<()> {
         match self {
             IngestCommands::Files(ifa) => {

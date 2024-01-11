@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
+use autometrics::autometrics;
 use indoc::indoc;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -60,6 +61,7 @@ pub struct IngestContext<'conn> {
 }
 
 impl<'conn> IngestContext<'conn> {
+    #[autometrics]
     pub fn from_conn(conn: &'conn Connection, db_fs_path: &str) -> Result<IngestContext<'conn>> {
         let ins_ur_isfsp_stmt = conn.prepare(INS_UR_ISFSP_SQL).with_context(|| {
             format!(
@@ -662,6 +664,7 @@ pub struct IngestFilesBehavior {
 }
 
 impl IngestFilesBehavior {
+    #[autometrics]
     pub fn new(
         device_id: &String,
         ingest_args: &crate::cmd::IngestFilesArgs,
@@ -700,6 +703,7 @@ impl IngestFilesBehavior {
         }
     }
 
+    #[autometrics]
     pub fn from_ingest_args(
         args: &crate::cmd::IngestFilesArgs,
         conn: &Connection,
@@ -713,14 +717,17 @@ impl IngestFilesBehavior {
         })
     }
 
+    #[autometrics]
     pub fn from_json(json_text: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(json_text)
     }
 
+    #[autometrics]
     pub fn persistable_json_text(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)
     }
 
+    #[autometrics]
     pub fn save(
         &self,
         conn: &Connection,
@@ -753,6 +760,7 @@ impl IngestFilesBehavior {
     }
 }
 
+#[autometrics]
 pub fn ingest_files(
     cli: &crate::cmd::Cli,
     ingest_args: &crate::cmd::IngestFilesArgs,
@@ -1028,6 +1036,7 @@ pub struct IngestTasksBehavior {
 }
 
 impl IngestTasksBehavior {
+    #[autometrics]
     pub fn from_stdin() -> Self {
         let lines: Vec<_> = std::io::stdin()
             .lines()
@@ -1040,11 +1049,13 @@ impl IngestTasksBehavior {
         }
     }
 
+    #[autometrics]
     pub fn persistable_json_text(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)
     }
 }
 
+#[autometrics]
 pub fn ingest_tasks(
     cli: &crate::cmd::Cli,
     ingest_args: &crate::cmd::IngestTasksArgs,

@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use autometrics::autometrics;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 
@@ -325,6 +326,7 @@ pub enum NotebooksCommands {
 }
 
 impl CliCommands {
+    #[autometrics]
     pub fn execute(&self, cli: &Cli) -> anyhow::Result<()> {
         match self {
             CliCommands::Admin(args) => args.command.execute(cli, args),
