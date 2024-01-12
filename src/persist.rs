@@ -2,12 +2,17 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use anyhow::{Context, Result};
+use autometrics::autometrics;
 use comfy_table::*;
 use globset::Glob;
-use is_executable::IsExecutable; // adds path.is_executable
+use is_executable::IsExecutable;
+use opentelemetry::trace::get_active_span;
+use opentelemetry::KeyValue;
+// adds path.is_executable
 use rusqlite::functions::FunctionFlags;
 use rusqlite::{types::ValueRef, Connection, Result as RusqliteResult, ToSql};
 use serde_json::{json, Value as JsonValue};
+use tracing::{debug, error, info};
 use ulid::Ulid;
 
 extern crate globwalk;
@@ -15,10 +20,12 @@ extern crate globwalk;
 use super::device::Device;
 use super::resource::*;
 
+#[autometrics]
 pub fn prepare_conn(db: &Connection) -> RusqliteResult<()> {
     declare_ulid_function(db)
 }
 
+#[autometrics]
 pub fn declare_ulid_function(db: &Connection) -> RusqliteResult<()> {
     db.create_scalar_function("ulid", 0, FunctionFlags::SQLITE_UTF8, move |ctx| {
         assert_eq!(ctx.len(), 0, "called with unexpected number of arguments");
@@ -35,6 +42,7 @@ pub struct DbConn {
 
 impl DbConn {
     // open an existing database or create a new one if it doesn't exist
+    #[autometrics]
     pub fn new(db_fs_path: &str, vebose_level: u8) -> Result<DbConn> {
         let db_fs_path = db_fs_path.to_string();
         let conn = Connection::open(db_fs_path.clone())
@@ -43,9 +51,7 @@ impl DbConn {
             format!("[DbConn::new] prepare SQLite connection for {}", db_fs_path)
         })?;
 
-        if vebose_level > 0 {
-            println!("RSSD: {}", db_fs_path);
-        }
+        debug!("RSSD: {}", db_fs_path);
 
         Ok(DbConn {
             db_fs_path,
@@ -55,6 +61,7 @@ impl DbConn {
     }
 
     // open an existing database and error out if it doesn't exist
+    #[autometrics]
     pub fn open(db_fs_path: &str, vebose_level: u8) -> Result<DbConn> {
         let db_fs_path = db_fs_path.to_string();
         let conn = Connection::open_with_flags(
@@ -68,6 +75,7 @@ impl DbConn {
         })
     }
 
+    #[autometrics]
     pub fn init(&mut self, db_init_sql: Option<&[String]>) -> Result<rusqlite::Transaction> {
         // putting everything inside a transaction improves performance significantly
         let tx = self
@@ -99,6 +107,7 @@ impl DbConn {
         Ok(tx)
     }
 
+    #[autometrics]
     pub fn query_result_as_formatted_table(
         &self,
         query: &str,
@@ -142,6 +151,7 @@ impl DbConn {
         Ok(table)
     }
 
+    #[autometrics]
     pub fn query_result_as_json_value(
         &self,
         query: &str,
@@ -379,6 +389,7 @@ query_sql_single!(
 /// # Ok(())
 /// # }
 /// ```
+#[autometrics]
 pub fn select_notebooks_and_cells(
     conn: &Connection,
     notebooks: &Vec<String>,
@@ -478,6 +489,7 @@ pub enum ExecutableCode {
 }
 
 impl ExecutableCode {
+    #[autometrics]
     pub fn executable_code_latest(&self, conn: &Connection) -> RusqliteResult<String> {
         match self {
             ExecutableCode::NotebookCell {
@@ -493,6 +505,7 @@ impl ExecutableCode {
         }
     }
 
+    #[autometrics]
     pub fn _hash_key(&self) -> String {
         match self {
             ExecutableCode::_Sql { identifier, .. } => identifier.clone(),
@@ -511,6 +524,7 @@ impl ExecutableCode {
     }
 }
 
+#[autometrics]
 pub fn execute_migrations(conn: &Connection, context: &str) -> RusqliteResult<()> {
     // bootstrap_ddl is idempotent and should be called at start of every session
     // because it contains notebook entries, SQL used in migrations, etc.
@@ -530,31 +544,51 @@ pub fn execute_migrations(conn: &Connection, context: &str) -> RusqliteResult<()
                     "execute_migrations",
                 ) {
                     None => {
-                        println!(
-                            "[TODO: move this to Otel, {}] {} {} migration not required ({})",
-                            context, notebook_name, cell_name, id
-                        );
+                        get_active_span(|span| {
+                            span.add_event(
+                                context.to_string(),
+                                vec![KeyValue::new(
+                                    id.clone(),
+                                    format!(
+                                        "{} {} migration not required ({})",
+                                        notebook_name, cell_name, id
+                                    ),
+                                )],
+                            );
+                        });
+
                         Ok(())
                     }
                     Some(_) => {
-                        println!(
-                            "[TODO: move this to Otel, {}] {} {} migrated ({})",
-                            context, notebook_name, cell_name, id
-                        );
+                        get_active_span(|span| {
+                            span.add_event(
+                                context.to_string(),
+                                vec![KeyValue::new(
+                                    id.clone(),
+                                    format!("{} {} migrated ({})", notebook_name, cell_name, id),
+                                )],
+                            );
+                        });
                         Ok(())
                     }
                 }
             } else {
-                println!(
-                    "[TODO: move this to Otel, {}] {} {} migrated ({})",
-                    context, notebook_name, cell_name, id
-                );
+                get_active_span(|span| {
+                    span.add_event(
+                        context.to_string(),
+                        vec![KeyValue::new(
+                            id.clone(),
+                            format!("{} {} migrated ({})", notebook_name, cell_name, id),
+                        )],
+                    );
+                });
                 conn.execute_batch(&sql)
             }
         },
     )
 }
 
+#[autometrics]
 pub fn execute_globs_batch(
     conn: &Connection,
     walk_paths: &[String],
@@ -594,7 +628,7 @@ pub fn execute_globs_batch(
                 match ce.executed_result_as_sql(crate::shell::ShellStdIn::None) {
                     Ok((sql_from_captured_exec, _nature)) => (sql_from_captured_exec, true),
                     Err(err) => {
-                        eprintln!(
+                        error!(
                             "[execute_globs_batch({})] Unable to execute {}:\n{}",
                             context, uri, err
                         );
@@ -605,7 +639,7 @@ pub fn execute_globs_batch(
                 match std::fs::read_to_string(path) {
                     Ok(sql_from_file) => (sql_from_file, false),
                     Err(err) => {
-                        eprintln!(
+                        error!(
                             "[execute_globs_batch({})] Failed to read SQL file {}: {}",
                             context, uri, err
                         );
@@ -628,7 +662,7 @@ pub fn execute_globs_batch(
                     None,
                     is_captured_from_exec,
                 ));
-                eprintln!(
+                error!(
                     "[execute_globs_batch({})] Failed to execute SQL file: {}",
                     context, e
                 );
@@ -653,13 +687,13 @@ pub fn execute_globs_batch(
             })
             .collect();
         if !emit.is_empty() {
-            println!(
+            info!(
                 "[{}] executed SQL batches from: {}",
                 context,
                 emit.join(", ")
             )
         } else {
-            println!(
+            info!(
                 "[{}] did execute SQL batches, none requested/matched {}",
                 context,
                 candidates_globs.join(", ")
@@ -670,6 +704,7 @@ pub fn execute_globs_batch(
     Ok(executed)
 }
 
+#[autometrics]
 pub fn execute_batch(conn: &Connection, ec: &ExecutableCode) -> RusqliteResult<()> {
     match ec.executable_code_latest(conn) {
         Ok(sql) => conn.execute_batch(&sql),
@@ -677,6 +712,7 @@ pub fn execute_batch(conn: &Connection, ec: &ExecutableCode) -> RusqliteResult<(
     }
 }
 
+#[autometrics]
 pub fn execute_batch_stateful(
     conn: &Connection,
     ec: &ExecutableCode,
@@ -716,6 +752,7 @@ pub fn execute_batch_stateful(
     }
 }
 
+#[autometrics]
 pub fn upserted_device(conn: &Connection, device: &Device) -> RusqliteResult<(String, String)> {
     upsert_device(
         conn,

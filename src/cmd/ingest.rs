@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
+use autometrics::autometrics;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL_CONDENSED;
 use comfy_table::*;
+use tracing::info;
 
 use super::IngestCommands;
 use crate::persist::*;
@@ -11,6 +13,7 @@ use crate::resource::*;
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
 impl IngestCommands {
+    #[autometrics]
     pub fn execute(&self, cli: &super::Cli, _args: &super::IngestArgs) -> anyhow::Result<()> {
         match self {
             IngestCommands::Files(ifa) => {
@@ -52,13 +55,13 @@ impl IngestCommands {
                             sql,
                             rusqlite::params![ingest_session_id],
                         )?;
-                        println!("{}", serde_json::to_string_pretty(&value)?);
+                        info!("{}", serde_json::to_string_pretty(&value)?);
                     } else {
                         let table = dbc.query_result_as_formatted_table(
                             sql,
                             rusqlite::params![ingest_session_id],
                         )?;
-                        println!(
+                        info!(
                             "\n==> `ur_ingest_session_files_stats` for session ID '{}':\n{}",
                             ingest_session_id, table
                         )
@@ -89,13 +92,13 @@ impl IngestCommands {
                             sql,
                             rusqlite::params![ingest_session_id],
                         )?;
-                        println!("{}", serde_json::to_string_pretty(&value)?);
+                        info!("{}", serde_json::to_string_pretty(&value)?);
                     } else {
                         let table = dbc.query_result_as_formatted_table(
                             sql,
                             rusqlite::params![ingest_session_id],
                         )?;
-                        println!(
+                        info!(
                             "\n==> `ur_ingest_session_tasks_stats` for session ID '{}':\n{}",
                             ingest_session_id, table
                         )

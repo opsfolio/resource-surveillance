@@ -3,23 +3,34 @@
 Prepare the device-* JSONL files here ,  pipe the respective queries to deno shell task via `surveilr ingest tasks`   to produce independent RSSD SQLite DB. 
 
 #### Prerequisites
-##### 1. Steampipe
+##### 1. PKGX
 
-Steampipe installation steps:
-
-We need sudo user permission for installing Steampipe
+Install Pkgx using the below command:
 
 ```
-$ sudo /bin/sh -c "$(curl -fsSL https://raw.githubusercontent.com/turbot/steampipe/main/install.sh)"
+curl -fsS https://pkgx.sh | sh
+```
+
+##### 2. Steampipe
+
+Steampipe installation using Pkgx:
+
+```
+pkgx steampipe 
+```
+
+To open the query shell, run :
+```
+pkgx steampipe query 
 ```
 
 Plugin installation samples:-
 
 ```
-$ steampipe plugin install digitalocean
-$ steampipe plugin install aws
-$ steampipe plugin install theapsgroup/keycloak
-$ steampipe plugin install theapsgroup/gitlab
+$ pkgx steampipe plugin install digitalocean
+$ pkgx steampipe plugin install aws
+$ pkgx steampipe plugin install theapsgroup/keycloak
+$ pkgx steampipe plugin install theapsgroup/gitlab
 ```
 
 Steampipe plugin details are stored in this path
@@ -57,7 +68,7 @@ connection "digitalocean" {
 ```
 ---------------------------------------------
 
-##### 2. Cnquery
+##### 3. Cnquery
 
 Cnquery installation steps:
 
@@ -80,7 +91,21 @@ $ cnquery run local -c "services.list { name running }"
 
 For AWS access need to have authenticated aws-cli configured.
 
-##### 3. Osquery
+
+Cnquery installation using pkgx: 
+
+```
+$ pkgx install cnquery
+```
+
+To run queries in your shell, use the below cnquery run command:
+
+```
+$ pkgx cnquery run local -c "services.list { name running }"
+
+```
+
+##### 4. Osquery
 
 ```bash
 OSQ_VERSION=`curl -fsSL https://api.github.com/repos/osquery/osquery/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")'`

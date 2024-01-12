@@ -15,6 +15,7 @@ use rusqlite::{Connection, Result as RusqliteResult};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use sha1::{Digest, Sha1};
+use tracing::error;
 
 use crate::frontmatter::frontmatter;
 use crate::shell::*;
@@ -1227,7 +1228,7 @@ impl ResourcesCollection {
                 if let Ok(canonical) = canonicalize(physical_fs_root_path_orig.clone()) {
                     physical_fs_root_path = canonical.to_string_lossy().to_string();
                 } else {
-                    eprintln!(
+                    error!(
                         "Error canonicalizing {}, trying original",
                         physical_fs_root_path_orig
                     );

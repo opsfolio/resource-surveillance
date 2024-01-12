@@ -3,4 +3,4 @@
 { "osqueryAllProcesses": "osqueryi \"select pid,name, path from processes\" --json", "nature": "json" }
 
 # cnquery
-{ "cnqueryListAllAwsInstances": "cnquery run aws -c aws.ec2.instances --json", "nature": "json" }
+{ "cnqueryListAllAwsInstances": "pkgx cnquery run aws -c aws.ec2.instances --json", "nature": "json" }
