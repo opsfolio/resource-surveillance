@@ -22,6 +22,7 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr notebooks`↴](#surveilr-notebooks)
 * [`surveilr notebooks cat`↴](#surveilr-notebooks-cat)
 * [`surveilr notebooks ls`↴](#surveilr-notebooks-ls)
+* [`surveilr sqlpage`↴](#surveilr-sqlpage)
 
 ## `surveilr`
 
@@ -33,13 +34,19 @@ This document contains the help content for the `surveilr` command-line program.
 * `capturable-exec` — Capturable Executables (CE) maintenance tools
 * `ingest` — Ingest content from device file system and other sources
 * `notebooks` — Notebooks maintenance utilities
+* `sqlpage` — Configuration to start the SQLPage webserver
 
 ###### **Options:**
 
 * `--device-name <DEVICE_NAME>` — How to identify this device
 
-  Default value: `Titan`
+  Default value: `Lilit`
 * `-d`, `--debug` — Turn debugging information on (repeat for higher levels)
+* `--log-mode <LOG_MODE>` — Output logs in json format
+
+  Possible values: `full`, `json`, `compact`
+
+* `--log-file <LOG_FILE>` — File for logs to be written to
 
 
 
@@ -71,7 +78,13 @@ initialize an empty database with bootstrap.sql
   Default value: `resource-surveillance.sqlite.db`
 * `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
 * `-r`, `--remove-existing-first` — remove the existing database first
+
+  Possible values: `true`, `false`
+
 * `--with-device` — add the current device in the empty database's device table
+
+  Possible values: `true`, `false`
+
 
 
 
@@ -92,7 +105,13 @@ merge multiple surveillance state databases into a single one
   Default value: `resource-surveillance-aggregated.sqlite.db`
 * `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
 * `-r`, `--remove-existing-first` — remove the existing database first
+
+  Possible values: `true`, `false`
+
 * `--sql-only` — only generate SQL and emit to STDOUT (no actual merge)
+
+  Possible values: `true`, `false`
+
 
 
 
@@ -130,6 +149,9 @@ test capturable executables files
 * `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
 * `--builtins` — only show the builtins, not from the database
 
+  Possible values: `true`, `false`
+
+
 
 
 ## `surveilr capturable-exec`
@@ -157,6 +179,9 @@ list potential capturable executables
 
   Default value: `.`
 * `--markdown` — emit the results as markdown, not a simple table
+
+  Possible values: `true`, `false`
+
 
 
 
@@ -194,6 +219,9 @@ Execute a task string as if it was run by `ingest tasks` and show the output
 ###### **Options:**
 
 * `-s`, `--stdin` — send commands in via STDIN the same as with `ingest tasks` and just emit the output
+
+  Possible values: `true`, `false`
+
 * `-t`, `--task <TASK>` — one or more commands that would work as a Deno Task line
 * `--cwd <CWD>` — use this as the current working directory (CWD)
 
@@ -221,6 +249,9 @@ Ingest content from device file system and other sources
 ###### **Options:**
 
 * `--dry-run` — don't run the ingestion, just report statistics
+
+  Possible values: `true`, `false`
+
 * `-b`, `--behavior <BEHAVIOR>` — the behavior name in `behavior` table
 * `-r`, `--root-fs-path <ROOT_FS_PATH>` — one or more root paths to ingest
 
@@ -230,8 +261,17 @@ Ingest content from device file system and other sources
   Default value: `resource-surveillance.sqlite.db`
 * `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
 * `--include-state-db-in-ingestion` — include the surveil database in the ingestion candidates
+
+  Possible values: `true`, `false`
+
 * `--stats` — show stats as an ASCII table after completion
+
+  Possible values: `true`, `false`
+
 * `--stats-json` — show stats in JSON after completion
+
+  Possible values: `true`, `false`
+
 * `--save-behavior <SAVE_BEHAVIOR>` — save the options as a new behavior
 
 
@@ -249,8 +289,17 @@ Notebooks maintenance utilities
   Default value: `resource-surveillance.sqlite.db`
 * `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
 * `--stdin` — read tasks from STDIN
+
+  Possible values: `true`, `false`
+
 * `--stats` — show session stats after completion
+
+  Possible values: `true`, `false`
+
 * `--stats-json` — show session stats as JSON after completion
+
+  Possible values: `true`, `false`
+
 
 
 
@@ -286,6 +335,9 @@ Notebooks' cells emit utilities
 * `-c`, `--cell <CELL>` — search for these cells (include % for LIKE otherwise =)
 * `-s`, `--seps` — add separators before each cell
 
+  Possible values: `true`, `false`
+
+
 
 
 ## `surveilr notebooks ls`
@@ -297,6 +349,29 @@ list all notebooks
 ###### **Options:**
 
 * `-m`, `--migratable` — list all SQL cells that will be handled by execute_migrations
+
+  Possible values: `true`, `false`
+
+
+
+
+## `surveilr sqlpage`
+
+Configuration to start the SQLPage webserver
+
+**Usage:** `surveilr sqlpage [OPTIONS] --port <PORT>`
+
+###### **Options:**
+
+* `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
+
+  Default value: `resource-surveillance.sqlite.db`
+* `-u`, `--url-base-path <URL_BASE_PATH>` — Base URL for SQLPage to start from. Defaults to "/index.sql"
+
+  Default value: `/`
+* `-p`, `--port <PORT>` — Port to bind sqplage webserver to
+* `-o`, `--otel <OTEL>` — Port that any OTEL compatible service is running on
+* `-m`, `--metrics <METRICS>` — Metrics port. Used for scraping metrics with tools like OpenObserve or Prometheus
 
 
 

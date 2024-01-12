@@ -11,13 +11,13 @@ use opentelemetry_sdk::{
 
 use tracing::instrument::{WithDispatch, WithSubscriber};
 
-pub fn init() -> anyhow::Result<WithDispatch<trace::Tracer>> {
+pub fn init_tracing(port: u16) -> anyhow::Result<WithDispatch<trace::Tracer>> {
     let tracer = opentelemetry_otlp::new_pipeline()
         .tracing()
         .with_exporter(
             opentelemetry_otlp::new_exporter()
                 .http()
-                .with_endpoint("http://localhost:4317")
+                .with_endpoint(format!("http://localhost:{port}"))
                 .with_timeout(Duration::from_secs(3)),
         )
         .with_trace_config(
@@ -35,8 +35,12 @@ pub fn init() -> anyhow::Result<WithDispatch<trace::Tracer>> {
         .install_batch(opentelemetry_sdk::runtime::Tokio)?
         .with_current_subscriber();
 
+    Ok(tracer)
+}
+
+pub fn init_metrics(port: u16) -> anyhow::Result<()> {
     let export_config = ExportConfig {
-        endpoint: "http://localhost:4317".to_string(),
+        endpoint: format!("http://localhost:{port}").to_string(),
         timeout: Duration::from_secs(3),
         protocol: Protocol::HttpBinary,
     };
@@ -75,6 +79,5 @@ pub fn init() -> anyhow::Result<WithDispatch<trace::Tracer>> {
         )
         .install_batch(opentelemetry_sdk::runtime::Tokio)?
         .with_current_subscriber();
-
-    Ok(tracer)
+    Ok(())
 }

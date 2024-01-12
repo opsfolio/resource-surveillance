@@ -404,6 +404,26 @@ good way to help ChatGPT or other LLM to understand the `surveilr` notebooks
 schema and ask it questions to generate SQL specifically for the _code
 notebooks_ capability.
 
+## SQLPage
+
+[SQLPage](https://github.com/lovasoa/SQLpage) is a unique tool designed for creating SQL-focused web applications with ease. It serves as a straightforward and efficient way to build and deploy web applications that interact directly with your SQL database.
+
+### Getting Started with SQLPage
+
+SQLPage simplifies the process of setting up a web application connected to a SQL database. Surveilr comes with a default configuration table, named `sqlpage_files`, which is automatically included in all RSSD. This table serves as the initial setup for SQLPage.
+
+```bash
+surveilr sql-page -p 5556 
+```
+
+Navigate to <http://localhost:5556>.
+
+### Updating Content in SQLPage
+
+To update or add new content to SQLPage, you need to modify the SQL statements in the content column of the `sqlpage_files` database table. SQLPage is designed to reflect changes made to these SQL statements in real-time on the web interface.
+
+However, it's important to note that SQLPage relies on timestamp updates to recognize changes. Therefore, every time you modify or add SQL content, you must also update the timestamp associated with these entries. This is a critical step as SQLPage only reloads and displays files that have a registered change in their timestamp.
+
 ## Contributing
 
 Check out [CONTRIBUTING.md](CONTRIBUTING.md).

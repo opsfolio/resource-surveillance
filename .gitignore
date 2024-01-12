@@ -7,3 +7,4 @@ resource-surveillance*.sqlite.db*
 
 # rust-specific
 /target
+sqlpage/

@@ -4,12 +4,14 @@ use autometrics::autometrics;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 
-use crate::utils;
+use sql_page::SQLPageArgs;
+use crate::service_management;
 
 pub mod admin;
 pub mod capexec;
 pub mod ingest;
 pub mod notebooks;
+pub mod sql_page;
 
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 const DEFAULT_MERGED_STATEDB_FS_PATH: &str = "resource-surveillance-aggregated.sqlite.db";
@@ -22,12 +24,12 @@ pub enum LogMode {
     Compact,
 }
 
-impl From<LogMode> for utils::logger::LoggingMode {
+impl From<LogMode> for service_management::logger::LoggingMode {
     fn from(mode: LogMode) -> Self {
         match mode {
-            LogMode::Full => utils::logger::LoggingMode::Full,
-            LogMode::Json => utils::logger::LoggingMode::Json,
-            LogMode::Compact => utils::logger::LoggingMode::Compact,
+            LogMode::Full => service_management::logger::LoggingMode::Full,
+            LogMode::Json => service_management::logger::LoggingMode::Json,
+            LogMode::Compact => service_management::logger::LoggingMode::Compact,
         }
     }
 }
@@ -62,6 +64,8 @@ pub enum CliCommands {
     CapturableExec(CapturableExecArgs),
     Ingest(IngestArgs),
     Notebooks(NotebooksArgs),
+    #[clap(name = "sqlpage")]
+    SQLPage(SQLPageArgs),
 }
 
 /// Admin / maintenance utilities
@@ -327,12 +331,13 @@ pub enum NotebooksCommands {
 
 impl CliCommands {
     #[autometrics]
-    pub fn execute(&self, cli: &Cli) -> anyhow::Result<()> {
+    pub async fn execute(&self, cli: &Cli) -> anyhow::Result<()> {
         match self {
             CliCommands::Admin(args) => args.command.execute(cli, args),
             CliCommands::CapturableExec(args) => args.command.execute(cli, args),
             CliCommands::Ingest(args) => args.command.execute(cli, args),
             CliCommands::Notebooks(args) => args.command.execute(cli, args),
+            CliCommands::SQLPage(args) => args.execute(args).await
         }
     }
 }
