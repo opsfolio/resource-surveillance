@@ -5,7 +5,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 
 use sql_page::SQLPageArgs;
-use crate::utils;
+use crate::service_management;
 
 pub mod admin;
 pub mod capexec;
@@ -24,12 +24,12 @@ pub enum LogMode {
     Compact,
 }
 
-impl From<LogMode> for utils::logger::LoggingMode {
+impl From<LogMode> for service_management::logger::LoggingMode {
     fn from(mode: LogMode) -> Self {
         match mode {
-            LogMode::Full => utils::logger::LoggingMode::Full,
-            LogMode::Json => utils::logger::LoggingMode::Json,
-            LogMode::Compact => utils::logger::LoggingMode::Compact,
+            LogMode::Full => service_management::logger::LoggingMode::Full,
+            LogMode::Json => service_management::logger::LoggingMode::Json,
+            LogMode::Compact => service_management::logger::LoggingMode::Compact,
         }
     }
 }

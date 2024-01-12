@@ -31,6 +31,14 @@ pub struct SQLPageArgs {
     /// Port to bind sqplage webserver to
     #[arg(short = 'p', long)]
     pub port: u16,
+
+    /// Port that any OTEL compatible service is running on.
+    #[arg(short = 'o', long)]
+    pub otel: Option<u16>,
+
+    /// Metrics port. Used for scraping metrics with tools like OpenObserve or Prometheus
+    #[arg(short = 'm', long)]
+    pub metrics: Option<u16>,
 }
 
 impl SQLPageArgs {

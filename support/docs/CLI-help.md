@@ -370,6 +370,8 @@ Configuration to start the SQLPage webserver
 
   Default value: `/`
 * `-p`, `--port <PORT>` — Port to bind sqplage webserver to
+* `-o`, `--otel <OTEL>` — Port that any OTEL compatible service is running on
+* `-m`, `--metrics <METRICS>` — Metrics port. Used for scraping metrics with tools like OpenObserve or Prometheus
 
 
 
