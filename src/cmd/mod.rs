@@ -64,6 +64,7 @@ pub enum CliCommands {
     CapturableExec(CapturableExecArgs),
     Ingest(IngestArgs),
     Notebooks(NotebooksArgs),
+    #[clap(name = "sqlpage")]
     SQLPage(SQLPageArgs),
 }
 
