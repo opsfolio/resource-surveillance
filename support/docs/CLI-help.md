@@ -34,7 +34,7 @@ This document contains the help content for the `surveilr` command-line program.
 * `capturable-exec` — Capturable Executables (CE) maintenance tools
 * `ingest` — Ingest content from device file system and other sources
 * `notebooks` — Notebooks maintenance utilities
-* `sqlpage` — SQLPage webserver
+* `sqlpage` — Configuration to start the SQLPage webserver
 
 ###### **Options:**
 
@@ -357,7 +357,7 @@ list all notebooks
 
 ## `surveilr sqlpage`
 
-SQLPage webserver
+Configuration to start the SQLPage webserver
 
 **Usage:** `surveilr sqlpage [OPTIONS] --port <PORT>`
 
@@ -366,7 +366,7 @@ SQLPage webserver
 * `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
 
   Default value: `resource-surveillance.sqlite.db`
-* `-u`, `--url-base-path <URL_BASE_PATH>`
+* `-u`, `--url-base-path <URL_BASE_PATH>` — Base URL for SQLPage to start from. Defaults to "/index.sql"
 
   Default value: `/`
 * `-p`, `--port <PORT>` — Port to bind sqplage webserver to

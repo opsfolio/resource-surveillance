@@ -331,13 +331,13 @@ pub enum NotebooksCommands {
 
 impl CliCommands {
     #[autometrics]
-    pub fn execute(&self, cli: &Cli) -> anyhow::Result<()> {
+    pub async fn execute(&self, cli: &Cli) -> anyhow::Result<()> {
         match self {
             CliCommands::Admin(args) => args.command.execute(cli, args),
             CliCommands::CapturableExec(args) => args.command.execute(cli, args),
             CliCommands::Ingest(args) => args.command.execute(cli, args),
             CliCommands::Notebooks(args) => args.command.execute(cli, args),
-            CliCommands::SQLPage(args) => args.execute(args)
+            CliCommands::SQLPage(args) => args.execute(args).await
         }
     }
 }

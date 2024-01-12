@@ -2,21 +2,24 @@ use std::net::ToSocketAddrs;
 
 use anyhow::{anyhow, Result};
 use clap::Args;
+use opentelemetry::{trace::get_active_span, KeyValue};
 use serde::Serialize;
 use sqlpage::{
     app_config::{self, AppConfig},
     webserver, AppState,
 };
+use tracing::{debug, info};
 
 use super::DEFAULT_STATEDB_FS_PATH;
 
-/// SQLPage webserver
+/// Configuration to start the SQLPage webserver
 #[derive(Debug, Serialize, Args)]
 pub struct SQLPageArgs {
     /// target SQLite database
     #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
     pub state_db_fs_path: String,
 
+    /// Base URL for SQLPage to start from. Defaults to "/index.sql".
     #[arg(
         short = 'u',
         long,
@@ -31,13 +34,8 @@ pub struct SQLPageArgs {
 }
 
 impl SQLPageArgs {
-    pub fn execute(&self, args: &SQLPageArgs) -> Result<()> {
-        // we're using just the single thread here since we're running just a webserver and multi threading will be excessive.
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?;
-        rt.block_on(self.start(args))?;
-        Ok(())
+    pub async fn execute(&self, args: &SQLPageArgs) -> Result<()> {
+        self.start(args).await
     }
 
     fn database_url(&self, db_fs_path: &str) -> Result<String> {
@@ -59,14 +57,21 @@ impl SQLPageArgs {
         app_config.listen_on = addr;
         app_config.database_url = self.database_url(&args.state_db_fs_path)?;
 
-        // TODO change to debug!()
-        println!("Starting with the following configuration: {app_config:#?}");
+        debug!("Starting with the following configuration: {app_config:#?}");
+        get_active_span(|span| {
+            span.add_event(
+                "sqlpage config",
+                vec![KeyValue::new(
+                    app_config.database_url.clone(),
+                    format!("{app_config:#?}"),
+                )],
+            )
+        });
 
         let state = AppState::init(&app_config).await?;
         webserver::database::migrations::apply(&state.db).await?;
 
-        // TODO change to info!()
-        println!("Starting server...");
+        info!("Starting server...");
         self.log_welcome_message(&app_config);
         webserver::http::run_server(&app_config, state).await
     }
@@ -81,7 +86,7 @@ impl SQLPageArgs {
         );
 
         // TODO change to info!()
-        println!(
+        info!(
             "Server started successfully.
     SQLPage is now running on {}
     You can add your website's code in .sql files to sqlpage_file table in {}.",
