@@ -38,7 +38,7 @@ fn ingest_fixtures() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn execute_query(file_path: &Path) -> anyhow::Result<Vec<UR>> {
+fn get_uniform_resource(file_path: &Path) -> anyhow::Result<Vec<UR>> {
     let mut db_path = std::env::current_dir()?;
     db_path.push("e2e-test.db");
     let conn = Connection::open(&db_path)?;
@@ -72,10 +72,7 @@ fn _extract_front_matter(markdown: &str) -> Option<String> {
     if parts.len() == 3 {
         serde_yaml::from_str::<serde_yaml::Value>(parts[1])
             .ok()
-            .and_then(|yaml| {
-                println!("======{:#?}", yaml);
-                serde_yaml::to_string(&yaml).ok()
-            })
+            .and_then(|yaml| serde_yaml::to_string(&yaml).ok())
     } else {
         None
     }
@@ -88,7 +85,7 @@ fn test_plain_text() -> anyhow::Result<()> {
     let mut file_path = std::env::current_dir()?;
     file_path.push("support/test-fixtures/plain-text.txt");
 
-    let rows = execute_query(&file_path)?;
+    let rows = get_uniform_resource(&file_path)?;
 
     assert_eq!(rows.len(), 1);
     let resource = rows.get(0).unwrap();
@@ -112,7 +109,7 @@ fn test_md() -> anyhow::Result<()> {
     let mut file_path = std::env::current_dir()?;
     file_path.push("support/test-fixtures/markdown-with-frontmatter.md");
 
-    let rows = execute_query(&file_path)?;
+    let rows = get_uniform_resource(&file_path)?;
 
     assert_eq!(rows.len(), 1);
     let resource = rows.get(0).unwrap();
@@ -131,6 +128,56 @@ fn test_md() -> anyhow::Result<()> {
     assert!(frontmatter.is_some());
     let frontmatter = frontmatter.clone().unwrap();
     assert!(frontmatter.contains("Markdown with YAML Frontmatter Fixture"));
+
+    Ok(())
+}
+
+#[test]
+fn test_xml() -> anyhow::Result<()> {
+    ingest_fixtures()?;
+
+    let mut db_path = std::env::current_dir()?;
+    db_path.push("e2e-test.db");
+    let conn = Connection::open(&db_path)?;
+    let mut stmt = conn.prepare(
+        "SELECT file_extn FROM ur_ingest_session_fs_path_entry WHERE file_extn = '.txt';",
+    )?;
+    let ext: String = stmt.query_row([], |row| row.get(0))?;
+
+    assert_eq!(ext, "xml".to_string());
+
+    Ok(())
+}
+
+#[test]
+fn test_ingest_session() -> anyhow::Result<()> {
+    fn count_files<P: AsRef<Path>>(path: P) -> anyhow::Result<usize> {
+        let count = fs::read_dir(path)?
+            .filter_map(Result::ok)
+            .filter(|entry| entry.metadata().map(|m| m.is_file()).unwrap_or(false))
+            .count();
+
+        Ok(count)
+    }
+
+    ingest_fixtures()?;
+    let mut curr_dir = std::env::current_dir()?;
+
+    let mut db_path = curr_dir.clone();
+    db_path.push("e2e-test.db");
+    let conn = Connection::open(&db_path)?;
+    let mut stmt = conn.prepare(
+        "SELECT ingest_session_id, COUNT(*) AS file_count FROM ur_ingest_session_fs_path_entry GROUP BY ingest_session_id;",
+    )?;
+    let (_, no_of_files): (String, u64) =
+        stmt.query_row([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+
+    curr_dir.push("support/test-fixtures");
+    // removes the "synthetic-tasks-via-stdin" as it has no extension and surveilr doesn't account for it.
+    let expected = count_files(&curr_dir)? - 1;
+
+    assert_eq!(no_of_files, expected as u64);
+    fs::remove_file(&db_path)?;
 
     Ok(())
 }
