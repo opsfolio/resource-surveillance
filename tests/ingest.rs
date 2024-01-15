@@ -1,7 +1,8 @@
-use std::{fs, path::Path, str};
+use std::{fs, path::Path, str, sync::Mutex};
 
 use anyhow::anyhow;
 use assert_cmd::Command;
+use lazy_static::lazy_static;
 use rusqlite::Connection;
 
 #[derive(Debug, Clone)]
@@ -15,6 +16,12 @@ struct UR {
 }
 
 fn ingest_fixtures() -> anyhow::Result<()> {
+    let mut db_path = std::env::current_dir()?;
+    db_path.push("e2e-test.db");
+    if db_path.exists() {
+        fs::remove_file(db_path)?;
+    }
+
     let mut fixtures_dir = std::env::current_dir()?;
     fixtures_dir.push("support/test-fixtures");
 
@@ -36,6 +43,14 @@ fn ingest_fixtures() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+lazy_static! {
+    static ref INIT: Mutex<()> = {
+        let _guard = Mutex::new(());
+        ingest_fixtures().expect("Failed to ingest fixtures");
+        _guard
+    };
 }
 
 fn get_uniform_resource(file_path: &Path) -> anyhow::Result<Vec<UR>> {
@@ -61,8 +76,6 @@ WHERE u.uri = ?1;
         })
     })?;
 
-    fs::remove_file(&db_path)?;
-
     let results: Result<Vec<_>, _> = iter.collect();
     results.map_err(Into::into)
 }
@@ -80,7 +93,7 @@ fn _extract_front_matter(markdown: &str) -> Option<String> {
 
 #[test]
 fn test_plain_text() -> anyhow::Result<()> {
-    ingest_fixtures()?;
+    let _lock = INIT.lock().unwrap();
 
     let mut file_path = std::env::current_dir()?;
     file_path.push("support/test-fixtures/plain-text.txt");
@@ -104,7 +117,7 @@ fn test_plain_text() -> anyhow::Result<()> {
 
 #[test]
 fn test_html() -> anyhow::Result<()> {
-    ingest_fixtures()?;
+    let _lock = INIT.lock().unwrap();
 
     let mut file_path = std::env::current_dir()?;
     file_path.push("support/test-fixtures/plain.html");
@@ -128,7 +141,7 @@ fn test_html() -> anyhow::Result<()> {
 
 #[test]
 fn test_json() -> anyhow::Result<()> {
-    ingest_fixtures()?;
+    let _lock = INIT.lock().unwrap();
 
     let mut file_path = std::env::current_dir()?;
     file_path.push("support/test-fixtures/table.json");
@@ -152,7 +165,7 @@ fn test_json() -> anyhow::Result<()> {
 
 #[test]
 fn test_capturable_exec() -> anyhow::Result<()> {
-    ingest_fixtures()?;
+    let _lock = INIT.lock().unwrap();
 
     let mut file_path = std::env::current_dir()?;
     file_path.push("support/test-fixtures/capturable-executable.surveilr[json].sh");
@@ -177,7 +190,7 @@ fn test_capturable_exec() -> anyhow::Result<()> {
 
 #[test]
 fn test_md() -> anyhow::Result<()> {
-    ingest_fixtures()?;
+    let _lock = INIT.lock().unwrap();
 
     let mut file_path = std::env::current_dir()?;
     file_path.push("support/test-fixtures/markdown-with-frontmatter.md");
@@ -206,7 +219,7 @@ fn test_md() -> anyhow::Result<()> {
 
 #[test]
 fn test_xml() -> anyhow::Result<()> {
-    ingest_fixtures()?;
+    let _lock = INIT.lock().unwrap();
 
     let mut db_path = std::env::current_dir()?;
     db_path.push("e2e-test.db");
@@ -223,7 +236,7 @@ fn test_xml() -> anyhow::Result<()> {
 
 #[test]
 fn test_source_code() -> anyhow::Result<()> {
-    ingest_fixtures()?;
+    let _lock = INIT.lock().unwrap();
 
     let mut db_path = std::env::current_dir()?;
     db_path.push("e2e-test.db");
@@ -239,7 +252,7 @@ fn test_source_code() -> anyhow::Result<()> {
 
 #[test]
 fn test_image() -> anyhow::Result<()> {
-    ingest_fixtures()?;
+    let _lock = INIT.lock().unwrap();
 
     let mut db_path = std::env::current_dir()?;
     db_path.push("e2e-test.db");
@@ -270,7 +283,7 @@ fn test_ingest_session() -> anyhow::Result<()> {
         Ok(count)
     }
 
-    ingest_fixtures()?;
+    let _lock = INIT.lock().unwrap();
     let mut curr_dir = std::env::current_dir()?;
 
     let mut db_path = curr_dir.clone();
@@ -287,7 +300,5 @@ fn test_ingest_session() -> anyhow::Result<()> {
     let expected = count_files(&curr_dir)? - 1;
 
     assert_eq!(no_of_files, expected as u64);
-    fs::remove_file(&db_path)?;
-
     Ok(())
 }

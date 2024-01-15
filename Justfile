@@ -33,8 +33,8 @@ dev: ensure-cargo-watch
     @cargo watch -q -c -w src/ -x 'run -q'
 
 # Run unit tests using cargo-nextest
-test: ensure-cargo-nextest
-    @cargo nextest run
+test: 
+    @cargo test -- --test-threads=1
 
 # Run end-to-end tests
 test-e2e: 
