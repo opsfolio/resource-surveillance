@@ -103,6 +103,79 @@ fn test_plain_text() -> anyhow::Result<()> {
 }
 
 #[test]
+fn test_html() -> anyhow::Result<()> {
+    ingest_fixtures()?;
+
+    let mut file_path = std::env::current_dir()?;
+    file_path.push("support/test-fixtures/plain.html");
+
+    let rows = get_uniform_resource(&file_path)?;
+
+    assert_eq!(rows.len(), 1);
+    let resource = rows.get(0).unwrap();
+
+    let content = fs::read(&file_path)?;
+    let content = str::from_utf8(&content)?;
+    let metadata = fs::metadata(file_path)?;
+    let file_size = metadata.len();
+
+    assert_eq!(resource.content, content);
+    assert_eq!(resource.size_bytes, file_size);
+    assert_eq!(resource.nature, "html");
+
+    Ok(())
+}
+
+#[test]
+fn test_json() -> anyhow::Result<()> {
+    ingest_fixtures()?;
+
+    let mut file_path = std::env::current_dir()?;
+    file_path.push("support/test-fixtures/table.json");
+
+    let rows = get_uniform_resource(&file_path)?;
+
+    assert_eq!(rows.len(), 1);
+    let resource = rows.get(0).unwrap();
+
+    let content = fs::read(&file_path)?;
+    let content = str::from_utf8(&content)?;
+    let metadata = fs::metadata(file_path)?;
+    let file_size = metadata.len();
+
+    assert_eq!(resource.content, content);
+    assert_eq!(resource.size_bytes, file_size);
+    assert_eq!(resource.nature, "json");
+
+    Ok(())
+}
+
+#[test]
+fn test_capturable_exec() -> anyhow::Result<()> {
+    ingest_fixtures()?;
+
+    let mut file_path = std::env::current_dir()?;
+    file_path.push("support/test-fixtures/capturable-executable.surveilr[json].sh");
+
+    let rows = get_uniform_resource(&file_path)?;
+
+    assert_eq!(rows.len(), 1);
+    let resource = rows.get(0).unwrap();
+
+    let content = fs::read(&file_path)?;
+    let content = str::from_utf8(&content)?;
+    // let metadata = fs::metadata(file_path)?;
+    // let file_size = metadata.len();
+
+    assert_ne!(resource.content, content);
+    // assert_eq!(resource.size_bytes, file_size);
+    assert_eq!(resource.nature, "json");
+    assert_eq!(resource.content, "{ \"test\": \"JSON\" }\n");
+
+    Ok(())
+}
+
+#[test]
 fn test_md() -> anyhow::Result<()> {
     ingest_fixtures()?;
 
@@ -118,7 +191,6 @@ fn test_md() -> anyhow::Result<()> {
     let content = str::from_utf8(&content)?;
     let metadata = fs::metadata(file_path)?;
     let file_size = metadata.len();
-    // let frontmatter = extract_front_matter(content);
 
     assert_eq!(resource.content, content);
     assert_eq!(resource.size_bytes, file_size);
@@ -140,11 +212,49 @@ fn test_xml() -> anyhow::Result<()> {
     db_path.push("e2e-test.db");
     let conn = Connection::open(&db_path)?;
     let mut stmt = conn.prepare(
-        "SELECT file_extn FROM ur_ingest_session_fs_path_entry WHERE file_extn = '.txt';",
+        "SELECT file_extn FROM ur_ingest_session_fs_path_entry WHERE file_extn = 'xml';",
     )?;
     let ext: String = stmt.query_row([], |row| row.get(0))?;
 
     assert_eq!(ext, "xml".to_string());
+
+    Ok(())
+}
+
+#[test]
+fn test_source_code() -> anyhow::Result<()> {
+    ingest_fixtures()?;
+
+    let mut db_path = std::env::current_dir()?;
+    db_path.push("e2e-test.db");
+    let conn = Connection::open(&db_path)?;
+    let mut stmt = conn
+        .prepare("SELECT file_extn FROM ur_ingest_session_fs_path_entry WHERE file_extn = 'ts';")?;
+    let ext: String = stmt.query_row([], |row| row.get(0))?;
+
+    assert_eq!(ext, "ts".to_string());
+
+    Ok(())
+}
+
+#[test]
+fn test_image() -> anyhow::Result<()> {
+    ingest_fixtures()?;
+
+    let mut db_path = std::env::current_dir()?;
+    db_path.push("e2e-test.db");
+    let conn = Connection::open(&db_path)?;
+    let mut stmt = conn.prepare(
+        "SELECT file_extn, ur_diagnostics FROM ur_ingest_session_fs_path_entry WHERE file_extn = 'png';",
+    )?;
+    let (ext, diagnostics): (String, String) =
+        stmt.query_row([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+
+    assert_eq!(ext, "png".to_string());
+
+    let ur_diagnostics: serde_json::Value = serde_json::from_str(&diagnostics)?;
+    let message = ur_diagnostics["message"].as_str().unwrap_or_default();
+    assert_eq!(message, "content supplier was not provided");
 
     Ok(())
 }
