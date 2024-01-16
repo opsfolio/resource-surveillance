@@ -20,6 +20,10 @@ ensure-cargo-sbom:
 ensure-cargo-watch:
     @cargo install -q cargo-sbom
 
+# Install tarpaulin for code coverage
+ensure-cargo-tarpaulin:
+    @cargo install -q cargo-tarpaulin
+
 # Generate surveilr binary SBOM in SPDX format
 sbom: ensure-cargo-sbom
     @cargo-sbom > support/quality-system/surveilr-sbom.spdx.json
@@ -59,6 +63,10 @@ release:
 # Generate CLI markdown help and save in CLI-help.md
 help-markdown:
     @cargo run -- admin cli-help-md > support/docs/CLI-help.md
+
+# Generates local code coverage data
+code-coverage: ensure-cargo-tarpaulin
+    @cargo tarpaulin -- --test-threads=1
 
 # Generate `tbls` database schema documents
 tbls: sqla-sync

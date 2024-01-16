@@ -1,7 +1,8 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::path::Path;
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use autometrics::autometrics;
 use comfy_table::*;
 use globset::Glob;
@@ -43,18 +44,21 @@ pub struct DbConn {
 impl DbConn {
     // open an existing database or create a new one if it doesn't exist
     #[autometrics]
-    pub fn new(db_fs_path: &str, vebose_level: u8) -> Result<DbConn> {
-        let db_fs_path = db_fs_path.to_string();
-        let conn = Connection::open(db_fs_path.clone())
-            .with_context(|| format!("[DbConn::new] SQLite database {}", db_fs_path))?;
-        prepare_conn(&conn).with_context(|| {
-            format!("[DbConn::new] prepare SQLite connection for {}", db_fs_path)
-        })?;
+    pub fn new<P: AsRef<Path>>(db_fs_path: P, vebose_level: u8) -> Result<DbConn> {
+        let db_path = db_fs_path
+            .as_ref()
+            .to_str()
+            .ok_or_else(|| anyhow!("Failed to convert database path to string"))?;
 
-        debug!("RSSD: {}", db_fs_path);
+        let conn = Connection::open(&db_fs_path)
+            .with_context(|| format!("[DbConn::new] SQLite database {}", db_path))?;
+        prepare_conn(&conn)
+            .with_context(|| format!("[DbConn::new] prepare SQLite connection for {}", db_path))?;
+
+        debug!("RSSD: {}", db_path);
 
         Ok(DbConn {
-            db_fs_path,
+            db_fs_path: db_path.to_string(),
             conn,
             vebose_level,
         })
@@ -62,14 +66,15 @@ impl DbConn {
 
     // open an existing database and error out if it doesn't exist
     #[autometrics]
-    pub fn open(db_fs_path: &str, vebose_level: u8) -> Result<DbConn> {
-        let db_fs_path = db_fs_path.to_string();
-        let conn = Connection::open_with_flags(
-            db_fs_path.clone(),
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
-        )?;
+    pub fn open<P: AsRef<Path>>(db_fs_path: P, vebose_level: u8) -> Result<DbConn> {
+        let db_path = db_fs_path
+            .as_ref()
+            .to_str()
+            .ok_or_else(|| anyhow!("Failed to convert database path to string"))?;
+        let conn =
+            Connection::open_with_flags(&db_fs_path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
         Ok(DbConn {
-            db_fs_path,
+            db_fs_path: db_path.to_string(),
             conn,
             vebose_level,
         })
@@ -765,4 +770,218 @@ pub fn upserted_device(conn: &Connection, device: &Device) -> RusqliteResult<(St
         &device.state_json(),
         &device.state_sysinfo_json(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::{Connection, Result};
+    use std::{fs, path::Path};
+
+    use anyhow::anyhow;
+    use assert_cmd::Command;
+
+    fn ingest_fixtures(db_path: &Path) -> anyhow::Result<()> {
+        if db_path.exists() {
+            fs::remove_file(db_path)?;
+        }
+
+        let mut fixtures_dir = std::env::current_dir()?;
+        fixtures_dir.push("support/test-fixtures");
+
+        let mut cmd = Command::cargo_bin("surveilr")?;
+        let output = cmd
+            .args([
+                "ingest",
+                "files",
+                "-d",
+                db_path.to_str().unwrap(),
+                "-r",
+                fixtures_dir.to_str().unwrap(),
+            ])
+            .output()?;
+
+        if !output.status.success() {
+            eprintln!("Command failed with exit status: {}", output.status);
+            return Err(anyhow!("Command failed"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_prepare_conn() {
+        let conn = Connection::open_in_memory().unwrap();
+        assert!(prepare_conn(&conn).is_ok());
+
+        let result: Result<String> = conn.query_row("SELECT ulid()", [], |row| row.get(0));
+        assert!(result.is_ok());
+        assert!(!result.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_dbconn_new() {
+        let db_fs_path = ":memory:";
+        let vebose_level = 1;
+
+        let conn = DbConn::new(db_fs_path, vebose_level).expect("Failed to initialize connecttion");
+        assert_eq!(conn.db_fs_path, db_fs_path);
+    }
+
+    #[test]
+    fn test_query_result_as_formatted_table() -> anyhow::Result<()> {
+        let mut db_path = std::env::current_dir()?;
+        db_path.push("test_query_result_as_formatted_table.db");
+        ingest_fixtures(&db_path)?;
+
+        let conn = DbConn::new(&db_path, 0)?;
+        let table = conn.query_result_as_formatted_table("SELECT ingest_session_id, COUNT(*) AS file_count FROM ur_ingest_session_fs_path_entry GROUP BY ingest_session_id;", &[])?;
+
+        assert_eq!(table.row_count(), 1);
+
+        fs::remove_file(db_path)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_query_result_as_json_value() -> anyhow::Result<()> {
+        let mut db_path = std::env::current_dir()?;
+        db_path.push("test_query_result_as_json_value.db");
+        ingest_fixtures(&db_path)?;
+
+        let conn = DbConn::new(&db_path, 0)?;
+        let json = conn.query_result_as_json_value("SELECT ingest_session_id, COUNT(*) AS file_count FROM ur_ingest_session_fs_path_entry GROUP BY ingest_session_id;", &[])?;
+
+        assert!(json.as_array().is_some());
+
+        fs::remove_file(db_path)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_dbconn_init() -> anyhow::Result<()> {
+        let mut db_path = std::env::current_dir()?;
+        db_path.push("test_dbconn_init.db");
+        let vebose_level = 1;
+        let mut db_conn =
+            DbConn::new(&db_path, vebose_level).expect("Failed to initialize connecttion");
+
+        let db_init_sql = Some(vec![String::from(
+            "CREATE TABLE test (id INTEGER PRIMARY KEY);",
+        )]);
+
+        {
+            let result = db_conn.init(db_init_sql.as_deref());
+            assert!(result.is_ok());
+        }
+
+        let table_check_query =
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='uniform_resource';";
+        let table_exists = db_conn
+            .conn
+            .query_row(table_check_query, [], |r| r.get::<_, String>(0));
+
+        assert!(table_exists.is_err());
+
+        fs::remove_file(db_path)?;
+        Ok(())
+    }
+
+    fn setup_db() -> anyhow::Result<rusqlite::Connection> {
+        let conn = rusqlite::Connection::open_in_memory()?;
+
+        conn.execute(
+            "CREATE TABLE code_notebook_cell (
+            code_notebook_cell_id VARCHAR PRIMARY KEY NOT NULL,
+            notebook_name TEXT,
+            notebook_kernel_id TEXT,
+            cell_name TEXT,
+            interpretable_code TEXT,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        )",
+            [],
+        )?;
+
+        conn.execute(
+        "INSERT INTO code_notebook_cell (code_notebook_cell_id, notebook_name, notebook_kernel_id, cell_name, interpretable_code) VALUES (?, ?, ?, ?, ?)",
+        ["id1", "Notebook1", "Kernel1", "CellA", "CodeA"],
+            )?;
+        conn.execute(
+                "INSERT INTO code_notebook_cell (code_notebook_cell_id, notebook_name, notebook_kernel_id, cell_name, interpretable_code) VALUES (?, ?, ?, ?, ?)",
+            ["id2", "Notebook2", "Kernel2", "CellB", "CodeB"],
+        )?;
+
+        Ok(conn)
+    }
+
+    #[test]
+    fn test_select_notebooks_and_cells() -> anyhow::Result<()> {
+        let conn = setup_db()?;
+
+        let notebooks = vec!["Notebook1".to_string(), "Notebook2".to_string()];
+        let cells = vec!["CellA".to_string(), "CellB".to_string()];
+
+        let result = select_notebooks_and_cells(&conn, &notebooks, &cells)
+            .expect("Failed to select notebooks and cells");
+
+        assert_eq!(result.len(), 2);
+        assert_eq!(
+            result[0],
+            (
+                "Notebook1".to_string(),
+                "Kernel1".to_string(),
+                "CellA".to_string(),
+                "CodeA".to_string()
+            )
+        );
+        assert_eq!(
+            result[1],
+            (
+                "Notebook2".to_string(),
+                "Kernel2".to_string(),
+                "CellB".to_string(),
+                "CodeB".to_string()
+            )
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_executable_code_latest_notebook_cell() -> anyhow::Result<()> {
+        let conn = setup_db().expect("Failed to set up test database");
+
+        let executable_code = ExecutableCode::NotebookCell {
+            notebook_name: "Notebook1".to_string(),
+            cell_name: "CellA".to_string(),
+        };
+
+        let result = executable_code.executable_code_latest(&conn)?;
+        assert_eq!(result, "CodeA");
+        Ok(())
+    }
+
+     #[test]
+    fn test_executable_code_latest_anonymous_sql() {
+        let conn = setup_db().expect("Failed to set up test database");
+
+        let executable_code = ExecutableCode::_AnonymousSql {
+            sql: "SELECT 1;".to_string(),
+        };
+
+        let result = executable_code.executable_code_latest(&conn);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "SELECT 1;");
+    }
+
+    #[test]
+    fn test_executable_code_hash_key() {
+        let executable_code = ExecutableCode::_Sql {
+            identifier: "unique_identifier".to_string(),
+            sql: "SELECT COUNT(*) FROM table;".to_string(),
+        };
+
+        let hash_key = executable_code._hash_key();
+        assert!(!hash_key.is_empty());
+    }
 }
