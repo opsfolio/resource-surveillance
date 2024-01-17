@@ -17,7 +17,7 @@ struct UR {
 
 fn ingest_fixtures() -> anyhow::Result<()> {
     let mut db_path = std::env::current_dir()?;
-    db_path.push("e2e-test.db");
+    db_path.push("e2e-test-state.sqlite.db");
     if db_path.exists() {
         fs::remove_file(db_path)?;
     }
@@ -31,7 +31,7 @@ fn ingest_fixtures() -> anyhow::Result<()> {
             "ingest",
             "files",
             "-d",
-            "e2e-test.db",
+            "e2e-test-state.sqlite.db",
             "-r",
             fixtures_dir.to_str().unwrap(),
         ])
@@ -55,7 +55,7 @@ lazy_static! {
 
 fn get_uniform_resource(file_path: &Path) -> anyhow::Result<Vec<UR>> {
     let mut db_path = std::env::current_dir()?;
-    db_path.push("e2e-test.db");
+    db_path.push("e2e-test-state.sqlite.db");
     let conn = Connection::open(&db_path)?;
     let mut stmt = conn.prepare(
         "SELECT u.uniform_resource_id, u.uri, u.content, u.nature, u.size_bytes, u.frontmatter, f.ur_ingest_session_fs_path_entry_id
@@ -222,7 +222,7 @@ fn test_xml() -> anyhow::Result<()> {
     let _lock = INIT.lock().unwrap();
 
     let mut db_path = std::env::current_dir()?;
-    db_path.push("e2e-test.db");
+    db_path.push("e2e-test-state.sqlite.db");
     let conn = Connection::open(&db_path)?;
     let mut stmt = conn.prepare(
         "SELECT file_extn FROM ur_ingest_session_fs_path_entry WHERE file_extn = 'xml';",
@@ -239,7 +239,7 @@ fn test_source_code() -> anyhow::Result<()> {
     let _lock = INIT.lock().unwrap();
 
     let mut db_path = std::env::current_dir()?;
-    db_path.push("e2e-test.db");
+    db_path.push("e2e-test-state.sqlite.db");
     let conn = Connection::open(&db_path)?;
     let mut stmt = conn
         .prepare("SELECT file_extn FROM ur_ingest_session_fs_path_entry WHERE file_extn = 'ts';")?;
@@ -255,7 +255,7 @@ fn test_image() -> anyhow::Result<()> {
     let _lock = INIT.lock().unwrap();
 
     let mut db_path = std::env::current_dir()?;
-    db_path.push("e2e-test.db");
+    db_path.push("e2e-test-state.sqlite.db");
     let conn = Connection::open(&db_path)?;
     let mut stmt = conn.prepare(
         "SELECT file_extn, ur_diagnostics FROM ur_ingest_session_fs_path_entry WHERE file_extn = 'png';",
@@ -287,7 +287,7 @@ fn test_ingest_session() -> anyhow::Result<()> {
     let mut curr_dir = std::env::current_dir()?;
 
     let mut db_path = curr_dir.clone();
-    db_path.push("e2e-test.db");
+    db_path.push("e2e-test-state.sqlite.db");
     let conn = Connection::open(&db_path)?;
     let mut stmt = conn.prepare(
         "SELECT ingest_session_id, COUNT(*) AS file_count FROM ur_ingest_session_fs_path_entry GROUP BY ingest_session_id;",
