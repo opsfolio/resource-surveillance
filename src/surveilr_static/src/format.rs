@@ -68,6 +68,7 @@ where
 /// # Example
 ///
 /// ```
+/// use surveilr_static::format::to_sql_friendly_identifier;
 /// let input_string = "123 Your Input String!@#";
 /// let sql_friendly_identifier = to_sql_friendly_identifier(input_string);
 /// println!("{}", sql_friendly_identifier); // Outputs: "your_input_string_"

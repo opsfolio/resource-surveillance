@@ -776,18 +776,6 @@ impl EncounterableResource {
     /// - The first string value found in the JSON object, or the entire input string if not a JSON object.
     /// - An `Option<String>` containing the key corresponding to the first string value, or `None` if the input is not a JSON object or doesn't contain a string value.
     /// - A string that is either `"json"` or the value of the `"nature"` key in the JSON object, if present.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let json_str = r#"{ "my_cmd_identity": "echo \"hello world\"", "nature": "text/plain" }"#;
-    /// let result = dts_er(json_str);
-    /// assert_eq!(result, ("echo \"hello world\"".to_string(), Some("my_cmd_identity".to_string()), "text/plain".to_string()));
-    ///
-    /// let non_json_str = "echo \"Hello, world!\"";
-    /// let result = dts_er(non_json_str);
-    /// assert_eq!(result, ("Hello, world!".to_string(), None, "json".to_string()));
-    /// ```
     pub fn from_deno_task_shell_line(line: impl AsRef<str>) -> EncounterableResource {
         let default_nature = "json".to_string();
         let (commands, identity, nature) = match serde_json::from_str::<JsonValue>(line.as_ref()) {

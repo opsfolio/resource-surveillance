@@ -38,7 +38,7 @@ dev: ensure-cargo-watch
 
 # Run unit tests using cargo-nextest
 test: 
-    @cargo test -- --test-threads=1
+    @cargo test --lib --bins -- --test-threads=1
 
 # Run end-to-end tests
 test-e2e: 

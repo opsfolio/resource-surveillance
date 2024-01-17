@@ -384,6 +384,9 @@ query_sql_single!(
 /// ```
 /// # use rusqlite::{Connection, Result as SqliteResult};
 /// # use std::vec::Vec;
+/// use surveilr_static::persist::prepare_conn;
+/// use surveilr_static::persist::select_notebooks_and_cells;
+/// 
 /// # fn main() -> SqliteResult<()> {
 /// let conn = Connection::open("code_notebooks.db")?;
 /// prepare_conn(&conn)?; // make sure to register custom functions like ulid()
@@ -789,7 +792,7 @@ mod tests {
         }
 
         let mut fixtures_dir = std::env::current_dir()?;
-        fixtures_dir.push("support/test-fixtures");
+        fixtures_dir.push("../../support/test-fixtures");
 
         let mut cmd = Command::cargo_bin("surveilr")?;
         let output = cmd

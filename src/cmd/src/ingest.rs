@@ -438,7 +438,7 @@ mod tests {
     #[test]
     fn test_dry_run() {
         let mut fixtures_dir = std::env::current_dir().expect("Failed to get current directory");
-        fixtures_dir.push("support/test-fixtures");
+        fixtures_dir.push("../../support/test-fixtures");
 
         let ingest_file_args = IngestFilesArgs {
             dry_run: true,
@@ -471,7 +471,7 @@ mod tests {
     #[test]
     fn test_file_ingestion() {
         let mut fixtures_dir = std::env::current_dir().expect("Failed to get current directory");
-        fixtures_dir.push("support/test-fixtures");
+        fixtures_dir.push("../../support/test-fixtures");
 
         let ingest_file_args = IngestFilesArgs {
             dry_run: false,
