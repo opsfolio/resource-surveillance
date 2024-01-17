@@ -402,3 +402,94 @@ impl IngestCommands {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use clap::Parser;
+
+    use crate::cmd::{Cli, IngestArgs, IngestCommands, IngestFilesArgs};
+
+    fn build_cli(subcmd: &str, root_fs_path: &str, dry_run: bool) -> Cli {
+        let mut fixtures_dir = std::env::current_dir().expect("Failed to get current directory");
+        fixtures_dir.push("support/test-fixtures");
+        let mut args = vec![
+            "surveilr",
+            "ingest",
+            subcmd,
+            "-d",
+            "functional-test-state.sqlite.db",
+            "-r",
+            root_fs_path,
+        ];
+
+        if dry_run {
+            args.push("--dry-run")
+        };
+
+        Cli::parse_from(args)
+    }
+
+    #[test]
+    fn test_dry_run() {
+        let mut fixtures_dir = std::env::current_dir().expect("Failed to get current directory");
+        fixtures_dir.push("support/test-fixtures");
+
+        let ingest_file_args = IngestFilesArgs {
+            dry_run: true,
+            behavior: None,
+            root_fs_path: vec![fixtures_dir.to_str().unwrap().to_string()],
+            state_db_fs_path: "functional-test-state.sqlite.db".to_string(),
+            state_db_init_sql: vec![],
+            include_state_db_in_ingestion: false,
+            stats: false,
+            stats_json: false,
+            save_behavior: None,
+        };
+
+        let cli = build_cli(
+            "files",
+            ingest_file_args.root_fs_path.first().unwrap(),
+            ingest_file_args.dry_run,
+        );
+        let ingest_cmd = IngestCommands::Files(ingest_file_args);
+        let res = ingest_cmd.execute(
+            &cli,
+            &IngestArgs {
+                command: ingest_cmd.clone(),
+            },
+        );
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_file_ingestion() {
+        let mut fixtures_dir = std::env::current_dir().expect("Failed to get current directory");
+        fixtures_dir.push("support/test-fixtures");
+
+        let ingest_file_args = IngestFilesArgs {
+            dry_run: false,
+            behavior: None,
+            root_fs_path: vec![fixtures_dir.to_str().unwrap().to_string()],
+            state_db_fs_path: "functional-test-state.sqlite.db".to_string(),
+            state_db_init_sql: vec![],
+            include_state_db_in_ingestion: false,
+            stats: false,
+            stats_json: false,
+            save_behavior: None,
+        };
+
+        let cli = build_cli(
+            "files",
+            ingest_file_args.root_fs_path.first().unwrap(),
+            ingest_file_args.dry_run,
+        );
+        let ingest_cmd = IngestCommands::Files(ingest_file_args);
+        let res = ingest_cmd.execute(
+            &cli,
+            &IngestArgs {
+                command: ingest_cmd.clone(),
+            },
+        );
+        assert!(res.is_ok());
+    }
+}

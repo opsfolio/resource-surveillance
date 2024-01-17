@@ -34,7 +34,7 @@ impl From<LogMode> for service_management::logger::LoggingMode {
     }
 }
 
-#[derive(Debug, Serialize, Parser)]
+#[derive(Debug, Serialize, Parser, Clone)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
     /// How to identify this device
@@ -58,7 +58,7 @@ pub struct Cli {
 }
 
 #[allow(clippy::large_enum_variant)]
-#[derive(Debug, Serialize, Subcommand)]
+#[derive(Debug, Serialize, Subcommand, Clone)]
 pub enum CliCommands {
     Admin(AdminArgs),
     CapturableExec(CapturableExecArgs),
@@ -69,13 +69,13 @@ pub enum CliCommands {
 }
 
 /// Admin / maintenance utilities
-#[derive(Debug, Serialize, Args)]
+#[derive(Debug, Serialize, Args, Clone)]
 pub struct AdminArgs {
     #[command(subcommand)]
     pub command: AdminCommands,
 }
 
-#[derive(Debug, Serialize, Subcommand)]
+#[derive(Debug, Serialize, Subcommand, Clone)]
 pub enum AdminCommands {
     /// initialize an empty database with bootstrap.sql
     Init {
@@ -131,13 +131,13 @@ pub enum AdminCommands {
 }
 
 /// Capturable Executables (CE) assurance tools
-#[derive(Debug, Serialize, Args)]
+#[derive(Debug, Serialize, Args, Clone)]
 pub struct AdminTestArgs {
     #[command(subcommand)]
     pub command: AdminTestCommands,
 }
 
-#[derive(Debug, Serialize, Subcommand)]
+#[derive(Debug, Serialize, Subcommand, Clone)]
 pub enum AdminTestCommands {
     /// test capturable executables files
     Classifiers {
@@ -156,13 +156,13 @@ pub enum AdminTestCommands {
 }
 
 /// Capturable Executables (CE) maintenance tools
-#[derive(Debug, Serialize, Args)]
+#[derive(Debug, Serialize, Args, Clone)]
 pub struct CapturableExecArgs {
     #[command(subcommand)]
     pub command: CapturableExecCommands,
 }
 
-#[derive(Debug, Serialize, Subcommand)]
+#[derive(Debug, Serialize, Subcommand, Clone)]
 pub enum CapturableExecCommands {
     /// list potential capturable executables
     Ls {
@@ -180,13 +180,13 @@ pub enum CapturableExecCommands {
 }
 
 /// Capturable Executables (CE) assurance tools
-#[derive(Debug, Serialize, Args)]
+#[derive(Debug, Serialize, Args, Clone)]
 pub struct CapturableExecTestArgs {
     #[command(subcommand)]
     pub command: CapturableExecTestCommands,
 }
 
-#[derive(Debug, Serialize, Subcommand)]
+#[derive(Debug, Serialize, Subcommand, Clone)]
 pub enum CapturableExecTestCommands {
     /// test capturable executables files
     File {
@@ -211,14 +211,14 @@ pub enum CapturableExecTestCommands {
 }
 
 /// Ingest content from device file system and other sources
-#[derive(Debug, Serialize, Args)]
+#[derive(Debug, Serialize, Args, Clone)]
 pub struct IngestArgs {
     #[command(subcommand)]
     pub command: IngestCommands,
 }
 
 /// Ingest content from device file system and other sources
-#[derive(Debug, Serialize, Args)]
+#[derive(Debug, Serialize, Args, Clone)]
 pub struct IngestFilesArgs {
     /// don't run the ingestion, just report statistics
     #[arg(long)]
@@ -258,7 +258,7 @@ pub struct IngestFilesArgs {
 }
 
 /// Notebooks maintenance utilities
-#[derive(Debug, Serialize, Args)]
+#[derive(Debug, Serialize, Args, Clone)]
 pub struct IngestTasksArgs {
     /// target SQLite database
     #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
@@ -283,14 +283,14 @@ pub struct IngestTasksArgs {
 
 /// Ingest uniform resources content from multiple sources
 #[allow(clippy::large_enum_variant)]
-#[derive(Debug, Serialize, Subcommand)]
+#[derive(Debug, Serialize, Subcommand, Clone)]
 pub enum IngestCommands {
     Files(IngestFilesArgs),
     Tasks(IngestTasksArgs),
 }
 
 /// Notebooks maintenance utilities
-#[derive(Debug, Serialize, Args)]
+#[derive(Debug, Serialize, Args, Clone)]
 pub struct NotebooksArgs {
     /// target SQLite database
     #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
@@ -304,7 +304,7 @@ pub struct NotebooksArgs {
     pub command: NotebooksCommands,
 }
 
-#[derive(Debug, Serialize, Subcommand)]
+#[derive(Debug, Serialize, Subcommand, Clone)]
 pub enum NotebooksCommands {
     /// Notebooks' cells emit utilities
     Cat {

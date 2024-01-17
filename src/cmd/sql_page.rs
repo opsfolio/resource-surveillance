@@ -13,7 +13,7 @@ use tracing::{debug, info};
 use super::DEFAULT_STATEDB_FS_PATH;
 
 /// Configuration to start the SQLPage webserver
-#[derive(Debug, Serialize, Args)]
+#[derive(Debug, Serialize, Args, Clone)]
 pub struct SQLPageArgs {
     /// target SQLite database
     #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]

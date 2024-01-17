@@ -66,7 +66,7 @@ help-markdown:
 
 # Generates local code coverage data
 code-coverage: ensure-cargo-tarpaulin
-    @cargo tarpaulin -- --test-threads=1
+    @cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out xml -- --test-threads=1
 
 # Generate `tbls` database schema documents
 tbls: sqla-sync
