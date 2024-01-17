@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{Context, Result};
 use autometrics::autometrics;
-use cli_args::IngestFilesArgs;
+use cli::IngestFilesArgs;
 use indoc::indoc;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -14,7 +14,7 @@ use crate::persist::*;
 use crate::resource::*;
 use crate::shell::*;
 
-use cli_args::{IngestArgs, IngestTasksArgs};
+use cli::IngestTasksArgs;
 
 // separate the SQL from the execute so we can use it in logging, errors, etc.
 const INS_UR_INGEST_SESSION_SQL: &str = indoc! {"
@@ -707,10 +707,7 @@ impl IngestFilesBehavior {
     }
 
     // #[autometrics]
-    pub fn from_ingest_args(
-        args: &IngestFilesArgs,
-        conn: &Connection,
-    ) -> anyhow::Result<Self> {
+    pub fn from_ingest_args(args: &IngestFilesArgs, conn: &Connection) -> anyhow::Result<Self> {
         // the names in `args` are convenient for CLI usage but the struct
         // field names in IngestBehavior should be longer and more descriptive
         // since IngestBehavior is stored as activity in the database.
@@ -764,10 +761,7 @@ impl IngestFilesBehavior {
 }
 
 // #[autometrics]
-pub fn ingest_files(
-    debug: u8,
-    ingest_args: &IngestFilesArgs,
-) -> Result<String> {
+pub fn ingest_files(debug: u8, ingest_args: &IngestFilesArgs) -> Result<String> {
     let mut dbc = DbConn::new(&ingest_args.state_db_fs_path, debug).with_context(|| {
         format!(
             "[ingest_files] SQLite transaction in {}",
@@ -778,10 +772,10 @@ pub fn ingest_files(
 
     // putting everything inside a transaction improves performance significantly
     let tx = dbc.init(Some(&ingest_args.state_db_init_sql))?;
-    let (device_id, _device_name) = upserted_device(&tx, &utils::DEVICE).with_context(|| {
+    let (device_id, _device_name) = upserted_device(&tx, &common::DEVICE).with_context(|| {
         format!(
             "[ingest_files] upserted_device {} in {}",
-            utils::DEVICE.name,
+            common::DEVICE.name,
             db_fs_path
         )
     })?;
@@ -1059,10 +1053,7 @@ impl IngestTasksBehavior {
 }
 
 // #[autometrics]
-pub fn ingest_tasks(
-    debug: u8,
-    ingest_args: &IngestTasksArgs,
-) -> Result<String> {
+pub fn ingest_tasks(debug: u8, ingest_args: &IngestTasksArgs) -> Result<String> {
     let mut dbc = DbConn::new(&ingest_args.state_db_fs_path, debug).with_context(|| {
         format!(
             "[ingest_tasks] SQLite transaction in {}",
@@ -1073,10 +1064,10 @@ pub fn ingest_tasks(
 
     // putting everything inside a transaction improves performance significantly
     let tx = dbc.init(Some(&ingest_args.state_db_init_sql))?;
-    let (device_id, _device_name) = upserted_device(&tx, &utils::DEVICE).with_context(|| {
+    let (device_id, _device_name) = upserted_device(&tx, &common::DEVICE).with_context(|| {
         format!(
             "[ingest_tasks] upserted_device {} in {}",
-            utils::DEVICE.name,
+            common::DEVICE.name,
             db_fs_path
         )
     })?;

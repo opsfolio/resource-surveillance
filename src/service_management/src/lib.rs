@@ -1,4 +1,4 @@
-use cli_args::{Cli, CliCommands, LogMode};
+use cli::{Cli, CliCommands, LogMode};
 use opentelemetry_sdk::trace::{self};
 
 pub mod logger;

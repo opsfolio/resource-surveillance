@@ -1,8 +1,10 @@
-pub mod persist;
-pub mod resource;
-pub mod helpers;
-pub mod shell;
-pub mod frontmatter;
-pub mod format;
-pub mod ingest;
-pub mod models_polygenix;
+use crate::device::Device;
+
+#[macro_use]
+extern crate lazy_static;
+
+lazy_static! {
+    pub static ref DEVICE: Device = Device::new(None);
+}
+
+pub mod device;

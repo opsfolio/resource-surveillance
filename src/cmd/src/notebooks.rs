@@ -1,12 +1,11 @@
 use autometrics::autometrics;
-use cli_args::NotebooksArgs;
 use rusqlite::{Connection, OpenFlags};
 use tracing::error;
 use tracing::info;
 
-use cli_args::NotebooksCommands;
-use common::format::*;
-use common::persist::*;
+use cli::{NotebooksCommands, NotebooksArgs};
+use surveilr_static::format::*;
+use surveilr_static::persist::*;
 
 // Implement methods for `NotebooksCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.

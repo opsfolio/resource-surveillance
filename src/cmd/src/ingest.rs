@@ -1,18 +1,15 @@
 use std::collections::HashMap;
 
 use autometrics::autometrics;
-use cli_args::IngestArgs;
-use cli_args::IngestFilesArgs;
-use cli_args::IngestTasksArgs;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL_CONDENSED;
 use comfy_table::*;
 use serde_rusqlite::rusqlite;
 use tracing::info;
 
-use cli_args::IngestCommands;
-use common::persist::*;
-use common::resource::*;
+use cli::{IngestCommands, IngestArgs, IngestFilesArgs, IngestTasksArgs};
+use surveilr_static::persist::*;
+use surveilr_static::resource::*;
 
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
@@ -35,7 +32,7 @@ impl Ingest {
     }
 
     fn files(&self, cli: &super::Cli, args: &IngestFilesArgs) -> anyhow::Result<()> {
-        match common::ingest::ingest_files(cli.debug, args) {
+        match surveilr_static::ingest::ingest_files(cli.debug, args) {
             Ok(ingest_session_id) => {
                 if args.stats || args.stats_json {
                     // only export the path if there's more than one
@@ -81,7 +78,7 @@ impl Ingest {
     }
 
     fn tasks(&self, cli: &super::Cli, args: &IngestTasksArgs) -> anyhow::Result<()> {
-        match common::ingest::ingest_tasks(cli.debug, args) {
+        match surveilr_static::ingest::ingest_tasks(cli.debug, args) {
             Ok(ingest_session_id) => {
                 if args.stats || args.stats_json {
                     let sql = r#"
@@ -414,7 +411,7 @@ impl Ingest {
 mod tests {
     use clap::Parser;
 
-    use cli_args::{Cli, IngestArgs, IngestCommands, IngestFilesArgs};
+    use cli::{Cli, IngestArgs, IngestCommands, IngestFilesArgs};
 
     use crate::ingest::Ingest;
 

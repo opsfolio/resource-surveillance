@@ -20,7 +20,7 @@ extern crate globwalk;
 
 use crate::{execute_sql_batch, query_sql_single, execute_sql, query_sql_rows_no_args};
 
-use utils::device::Device;
+use common::device::Device;
 use super::resource::*;
 
 #[autometrics]

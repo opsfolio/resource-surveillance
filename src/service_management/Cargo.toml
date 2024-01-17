@@ -7,7 +7,7 @@ license.workspace = true
 [dependencies]
 anyhow.workspace = true
 opentelemetry_sdk.workspace = true
-cli_args.workspace = true
+cli.workspace = true
 tracing.workspace = true
 tracing-subscriber = {version = "0.3.18", features = ["std", "fmt", "json", "env-filter"] }
 opentelemetry.workspace = true

@@ -2,20 +2,20 @@ use std::collections::HashMap;
 use std::env;
 
 use autometrics::autometrics;
-use cli_args::CapturableExecArgs;
-use cli_args::CapturableExecTestArgs;
-use common::resource;
-use common::resource::ResourcesCollection;
-use common::resource::UriNatureSupplier;
+use cli::CapturableExecArgs;
+use cli::CapturableExecTestArgs;
+use surveilr_static::resource;
+use surveilr_static::resource::ResourcesCollection;
+use surveilr_static::resource::UriNatureSupplier;
 use serde_json::json;
 use tracing::debug;
 use tracing::error;
 use tracing::info;
 
-use cli_args::CapturableExecCommands;
-use cli_args::CapturableExecTestCommands;
-use common::resource::*;
-use common::shell::*;
+use cli::CapturableExecCommands;
+use cli::CapturableExecTestCommands;
+use surveilr_static::resource::*;
+use surveilr_static::shell::*;
 
 // Implement methods for `CapturableExecCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
@@ -112,7 +112,7 @@ impl CapturableExec {
         if !found.is_empty() {
             info!(
                 "{}",
-                common::format::as_ascii_table(&["Executable", "Nature", "Issue"], &found)
+                surveilr_static::format::as_ascii_table(&["Executable", "Nature", "Issue"], &found)
             );
         }
 
@@ -173,7 +173,7 @@ impl CapturableExec {
         for resource_result in resources.uniform_resources() {
             match resource_result {
                 Ok(ur) => {
-                    if let common::resource::UniformResource::CapturableExec(cer) = &ur {
+                    if let surveilr_static::resource::UniformResource::CapturableExec(cer) = &ur {
                         let path = ur.uri().clone();
                         markdown.push(format!("## {}\n\n", path)); // TODO: replace with just the filename
                                                                    // markdown.push(format!("- `{}`\n", path));
@@ -377,7 +377,7 @@ impl CapturableExecTest {
                 Ok(resource) => match &resource {
                     UniformResource::CapturableExec(cer) => {
                         info!("URI: '{}', nature: {:?}", resource.uri(), resource.nature());
-                        let stdin = common::shell::ShellStdIn::None;
+                        let stdin = surveilr_static::shell::ShellStdIn::None;
                         match &cer.resource.nature {
                             Some(nature) => match nature.as_str() {
                                 "json" | "text/json" | "application/json" => {

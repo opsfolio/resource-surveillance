@@ -1,18 +1,14 @@
 use anyhow::Context;
 use autometrics::autometrics;
-use cli_args::AdminArgs;
-use cli_args::AdminTestArgs;
-use cli_args::Cli;
 use serde_rusqlite::from_rows;
 use tracing::debug;
 use tracing::error;
 use tracing::info;
 
-use cli_args::AdminCommands;
-use cli_args::AdminTestCommands;
+use cli::{AdminTestCommands, AdminCommands, AdminArgs, AdminTestArgs, Cli};
 
-use common::persist::*;
-use common::resource::*;
+use surveilr_static::persist::*;
+use surveilr_static::resource::*;
 
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
@@ -89,10 +85,10 @@ impl Admin {
         if with_device {
             // insert the device or, if it exists, get its current ID and name
             let (device_id, device_name) =
-                upserted_device(&tx, &utils::DEVICE).with_context(|| {
+                upserted_device(&tx, &common::DEVICE).with_context(|| {
                     format!(
                         "[AdminCommands::init] upserted_device {} in {}",
-                        utils::DEVICE.name,
+                        common::DEVICE.name,
                         db_fs_path
                     )
                 })?;
@@ -174,7 +170,7 @@ impl Admin {
 
         let mut sql_script = String::from("");
         for db_path in &db_paths {
-            let db_path_sql_identifier = common::format::to_sql_friendly_identifier(db_path);
+            let db_path_sql_identifier = surveilr_static::format::to_sql_friendly_identifier(db_path);
             sql_script.push_str(
                 format!(
                     "ATTACH DATABASE '{}' AS {};\n",
@@ -198,7 +194,7 @@ impl Admin {
         ];
         for db_path in &db_paths {
             for merge_table in merge_tables {
-                let db_path_sql_identifier = common::format::to_sql_friendly_identifier(db_path);
+                let db_path_sql_identifier = surveilr_static::format::to_sql_friendly_identifier(db_path);
                 sql_script.push_str(
                     format!(
                         "INSERT OR IGNORE INTO {} SELECT * FROM {}.{};\n",
@@ -211,7 +207,7 @@ impl Admin {
         }
 
         for db_path in &db_paths {
-            let db_path_sql_identifier = common::format::to_sql_friendly_identifier(db_path);
+            let db_path_sql_identifier = surveilr_static::format::to_sql_friendly_identifier(db_path);
             sql_script.push_str(format!("DETACH DATABASE {};\n", db_path_sql_identifier).as_str());
         }
 
@@ -285,7 +281,7 @@ impl AdminTest {
         let mut statement = dbc
             .conn
             .prepare("SELECT * FROM ur_ingest_resource_path_match_rule")?;
-        let rows = from_rows::<common::models_polygenix::UrIngestResourcePathMatchRule>(
+        let rows = from_rows::<surveilr_static::models_polygenix::UrIngestResourcePathMatchRule>(
             statement.query([]).unwrap(),
         );
         info!("==> `ur_ingest_resource_path_match_rule` serde rows");

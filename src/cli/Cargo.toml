@@ -1,5 +1,5 @@
 [package]
-name = "cli_args"
+name = "cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -14,4 +14,4 @@ autometrics.workspace = true
 serde_rusqlite.workspace = true
 tracing.workspace = true
 serde.workspace = true
-utils.workspace = true
+common.workspace = true

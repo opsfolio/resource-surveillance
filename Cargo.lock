@@ -999,19 +999,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "702fc72eb24e5a1e48ce58027a675bc24edd52096d5397d4aea7c6dd9eca0bd1"
 
 [[package]]
-name = "cli_args"
+name = "cli"
 version = "0.13.0"
 dependencies = [
  "anyhow",
  "autometrics",
  "clap",
+ "common",
  "lazy_static",
  "opentelemetry",
  "serde",
  "serde_rusqlite",
  "tokio",
  "tracing",
- "utils",
 ]
 
 [[package]]
@@ -1022,7 +1022,7 @@ dependencies = [
  "autometrics",
  "clap",
  "clap-markdown",
- "cli_args",
+ "cli",
  "comfy-table",
  "common",
  "glob",
@@ -1034,9 +1034,9 @@ dependencies = [
  "serde_rusqlite",
  "service_management",
  "sqlpage",
+ "surveilr_static",
  "tokio",
  "tracing",
- "utils",
 ]
 
 [[package]]
@@ -1066,7 +1066,6 @@ dependencies = [
  "autometrics",
  "bitflags 2.4.2",
  "chrono",
- "cli_args",
  "comfy-table",
  "deno_task_shell",
  "globset",
@@ -1091,7 +1090,6 @@ dependencies = [
  "toml 0.8.8",
  "tracing",
  "ulid",
- "utils",
  "vfs",
  "walkdir",
 ]
@@ -3721,7 +3719,7 @@ name = "service_management"
 version = "0.13.0"
 dependencies = [
  "anyhow",
- "cli_args",
+ "cli",
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
@@ -4101,6 +4099,45 @@ name = "subtle"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
+
+[[package]]
+name = "surveilr_static"
+version = "0.13.0"
+dependencies = [
+ "anyhow",
+ "assert_cmd",
+ "autometrics",
+ "bitflags 2.4.2",
+ "chrono",
+ "cli",
+ "comfy-table",
+ "common",
+ "deno_task_shell",
+ "globset",
+ "globwalk",
+ "hostname",
+ "ignore",
+ "indoc",
+ "is_executable",
+ "lazy_static",
+ "opentelemetry",
+ "pretty_assertions",
+ "regex",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "serde_regex",
+ "serde_yaml",
+ "sha1",
+ "subprocess",
+ "sysinfo",
+ "tokio",
+ "toml 0.8.8",
+ "tracing",
+ "ulid",
+ "vfs",
+ "walkdir",
+]
 
 [[package]]
 name = "syn"
@@ -4684,43 +4721,6 @@ name = "utf8parse"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
-
-[[package]]
-name = "utils"
-version = "0.13.0"
-dependencies = [
- "anyhow",
- "assert_cmd",
- "autometrics",
- "bitflags 2.4.2",
- "chrono",
- "comfy-table",
- "deno_task_shell",
- "globset",
- "globwalk",
- "hostname",
- "ignore",
- "indoc",
- "is_executable",
- "lazy_static",
- "opentelemetry",
- "pretty_assertions",
- "regex",
- "rusqlite",
- "serde",
- "serde_json",
- "serde_regex",
- "serde_yaml",
- "sha1",
- "subprocess",
- "sysinfo",
- "tokio",
- "toml 0.8.8",
- "tracing",
- "ulid",
- "vfs",
- "walkdir",
-]
 
 [[package]]
 name = "uuid"

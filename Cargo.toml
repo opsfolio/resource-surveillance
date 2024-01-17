@@ -2,9 +2,9 @@
 members = [
   "src/cmd",
   "src/service_management",
-  "src/common",
+  "src/surveilr_static",
   "src/cli",
-  "src/utils",
+  "src/common",
 ]
 resolver = "2"
 
@@ -55,7 +55,7 @@ assert_cmd = "2.0.13"
 ## workspaces members
 cmd = { path = "src/cmd" }
 service_management = { path = "src/service_management" }
-## name is subject to change. These are the non live functionalities of surveilr as against udi
+## name is subject to change. These are the static functionalities of surveilr as against udi
+surveilr_static = { path = "src/surveilr_static" }
+cli = { path = "src/cli" }
 common = { path = "src/common" }
-cli_args = { path = "src/cli" }
-utils = { path = "src/utils" }

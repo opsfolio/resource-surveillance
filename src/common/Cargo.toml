@@ -36,5 +36,3 @@ pretty_assertions.workspace = true
 toml = "0.8.8"
 serde_yaml.workspace = true
 indoc = "2.0.4"
-cli_args.workspace = true
-utils.workspace = true

@@ -1,4 +1,4 @@
-use cli_args::{Cli, CliCommands};
+use cli::{Cli, CliCommands};
 
 pub mod admin;
 pub mod capexec;
