@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{Context, Result};
 use autometrics::autometrics;
+use cli_args::IngestFilesArgs;
 use indoc::indoc;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -12,6 +13,8 @@ use tracing::error;
 use crate::persist::*;
 use crate::resource::*;
 use crate::shell::*;
+
+use cli_args::{IngestArgs, IngestTasksArgs};
 
 // separate the SQL from the execute so we can use it in logging, errors, etc.
 const INS_UR_INGEST_SESSION_SQL: &str = indoc! {"
@@ -664,10 +667,10 @@ pub struct IngestFilesBehavior {
 }
 
 impl IngestFilesBehavior {
-    #[autometrics]
+    // #[autometrics]
     pub fn new(
         device_id: &String,
-        ingest_args: &crate::cmd::IngestFilesArgs,
+        ingest_args: &IngestFilesArgs,
         conn: &Connection,
     ) -> anyhow::Result<(Self, Option<String>)> {
         if let Some(behavior_name) = &ingest_args.behavior {
@@ -703,9 +706,9 @@ impl IngestFilesBehavior {
         }
     }
 
-    #[autometrics]
+    // #[autometrics]
     pub fn from_ingest_args(
-        args: &crate::cmd::IngestFilesArgs,
+        args: &IngestFilesArgs,
         conn: &Connection,
     ) -> anyhow::Result<Self> {
         // the names in `args` are convenient for CLI usage but the struct
@@ -760,12 +763,12 @@ impl IngestFilesBehavior {
     }
 }
 
-#[autometrics]
+// #[autometrics]
 pub fn ingest_files(
-    cli: &crate::cmd::Cli,
-    ingest_args: &crate::cmd::IngestFilesArgs,
+    debug: u8,
+    ingest_args: &IngestFilesArgs,
 ) -> Result<String> {
-    let mut dbc = DbConn::new(&ingest_args.state_db_fs_path, cli.debug).with_context(|| {
+    let mut dbc = DbConn::new(&ingest_args.state_db_fs_path, debug).with_context(|| {
         format!(
             "[ingest_files] SQLite transaction in {}",
             ingest_args.state_db_fs_path
@@ -775,10 +778,10 @@ pub fn ingest_files(
 
     // putting everything inside a transaction improves performance significantly
     let tx = dbc.init(Some(&ingest_args.state_db_init_sql))?;
-    let (device_id, _device_name) = upserted_device(&tx, &crate::DEVICE).with_context(|| {
+    let (device_id, _device_name) = upserted_device(&tx, &utils::DEVICE).with_context(|| {
         format!(
             "[ingest_files] upserted_device {} in {}",
-            crate::DEVICE.name,
+            utils::DEVICE.name,
             db_fs_path
         )
     })?;
@@ -1055,12 +1058,12 @@ impl IngestTasksBehavior {
     }
 }
 
-#[autometrics]
+// #[autometrics]
 pub fn ingest_tasks(
-    cli: &crate::cmd::Cli,
-    ingest_args: &crate::cmd::IngestTasksArgs,
+    debug: u8,
+    ingest_args: &IngestTasksArgs,
 ) -> Result<String> {
-    let mut dbc = DbConn::new(&ingest_args.state_db_fs_path, cli.debug).with_context(|| {
+    let mut dbc = DbConn::new(&ingest_args.state_db_fs_path, debug).with_context(|| {
         format!(
             "[ingest_tasks] SQLite transaction in {}",
             ingest_args.state_db_fs_path
@@ -1070,10 +1073,10 @@ pub fn ingest_tasks(
 
     // putting everything inside a transaction improves performance significantly
     let tx = dbc.init(Some(&ingest_args.state_db_init_sql))?;
-    let (device_id, _device_name) = upserted_device(&tx, &crate::DEVICE).with_context(|| {
+    let (device_id, _device_name) = upserted_device(&tx, &utils::DEVICE).with_context(|| {
         format!(
             "[ingest_tasks] upserted_device {} in {}",
-            crate::DEVICE.name,
+            utils::DEVICE.name,
             db_fs_path
         )
     })?;

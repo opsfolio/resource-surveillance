@@ -2,26 +2,35 @@ use std::collections::HashMap;
 use std::env;
 
 use autometrics::autometrics;
+use cli_args::CapturableExecArgs;
+use cli_args::CapturableExecTestArgs;
+use common::resource;
+use common::resource::ResourcesCollection;
+use common::resource::UriNatureSupplier;
 use serde_json::json;
 use tracing::debug;
 use tracing::error;
 use tracing::info;
 
-use super::CapturableExecCommands;
-use super::CapturableExecTestCommands;
-use crate::resource::*;
-use crate::shell::*;
+use cli_args::CapturableExecCommands;
+use cli_args::CapturableExecTestCommands;
+use common::resource::*;
+use common::shell::*;
 
 // Implement methods for `CapturableExecCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
-impl CapturableExecCommands {
+#[derive(Debug, Default)]
+pub struct CapturableExec {}
+
+impl CapturableExec {
+
     #[autometrics]
     pub fn execute(
         &self,
         cli: &super::Cli,
-        args: &super::CapturableExecArgs,
+        args: &CapturableExecArgs,
     ) -> anyhow::Result<()> {
-        match self {
+        match &args.command {
             CapturableExecCommands::Ls {
                 root_fs_path: root_path,
                 markdown,
@@ -33,7 +42,7 @@ impl CapturableExecCommands {
                 }
             }
             CapturableExecCommands::Test(test_args) => {
-                test_args.command.execute(cli, args, test_args)
+                CapturableExecTest::new().execute(cli, args, test_args)
             }
         }
     }
@@ -62,7 +71,7 @@ impl CapturableExecCommands {
                         relative_path.insert(0, '.')
                     }
 
-                    if let crate::resource::UniformResource::CapturableExec(cer) = ur {
+                    if let resource::UniformResource::CapturableExec(cer) = ur {
                         match &cer.executable {
                             CapturableExecutable::UriShellExecutive(
                                 _executive,
@@ -103,7 +112,7 @@ impl CapturableExecCommands {
         if !found.is_empty() {
             info!(
                 "{}",
-                crate::format::as_ascii_table(&["Executable", "Nature", "Issue"], &found)
+                common::format::as_ascii_table(&["Executable", "Nature", "Issue"], &found)
             );
         }
 
@@ -164,7 +173,7 @@ impl CapturableExecCommands {
         for resource_result in resources.uniform_resources() {
             match resource_result {
                 Ok(ur) => {
-                    if let crate::resource::UniformResource::CapturableExec(cer) = &ur {
+                    if let common::resource::UniformResource::CapturableExec(cer) = &ur {
                         let path = ur.uri().clone();
                         markdown.push(format!("## {}\n\n", path)); // TODO: replace with just the filename
                                                                    // markdown.push(format!("- `{}`\n", path));
@@ -247,17 +256,24 @@ impl CapturableExecCommands {
     }
 }
 
+struct CapturableExecTest {}
+
 // Implement methods for `CapturableExecCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
-impl CapturableExecTestCommands {
-    #[autometrics]
+impl CapturableExecTest {
+
+    pub fn new() -> CapturableExecTest {
+        CapturableExecTest {}
+    }
+
+    // #[autometrics]
     pub fn execute(
         &self,
         cli: &super::Cli,
-        parent_args: &super::CapturableExecArgs,
-        cmd_args: &super::CapturableExecTestArgs,
+        parent_args: &CapturableExecArgs,
+        cmd_args: &CapturableExecTestArgs,
     ) -> anyhow::Result<()> {
-        match self {
+        match &cmd_args.command {
             CapturableExecTestCommands::File { fs_path } => {
                 self.test_fs_path(cli, parent_args, cmd_args, fs_path)
             }
@@ -270,8 +286,8 @@ impl CapturableExecTestCommands {
     fn test_fs_path(
         &self,
         cli: &super::Cli,
-        _parent_args: &super::CapturableExecArgs,
-        cmd_args: &super::CapturableExecTestArgs,
+        _parent_args: &CapturableExecArgs,
+        cmd_args: &CapturableExecTestArgs,
         fs_path: &str,
     ) -> anyhow::Result<()> {
         let classifier: EncounterableResourcePathClassifier = Default::default();
@@ -361,7 +377,7 @@ impl CapturableExecTestCommands {
                 Ok(resource) => match &resource {
                     UniformResource::CapturableExec(cer) => {
                         info!("URI: '{}', nature: {:?}", resource.uri(), resource.nature());
-                        let stdin = crate::shell::ShellStdIn::None;
+                        let stdin = common::shell::ShellStdIn::None;
                         match &cer.resource.nature {
                             Some(nature) => match nature.as_str() {
                                 "json" | "text/json" | "application/json" => {

@@ -1,47 +1,18 @@
 use std::net::ToSocketAddrs;
 
 use anyhow::{anyhow, Result};
-use clap::Args;
+use cli_args::SQLPageArgs;
 use opentelemetry::{trace::get_active_span, KeyValue};
-use serde::Serialize;
 use sqlpage::{
     app_config::{self, AppConfig},
     webserver, AppState,
 };
 use tracing::{debug, info};
 
-use super::DEFAULT_STATEDB_FS_PATH;
+#[derive(Debug, Default)]
+pub struct SqlPage {}
 
-/// Configuration to start the SQLPage webserver
-#[derive(Debug, Serialize, Args, Clone)]
-pub struct SQLPageArgs {
-    /// target SQLite database
-    #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
-    pub state_db_fs_path: String,
-
-    /// Base URL for SQLPage to start from. Defaults to "/index.sql".
-    #[arg(
-        short = 'u',
-        long,
-        default_value = "/",
-        default_missing_value = "always"
-    )]
-    pub url_base_path: String,
-
-    /// Port to bind sqplage webserver to
-    #[arg(short = 'p', long)]
-    pub port: u16,
-
-    /// Port that any OTEL compatible service is running on.
-    #[arg(short = 'o', long)]
-    pub otel: Option<u16>,
-
-    /// Metrics port. Used for scraping metrics with tools like OpenObserve or Prometheus
-    #[arg(short = 'm', long)]
-    pub metrics: Option<u16>,
-}
-
-impl SQLPageArgs {
+impl SqlPage {
     pub async fn execute(&self, args: &SQLPageArgs) -> Result<()> {
         self.start(args).await
     }

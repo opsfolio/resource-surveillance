@@ -18,6 +18,7 @@ use sha1::{Digest, Sha1};
 use tracing::error;
 
 use crate::frontmatter::frontmatter;
+use crate::query_sql_rows_no_args;
 use crate::shell::*;
 
 // See src/resources.states.puml for PlantUML specification of the state machine

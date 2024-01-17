@@ -1,21 +1,28 @@
 use std::collections::HashMap;
 
 use autometrics::autometrics;
+use cli_args::IngestArgs;
+use cli_args::IngestFilesArgs;
+use cli_args::IngestTasksArgs;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL_CONDENSED;
 use comfy_table::*;
+use serde_rusqlite::rusqlite;
 use tracing::info;
 
-use super::IngestCommands;
-use crate::persist::*;
-use crate::resource::*;
+use cli_args::IngestCommands;
+use common::persist::*;
+use common::resource::*;
 
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
-impl IngestCommands {
+#[derive(Debug, Default)]
+pub struct Ingest {}
+
+impl Ingest {
     #[autometrics]
-    pub fn execute(&self, cli: &super::Cli, _args: &super::IngestArgs) -> anyhow::Result<()> {
-        match self {
+    pub fn execute(&self, cli: &super::Cli, args: &IngestArgs) -> anyhow::Result<()> {
+        match &args.command {
             IngestCommands::Files(ifa) => {
                 if ifa.dry_run {
                     self.files_dry_run(cli, &ifa.root_fs_path, ifa)
@@ -27,8 +34,8 @@ impl IngestCommands {
         }
     }
 
-    fn files(&self, cli: &super::Cli, args: &super::IngestFilesArgs) -> anyhow::Result<()> {
-        match crate::ingest::ingest_files(cli, args) {
+    fn files(&self, cli: &super::Cli, args: &IngestFilesArgs) -> anyhow::Result<()> {
+        match common::ingest::ingest_files(cli.debug, args) {
             Ok(ingest_session_id) => {
                 if args.stats || args.stats_json {
                     // only export the path if there's more than one
@@ -73,8 +80,8 @@ impl IngestCommands {
         }
     }
 
-    fn tasks(&self, cli: &super::Cli, args: &super::IngestTasksArgs) -> anyhow::Result<()> {
-        match crate::ingest::ingest_tasks(cli, args) {
+    fn tasks(&self, cli: &super::Cli, args: &IngestTasksArgs) -> anyhow::Result<()> {
+        match common::ingest::ingest_tasks(cli.debug, args) {
             Ok(ingest_session_id) => {
                 if args.stats || args.stats_json {
                     let sql = r#"
@@ -114,7 +121,7 @@ impl IngestCommands {
         &self,
         _cli: &super::Cli,
         root_fs_path: &[String],
-        _args: &super::IngestFilesArgs,
+        _args: &IngestFilesArgs,
     ) -> anyhow::Result<()> {
         let classifier = EncounterableResourcePathClassifier::default();
         let wd_resources =
@@ -407,7 +414,9 @@ impl IngestCommands {
 mod tests {
     use clap::Parser;
 
-    use crate::cmd::{Cli, IngestArgs, IngestCommands, IngestFilesArgs};
+    use cli_args::{Cli, IngestArgs, IngestCommands, IngestFilesArgs};
+
+    use crate::ingest::Ingest;
 
     fn build_cli(subcmd: &str, root_fs_path: &str, dry_run: bool) -> Cli {
         let mut fixtures_dir = std::env::current_dir().expect("Failed to get current directory");
@@ -452,7 +461,8 @@ mod tests {
             ingest_file_args.dry_run,
         );
         let ingest_cmd = IngestCommands::Files(ingest_file_args);
-        let res = ingest_cmd.execute(
+        let ingest = Ingest::default();
+        let res = ingest.execute(
             &cli,
             &IngestArgs {
                 command: ingest_cmd.clone(),
@@ -484,7 +494,8 @@ mod tests {
             ingest_file_args.dry_run,
         );
         let ingest_cmd = IngestCommands::Files(ingest_file_args);
-        let res = ingest_cmd.execute(
+        let ingest = Ingest::default();
+        let res = ingest.execute(
             &cli,
             &IngestArgs {
                 command: ingest_cmd.clone(),

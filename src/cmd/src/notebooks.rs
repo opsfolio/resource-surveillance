@@ -1,18 +1,22 @@
 use autometrics::autometrics;
+use cli_args::NotebooksArgs;
 use rusqlite::{Connection, OpenFlags};
 use tracing::error;
 use tracing::info;
 
-use super::NotebooksCommands;
-use crate::format::*;
-use crate::persist::*;
+use cli_args::NotebooksCommands;
+use common::format::*;
+use common::persist::*;
 
 // Implement methods for `NotebooksCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
-impl NotebooksCommands {
+#[derive(Debug, Default)]
+pub struct Notebooks {}
+
+impl Notebooks {
     #[autometrics]
-    pub fn execute(&self, _cli: &super::Cli, args: &super::NotebooksArgs) -> anyhow::Result<()> {
-        match self {
+    pub fn execute(&self, _cli: &super::Cli, args: &NotebooksArgs) -> anyhow::Result<()> {
+        match &args.command {
             NotebooksCommands::Cat {
                 notebook,
                 cell,
@@ -30,7 +34,7 @@ impl NotebooksCommands {
 
     fn cat(
         &self,
-        args: &super::NotebooksArgs,
+        args: &NotebooksArgs,
         notebooks: &Vec<String>,
         cells: &Vec<String>,
         seps: bool,
@@ -61,7 +65,7 @@ impl NotebooksCommands {
         Ok(())
     }
 
-    fn ls(&self, args: &super::NotebooksArgs) -> anyhow::Result<()> {
+    fn ls(&self, args: &NotebooksArgs) -> anyhow::Result<()> {
         if let Some(db_fs_path) = args.state_db_fs_path.as_deref() {
             if let Ok(conn) =
                 Connection::open_with_flags(db_fs_path, OpenFlags::SQLITE_OPEN_READ_WRITE)
@@ -83,7 +87,7 @@ impl NotebooksCommands {
         Ok(())
     }
 
-    fn ls_migrations(&self, args: &super::NotebooksArgs) -> anyhow::Result<()> {
+    fn ls_migrations(&self, args: &NotebooksArgs) -> anyhow::Result<()> {
         if let Some(db_fs_path) = args.state_db_fs_path.as_deref() {
             if let Ok(conn) =
                 Connection::open_with_flags(db_fs_path, OpenFlags::SQLITE_OPEN_READ_WRITE)

@@ -1,21 +1,28 @@
 use anyhow::Context;
 use autometrics::autometrics;
+use cli_args::AdminArgs;
+use cli_args::AdminTestArgs;
+use cli_args::Cli;
 use serde_rusqlite::from_rows;
 use tracing::debug;
 use tracing::error;
 use tracing::info;
 
-use super::AdminCommands;
-use super::AdminTestCommands;
-use crate::persist::*;
-use crate::resource::EncounterableResourcePathClassifier;
+use cli_args::AdminCommands;
+use cli_args::AdminTestCommands;
+
+use common::persist::*;
+use common::resource::*;
 
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
-impl AdminCommands {
+#[derive(Debug, Default)]
+pub struct Admin {}
+
+impl Admin {
     #[autometrics]
-    pub fn execute(&self, cli: &super::Cli, args: &super::AdminArgs) -> anyhow::Result<()> {
-        match self {
+    pub fn execute(&self, args: &AdminArgs, cli: &Cli) -> anyhow::Result<()> {
+        match &args.command {
             AdminCommands::Init {
                 state_db_fs_path,
                 state_db_init_sql,
@@ -46,11 +53,14 @@ impl AdminCommands {
                 *sql_only,
             ),
             AdminCommands::CliHelpMd => self.cli_help_markdown(),
-            AdminCommands::Test(test_args) => test_args.command.execute(cli, args, test_args),
+            AdminCommands::Test(test_args) => {
+                // test_args.command.execute(cli, args, test_args)
+                AdminTest::new().execute(cli, args, test_args)
+            },
         }
-    }
+    } 
 
-    #[autometrics]
+        // #[autometrics]
     fn init(
         &self,
         cli: &super::Cli,
@@ -79,10 +89,10 @@ impl AdminCommands {
         if with_device {
             // insert the device or, if it exists, get its current ID and name
             let (device_id, device_name) =
-                upserted_device(&tx, &crate::DEVICE).with_context(|| {
+                upserted_device(&tx, &utils::DEVICE).with_context(|| {
                     format!(
                         "[AdminCommands::init] upserted_device {} in {}",
-                        crate::DEVICE.name,
+                        utils::DEVICE.name,
                         db_fs_path
                     )
                 })?;
@@ -111,7 +121,7 @@ impl AdminCommands {
     }
 
     #[allow(clippy::too_many_arguments)]
-    #[autometrics]
+    // #[autometrics]
     fn merge(
         &self,
         cli: &super::Cli,
@@ -164,7 +174,7 @@ impl AdminCommands {
 
         let mut sql_script = String::from("");
         for db_path in &db_paths {
-            let db_path_sql_identifier = crate::format::to_sql_friendly_identifier(db_path);
+            let db_path_sql_identifier = common::format::to_sql_friendly_identifier(db_path);
             sql_script.push_str(
                 format!(
                     "ATTACH DATABASE '{}' AS {};\n",
@@ -188,7 +198,7 @@ impl AdminCommands {
         ];
         for db_path in &db_paths {
             for merge_table in merge_tables {
-                let db_path_sql_identifier = crate::format::to_sql_friendly_identifier(db_path);
+                let db_path_sql_identifier = common::format::to_sql_friendly_identifier(db_path);
                 sql_script.push_str(
                     format!(
                         "INSERT OR IGNORE INTO {} SELECT * FROM {}.{};\n",
@@ -201,7 +211,7 @@ impl AdminCommands {
         }
 
         for db_path in &db_paths {
-            let db_path_sql_identifier = crate::format::to_sql_friendly_identifier(db_path);
+            let db_path_sql_identifier = common::format::to_sql_friendly_identifier(db_path);
             sql_script.push_str(format!("DETACH DATABASE {};\n", db_path_sql_identifier).as_str());
         }
 
@@ -221,15 +231,21 @@ impl AdminCommands {
     }
 }
 
-impl AdminTestCommands {
-    #[autometrics]
+struct AdminTest {}
+
+impl AdminTest {
+    pub fn new() -> AdminTest {
+        AdminTest {  }
+    }
+
+    // #[autometrics]
     pub fn execute(
         &self,
         cli: &super::Cli,
-        parent_args: &super::AdminArgs,
-        cmd_args: &super::AdminTestArgs,
+        parent_args: &AdminArgs,
+        cmd_args: &AdminTestArgs,
     ) -> anyhow::Result<()> {
-        match self {
+        match &cmd_args.command {
             AdminTestCommands::Classifiers {
                 state_db_fs_path,
                 state_db_init_sql,
@@ -248,8 +264,8 @@ impl AdminTestCommands {
     pub fn classifiers(
         &self,
         cli: &super::Cli,
-        _parent_args: &super::AdminArgs,
-        _cmd_args: &super::AdminTestArgs,
+        _parent_args: &AdminArgs,
+        _cmd_args: &AdminTestArgs,
         state_db_fs_path: &str,
         state_db_init_sql: &[String],
         builtins: bool,
@@ -269,7 +285,7 @@ impl AdminTestCommands {
         let mut statement = dbc
             .conn
             .prepare("SELECT * FROM ur_ingest_resource_path_match_rule")?;
-        let rows = from_rows::<crate::models_polygenix::UrIngestResourcePathMatchRule>(
+        let rows = from_rows::<common::models_polygenix::UrIngestResourcePathMatchRule>(
             statement.query([]).unwrap(),
         );
         info!("==> `ur_ingest_resource_path_match_rule` serde rows");

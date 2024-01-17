@@ -1,17 +1,8 @@
 use std::path::PathBuf;
 
-use autometrics::autometrics;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use serde::Serialize;
-
-use sql_page::SQLPageArgs;
-use crate::service_management;
-
-pub mod admin;
-pub mod capexec;
-pub mod ingest;
-pub mod notebooks;
-pub mod sql_page;
+use utils::DEVICE;
 
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 const DEFAULT_MERGED_STATEDB_FS_PATH: &str = "resource-surveillance-aggregated.sqlite.db";
@@ -24,21 +15,12 @@ pub enum LogMode {
     Compact,
 }
 
-impl From<LogMode> for service_management::logger::LoggingMode {
-    fn from(mode: LogMode) -> Self {
-        match mode {
-            LogMode::Full => service_management::logger::LoggingMode::Full,
-            LogMode::Json => service_management::logger::LoggingMode::Json,
-            LogMode::Compact => service_management::logger::LoggingMode::Compact,
-        }
-    }
-}
 
 #[derive(Debug, Serialize, Parser, Clone)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
     /// How to identify this device
-    #[arg(long, num_args = 0..=1, default_value = super::DEVICE.name(), default_missing_value = "always", env="SURVEILR_DEVICE_NAME")]
+    #[arg(long, num_args = 0..=1, default_value = DEVICE.name(), default_missing_value = "always", env="SURVEILR_DEVICE_NAME")]
     pub device_name: Option<String>,
 
     /// Turn debugging information on (repeat for higher levels)
@@ -329,15 +311,31 @@ pub enum NotebooksCommands {
     },
 }
 
-impl CliCommands {
-    #[autometrics]
-    pub async fn execute(&self, cli: &Cli) -> anyhow::Result<()> {
-        match self {
-            CliCommands::Admin(args) => args.command.execute(cli, args),
-            CliCommands::CapturableExec(args) => args.command.execute(cli, args),
-            CliCommands::Ingest(args) => args.command.execute(cli, args),
-            CliCommands::Notebooks(args) => args.command.execute(cli, args),
-            CliCommands::SQLPage(args) => args.execute(args).await
-        }
-    }
+/// Configuration to start the SQLPage webserver
+#[derive(Debug, Serialize, Args, Clone)]
+pub struct SQLPageArgs {
+    /// target SQLite database
+    #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
+    pub state_db_fs_path: String,
+
+    /// Base URL for SQLPage to start from. Defaults to "/index.sql".
+    #[arg(
+        short = 'u',
+        long,
+        default_value = "/",
+        default_missing_value = "always"
+    )]
+    pub url_base_path: String,
+
+    /// Port to bind sqplage webserver to
+    #[arg(short = 'p', long)]
+    pub port: u16,
+
+    /// Port that any OTEL compatible service is running on.
+    #[arg(short = 'o', long)]
+    pub otel: Option<u16>,
+
+    /// Metrics port. Used for scraping metrics with tools like OpenObserve or Prometheus
+    #[arg(short = 'm', long)]
+    pub metrics: Option<u16>,
 }

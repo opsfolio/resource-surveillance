@@ -1,8 +1,18 @@
-use crate::cmd::Cli;
+use cli_args::{Cli, CliCommands, LogMode};
 use opentelemetry_sdk::trace::{self};
 
 pub mod logger;
 mod observability;
+
+impl From<LogMode> for logger::LoggingMode {
+    fn from(mode: LogMode) -> Self {
+        match mode {
+            LogMode::Full => logger::LoggingMode::Full,
+            LogMode::Json => logger::LoggingMode::Json,
+            LogMode::Compact => logger::LoggingMode::Compact,
+        }
+    }
+}
 
 pub fn start(cli: &Cli) -> anyhow::Result<Option<trace::Tracer>> {
     match (&cli.log_mode, &cli.debug, &cli.log_file) {
@@ -19,7 +29,7 @@ pub fn start(cli: &Cli) -> anyhow::Result<Option<trace::Tracer>> {
     };
 
     let tracer = match &cli.command {
-        crate::cmd::CliCommands::SQLPage(args) => {
+        CliCommands::SQLPage(args) => {
             if let Some(port) = args.metrics {
                 observability::init_metrics(port)?;
             }
