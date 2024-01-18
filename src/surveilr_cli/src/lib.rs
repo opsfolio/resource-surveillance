@@ -6,6 +6,7 @@ pub mod ingest;
 pub mod notebooks;
 pub mod service_management;
 pub mod sql_page;
+pub mod udi_pgp;
 
 pub async fn execute(cli: &Cli) -> anyhow::Result<()> {
     match &cli.command {
@@ -14,5 +15,6 @@ pub async fn execute(cli: &Cli) -> anyhow::Result<()> {
         CliCommands::Ingest(args) => ingest::Ingest::default().execute(cli, args),
         CliCommands::Notebooks(args) => notebooks::Notebooks::default().execute(cli, args),
         CliCommands::SQLPage(args) => sql_page::SqlPage::default().execute(args).await,
+        CliCommands::UdiPgp(args) => udi_pgp::execute(args).await,
     }
 }

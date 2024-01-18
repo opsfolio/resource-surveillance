@@ -4,6 +4,7 @@ members = [
   "src/resource_serde",
   "src/common",
   "src/resource",
+  "src/udi_pgp"
 ]
 resolver = "2"
 
@@ -56,3 +57,4 @@ surveilr_cli = { path = "src/surveilr_cli" }
 resource_serde = { path = "src/resource_serde" }
 common = { path = "src/common" }
 resource = { path = "src/resource" }
+udi_pgp = { path = "src/udi_pgp" }

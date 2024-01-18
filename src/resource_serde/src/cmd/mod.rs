@@ -4,6 +4,8 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use common::DEVICE;
 use serde::Serialize;
 
+use self::udi_pgp::UdiPgpArgs;
+
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 const DEFAULT_MERGED_STATEDB_FS_PATH: &str = "resource-surveillance-aggregated.sqlite.db";
 
@@ -14,6 +16,8 @@ pub enum LogMode {
     #[default]
     Compact,
 }
+
+pub mod udi_pgp;
 
 #[derive(Debug, Serialize, Parser, Clone)]
 #[command(author, version, about, long_about = None)]
@@ -47,6 +51,8 @@ pub enum CliCommands {
     Notebooks(NotebooksArgs),
     #[clap(name = "sqlpage")]
     SQLPage(SQLPageArgs),
+    #[clap(name = "udi")]
+    UdiPgp(UdiPgpArgs),
 }
 
 /// Admin / maintenance utilities
