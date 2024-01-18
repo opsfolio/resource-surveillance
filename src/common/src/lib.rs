@@ -8,3 +8,4 @@ lazy_static! {
 }
 
 pub mod device;
+pub mod format;

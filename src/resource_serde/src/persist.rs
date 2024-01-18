@@ -18,10 +18,10 @@ use ulid::Ulid;
 
 extern crate globwalk;
 
-use crate::{execute_sql_batch, query_sql_single, execute_sql, query_sql_rows_no_args};
+use resource_helpers::{execute_sql_batch, query_sql_single, execute_sql, query_sql_rows_no_args};
 
 use common::device::Device;
-use super::resource::*;
+use resource::*;
 
 #[autometrics]
 pub fn prepare_conn(db: &Connection) -> RusqliteResult<()> {
@@ -598,7 +598,7 @@ pub fn execute_migrations(conn: &Connection, context: &str) -> RusqliteResult<()
     )
 }
 
-#[autometrics]
+// #[autometrics]
 pub fn execute_globs_batch(
     conn: &Connection,
     walk_paths: &[String],
@@ -635,7 +635,7 @@ pub fn execute_globs_batch(
                     String::from("surveilr-SQL"), // arbitrary but useful "nature"
                     true,
                 );
-                match ce.executed_result_as_sql(crate::shell::ShellStdIn::None) {
+                match ce.executed_result_as_sql(resource::shell::ShellStdIn::None) {
                     Ok((sql_from_captured_exec, _nature)) => (sql_from_captured_exec, true),
                     Err(err) => {
                         error!(

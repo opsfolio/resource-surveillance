@@ -18,8 +18,12 @@ use sha1::{Digest, Sha1};
 use tracing::error;
 
 use crate::frontmatter::frontmatter;
-use crate::query_sql_rows_no_args;
+use resource_helpers::query_sql_rows_no_args;
 use crate::shell::*;
+
+pub mod frontmatter;
+pub mod models_polygenix;
+pub mod shell;
 
 // See src/resources.states.puml for PlantUML specification of the state machine
 
@@ -332,7 +336,7 @@ impl EncounterableResourcePathClassifier {
 
     pub fn as_formatted_tables(&self) -> (comfy_table::Table, comfy_table::Table) {
         let mut flaggables: comfy_table::Table =
-            crate::format::prepare_table(vec!["Regex", "Flags", "Nature"]);
+            common::format::prepare_table(vec!["Regex", "Flags", "Nature"]);
         for f in &self.flaggables {
             flaggables.add_row(vec![
                 f.regex.to_string(),
@@ -342,7 +346,7 @@ impl EncounterableResourcePathClassifier {
         }
 
         let mut rewrite_path_regexs: comfy_table::Table =
-            crate::format::prepare_table(vec!["Rewrite Regex", "Replace With"]);
+            common::format::prepare_table(vec!["Rewrite Regex", "Replace With"]);
         for rprr in &self.rewrite_path_regexs {
             rewrite_path_regexs.add_row(vec![rprr.regex.to_string(), rprr.replace.to_string()]);
         }

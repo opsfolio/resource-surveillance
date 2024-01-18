@@ -3,11 +3,6 @@ name = "cmd"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-default-run = "surveilr"
-
-[[bin]]
-name = "surveilr"
-path = "src/bin/surveilr.rs"
 
 [dependencies]
 opentelemetry.workspace = true
@@ -18,14 +13,5 @@ anyhow.workspace = true
 autometrics.workspace = true
 serde_rusqlite.workspace = true
 tracing.workspace = true
-surveilr_static.workspace = true
-cli.workspace = true
+serde.workspace = true
 common.workspace = true
-clap-markdown.workspace = true
-globset.workspace = true
-glob.workspace = true
-serde_json.workspace = true
-comfy-table.workspace = true
-rusqlite.workspace = true
-sqlpage = "0.17.1"
-service_management.workspace = true

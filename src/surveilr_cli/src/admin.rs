@@ -5,10 +5,10 @@ use tracing::debug;
 use tracing::error;
 use tracing::info;
 
-use cli::{AdminTestCommands, AdminCommands, AdminArgs, AdminTestArgs, Cli};
+use resource_serde::persist::*;
+use resource::*;
 
-use surveilr_static::persist::*;
-use surveilr_static::resource::*;
+use cmd::*;
 
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
@@ -170,7 +170,7 @@ impl Admin {
 
         let mut sql_script = String::from("");
         for db_path in &db_paths {
-            let db_path_sql_identifier = surveilr_static::format::to_sql_friendly_identifier(db_path);
+            let db_path_sql_identifier = common::format::to_sql_friendly_identifier(db_path);
             sql_script.push_str(
                 format!(
                     "ATTACH DATABASE '{}' AS {};\n",
@@ -194,7 +194,7 @@ impl Admin {
         ];
         for db_path in &db_paths {
             for merge_table in merge_tables {
-                let db_path_sql_identifier = surveilr_static::format::to_sql_friendly_identifier(db_path);
+                let db_path_sql_identifier = common::format::to_sql_friendly_identifier(db_path);
                 sql_script.push_str(
                     format!(
                         "INSERT OR IGNORE INTO {} SELECT * FROM {}.{};\n",
@@ -207,7 +207,7 @@ impl Admin {
         }
 
         for db_path in &db_paths {
-            let db_path_sql_identifier = surveilr_static::format::to_sql_friendly_identifier(db_path);
+            let db_path_sql_identifier = common::format::to_sql_friendly_identifier(db_path);
             sql_script.push_str(format!("DETACH DATABASE {};\n", db_path_sql_identifier).as_str());
         }
 
@@ -281,7 +281,7 @@ impl AdminTest {
         let mut statement = dbc
             .conn
             .prepare("SELECT * FROM ur_ingest_resource_path_match_rule")?;
-        let rows = from_rows::<surveilr_static::models_polygenix::UrIngestResourcePathMatchRule>(
+        let rows = from_rows::<models_polygenix::UrIngestResourcePathMatchRule>(
             statement.query([]).unwrap(),
         );
         info!("==> `ur_ingest_resource_path_match_rule` serde rows");

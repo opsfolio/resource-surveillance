@@ -1,16 +1,17 @@
 use clap::Parser;
+use surveilr_cli::service_management;
 use opentelemetry::trace::Tracer;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let cli = cli::Cli::parse();
+    let cli = cmd::Cli::parse();
 
     if let Some(tracer) = service_management::start(&cli)? {
         let span = tracer.start("main");
-        cmd::execute(&cli).await?;
+        surveilr_cli::execute(&cli).await?;
         drop(span);
     } else {
-        cmd::execute(&cli).await?;
+        surveilr_cli::execute(&cli).await?;
     }
 
     Ok(())

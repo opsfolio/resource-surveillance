@@ -999,7 +999,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "702fc72eb24e5a1e48ce58027a675bc24edd52096d5397d4aea7c6dd9eca0bd1"
 
 [[package]]
-name = "cli"
+name = "cmd"
 version = "0.13.0"
 dependencies = [
  "anyhow",
@@ -1010,31 +1010,6 @@ dependencies = [
  "opentelemetry",
  "serde",
  "serde_rusqlite",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "cmd"
-version = "0.13.0"
-dependencies = [
- "anyhow",
- "autometrics",
- "clap",
- "clap-markdown",
- "cli",
- "comfy-table",
- "common",
- "glob",
- "globset",
- "lazy_static",
- "opentelemetry",
- "rusqlite",
- "serde_json",
- "serde_rusqlite",
- "service_management",
- "sqlpage",
- "surveilr_static",
  "tokio",
  "tracing",
 ]
@@ -3288,6 +3263,124 @@ dependencies = [
 ]
 
 [[package]]
+name = "resource"
+version = "0.13.0"
+dependencies = [
+ "anyhow",
+ "assert_cmd",
+ "autometrics",
+ "bitflags 2.4.2",
+ "chrono",
+ "comfy-table",
+ "common",
+ "deno_task_shell",
+ "globset",
+ "globwalk",
+ "hostname",
+ "ignore",
+ "indoc",
+ "is_executable",
+ "lazy_static",
+ "opentelemetry",
+ "pretty_assertions",
+ "regex",
+ "resource_helpers",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "serde_regex",
+ "serde_yaml",
+ "sha1",
+ "subprocess",
+ "sysinfo",
+ "tokio",
+ "toml 0.8.8",
+ "tracing",
+ "ulid",
+ "vfs",
+ "walkdir",
+]
+
+[[package]]
+name = "resource_helpers"
+version = "0.13.0"
+dependencies = [
+ "anyhow",
+ "assert_cmd",
+ "autometrics",
+ "bitflags 2.4.2",
+ "chrono",
+ "comfy-table",
+ "common",
+ "deno_task_shell",
+ "globset",
+ "globwalk",
+ "hostname",
+ "ignore",
+ "indoc",
+ "is_executable",
+ "lazy_static",
+ "opentelemetry",
+ "pretty_assertions",
+ "regex",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "serde_regex",
+ "serde_yaml",
+ "sha1",
+ "subprocess",
+ "sysinfo",
+ "tokio",
+ "toml 0.8.8",
+ "tracing",
+ "ulid",
+ "vfs",
+ "walkdir",
+]
+
+[[package]]
+name = "resource_serde"
+version = "0.13.0"
+dependencies = [
+ "anyhow",
+ "assert_cmd",
+ "autometrics",
+ "bitflags 2.4.2",
+ "chrono",
+ "cmd",
+ "comfy-table",
+ "common",
+ "deno_task_shell",
+ "globset",
+ "globwalk",
+ "hostname",
+ "ignore",
+ "indoc",
+ "is_executable",
+ "lazy_static",
+ "opentelemetry",
+ "pretty_assertions",
+ "regex",
+ "resource",
+ "resource_helpers",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "serde_regex",
+ "serde_yaml",
+ "sha1",
+ "subprocess",
+ "sysinfo",
+ "tokio",
+ "toml 0.8.8",
+ "tracing",
+ "ulid",
+ "vfs",
+ "walkdir",
+]
+
+[[package]]
 name = "ring"
 version = "0.16.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3715,19 +3808,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "service_management"
-version = "0.13.0"
-dependencies = [
- "anyhow",
- "cli",
- "opentelemetry",
- "opentelemetry-otlp",
- "opentelemetry_sdk",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "sha1"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4101,42 +4181,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
-name = "surveilr_static"
+name = "surveilr_cli"
 version = "0.13.0"
 dependencies = [
  "anyhow",
- "assert_cmd",
  "autometrics",
- "bitflags 2.4.2",
- "chrono",
- "cli",
+ "clap",
+ "clap-markdown",
+ "cmd",
  "comfy-table",
  "common",
- "deno_task_shell",
+ "glob",
  "globset",
- "globwalk",
- "hostname",
- "ignore",
- "indoc",
- "is_executable",
  "lazy_static",
  "opentelemetry",
- "pretty_assertions",
- "regex",
+ "opentelemetry-otlp",
+ "opentelemetry_sdk",
+ "resource",
+ "resource_serde",
  "rusqlite",
  "serde",
  "serde_json",
- "serde_regex",
- "serde_yaml",
- "sha1",
- "subprocess",
- "sysinfo",
+ "serde_rusqlite",
+ "sqlpage",
  "tokio",
- "toml 0.8.8",
  "tracing",
- "ulid",
- "vfs",
- "walkdir",
+ "tracing-subscriber",
 ]
 
 [[package]]

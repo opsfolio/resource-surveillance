@@ -7,9 +7,9 @@ use comfy_table::*;
 use serde_rusqlite::rusqlite;
 use tracing::info;
 
-use cli::{IngestCommands, IngestArgs, IngestFilesArgs, IngestTasksArgs};
-use surveilr_static::persist::*;
-use surveilr_static::resource::*;
+use cmd::{IngestCommands, IngestArgs, IngestFilesArgs, IngestTasksArgs};
+use resource_serde::{persist::*, ingest};
+use resource::*;
 
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
@@ -32,7 +32,7 @@ impl Ingest {
     }
 
     fn files(&self, cli: &super::Cli, args: &IngestFilesArgs) -> anyhow::Result<()> {
-        match surveilr_static::ingest::ingest_files(cli.debug, args) {
+        match ingest::ingest_files(cli.debug, args) {
             Ok(ingest_session_id) => {
                 if args.stats || args.stats_json {
                     // only export the path if there's more than one
@@ -78,7 +78,7 @@ impl Ingest {
     }
 
     fn tasks(&self, cli: &super::Cli, args: &IngestTasksArgs) -> anyhow::Result<()> {
-        match surveilr_static::ingest::ingest_tasks(cli.debug, args) {
+        match ingest::ingest_tasks(cli.debug, args) {
             Ok(ingest_session_id) => {
                 if args.stats || args.stats_json {
                     let sql = r#"
@@ -411,7 +411,7 @@ impl Ingest {
 mod tests {
     use clap::Parser;
 
-    use cli::{Cli, IngestArgs, IngestCommands, IngestFilesArgs};
+    use cmd::{Cli, IngestArgs, IngestCommands, IngestFilesArgs};
 
     use crate::ingest::Ingest;
 

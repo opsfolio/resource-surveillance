@@ -2,8 +2,10 @@ use std::collections::HashMap;
 
 use anyhow::{Context, Result};
 use autometrics::autometrics;
-use cli::IngestFilesArgs;
+use cmd::{IngestFilesArgs, IngestTasksArgs};
 use indoc::indoc;
+use resource::shell::ShellResult;
+use resource::shell::ShellStdIn;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -11,10 +13,7 @@ use tracing::debug;
 use tracing::error;
 
 use crate::persist::*;
-use crate::resource::*;
-use crate::shell::*;
-
-use cli::IngestTasksArgs;
+use resource::*;
 
 // separate the SQL from the execute so we can use it in logging, errors, etc.
 const INS_UR_INGEST_SESSION_SQL: &str = indoc! {"
@@ -439,7 +438,7 @@ impl UniformResourceWriter<ContentResource> for CapturableExecResource<ContentRe
                             match urw_state.resources.uniform_resource(output_res) {
                                 Ok(output_ur) => {
                                     let ur = *(output_ur);
-                                    let inserted_output = ur.insert(urw_state, entry);
+                                    let inserted_output = insert_uniform_resource(&ur, urw_state, entry);
                                     match inserted_output.action {
                                         UniformResourceWriterAction::Inserted(ur_id, ur_status) => {
                                             UniformResourceWriterResult {
@@ -634,31 +633,55 @@ impl UniformResourceWriter<ContentResource> for XmlResource<ContentResource> {
     }
 }
 
-impl UniformResource<ContentResource> {
-    fn insert(
-        &self,
-        urw_state: &mut UniformResourceWriterState<'_, '_>,
-        entry: &mut UniformResourceWriterEntry,
-    ) -> UniformResourceWriterResult {
-        match self {
-            UniformResource::CapturableExec(capturable) => capturable.insert(urw_state, entry),
-            UniformResource::Html(html) => html.insert(urw_state, entry),
-            UniformResource::Json(json) => json.insert(urw_state, entry),
-            UniformResource::JsonableText(jtr) => jtr.insert(urw_state, entry),
-            UniformResource::Image(img) => img.insert(urw_state, entry),
-            UniformResource::Markdown(md) => md.insert(urw_state, entry),
-            UniformResource::PlainText(txt) => txt.insert(urw_state, entry),
-            UniformResource::SourceCode(sc) => sc.insert(urw_state, entry),
-            UniformResource::Xml(xml) => xml.insert(urw_state, entry),
-            UniformResource::Unknown(unknown, tried_alternate_nature) => {
-                if let Some(tried_alternate_nature) = tried_alternate_nature {
-                    entry.tried_alternate_nature = Some(tried_alternate_nature.clone());
-                }
-                unknown.insert(urw_state, entry)
+fn insert_uniform_resource(
+    resource: &UniformResource<ContentResource>,
+    urw_state: &mut UniformResourceWriterState<'_, '_>,
+    entry: &mut UniformResourceWriterEntry,
+) -> UniformResourceWriterResult {
+    match resource {
+        UniformResource::CapturableExec(capturable) => capturable.insert(urw_state, entry),
+        UniformResource::Html(html) => html.insert(urw_state, entry),
+        UniformResource::Json(json) => json.insert(urw_state, entry),
+        UniformResource::JsonableText(jtr) => jtr.insert(urw_state, entry),
+        UniformResource::Image(img) => img.insert(urw_state, entry),
+        UniformResource::Markdown(md) => md.insert(urw_state, entry),
+        UniformResource::PlainText(txt) => txt.insert(urw_state, entry),
+        UniformResource::SourceCode(sc) => sc.insert(urw_state, entry),
+        UniformResource::Xml(xml) => xml.insert(urw_state, entry),
+        UniformResource::Unknown(unknown, tried_alternate_nature) => {
+            if let Some(tried_alternate_nature) = tried_alternate_nature {
+                entry.tried_alternate_nature = Some(tried_alternate_nature.clone());
             }
+            unknown.insert(urw_state, entry)
         }
     }
 }
+
+// impl UniformResource<ContentResource> {
+//     fn insert(
+//         &self,
+//         urw_state: &mut UniformResourceWriterState<'_, '_>,
+//         entry: &mut UniformResourceWriterEntry,
+//     ) -> UniformResourceWriterResult {
+//         match self {
+//             UniformResource::CapturableExec(capturable) => capturable.insert(urw_state, entry),
+//             UniformResource::Html(html) => html.insert(urw_state, entry),
+//             UniformResource::Json(json) => json.insert(urw_state, entry),
+//             UniformResource::JsonableText(jtr) => jtr.insert(urw_state, entry),
+//             UniformResource::Image(img) => img.insert(urw_state, entry),
+//             UniformResource::Markdown(md) => md.insert(urw_state, entry),
+//             UniformResource::PlainText(txt) => txt.insert(urw_state, entry),
+//             UniformResource::SourceCode(sc) => sc.insert(urw_state, entry),
+//             UniformResource::Xml(xml) => xml.insert(urw_state, entry),
+//             UniformResource::Unknown(unknown, tried_alternate_nature) => {
+//                 if let Some(tried_alternate_nature) = tried_alternate_nature {
+//                     entry.tried_alternate_nature = Some(tried_alternate_nature.clone());
+//                 }
+//                 unknown.insert(urw_state, entry)
+//             }
+//         }
+//     }
+// }
 
 #[derive(Serialize, Deserialize)]
 pub struct IngestFilesBehavior {
@@ -901,7 +924,7 @@ pub fn ingest_files(debug: u8, ingest_args: &IngestFilesArgs) -> Result<String> 
                             path: Some(resource.uri()),
                             tried_alternate_nature: None,
                         };
-                        let inserted = resource.insert(&mut urw_state, &mut urw_entry);
+                        let inserted = insert_uniform_resource(&resource, &mut urw_state, &mut urw_entry);
                         let mut ur_status = inserted.action.ur_status();
                         let mut ur_diagnostics = inserted.action.ur_diagnostics();
                         let mut captured_exec_diags: Option<String> = None;
@@ -1131,7 +1154,7 @@ pub fn ingest_tasks(debug: u8, ingest_args: &IngestTasksArgs) -> Result<String> 
 
                     debug!("{:?}", urw_entry.path);
 
-                    let inserted = resource.insert(&mut urw_state, &mut urw_entry);
+                    let inserted = insert_uniform_resource(&resource, &mut urw_state, &mut urw_entry);
                     let mut ur_status = inserted.action.ur_status();
                     let mut ur_diagnostics = inserted.action.ur_diagnostics();
                     let captured_executable: Option<String>;

@@ -1,5 +1,5 @@
 [package]
-name = "surveilr_static"
+name = "resource"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -36,5 +36,5 @@ pretty_assertions.workspace = true
 toml = "0.8.8"
 serde_yaml.workspace = true
 indoc = "2.0.4"
-cli.workspace = true
 common.workspace = true
+resource_helpers.workspace = true

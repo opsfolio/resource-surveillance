@@ -1,10 +1,11 @@
 [workspace]
 members = [
+  "src/surveilr_cli",
+  "src/resource_serde",
   "src/cmd",
-  "src/service_management",
-  "src/surveilr_static",
-  "src/cli",
   "src/common",
+  "src/resource",
+  "src/resource_helpers",
 ]
 resolver = "2"
 
@@ -53,9 +54,9 @@ autometrics = { version = "1.0.0", features = ["otel-push-exporter-http", "otel-
 assert_cmd = "2.0.13"
 
 ## workspaces members
+surveilr_cli = { path = "src/surveilr_cli" }
+resource_serde = { path = "src/resource_serde" }
 cmd = { path = "src/cmd" }
-service_management = { path = "src/service_management" }
-## name is subject to change. These are the static functionalities of surveilr as against udi
-surveilr_static = { path = "src/surveilr_static" }
-cli = { path = "src/cli" }
 common = { path = "src/common" }
+resource = { path = "src/resource" }
+resource_helpers = { path = "src/resource_helpers" }

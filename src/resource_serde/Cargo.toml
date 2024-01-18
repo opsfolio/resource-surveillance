@@ -1,0 +1,42 @@
+[package]
+name = "resource_serde"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde_json.workspace = true
+sysinfo.workspace = true
+hostname.workspace = true
+anyhow.workspace = true
+autometrics.workspace = true
+comfy-table.workspace = true
+globset.workspace = true
+is_executable.workspace = true
+opentelemetry.workspace = true
+rusqlite.workspace = true
+tracing.workspace = true
+ulid.workspace = true
+globwalk.workspace = true
+assert_cmd.workspace = true
+bitflags.workspace = true
+chrono.workspace = true
+serde.workspace = true
+sha1.workspace = true
+regex.workspace = true
+serde_regex = "1.1.0"
+vfs = { version = "0.10.0", features = ["embedded-fs"] }
+walkdir.workspace = true
+ignore.workspace = true
+deno_task_shell = { version = "0.14.2", features = ["shell", "serialization"] }
+tokio.workspace = true
+lazy_static.workspace = true
+subprocess.workspace = true
+pretty_assertions.workspace = true
+toml = "0.8.8"
+serde_yaml.workspace = true
+indoc = "2.0.4"
+cmd.workspace = true
+common.workspace = true
+resource_helpers.workspace= true
+resource.workspace= true

@@ -3,9 +3,9 @@ use rusqlite::{Connection, OpenFlags};
 use tracing::error;
 use tracing::info;
 
-use cli::{NotebooksCommands, NotebooksArgs};
-use surveilr_static::format::*;
-use surveilr_static::persist::*;
+use cmd::{NotebooksCommands, NotebooksArgs};
+use common::format::*;
+use resource_serde::persist::*;
 
 // Implement methods for `NotebooksCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
