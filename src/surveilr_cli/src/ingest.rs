@@ -7,9 +7,9 @@ use comfy_table::*;
 use serde_rusqlite::rusqlite;
 use tracing::info;
 
-use cmd::{IngestCommands, IngestArgs, IngestFilesArgs, IngestTasksArgs};
-use resource_serde::{persist::*, ingest};
 use resource::*;
+use resource_serde::cmd::{IngestArgs, IngestCommands, IngestFilesArgs, IngestTasksArgs};
+use resource_serde::{ingest, persist::*};
 
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
@@ -411,7 +411,7 @@ impl Ingest {
 mod tests {
     use clap::Parser;
 
-    use cmd::{Cli, IngestArgs, IngestCommands, IngestFilesArgs};
+    use resource_serde::cmd::{Cli, IngestArgs, IngestCommands, IngestFilesArgs};
 
     use crate::ingest::Ingest;
 

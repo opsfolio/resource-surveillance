@@ -18,8 +18,8 @@ use sha1::{Digest, Sha1};
 use tracing::error;
 
 use crate::frontmatter::frontmatter;
-use resource_helpers::query_sql_rows_no_args;
 use crate::shell::*;
+use common::query_sql_rows_no_args;
 
 pub mod frontmatter;
 pub mod models_polygenix;

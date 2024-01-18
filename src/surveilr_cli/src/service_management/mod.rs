@@ -1,5 +1,5 @@
-use cmd::{Cli, CliCommands, LogMode};
 use opentelemetry_sdk::trace::{self};
+use resource_serde::cmd::{Cli, CliCommands, LogMode};
 
 pub mod logger;
 mod observability;

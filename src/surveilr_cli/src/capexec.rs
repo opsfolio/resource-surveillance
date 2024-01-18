@@ -2,17 +2,15 @@ use std::collections::HashMap;
 use std::env;
 
 use autometrics::autometrics;
-use cmd::CapturableExecArgs;
-use cmd::CapturableExecCommands;
-use cmd::CapturableExecTestArgs;
-use cmd::CapturableExecTestCommands;
-use resource::*;
 use resource::shell::ShellStdIn;
+use resource::*;
+use resource_serde::cmd::{
+    CapturableExecArgs, CapturableExecCommands, CapturableExecTestArgs, CapturableExecTestCommands,
+};
 use serde_json::json;
 use tracing::debug;
 use tracing::error;
 use tracing::info;
-
 
 // Implement methods for `CapturableExecCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
@@ -20,13 +18,8 @@ use tracing::info;
 pub struct CapturableExec {}
 
 impl CapturableExec {
-
     #[autometrics]
-    pub fn execute(
-        &self,
-        cli: &super::Cli,
-        args: &CapturableExecArgs,
-    ) -> anyhow::Result<()> {
+    pub fn execute(&self, cli: &super::Cli, args: &CapturableExecArgs) -> anyhow::Result<()> {
         match &args.command {
             CapturableExecCommands::Ls {
                 root_fs_path: root_path,
@@ -258,7 +251,6 @@ struct CapturableExecTest {}
 // Implement methods for `CapturableExecCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
 impl CapturableExecTest {
-
     pub fn new() -> CapturableExecTest {
         CapturableExecTest {}
     }

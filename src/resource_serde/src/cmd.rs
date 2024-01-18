@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use serde::Serialize;
 use common::DEVICE;
+use serde::Serialize;
 
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 const DEFAULT_MERGED_STATEDB_FS_PATH: &str = "resource-surveillance-aggregated.sqlite.db";
@@ -14,7 +14,6 @@ pub enum LogMode {
     #[default]
     Compact,
 }
-
 
 #[derive(Debug, Serialize, Parser, Clone)]
 #[command(author, version, about, long_about = None)]

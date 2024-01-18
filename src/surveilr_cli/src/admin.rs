@@ -5,10 +5,10 @@ use tracing::debug;
 use tracing::error;
 use tracing::info;
 
-use resource_serde::persist::*;
 use resource::*;
+use resource_serde::persist::*;
 
-use cmd::*;
+use resource_serde::cmd::*;
 
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
@@ -52,11 +52,11 @@ impl Admin {
             AdminCommands::Test(test_args) => {
                 // test_args.command.execute(cli, args, test_args)
                 AdminTest::new().execute(cli, args, test_args)
-            },
+            }
         }
-    } 
+    }
 
-        // #[autometrics]
+    // #[autometrics]
     fn init(
         &self,
         cli: &super::Cli,
@@ -231,7 +231,7 @@ struct AdminTest {}
 
 impl AdminTest {
     pub fn new() -> AdminTest {
-        AdminTest {  }
+        AdminTest {}
     }
 
     // #[autometrics]

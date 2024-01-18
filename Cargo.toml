@@ -2,10 +2,8 @@
 members = [
   "src/surveilr_cli",
   "src/resource_serde",
-  "src/cmd",
   "src/common",
   "src/resource",
-  "src/resource_helpers",
 ]
 resolver = "2"
 
@@ -56,7 +54,5 @@ assert_cmd = "2.0.13"
 ## workspaces members
 surveilr_cli = { path = "src/surveilr_cli" }
 resource_serde = { path = "src/resource_serde" }
-cmd = { path = "src/cmd" }
 common = { path = "src/common" }
 resource = { path = "src/resource" }
-resource_helpers = { path = "src/resource_helpers" }

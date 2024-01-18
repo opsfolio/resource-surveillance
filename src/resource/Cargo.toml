@@ -37,4 +37,3 @@ toml = "0.8.8"
 serde_yaml.workspace = true
 indoc = "2.0.4"
 common.workspace = true
-resource_helpers.workspace = true

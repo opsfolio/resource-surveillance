@@ -999,22 +999,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "702fc72eb24e5a1e48ce58027a675bc24edd52096d5397d4aea7c6dd9eca0bd1"
 
 [[package]]
-name = "cmd"
-version = "0.13.0"
-dependencies = [
- "anyhow",
- "autometrics",
- "clap",
- "common",
- "lazy_static",
- "opentelemetry",
- "serde",
- "serde_rusqlite",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3284,45 +3268,6 @@ dependencies = [
  "opentelemetry",
  "pretty_assertions",
  "regex",
- "resource_helpers",
- "rusqlite",
- "serde",
- "serde_json",
- "serde_regex",
- "serde_yaml",
- "sha1",
- "subprocess",
- "sysinfo",
- "tokio",
- "toml 0.8.8",
- "tracing",
- "ulid",
- "vfs",
- "walkdir",
-]
-
-[[package]]
-name = "resource_helpers"
-version = "0.13.0"
-dependencies = [
- "anyhow",
- "assert_cmd",
- "autometrics",
- "bitflags 2.4.2",
- "chrono",
- "comfy-table",
- "common",
- "deno_task_shell",
- "globset",
- "globwalk",
- "hostname",
- "ignore",
- "indoc",
- "is_executable",
- "lazy_static",
- "opentelemetry",
- "pretty_assertions",
- "regex",
  "rusqlite",
  "serde",
  "serde_json",
@@ -3348,7 +3293,7 @@ dependencies = [
  "autometrics",
  "bitflags 2.4.2",
  "chrono",
- "cmd",
+ "clap",
  "comfy-table",
  "common",
  "deno_task_shell",
@@ -3363,7 +3308,6 @@ dependencies = [
  "pretty_assertions",
  "regex",
  "resource",
- "resource_helpers",
  "rusqlite",
  "serde",
  "serde_json",
@@ -4188,7 +4132,6 @@ dependencies = [
  "autometrics",
  "clap",
  "clap-markdown",
- "cmd",
  "comfy-table",
  "common",
  "glob",

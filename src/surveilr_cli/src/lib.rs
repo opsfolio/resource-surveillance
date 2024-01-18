@@ -1,11 +1,11 @@
-use cmd::{CliCommands, Cli};
+use resource_serde::cmd::{Cli, CliCommands};
 
 pub mod admin;
 pub mod capexec;
 pub mod ingest;
 pub mod notebooks;
-pub mod sql_page;
 pub mod service_management;
+pub mod sql_page;
 
 pub async fn execute(cli: &Cli) -> anyhow::Result<()> {
     match &cli.command {

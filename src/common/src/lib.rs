@@ -9,3 +9,4 @@ lazy_static! {
 
 pub mod device;
 pub mod format;
+pub mod sqlite_helpers;

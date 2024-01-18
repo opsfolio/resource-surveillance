@@ -32,4 +32,3 @@ resource_serde.workspace = true
 tracing-subscriber = {version = "0.3.18", features = ["std", "fmt", "json", "env-filter"] }
 opentelemetry-otlp = { version = "0.14.0", features = ["tokio", "http", "reqwest-client", "reqwest-rustls", "http-proto", "tls", "logs"] }
 serde.workspace = true
-cmd.workspace = true

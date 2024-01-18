@@ -1,8 +1,8 @@
 use std::net::ToSocketAddrs;
 
 use anyhow::{anyhow, Result};
-use cmd::SQLPageArgs;
 use opentelemetry::{trace::get_active_span, KeyValue};
+use resource_serde::cmd::SQLPageArgs;
 use sqlpage::{
     app_config::{self, AppConfig},
     webserver, AppState,

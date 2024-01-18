@@ -18,7 +18,7 @@ use ulid::Ulid;
 
 extern crate globwalk;
 
-use resource_helpers::{execute_sql_batch, query_sql_single, execute_sql, query_sql_rows_no_args};
+use common::{execute_sql, execute_sql_batch, query_sql_rows_no_args, query_sql_single};
 
 use common::device::Device;
 use resource::*;
@@ -386,7 +386,7 @@ query_sql_single!(
 /// # use std::vec::Vec;
 /// use surveilr_static::persist::prepare_conn;
 /// use surveilr_static::persist::select_notebooks_and_cells;
-/// 
+///
 /// # fn main() -> SqliteResult<()> {
 /// let conn = Connection::open("code_notebooks.db")?;
 /// prepare_conn(&conn)?; // make sure to register custom functions like ulid()
@@ -966,7 +966,7 @@ mod tests {
         Ok(())
     }
 
-     #[test]
+    #[test]
     fn test_executable_code_latest_anonymous_sql() {
         let conn = setup_db().expect("Failed to set up test database");
 

@@ -3,8 +3,8 @@ use rusqlite::{Connection, OpenFlags};
 use tracing::error;
 use tracing::info;
 
-use cmd::{NotebooksCommands, NotebooksArgs};
 use common::format::*;
+use resource_serde::cmd::{NotebooksArgs, NotebooksCommands};
 use resource_serde::persist::*;
 
 // Implement methods for `NotebooksCommands`, ensure that whether the commands
