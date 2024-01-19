@@ -23,7 +23,7 @@ async function CLI() {
       {
         default: path.relative(
           Deno.cwd(),
-          path.fromFileUrl(import.meta.resolve("../../src")),
+          path.fromFileUrl(import.meta.resolve("../../src/resource_serde/src")),
         ),
       },
     )

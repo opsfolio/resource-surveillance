@@ -22,7 +22,6 @@ use crate::shell::*;
 use common::query_sql_rows_no_args;
 
 pub mod frontmatter;
-pub mod models_polygenix;
 pub mod shell;
 
 // See src/resources.states.puml for PlantUML specification of the state machine

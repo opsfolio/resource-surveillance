@@ -20,8 +20,8 @@ impl SimpleQueryHandler for UdiPgpProcessor {
     where
         C: ClientInfo + Unpin + Send + Sync,
     {
-        println!("{query}");
         let statement = UdiPgpQueryParser::parse(query)?;
+        println!("{:#?}", statement);
         Ok(vec![Response::EmptyQuery])
     }
 }

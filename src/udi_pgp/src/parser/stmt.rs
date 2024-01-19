@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use derive_new::new;
 use sqlparser::ast::Statement;
 
@@ -22,6 +24,15 @@ impl Default for ColumnMetadata {
     }
 }
 
+impl Display for ColumnMetadata {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "Column: {} of {} expression and alias: {:?}",
+            self.name, self.expr_type, self.alias
+        ))
+    }
+}
+
 /// Enum representing the types of expressions a column in a SQL query can have.
 /// Corresponding directly to the types in the statement
 #[derive(Debug, Clone, PartialEq)]
@@ -38,6 +49,18 @@ pub enum ExpressionType {
     Wildcard,
 }
 
+impl Display for ExpressionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ExpressionType::Binary => f.write_str("binary"),
+            ExpressionType::Function => f.write_str("binary"),
+            ExpressionType::Compound => f.write_str("compound"),
+            ExpressionType::Standard => f.write_str("standard"),
+            ExpressionType::Wildcard => f.write_str("wildcard"),
+        }
+    }
+}
+
 /// Represents the metadata of a parsed SQL query, including details about the tables and columns involved.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UdiPgpStatment {
@@ -47,5 +70,6 @@ pub struct UdiPgpStatment {
     pub columns: Vec<ColumnMetadata>,
     pub query: String,
     pub stmt: Statement,
-    pub from_driver: bool
+    pub from_driver: bool,
 }
+
