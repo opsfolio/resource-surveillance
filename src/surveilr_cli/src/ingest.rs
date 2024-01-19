@@ -411,9 +411,9 @@ impl Ingest {
 mod tests {
     use clap::Parser;
 
-    use resource_serde::cmd::{Cli, IngestArgs, IngestCommands, IngestFilesArgs};
+    use resource_serde::cmd::{IngestArgs, IngestCommands, IngestFilesArgs};
 
-    use crate::ingest::Ingest;
+    use crate::{ingest::Ingest, Cli};
 
     fn build_cli(subcmd: &str, root_fs_path: &str, dry_run: bool) -> Cli {
         let mut fixtures_dir = std::env::current_dir().expect("Failed to get current directory");

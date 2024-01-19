@@ -1,7 +1,10 @@
 use std::net::SocketAddr;
 
-use crate::{auth::Auth, UdiPgpModes};
-use resource_serde::cmd::udi_pgp::{OsqueryCommands, UdiPgpArgs, UdiPgpCommands};
+use crate::{
+    auth::Auth,
+    cli::{OsqueryCommands, UdiPgpArgs, UdiPgpCommands},
+    UdiPgpModes,
+};
 
 #[derive(Debug, Clone)]
 pub struct UdiPgpConfig {

@@ -11,6 +11,8 @@ use resource_serde::persist::*;
 
 use resource_serde::cmd::*;
 
+use crate::Cli;
+
 // Implement methods for `AdminCommands`, ensure that whether the commands
 // are called from CLI or natively within Rust, all the calls remain ergonomic.
 #[derive(Debug, Default)]

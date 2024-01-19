@@ -1,59 +1,8 @@
-use std::path::PathBuf;
-
-use clap::{Args, Parser, Subcommand, ValueEnum};
-use common::DEVICE;
+use clap::{Args, Subcommand};
 use serde::Serialize;
-
-use self::udi_pgp::UdiPgpArgs;
 
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 const DEFAULT_MERGED_STATEDB_FS_PATH: &str = "resource-surveillance-aggregated.sqlite.db";
-
-#[derive(Debug, Clone, Copy, ValueEnum, Default, Serialize)]
-pub enum LogMode {
-    Full,
-    Json,
-    #[default]
-    Compact,
-}
-
-pub mod udi_pgp;
-
-#[derive(Debug, Serialize, Parser, Clone)]
-#[command(author, version, about, long_about = None)]
-pub struct Cli {
-    /// How to identify this device
-    #[arg(long, num_args = 0..=1, default_value = DEVICE.name(), default_missing_value = "always", env="SURVEILR_DEVICE_NAME")]
-    pub device_name: Option<String>,
-
-    /// Turn debugging information on (repeat for higher levels)
-    #[arg(short, long, action = clap::ArgAction::Count, env="SURVEILR_DEBUG")]
-    pub debug: u8,
-
-    #[command(subcommand)]
-    pub command: CliCommands,
-
-    /// Output logs in json format.
-    #[clap(long, value_enum)]
-    pub log_mode: Option<LogMode>,
-
-    /// File for logs to be written to
-    #[arg(long, value_parser)]
-    pub log_file: Option<PathBuf>,
-}
-
-#[allow(clippy::large_enum_variant)]
-#[derive(Debug, Serialize, Subcommand, Clone)]
-pub enum CliCommands {
-    Admin(AdminArgs),
-    CapturableExec(CapturableExecArgs),
-    Ingest(IngestArgs),
-    Notebooks(NotebooksArgs),
-    #[clap(name = "sqlpage")]
-    SQLPage(SQLPageArgs),
-    #[clap(name = "udi")]
-    UdiPgp(UdiPgpArgs),
-}
 
 /// Admin / maintenance utilities
 #[derive(Debug, Serialize, Args, Clone)]

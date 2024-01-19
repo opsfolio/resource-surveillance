@@ -10,6 +10,7 @@ use crate::processor::UdiPgpProcessor;
 
 pub mod auth;
 pub mod config;
+pub mod cli;
 mod parser;
 mod processor;
 mod startup;

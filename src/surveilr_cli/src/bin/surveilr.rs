@@ -1,10 +1,10 @@
 use clap::Parser;
 use opentelemetry::trace::Tracer;
-use surveilr_cli::service_management;
+use surveilr_cli::{service_management, Cli};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let cli = resource_serde::cmd::Cli::parse();
+    let cli = Cli::parse();
 
     if let Some(tracer) = service_management::start(&cli)? {
         let span = tracer.start("main");
