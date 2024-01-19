@@ -1,5 +1,6 @@
 use clap::{Args, Subcommand};
 use serde::Serialize;
+use udi_pgp::auth::Auth;
 
 /// UDI PostgreSQL Proxy for remote SQL is a CLI tool starts up a server which pretends to be PostgreSQL
 /// but proxies its SQL to other CLI commands (called SQL Suppliers).#[derive(Debug, Serialize, Args, Clone)]
@@ -40,4 +41,20 @@ pub enum OsqueryCommands {
     Local,
     /// execute osquery on a remote machine
     Remote,
+}
+
+impl UdiPgpArgs {
+    pub async fn execute(&self) -> anyhow::Result<()> {
+        let UdiPgpArgs {
+            addr,
+            username,
+            password,
+            command,
+        } = self;
+
+        let auth = Auth::new(username, password);
+        let config = udi_pgp::config::UdiPgpConfig::new(*addr, auth);
+        
+        udi_pgp::run(&config).await
+    }
 }

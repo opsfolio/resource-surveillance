@@ -6,6 +6,7 @@ use crate::{parser::UdiPgpQueryParser, config::UdiPgpConfig};
 
 pub mod query_handler;
 
+//TODO: connect the suppliers here
 #[derive(Debug, Clone)]
 pub struct UdiPgpProcessor {
     query_parser: UdiPgpQueryParser,

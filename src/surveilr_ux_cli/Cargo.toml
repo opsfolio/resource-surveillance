@@ -1,5 +1,5 @@
 [package]
-name = "surveilr_cli"
+name = "surveilr_ux_cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

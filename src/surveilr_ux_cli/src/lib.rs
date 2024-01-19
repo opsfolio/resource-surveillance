@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use common::DEVICE;
 use resource_serde::cmd::{AdminArgs, CapturableExecArgs, IngestArgs, NotebooksArgs, SQLPageArgs};
 use serde::Serialize;
-use ::udi_pgp::cli::UdiPgpArgs;
+use udi_pgp::UdiPgpArgs;
 
 pub mod admin;
 pub mod capexec;
@@ -67,6 +67,6 @@ pub async fn execute(cli: &Cli) -> anyhow::Result<()> {
         CliCommands::Ingest(args) => ingest::Ingest::default().execute(cli, args),
         CliCommands::Notebooks(args) => notebooks::Notebooks::default().execute(cli, args),
         CliCommands::SQLPage(args) => sql_page::SqlPage::default().execute(args).await,
-        CliCommands::UdiPgp(args) => udi_pgp::execute(args).await,
+        CliCommands::UdiPgp(args) => args.execute().await,
     }
 }

@@ -4272,7 +4272,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
-name = "surveilr_cli"
+name = "surveilr_ux_cli"
 version = "0.13.0"
 dependencies = [
  "anyhow",
@@ -4791,6 +4791,24 @@ dependencies = [
  "sqlparser 0.41.0",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "udi_pgp_osquery"
+version = "0.13.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "clap",
+ "derive-new",
+ "futures",
+ "pgwire",
+ "resource_serde",
+ "serde",
+ "sqlparser 0.41.0",
+ "tokio",
+ "tracing",
+ "udi_pgp",
 ]
 
 [[package]]

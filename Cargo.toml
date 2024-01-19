@@ -1,10 +1,11 @@
 [workspace]
 members = [
-  "src/surveilr_cli",
+  "src/surveilr_ux_cli",
   "src/resource_serde",
   "src/common",
   "src/resource",
-  "src/udi_pgp"
+  "src/udi_pgp",
+  "src/udi_pgp_osquery"
 ]
 resolver = "2"
 
@@ -53,8 +54,9 @@ autometrics = { version = "1.0.0", features = ["otel-push-exporter-http", "otel-
 assert_cmd = "2.0.13"
 
 ## workspaces members
-surveilr_cli = { path = "src/surveilr_cli" }
+surveilr_ux_cli = { path = "src/surveilr_ux_cli" }
 resource_serde = { path = "src/resource_serde" }
 common = { path = "src/common" }
 resource = { path = "src/resource" }
 udi_pgp = { path = "src/udi_pgp" }
+udi_pgp_osquery = { path = "src/udi_pgp_osquery" }

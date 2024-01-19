@@ -1,35 +1,16 @@
 use std::net::SocketAddr;
 
-use crate::{
-    auth::Auth,
-    cli::{OsqueryCommands, UdiPgpArgs, UdiPgpCommands},
-    UdiPgpModes,
-};
+use derive_new::new;
 
-#[derive(Debug, Clone)]
+use crate::auth::Auth;
+
+#[derive(Debug, Clone, new)]
 pub struct UdiPgpConfig {
-    pub mode: UdiPgpModes,
     addr: SocketAddr,
     auth: Auth,
 }
 
 impl UdiPgpConfig {
-    pub fn new(args: &UdiPgpArgs) -> Self {
-        let mode = match &args.command {
-            UdiPgpCommands::Osquery(args) => match args.command {
-                OsqueryCommands::Local => UdiPgpModes::Local,
-                OsqueryCommands::Remote => UdiPgpModes::Remote,
-            },
-        };
-
-        let auth = Auth::new(&args.username, &args.password);
-        UdiPgpConfig {
-            mode,
-            addr: args.addr,
-            auth,
-        }
-    }
-
     pub fn addr(&self) -> &SocketAddr {
         &self.addr
     }
@@ -48,11 +29,5 @@ impl UdiPgpConfig {
 
     pub fn execute(&self) -> anyhow::Result<()> {
         Ok(())
-    }
-}
-
-impl From<&UdiPgpArgs> for UdiPgpConfig {
-    fn from(value: &UdiPgpArgs) -> Self {
-        UdiPgpConfig::new(value)
     }
 }
