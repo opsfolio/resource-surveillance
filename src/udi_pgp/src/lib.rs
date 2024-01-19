@@ -52,7 +52,7 @@ pub async fn run(config: &UdiPgpConfig) -> anyhow::Result<()> {
         config.auth().clone(),
         UdiPgpParameters::new(),
     ));
-    let processor = UdiPgpProcessor::new();
+    let processor = UdiPgpProcessor::new(config);
     let mut rx = spawn_shutdown_handler();
     let listener = TcpListener::bind(config.addr()).await?;
 

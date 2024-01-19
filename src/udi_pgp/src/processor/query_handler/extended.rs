@@ -11,11 +11,14 @@ use pgwire::{
     error::PgWireResult,
 };
 
-use crate::{parser::UdiPgpQueryParser, processor::UdiPgpProcessor};
+use crate::{
+    parser::{stmt::UdiPgpStatment, UdiPgpQueryParser},
+    processor::UdiPgpProcessor,
+};
 
 #[async_trait]
 impl ExtendedQueryHandler for UdiPgpProcessor {
-    type Statement = String;
+    type Statement = UdiPgpStatment;
     type QueryParser = UdiPgpQueryParser;
 
     fn query_parser(&self) -> Arc<Self::QueryParser> {

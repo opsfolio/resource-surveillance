@@ -1,10 +1,14 @@
 use async_trait::async_trait;
 use pgwire::{
-    api::{query::SimpleQueryHandler, results::Response, ClientInfo},
+    api::{
+        query::SimpleQueryHandler,
+        results::{QueryResponse, Response},
+        ClientInfo,
+    },
     error::PgWireResult,
 };
 
-use crate::processor::UdiPgpProcessor;
+use crate::{parser::UdiPgpQueryParser, processor::UdiPgpProcessor};
 
 #[async_trait]
 impl SimpleQueryHandler for UdiPgpProcessor {
@@ -17,6 +21,7 @@ impl SimpleQueryHandler for UdiPgpProcessor {
         C: ClientInfo + Unpin + Send + Sync,
     {
         println!("{query}");
+        let statement = UdiPgpQueryParser::parse(query)?;
         Ok(vec![Response::EmptyQuery])
     }
 }

@@ -2,19 +2,21 @@ use std::sync::Arc;
 
 use pgwire::api::MakeHandler;
 
-use crate::parser::UdiPgpQueryParser;
+use crate::{parser::UdiPgpQueryParser, config::UdiPgpConfig};
 
 pub mod query_handler;
 
 #[derive(Debug, Clone)]
 pub struct UdiPgpProcessor {
     query_parser: UdiPgpQueryParser,
+    config: UdiPgpConfig
 }
 
 impl UdiPgpProcessor {
-    pub fn new() -> Self {
+    pub fn new(config: &UdiPgpConfig) -> Self {
         UdiPgpProcessor {
             query_parser: UdiPgpQueryParser::new(),
+            config: config.clone()
         }
     }
 }
@@ -24,7 +26,8 @@ impl MakeHandler for UdiPgpProcessor {
 
     fn make(&self) -> Self::Handler {
         Arc::new(UdiPgpProcessor {
-            query_parser: UdiPgpQueryParser::new(),
+            query_parser: self.query_parser.clone(),
+            config: self.config.clone()
         })
     }
 }
