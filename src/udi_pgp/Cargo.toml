@@ -16,3 +16,4 @@ resource_serde.workspace = true
 anyhow.workspace = true
 sqlparser = "0.41.0"
 clap.workspace = true
+thiserror = "1.0.56"

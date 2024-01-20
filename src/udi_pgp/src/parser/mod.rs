@@ -9,9 +9,9 @@ use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 
 use stmt::UdiPgpStatment;
 
-pub mod columns;
+mod columns;
+mod tables;
 pub mod stmt;
-pub mod tables;
 
 static DRIVER_WORDS: [&str; 47] = [
     "show",

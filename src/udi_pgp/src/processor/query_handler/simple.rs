@@ -22,6 +22,11 @@ impl SimpleQueryHandler for UdiPgpProcessor {
     {
         let statement = UdiPgpQueryParser::parse(query)?;
         println!("{:#?}", statement);
-        Ok(vec![Response::EmptyQuery])
+        let mut supplier = self.supplier.lock().await;
+        let schema = supplier.schema(&statement).await?;
+        let rows = supplier.execute(&statement).await?;
+        let row_stream = self.encode_rows(schema.clone().into(), &rows);
+        let response = Response::Query(QueryResponse::new(schema.into(), row_stream));
+        Ok(vec![response])
     }
 }

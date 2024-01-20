@@ -1,19 +1,24 @@
 use std::{fmt::Display, sync::Arc};
 
 use config::UdiPgpConfig;
+use derive_new::new;
 use pgwire::{api::MakeHandler, tokio::process_socket};
+use sql_supplier::SqlSupplierType;
 use startup::{UdiPgpParameters, UdiPgpStartupHandler};
 use tokio::{net::TcpListener, signal, sync::oneshot};
 use tracing::{error, info};
 
 use crate::processor::UdiPgpProcessor;
 
+mod processor;
+mod startup;
+
+pub mod parser;
 pub mod auth;
 pub mod config;
 pub mod sql_supplier;
-mod parser;
-mod processor;
-mod startup;
+pub mod error;
+pub use pgwire::api::results::FieldInfo;
 
 #[derive(Debug, Clone)]
 pub enum UdiPgpModes {
@@ -28,6 +33,11 @@ impl Display for UdiPgpModes {
             UdiPgpModes::Remote => f.write_str("execution on remote machine"),
         }
     }
+}
+
+#[derive(Debug, Clone, new)]
+pub struct Row {
+    pub value: String
 }
 
 fn spawn_shutdown_handler() -> oneshot::Receiver<()> {
@@ -48,12 +58,12 @@ fn spawn_shutdown_handler() -> oneshot::Receiver<()> {
     rx
 }
 
-pub async fn run(config: &UdiPgpConfig) -> anyhow::Result<()> {
+pub async fn run(config: &UdiPgpConfig, supplier: SqlSupplierType) -> anyhow::Result<()> {
     let authenticator = Arc::new(UdiPgpStartupHandler::new(
         config.auth().clone(),
         UdiPgpParameters::new(),
     ));
-    let processor = UdiPgpProcessor::new(config);
+    let processor = UdiPgpProcessor::new(config, supplier);
     let mut rx = spawn_shutdown_handler();
     let listener = TcpListener::bind(config.addr()).await?;
 

@@ -4298,6 +4298,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "udi_pgp",
+ "udi_pgp_osquery",
 ]
 
 [[package]]
@@ -4789,6 +4790,7 @@ dependencies = [
  "resource_serde",
  "serde",
  "sqlparser 0.41.0",
+ "thiserror",
  "tokio",
  "tracing",
 ]
@@ -4802,7 +4804,6 @@ dependencies = [
  "clap",
  "derive-new",
  "futures",
- "pgwire",
  "resource_serde",
  "serde",
  "sqlparser 0.41.0",
