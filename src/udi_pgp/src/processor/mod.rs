@@ -1,4 +1,4 @@
-use std::{pin::Pin, sync::Arc};
+use std::{pin::Pin, str::FromStr, sync::Arc};
 
 use futures::{stream, Stream};
 use pgwire::{
@@ -12,7 +12,10 @@ use pgwire::{
 use tokio::sync::Mutex;
 use tracing::debug;
 
-use crate::{config::UdiPgpConfig, parser::UdiPgpQueryParser, sql_supplier::SqlSupplierType, Row};
+use crate::{
+    config::UdiPgpConfig, error::UdiPgpResult, parser::UdiPgpQueryParser, simulations::response,
+    sql_supplier::SqlSupplierType, Row,
+};
 
 pub mod query_handler;
 
@@ -54,6 +57,18 @@ impl UdiPgpProcessor {
 
         debug!("encoded rows successfully");
         Box::pin(stream::iter(results))
+    }
+
+    pub fn simulate_driver_responses(
+        &self,
+        query: &str,
+    ) -> UdiPgpResult<(Vec<FieldInfo>, Vec<Vec<Row>>)> {
+        let (schema, rows) = response::driver_queries_response(query)?;
+        let rows = vec![rows
+            .into_iter()
+            .map(|r| Row::from_str(r).unwrap())
+            .collect::<Vec<_>>()];
+        Ok((schema, rows))
     }
 }
 

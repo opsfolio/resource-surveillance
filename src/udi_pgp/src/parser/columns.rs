@@ -13,7 +13,7 @@ fn get_column_names_from_set_expression(set_expr: SetExpr) -> Vec<ColumnMetadata
         SetExpr::Select(select) => get_column_names_from_projection(select.projection),
         SetExpr::Query(query) => get_column_names_from_query(*query),
         SetExpr::SetOperation { left, .. } => get_column_names_from_set_expression(*left),
-        _ => vec![]
+        _ => vec![],
     }
 }
 
@@ -31,13 +31,14 @@ fn get_column_names_from_projection(projection: Vec<SelectItem>) -> Vec<ColumnMe
                 }
                 Some(col)
             }
-            SelectItem::QualifiedWildcard(qualified_wildcard, ..) => {
-                qualified_wildcard.0.first().map(|identifier| ColumnMetadata {
+            SelectItem::QualifiedWildcard(qualified_wildcard, ..) => qualified_wildcard
+                .0
+                .first()
+                .map(|identifier| ColumnMetadata {
                     name: identifier.value.clone(),
                     expr_type: ExpressionType::Wildcard,
                     alias: None,
-                })
-            }
+                }),
             SelectItem::Wildcard(_) => Some(ColumnMetadata {
                 name: "*".to_owned(),
                 expr_type: ExpressionType::Wildcard,
@@ -67,16 +68,22 @@ fn get_column_name_from_expression(expr: Expr) -> ColumnMetadata {
         }
         Expr::Nested(e) => get_column_name_from_expression(*e),
         Expr::Function(func) => ColumnMetadata {
-            name: func.name.0.first().map_or_else(String::new, |ident| ident.value.clone()),
+            name: func
+                .name
+                .0
+                .first()
+                .map_or_else(String::new, |ident| ident.value.clone()),
             expr_type: ExpressionType::Function,
             alias: None,
         },
-        Expr::Case { operand, .. } => operand.map_or_else(ColumnMetadata::default, |op| get_column_name_from_expression(*op)),
+        Expr::Case { operand, .. } => operand.map_or_else(ColumnMetadata::default, |op| {
+            get_column_name_from_expression(*op)
+        }),
         Expr::BinaryOp { .. } => ColumnMetadata {
             name: String::new(),
             expr_type: ExpressionType::Binary,
             alias: None,
         },
-        _ => ColumnMetadata::default() // Default case for unhandled expressions
+        _ => ColumnMetadata::default(), // Default case for unhandled expressions
     }
 }

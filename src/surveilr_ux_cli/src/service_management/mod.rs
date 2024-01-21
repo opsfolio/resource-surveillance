@@ -1,5 +1,5 @@
-use opentelemetry_sdk::trace::{self};
 use crate::{Cli, CliCommands, LogMode};
+use opentelemetry_sdk::trace::{self};
 
 pub mod logger;
 mod observability;

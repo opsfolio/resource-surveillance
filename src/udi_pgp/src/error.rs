@@ -11,6 +11,8 @@ pub enum UdiPgpError {
     IoError(#[from] std::io::Error),
     #[error(transparent)]
     PgWireError(#[from] PgWireError),
+    #[error(transparent)]
+    JsonError(#[from] serde_json::Error),
     #[error("Error: {1} from {0} supplier: {2}")]
     SupplierError(String, UdiPgpErrorSeverity, String),
 }

@@ -14,7 +14,6 @@ pub mod service_management;
 pub mod sql_page;
 pub mod udi_pgp;
 
-
 #[derive(Debug, Clone, Copy, ValueEnum, Default, Serialize)]
 pub enum LogMode {
     Full,
@@ -58,7 +57,6 @@ pub enum CliCommands {
     #[clap(name = "udi")]
     UdiPgp(UdiPgpArgs),
 }
-
 
 pub async fn execute(cli: &Cli) -> anyhow::Result<()> {
     match &cli.command {

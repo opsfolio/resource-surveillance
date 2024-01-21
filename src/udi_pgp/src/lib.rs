@@ -1,7 +1,8 @@
-use std::{fmt::Display, sync::Arc};
+use std::{fmt::Display, str::FromStr, sync::Arc};
 
 use config::UdiPgpConfig;
 use derive_new::new;
+use error::UdiPgpError;
 use pgwire::{api::MakeHandler, tokio::process_socket};
 use sql_supplier::SqlSupplierType;
 use startup::{UdiPgpParameters, UdiPgpStartupHandler};
@@ -11,13 +12,14 @@ use tracing::{error, info};
 use crate::processor::UdiPgpProcessor;
 
 mod processor;
+mod simulations;
 mod startup;
 
-pub mod parser;
 pub mod auth;
 pub mod config;
-pub mod sql_supplier;
 pub mod error;
+pub mod parser;
+pub mod sql_supplier;
 pub use pgwire::api::results::FieldInfo;
 
 #[derive(Debug, Clone)]
@@ -37,7 +39,23 @@ impl Display for UdiPgpModes {
 
 #[derive(Debug, Clone, new)]
 pub struct Row {
-    pub value: String
+    pub value: String,
+}
+
+impl FromStr for Row {
+    type Err = UdiPgpError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Row {
+            value: s.to_string(),
+        })
+    }
+}
+
+impl From<String> for Row {
+    fn from(value: String) -> Self {
+        Row { value }
+    }
 }
 
 fn spawn_shutdown_handler() -> oneshot::Receiver<()> {

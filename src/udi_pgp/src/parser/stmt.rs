@@ -72,4 +72,3 @@ pub struct UdiPgpStatment {
     pub stmt: Statement,
     pub from_driver: bool,
 }
-

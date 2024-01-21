@@ -17,3 +17,5 @@ anyhow.workspace = true
 sqlparser = "0.41.0"
 clap.workspace = true
 thiserror = "1.0.56"
+include_dir = "0.7.3"
+serde_json.workspace = true
