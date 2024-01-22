@@ -22,6 +22,8 @@ pub enum UdiPgpError {
     SchemaError(String, String),
     #[error("{0}")]
     QueryExecutionError(String),
+    #[error("Invalid SSH connection string: {0}")]
+    SshConnectionParseError(String),
 }
 
 #[derive(Debug, Clone)]
