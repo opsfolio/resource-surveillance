@@ -11,22 +11,33 @@ Install Pkgx using the below command:
 curl -fsS https://pkgx.sh | sh
 ```
 
-##### 2. Steampipe
+
+##### 4. AWS-CLI
+
+Aws-cli installation using Pkgx:
+
+```bash
+
+pkgx install aws/cli
+pkgx aws --version
+```
+
+##### 3. Steampipe
 
 Steampipe installation using Pkgx:
 
-```
+```bash
 pkgx steampipe 
 ```
 
 To open the query shell, run :
-```
+```bash
 pkgx steampipe query 
 ```
 
 Plugin installation samples:-
 
-```
+```bash
 $ pkgx steampipe plugin install digitalocean
 $ pkgx steampipe plugin install aws
 $ pkgx steampipe plugin install theapsgroup/keycloak
@@ -35,7 +46,7 @@ $ pkgx steampipe plugin install theapsgroup/gitlab
 
 Steampipe plugin details are stored in this path
 
-```
+```bash
 $ ~/.steampipe/config/
 
 aws.spc
@@ -68,24 +79,24 @@ connection "digitalocean" {
 ```
 ---------------------------------------------
 
-##### 3. Cnquery
+##### 4. Cnquery
 
 Cnquery installation steps:
 
 Install cnquery with the installation script:
 
 Linux and macOS
-```
+```bash
 bash -c "$(curl -sSL https://install.mondoo.com/sh)"
 ```
 
 To run standalone queries in your shell, use the cnquery run command:
-```
+```bash
 $ cnquery run TARGET -c "QUERY"
 ```
 
 For example, this command runs a query against your local system. It lists the services installed and whether each service is running:
-```
+```bash
 $ cnquery run local -c "services.list { name running }"
 ```
 
@@ -94,18 +105,18 @@ For AWS access need to have authenticated aws-cli configured.
 
 Cnquery installation using pkgx: 
 
-```
+```bash
 $ pkgx install cnquery
 ```
 
 To run queries in your shell, use the below cnquery run command:
 
-```
+```bash
 $ pkgx cnquery run local -c "services.list { name running }"
 
 ```
 
-##### 4. Osquery
+##### 5. Osquery
 
 ```bash
 OSQ_VERSION=`curl -fsSL https://api.github.com/repos/osquery/osquery/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")'`
