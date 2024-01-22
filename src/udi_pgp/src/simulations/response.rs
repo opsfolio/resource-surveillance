@@ -15,7 +15,7 @@ use super::{
 
 use include_dir::{include_dir, Dir};
 
-fn prepare_rows<'a>(settings: &'a mut Vec<String>, pg_settings: Vec<PgSettings>) -> Vec<&'a str> {
+fn prepare_rows(settings: &mut Vec<String>, pg_settings: Vec<PgSettings>) -> Vec<&str> {
     for s in pg_settings {
         let setting_val = match &s.setting {
             Setting::Float(val) => val.to_string(),
@@ -353,8 +353,8 @@ pub fn driver_queries_response(query: &str) -> UdiPgpResult<(Vec<FieldInfo>, Vec
             let pg_settings: Vec<PgSettings> =
                 serde_json::from_str(pg_settings).map_err(UdiPgpError::JsonError)?;
 
-            let rows = prepare_rows(&mut vec![], pg_settings.clone());
-            Ok((schema, rows))
+            let _rows = prepare_rows(&mut vec![], pg_settings.clone());
+            Ok((schema, vec![]))
         }
         _ => {
             let schema = vec![

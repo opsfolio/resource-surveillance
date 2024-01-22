@@ -1,8 +1,3 @@
-use std::str::FromStr;
-
-use pgwire::api::results::FieldInfo;
-
-use crate::{error::UdiPgpResult, Row};
 use serde::{Deserialize, Serialize};
 
 //all the driver queries for extended queries or otherwise are listed here
