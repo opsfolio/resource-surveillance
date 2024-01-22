@@ -12,7 +12,7 @@ curl -fsS https://pkgx.sh | sh
 ```
 
 
-##### 4. AWS-CLI
+##### 2. AWS-CLI
 
 Aws-cli installation using Pkgx:
 
