@@ -20,6 +20,8 @@ pub enum UdiPgpError {
     /// The table name and the error
     #[error("Failed to generate schema for: {0}. Error: {1}")]
     SchemaError(String, String),
+    #[error("{0}")]
+    QueryExecutionError(String),
 }
 
 #[derive(Debug, Clone)]

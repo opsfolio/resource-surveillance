@@ -11,7 +11,6 @@ use tracing::debug;
 use udi_pgp::{
     error::{UdiPgpError, UdiPgpResult},
     parser::UdiPgpQueryParser,
-    FieldInfo,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

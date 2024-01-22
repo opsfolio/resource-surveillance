@@ -4808,6 +4808,7 @@ dependencies = [
  "futures",
  "resource_serde",
  "serde",
+ "serde_json",
  "sqlparser 0.41.0",
  "tokio",
  "tracing",

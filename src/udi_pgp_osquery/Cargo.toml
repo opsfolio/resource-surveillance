@@ -16,3 +16,4 @@ anyhow.workspace = true
 sqlparser = "0.41.0"
 clap.workspace = true
 udi_pgp.workspace = true
+serde_json.workspace = true
