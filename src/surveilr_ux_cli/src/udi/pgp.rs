@@ -6,7 +6,7 @@ use udi_pgp_osquery::OsquerySupplier;
 /// UDI PostgreSQL Proxy for remote SQL starts up a server which pretends to be PostgreSQL
 /// but proxies its SQL to other CLI services with SQL-like interface (called SQL Suppliers).
 #[derive(Debug, Serialize, Args, Clone)]
-pub struct UdiPgpArgs {
+pub struct PgpArgs {
     /// IP address to bind udi-pgp to.
     #[arg(short = 'a', long, default_value = "127.0.0.1:5432")]
     pub addr: std::net::SocketAddr,
@@ -20,11 +20,11 @@ pub struct UdiPgpArgs {
     pub password: String,
 
     #[command(subcommand)]
-    pub command: UdiPgpCommands,
+    pub command: PgpCommands,
 }
 
 #[derive(Debug, Serialize, Subcommand, Clone)]
-pub enum UdiPgpCommands {
+pub enum PgpCommands {
     /// query a machine
     Osquery(OsqueryArgs),
 }
@@ -48,9 +48,9 @@ pub enum OsqueryCommands {
     Remote,
 }
 
-impl UdiPgpArgs {
+impl PgpArgs {
     pub async fn execute(&self) -> anyhow::Result<()> {
-        let UdiPgpArgs {
+        let PgpArgs {
             addr,
             username,
             password,
@@ -61,7 +61,7 @@ impl UdiPgpArgs {
         let config = udi_pgp::config::UdiPgpConfig::new(*addr, auth);
 
         let supplier = match command {
-            UdiPgpCommands::Osquery(OsqueryArgs { command }) => self.create_supplier(command),
+            PgpCommands::Osquery(OsqueryArgs { command }) => self.create_supplier(command),
         };
 
         udi_pgp::run(&config, supplier).await

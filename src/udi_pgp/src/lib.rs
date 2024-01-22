@@ -20,6 +20,7 @@ pub mod config;
 pub mod error;
 pub mod parser;
 pub mod sql_supplier;
+pub mod ssh;
 pub use pgwire::api::results::FieldFormat;
 pub use pgwire::api::results::FieldInfo;
 pub use pgwire::api::Type;

@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use common::DEVICE;
 use resource_serde::cmd::{AdminArgs, CapturableExecArgs, IngestArgs, NotebooksArgs, SQLPageArgs};
 use serde::Serialize;
-use udi_pgp::UdiPgpArgs;
+use udi::UdiArgs;
 
 pub mod admin;
 pub mod capexec;
@@ -12,7 +12,7 @@ pub mod ingest;
 pub mod notebooks;
 pub mod service_management;
 pub mod sql_page;
-pub mod udi_pgp;
+pub mod udi;
 
 #[derive(Debug, Clone, Copy, ValueEnum, Default, Serialize)]
 pub enum LogMode {
@@ -55,7 +55,7 @@ pub enum CliCommands {
     #[clap(name = "sqlpage")]
     SQLPage(SQLPageArgs),
     #[clap(name = "udi")]
-    UdiPgp(UdiPgpArgs),
+    Udi(UdiArgs),
 }
 
 pub async fn execute(cli: &Cli) -> anyhow::Result<()> {
@@ -65,6 +65,6 @@ pub async fn execute(cli: &Cli) -> anyhow::Result<()> {
         CliCommands::Ingest(args) => ingest::Ingest::default().execute(cli, args),
         CliCommands::Notebooks(args) => notebooks::Notebooks::default().execute(cli, args),
         CliCommands::SQLPage(args) => sql_page::SqlPage::default().execute(args).await,
-        CliCommands::UdiPgp(args) => args.execute().await,
+        CliCommands::Udi(args) => args.execute().await,
     }
 }
