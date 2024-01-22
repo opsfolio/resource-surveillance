@@ -55,7 +55,7 @@ fn format_schema_query(query: &str) -> String {
 
 pub fn get_schema(
     tables: &Vec<String>,
-    atc_config_file: Option<String>,
+    atc_config_file: &Option<String>,
 ) -> UdiPgpResult<HashMap<String, OsquerySchema>> {
     let mut schema_data = Vec::new();
 

@@ -1,6 +1,6 @@
 use clap::{Args, Subcommand};
 use serde::Serialize;
-use udi_pgp::{auth::Auth, UdiPgpModes};
+use udi_pgp::{auth::Auth, sql_supplier::SqlSupplierType, UdiPgpModes};
 use udi_pgp_osquery::OsquerySupplier;
 
 /// UDI PostgreSQL Proxy for remote SQL starts up a server which pretends to be PostgreSQL
@@ -39,7 +39,11 @@ pub struct OsqueryArgs {
 #[derive(Debug, Serialize, Subcommand, Clone)]
 pub enum OsqueryCommands {
     /// execute osquery on the local machine
-    Local,
+    Local {
+        /// ATC Configuration File path
+        #[arg(short = 'a', long)]
+        atc_file_path: Option<String>,
+    },
     /// execute osquery on a remote machine
     Remote,
 }
@@ -57,15 +61,18 @@ impl UdiPgpArgs {
         let config = udi_pgp::config::UdiPgpConfig::new(*addr, auth);
 
         let supplier = match command {
-            UdiPgpCommands::Osquery(arg) => {
-                let mode = match arg.command {
-                    OsqueryCommands::Local => UdiPgpModes::Local,
-                    OsqueryCommands::Remote => UdiPgpModes::Remote,
-                };
-                Box::new(OsquerySupplier::new(mode))
-            }
+            UdiPgpCommands::Osquery(OsqueryArgs { command }) => self.create_supplier(command),
         };
 
         udi_pgp::run(&config, supplier).await
+    }
+
+    fn create_supplier(&self, command: &OsqueryCommands) -> SqlSupplierType {
+        match command {
+            OsqueryCommands::Local { atc_file_path } => {
+                Box::new(OsquerySupplier::new(UdiPgpModes::Local).with_atc_file(atc_file_path))
+            }
+            OsqueryCommands::Remote => Box::new(OsquerySupplier::new(UdiPgpModes::Remote)),
+        }
     }
 }

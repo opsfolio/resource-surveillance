@@ -16,11 +16,20 @@ mod schema;
 #[derive(Debug, Clone)]
 pub struct OsquerySupplier {
     pub mode: UdiPgpModes,
+    atc_file_path: Option<String>,
 }
 
 impl OsquerySupplier {
     pub fn new(mode: UdiPgpModes) -> Self {
-        OsquerySupplier { mode }
+        OsquerySupplier {
+            mode,
+            atc_file_path: None,
+        }
+    }
+
+    pub fn with_atc_file(&mut self, file: &Option<String>) -> Self {
+        self.atc_file_path = file.clone();
+        self.clone()
     }
 
     //This handles columns/alias that are not actually present in osquery
@@ -49,7 +58,7 @@ impl OsquerySupplier {
     fn execute_local_query(
         &self,
         query: &str,
-        atc_config_file: Option<String>,
+        atc_config_file: &Option<String>,
     ) -> UdiPgpResult<Vec<Value>> {
         let mut cmd = Command::new("osqueryi");
         if let Some(cfg_file) = atc_config_file {
@@ -136,7 +145,7 @@ impl SqlSupplier for OsquerySupplier {
     }
 
     async fn schema(&mut self, stmt: &mut UdiPgpStatment) -> UdiPgpResult<Vec<FieldInfo>> {
-        let schema = schema::get_schema(&stmt.tables, None)?;
+        let schema = schema::get_schema(&stmt.tables, &self.atc_file_path)?;
 
         stmt.columns = if stmt.columns.len() == 1 && stmt.columns.first().unwrap().name == "*" {
             schema
@@ -193,7 +202,7 @@ impl SqlSupplier for OsquerySupplier {
     }
 
     async fn execute(&mut self, stmt: &UdiPgpStatment) -> UdiPgpResult<Vec<Vec<Row>>> {
-        let rows = self.execute_local_query(&stmt.query, None)?;
+        let rows = self.execute_local_query(&stmt.query, &self.atc_file_path)?;
         self.rows(&rows, &stmt.columns)
     }
 }
