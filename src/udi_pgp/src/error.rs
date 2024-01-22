@@ -15,6 +15,11 @@ pub enum UdiPgpError {
     JsonError(#[from] serde_json::Error),
     #[error("Error: {1} from {0} supplier: {2}")]
     SupplierError(String, UdiPgpErrorSeverity, String),
+    #[error("Failed to convert {0} to type: {1}")]
+    TypeConversionError(String, String),
+    /// The table name and the error
+    #[error("Failed to generate schema for: {0}. Error: {1}")]
+    SchemaError(String, String),
 }
 
 #[derive(Debug, Clone)]
@@ -55,4 +60,4 @@ impl From<UdiPgpError> for PgWireError {
     }
 }
 
-pub type UdiPgpResult<T> = Result<T, PgWireError>;
+pub type UdiPgpResult<T> = Result<T, UdiPgpError>;

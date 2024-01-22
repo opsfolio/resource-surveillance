@@ -1,3 +1,4 @@
+use pgwire::api::Type;
 use sqlparser::ast::{Expr, Query, SelectItem, SetExpr};
 use tracing::instrument;
 
@@ -38,11 +39,13 @@ fn get_column_names_from_projection(projection: Vec<SelectItem>) -> Vec<ColumnMe
                     name: identifier.value.clone(),
                     expr_type: ExpressionType::Wildcard,
                     alias: None,
+                    r#type: Type::VARCHAR,
                 }),
             SelectItem::Wildcard(_) => Some(ColumnMetadata {
                 name: "*".to_owned(),
                 expr_type: ExpressionType::Wildcard,
                 alias: None,
+                r#type: Type::VARCHAR,
             }),
         })
         .collect()
@@ -54,6 +57,7 @@ fn get_column_name_from_expression(expr: Expr) -> ColumnMetadata {
             name: ident.value,
             expr_type: ExpressionType::Standard,
             alias: None,
+            r#type: Type::VARCHAR,
         },
         Expr::CompoundIdentifier(compound) => {
             if let Some(last) = compound.last() {
@@ -61,6 +65,7 @@ fn get_column_name_from_expression(expr: Expr) -> ColumnMetadata {
                     name: last.value.clone(),
                     expr_type: ExpressionType::Compound,
                     alias: None,
+                    r#type: Type::VARCHAR,
                 }
             } else {
                 ColumnMetadata::default() // Handle empty compound identifier
@@ -75,6 +80,7 @@ fn get_column_name_from_expression(expr: Expr) -> ColumnMetadata {
                 .map_or_else(String::new, |ident| ident.value.clone()),
             expr_type: ExpressionType::Function,
             alias: None,
+            r#type: Type::VARCHAR,
         },
         Expr::Case { operand, .. } => operand.map_or_else(ColumnMetadata::default, |op| {
             get_column_name_from_expression(*op)
@@ -83,6 +89,7 @@ fn get_column_name_from_expression(expr: Expr) -> ColumnMetadata {
             name: String::new(),
             expr_type: ExpressionType::Binary,
             alias: None,
+            r#type: Type::VARCHAR,
         },
         _ => ColumnMetadata::default(), // Default case for unhandled expressions
     }

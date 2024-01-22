@@ -9,6 +9,8 @@ use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 
 use stmt::UdiPgpStatment;
 
+use self::stmt::ColumnMetadata;
+
 mod columns;
 pub mod stmt;
 mod tables;
@@ -70,7 +72,7 @@ static DRIVER_WORDS: [&str; 47] = [
 pub struct UdiPgpQueryParser;
 
 impl UdiPgpQueryParser {
-    pub fn parse(query: &str) -> PgWireResult<UdiPgpStatment> {
+    pub fn parse(query: &str, schema: bool) -> PgWireResult<UdiPgpStatment> {
         let ast = Self::query_to_ast(query)
             .map_err(|err| PgWireError::StatementNotFound(err.to_string()))?;
 
@@ -85,8 +87,30 @@ impl UdiPgpQueryParser {
             }
         };
 
-        let tables = tables::get_table_names_from_query(*stmt_query.clone());
-        let columns = columns::get_column_names_from_query(*stmt_query);
+        let (tables, columns) = if schema {
+            match ast.clone() {
+                Statement::CreateTable { name, columns, .. } => {
+                    let table_name = name.0.first().unwrap().value.clone();
+                    let mut cols = Vec::new();
+                    for col in columns {
+                        cols.push(ColumnMetadata::try_from(col)?)
+                    }
+                    (vec![table_name], cols)
+                }
+                other => {
+                    return Err(PgWireError::UserError(Box::new(ErrorInfo::new(
+                        "WARNING".to_string(),
+                        "1111".to_string(),
+                        format!("Expected SELECT, got: {}", other),
+                    ))))
+                }
+            }
+        } else {
+            (
+                tables::get_table_names_from_query(*stmt_query.clone()),
+                columns::get_column_names_from_query(*stmt_query),
+            )
+        };
 
         Ok(UdiPgpStatment {
             tables,
@@ -150,6 +174,6 @@ impl QueryParser for UdiPgpQueryParser {
     type Statement = UdiPgpStatment;
 
     async fn parse_sql(&self, sql: &str, _types: &[Type]) -> PgWireResult<Self::Statement> {
-        Self::parse(sql)
+        Self::parse(sql, false)
     }
 }

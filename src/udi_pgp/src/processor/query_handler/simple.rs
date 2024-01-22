@@ -27,7 +27,7 @@ impl SimpleQueryHandler for UdiPgpProcessor {
     where
         C: ClientInfo + Unpin + Send + Sync,
     {
-        let statement = UdiPgpQueryParser::parse(query)?;
+        let statement = UdiPgpQueryParser::parse(query, false)?;
         println!("{:#?}", statement);
 
         let (schema, rows) = if statement.from_driver {

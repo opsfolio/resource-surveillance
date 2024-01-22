@@ -1,7 +1,10 @@
 use std::fmt::Display;
 
 use derive_new::new;
-use sqlparser::ast::Statement;
+use pgwire::api::Type;
+use sqlparser::ast::{ColumnDef, DataType, Statement};
+
+use crate::error::UdiPgpError;
 
 /// Contains metadata about a specific column in a SQL query, including its name, type, and optional alias.
 #[derive(Debug, Clone, new, PartialEq)]
@@ -12,6 +15,8 @@ pub struct ColumnMetadata {
     pub expr_type: ExpressionType,
     /// Optional alias assigned to the column in the query.
     pub alias: Option<String>,
+    /// Type of column
+    pub r#type: Type,
 }
 
 impl Default for ColumnMetadata {
@@ -20,6 +25,7 @@ impl Default for ColumnMetadata {
             name: String::new(),
             expr_type: ExpressionType::Standard,
             alias: None,
+            r#type: Type::VARCHAR,
         }
     }
 }
@@ -71,4 +77,33 @@ pub struct UdiPgpStatment {
     pub query: String,
     pub stmt: Statement,
     pub from_driver: bool,
+}
+
+impl TryFrom<ColumnDef> for ColumnMetadata {
+    type Error = UdiPgpError;
+
+    fn try_from(value: ColumnDef) -> Result<Self, Self::Error> {
+        let name = value.name.value;
+        let data_type = match value.data_type {
+            DataType::BigInt(_) => Type::INT8,
+            DataType::Boolean => Type::BOOL,
+            DataType::Text => Type::VARCHAR,
+            DataType::Binary(_) => Type::BYTEA,
+            DataType::Integer(_) => Type::INT4,
+            DataType::Double => Type::INT8,
+            _ => {
+                return Err(UdiPgpError::TypeConversionError(
+                    value.data_type.to_string(),
+                    "".to_string(),
+                ));
+            }
+        };
+        let col = ColumnMetadata {
+            name,
+            expr_type: ExpressionType::Standard,
+            alias: None,
+            r#type: data_type,
+        };
+        Ok(col)
+    }
 }
