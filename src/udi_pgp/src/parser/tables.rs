@@ -4,7 +4,7 @@ use sqlparser::ast::{Expr, Query, SelectItem, SetExpr, TableFactor};
 use tracing::instrument;
 
 #[instrument(ret, level = "debug", fields(query))]
-pub fn get_table_names_from_query(query: Query) -> Vec<String> {
+pub fn get_table_names_from_query(query: &Query) -> Vec<String> {
     let mut table_names: HashSet<String> = HashSet::new();
 
     //keep track of virtual tables in queries and ommitting them
@@ -12,15 +12,15 @@ pub fn get_table_names_from_query(query: Query) -> Vec<String> {
     // Should return with `system_info` (the actual table) and exclude `system_info_data` (the internal CTE name).
     let mut cte_names: HashSet<String> = HashSet::new();
 
-    if let Some(with) = query.with {
-        for cte in with.cte_tables {
+    if let Some(with) = &query.with {
+        for cte in &with.cte_tables {
             // CTE names are lower-cased to make comparisons easier.
             cte_names.insert(cte.alias.to_string().to_lowercase());
-            table_names.extend(get_table_names_from_query(*cte.query));
+            table_names.extend(get_table_names_from_query(&cte.query));
         }
     }
 
-    let from_body = get_table_names_from_set_expression(*query.body);
+    let from_body = get_table_names_from_set_expression(&query.body);
     table_names.extend(from_body);
 
     let mut output: Vec<String> = Vec::new();
@@ -39,12 +39,12 @@ pub fn get_table_names_from_query(query: Query) -> Vec<String> {
     output
 }
 
-fn get_table_names_from_set_expression(expression: SetExpr) -> Vec<String> {
+fn get_table_names_from_set_expression(expression: &SetExpr) -> Vec<String> {
     match expression {
         SetExpr::Select(select) => {
             let mut table_names: Vec<String> = Vec::new();
 
-            select.projection.into_iter().for_each(|item| match item {
+            select.projection.clone().into_iter().for_each(|item| match item {
                 SelectItem::UnnamedExpr(expr) => {
                     table_names.extend(get_table_names_from_expression(expr));
                 }
@@ -54,7 +54,7 @@ fn get_table_names_from_set_expression(expression: SetExpr) -> Vec<String> {
                 _ => {}
             });
 
-            select.from.into_iter().for_each(|from| {
+            select.from.clone().into_iter().for_each(|from| {
                 let from_name = get_table_names_from_table_factor(from.relation);
                 table_names.extend(from_name);
 
@@ -64,24 +64,24 @@ fn get_table_names_from_set_expression(expression: SetExpr) -> Vec<String> {
                 }
             });
 
-            if let Some(e) = select.selection {
+            if let Some(e) = select.selection.clone() {
                 table_names.extend(get_table_names_from_expression(e));
             }
 
-            if let Some(e) = select.having {
+            if let Some(e) = select.having.clone() {
                 table_names.extend(get_table_names_from_expression(e));
             }
 
-            let group_by = match select.group_by {
+            let group_by = match select.group_by.clone() {
                 sqlparser::ast::GroupByExpr::Expressions(exprs) => exprs,
                 _ => vec![],
             };
 
             for exprs in [
                 group_by,
-                select.cluster_by,
-                select.distribute_by,
-                select.sort_by,
+                select.cluster_by.clone(),
+                select.distribute_by.clone(),
+                select.sort_by.clone(),
             ] {
                 table_names.extend(get_table_names_from_multiple_expressions(exprs));
             }
@@ -94,11 +94,11 @@ fn get_table_names_from_set_expression(expression: SetExpr) -> Vec<String> {
             left,
             right,
         } => {
-            let mut table_names = get_table_names_from_set_expression(*left);
-            table_names.extend(get_table_names_from_set_expression(*right));
+            let mut table_names = get_table_names_from_set_expression(left);
+            table_names.extend(get_table_names_from_set_expression(right));
             table_names
         }
-        SetExpr::Query(query) => get_table_names_from_query(*query),
+        SetExpr::Query(query) => get_table_names_from_query(query),
 
         SetExpr::Values(_) | SetExpr::Update(_) | SetExpr::Insert(_) | SetExpr::Table(_) => vec![],
     }
@@ -113,7 +113,7 @@ fn get_table_names_from_table_factor(f: TableFactor) -> Vec<String> {
             }
             vec![name]
         }
-        TableFactor::Derived { subquery, .. } => get_table_names_from_query(*subquery),
+        TableFactor::Derived { subquery, .. } => get_table_names_from_query(&subquery),
 
         TableFactor::TableFunction { expr, .. } => get_table_names_from_expression(expr),
 
@@ -157,7 +157,7 @@ fn get_table_names_from_expression(expression: Expr) -> Vec<String> {
             subquery,
             negated: _,
         } => {
-            let mut res = get_table_names_from_query(*subquery);
+            let mut res = get_table_names_from_query(&subquery);
             res.extend(get_table_names_from_expression(*expr));
             res
         }

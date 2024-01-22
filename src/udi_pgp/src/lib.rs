@@ -22,6 +22,7 @@ pub mod parser;
 pub mod sql_supplier;
 pub use pgwire::api::results::FieldFormat;
 pub use pgwire::api::results::FieldInfo;
+pub use pgwire::api::Type;
 
 #[derive(Debug, Clone)]
 pub enum UdiPgpModes {

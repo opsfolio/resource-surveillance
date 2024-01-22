@@ -8,7 +8,7 @@ use udi_pgp::{
     error::{UdiPgpError, UdiPgpResult},
     parser::stmt::{ColumnMetadata, ExpressionType, UdiPgpStatment},
     sql_supplier::SqlSupplier,
-    FieldFormat, FieldInfo, Row, UdiPgpModes,
+    FieldFormat, FieldInfo, Row, Type, UdiPgpModes,
 };
 
 mod schema;
@@ -135,31 +135,58 @@ impl SqlSupplier for OsquerySupplier {
         "osquery"
     }
 
-    async fn schema(&mut self, stmt: &UdiPgpStatment) -> UdiPgpResult<Vec<FieldInfo>> {
+    async fn schema(&mut self, stmt: &mut UdiPgpStatment) -> UdiPgpResult<Vec<FieldInfo>> {
         let schema = schema::get_schema(&stmt.tables, None)?;
-        let columns = &stmt.columns;
 
-        columns
+        stmt.columns = if stmt.columns.len() == 1 && stmt.columns.first().unwrap().name == "*" {
+            schema
+                .values()
+                .map(|schema| {
+                    ColumnMetadata::new(
+                        schema.name.clone(),
+                        ExpressionType::Standard,
+                        None,
+                        Type::VARCHAR,
+                    )
+                })
+                .collect::<Vec<_>>()
+        } else {
+            stmt.columns
+                .iter()
+                .map(|col| {
+                    let mut col = col.clone();
+                    col.name = col.name.to_lowercase();
+                    col
+                })
+                .collect::<Vec<_>>()
+        };
+
+        stmt.columns
             .iter()
             .map(|col| {
-                let col_schema = schema
-                    .get(&col.name.to_lowercase())
-                    .map(|sch| {
-                        let mut sch = sch.clone(); // Clone only once here
+                let col_schema = match schema.get(&col.name) {
+                    Some(sch) => {
+                        let mut sch = sch.clone();
                         if let Some(alias) = &col.alias {
                             sch.name = alias.clone();
                         }
                         sch
-                    })
-                    .unwrap_or_else(|| self.non_standard_column(col).unwrap());
+                    }
+                    None => self.non_standard_column(col)?,
+                };
 
-                // impl TryFrom<OsquerySchema> for FieldInfo
+                let col_type = col.r#type.clone();
+                let field_format = FieldFormat::Text;
+                let cid = col_schema.cid.parse::<i16>().map_err(|e| {
+                    UdiPgpError::QueryExecutionError(format!("Failed to parse cid: {}", e))
+                })?;
+
                 Ok(FieldInfo::new(
                     col_schema.name,
                     None,
-                    Some(col_schema.cid.parse::<i16>().unwrap()), // Consider handling the potential parse error
-                    col.r#type.clone(),
-                    FieldFormat::Text,
+                    Some(cid),
+                    col_type,
+                    field_format,
                 ))
             })
             .collect()

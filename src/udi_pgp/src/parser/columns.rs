@@ -5,30 +5,30 @@ use tracing::instrument;
 use crate::parser::stmt::{ColumnMetadata, ExpressionType};
 
 #[instrument(ret, level = "debug", fields(query))]
-pub fn get_column_names_from_query(query: Query) -> Vec<ColumnMetadata> {
-    get_column_names_from_set_expression(*query.body)
+pub fn get_column_names_from_query(query: &Query) -> Vec<ColumnMetadata> {
+    get_column_names_from_set_expression(&query.body)
 }
 
-fn get_column_names_from_set_expression(set_expr: SetExpr) -> Vec<ColumnMetadata> {
+fn get_column_names_from_set_expression(set_expr: &SetExpr) -> Vec<ColumnMetadata> {
     match set_expr {
-        SetExpr::Select(select) => get_column_names_from_projection(select.projection),
-        SetExpr::Query(query) => get_column_names_from_query(*query),
-        SetExpr::SetOperation { left, .. } => get_column_names_from_set_expression(*left),
+        SetExpr::Select(select) => get_column_names_from_projection(&select.projection),
+        SetExpr::Query(query) => get_column_names_from_query(query),
+        SetExpr::SetOperation { left, .. } => get_column_names_from_set_expression(left),
         _ => vec![],
     }
 }
 
-fn get_column_names_from_projection(projection: Vec<SelectItem>) -> Vec<ColumnMetadata> {
+fn get_column_names_from_projection(projection: &[SelectItem]) -> Vec<ColumnMetadata> {
     projection
-        .into_iter()
+        .iter()
         .filter_map(|item| match item {
             SelectItem::UnnamedExpr(expr) => Some(get_column_name_from_expression(expr)),
             SelectItem::ExprWithAlias { alias, expr } => {
                 let mut col = get_column_name_from_expression(expr);
                 if col.name.is_empty() {
-                    col.name = alias.value;
+                    col.name = alias.value.clone();
                 } else {
-                    col.alias = Some(alias.value);
+                    col.alias = Some(alias.value.clone());
                 }
                 Some(col)
             }
@@ -51,10 +51,10 @@ fn get_column_names_from_projection(projection: Vec<SelectItem>) -> Vec<ColumnMe
         .collect()
 }
 
-fn get_column_name_from_expression(expr: Expr) -> ColumnMetadata {
+fn get_column_name_from_expression(expr: &Expr) -> ColumnMetadata {
     match expr {
         Expr::Identifier(ident) => ColumnMetadata {
-            name: ident.value,
+            name: ident.value.clone(),
             expr_type: ExpressionType::Standard,
             alias: None,
             r#type: Type::VARCHAR,
@@ -71,7 +71,7 @@ fn get_column_name_from_expression(expr: Expr) -> ColumnMetadata {
                 ColumnMetadata::default() // Handle empty compound identifier
             }
         }
-        Expr::Nested(e) => get_column_name_from_expression(*e),
+        Expr::Nested(e) => get_column_name_from_expression(e),
         Expr::Function(func) => ColumnMetadata {
             name: func
                 .name
@@ -82,8 +82,8 @@ fn get_column_name_from_expression(expr: Expr) -> ColumnMetadata {
             alias: None,
             r#type: Type::VARCHAR,
         },
-        Expr::Case { operand, .. } => operand.map_or_else(ColumnMetadata::default, |op| {
-            get_column_name_from_expression(*op)
+        Expr::Case { operand, .. } => operand.clone().map_or_else(ColumnMetadata::default, |op| {
+            get_column_name_from_expression(&op)
         }),
         Expr::BinaryOp { .. } => ColumnMetadata {
             name: String::new(),

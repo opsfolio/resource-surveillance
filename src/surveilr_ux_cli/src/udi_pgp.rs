@@ -3,8 +3,8 @@ use serde::Serialize;
 use udi_pgp::{auth::Auth, UdiPgpModes};
 use udi_pgp_osquery::OsquerySupplier;
 
-/// UDI PostgreSQL Proxy for remote SQL is a CLI tool starts up a server which pretends to be PostgreSQL
-/// but proxies its SQL to other CLI commands (called SQL Suppliers).#[derive(Debug, Serialize, Args, Clone)]
+/// UDI PostgreSQL Proxy for remote SQL starts up a server which pretends to be PostgreSQL
+/// but proxies its SQL to other CLI services with SQL-like interface (called SQL Suppliers).
 #[derive(Debug, Serialize, Args, Clone)]
 pub struct UdiPgpArgs {
     /// IP address to bind udi-pgp to.

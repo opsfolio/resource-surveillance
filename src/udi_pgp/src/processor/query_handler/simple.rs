@@ -27,8 +27,7 @@ impl SimpleQueryHandler for UdiPgpProcessor {
     where
         C: ClientInfo + Unpin + Send + Sync,
     {
-        let statement = UdiPgpQueryParser::parse(query, false)?;
-        println!("{:#?}", statement);
+        let mut statement = UdiPgpQueryParser::parse(query, false)?;
 
         let (schema, rows) = if statement.from_driver {
             match query {
@@ -43,7 +42,7 @@ impl SimpleQueryHandler for UdiPgpProcessor {
         } else {
             let mut supplier = self.supplier.lock().await;
             (
-                supplier.schema(&statement).await?,
+                supplier.schema(&mut statement).await?,
                 supplier.execute(&statement).await?,
             )
         };

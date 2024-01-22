@@ -8,7 +8,7 @@ use crate::{error::UdiPgpResult, parser::stmt::UdiPgpStatment, Row};
 #[async_trait]
 pub trait SqlSupplier: ClonableSqlSupplier {
     fn name(&self) -> &str;
-    async fn schema(&mut self, stmt: &UdiPgpStatment) -> UdiPgpResult<Vec<FieldInfo>>;
+    async fn schema(&mut self, stmt: &mut UdiPgpStatment) -> UdiPgpResult<Vec<FieldInfo>>;
     async fn execute(&mut self, stmt: &UdiPgpStatment) -> UdiPgpResult<Vec<Vec<Row>>>;
 }
 

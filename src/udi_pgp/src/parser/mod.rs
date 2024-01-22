@@ -73,43 +73,18 @@ pub struct UdiPgpQueryParser;
 
 impl UdiPgpQueryParser {
     pub fn parse(query: &str, schema: bool) -> PgWireResult<UdiPgpStatment> {
-        let ast = Self::query_to_ast(query)
-            .map_err(|err| PgWireError::StatementNotFound(err.to_string()))?;
-
-        let stmt_query = match ast.clone() {
-            Statement::Query(q) => q,
-            other => {
-                return Err(PgWireError::UserError(Box::new(ErrorInfo::new(
-                    "WARNING".to_string(),
-                    "1111".to_string(),
-                    format!("Expected SELECT, got: {}", other),
-                ))))
-            }
-        };
+        let ast = Self::query_to_ast(query).map_err(|err| {
+            PgWireError::UserError(Box::new(ErrorInfo::new(
+                "FATAL".to_string(),
+                "PARSER".to_string(),
+                err.to_string(),
+            )))
+        })?;
 
         let (tables, columns) = if schema {
-            match ast.clone() {
-                Statement::CreateTable { name, columns, .. } => {
-                    let table_name = name.0.first().unwrap().value.clone();
-                    let mut cols = Vec::new();
-                    for col in columns {
-                        cols.push(ColumnMetadata::try_from(col)?)
-                    }
-                    (vec![table_name], cols)
-                }
-                other => {
-                    return Err(PgWireError::UserError(Box::new(ErrorInfo::new(
-                        "WARNING".to_string(),
-                        "1111".to_string(),
-                        format!("Expected SELECT, got: {}", other),
-                    ))))
-                }
-            }
+            Self::parse_create_table(&ast)?
         } else {
-            (
-                tables::get_table_names_from_query(*stmt_query.clone()),
-                columns::get_column_names_from_query(*stmt_query),
-            )
+            Self::parse_query_statement(&ast)?
         };
 
         Ok(UdiPgpStatment {
@@ -119,6 +94,51 @@ impl UdiPgpQueryParser {
             stmt: ast,
             from_driver: Self::check_if_query_is_from_driver(query),
         })
+    }
+
+    fn parse_create_table(ast: &Statement) -> PgWireResult<(Vec<String>, Vec<ColumnMetadata>)> {
+        match ast {
+            Statement::CreateTable { name, columns, .. } => {
+                let table_name = name
+                    .0
+                    .first()
+                    .ok_or_else(|| {
+                        PgWireError::UserError(Box::new(ErrorInfo::new(
+                            "ERROR".to_string(),
+                            "0001".to_string(),
+                            "Missing table name in CREATE statement".to_string(),
+                        )))
+                    })?
+                    .value
+                    .clone();
+
+                let cols = columns
+                    .iter()
+                    .map(ColumnMetadata::try_from)
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                Ok((vec![table_name], cols))
+            }
+            other => Err(PgWireError::UserError(Box::new(ErrorInfo::new(
+                "WARNING".to_string(),
+                "1111".to_string(),
+                format!("Expected CREATE, got: {}", other),
+            )))),
+        }
+    }
+
+    fn parse_query_statement(ast: &Statement) -> PgWireResult<(Vec<String>, Vec<ColumnMetadata>)> {
+        match ast {
+            Statement::Query(q) => Ok((
+                tables::get_table_names_from_query(q),
+                columns::get_column_names_from_query(q),
+            )),
+            other => Err(PgWireError::UserError(Box::new(ErrorInfo::new(
+                "WARNING".to_string(),
+                "1111".to_string(),
+                format!("Expected SELECT, got: {}", other),
+            )))),
+        }
     }
 
     fn query_to_ast(query: &str) -> anyhow::Result<Statement> {
