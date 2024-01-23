@@ -28,7 +28,7 @@ impl ExtendedQueryHandler for UdiPgpProcessor {
     async fn do_query<'a, C>(
         &self,
         _client: &mut C,
-        portal: &'a Portal<Self::Statement>,
+        _portal: &'a Portal<Self::Statement>,
         _max_rows: usize,
     ) -> PgWireResult<Response<'a>>
     where
@@ -40,7 +40,7 @@ impl ExtendedQueryHandler for UdiPgpProcessor {
     async fn do_describe<C>(
         &self,
         _client: &mut C,
-        target: StatementOrPortal<'_, Self::Statement>,
+        _target: StatementOrPortal<'_, Self::Statement>,
     ) -> PgWireResult<DescribeResponse>
     where
         C: ClientInfo + Unpin + Send + Sync,
