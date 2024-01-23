@@ -61,6 +61,17 @@ impl SshTunnelSession {
     pub async fn close(self) -> Result<(), SshTunnelError> {
         self.inner.close().await
     }
+
+    pub async fn execute_command(&self, cmd: &str, args: Vec<&str>) -> Result<String, SshTunnelError> {
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        {
+            self.inner.execute_command(cmd, args).await
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        {
+            Err(SshTunnelError::Unsupported)
+        }
+    }
 }
 
 /// Access configuration for opening the tunnel.
@@ -117,6 +128,20 @@ mod unix_impl {
             self.0.close().await?;
             Ok(())
         }
+
+        pub async fn execute_command(
+            &self,
+            cmd: &str,
+            args: Vec<&str>,
+        ) -> Result<String, SshTunnelError> {
+            self.0
+                .command(cmd)
+                .args(args)
+                .output()
+                .await
+                .map_err(SshTunnelError::OpenSsh)
+                .map(|output| String::from_utf8_lossy(&output.stdout).to_string())
+        }
     }
 
     pub(super) async fn create_tunnel<T>(
@@ -127,7 +152,8 @@ mod unix_impl {
     where
         T: ToSocketAddrs,
     {
-        let temp_keyfile = generate_temp_keyfile(keypair.to_openssh()?.as_ref()).await?;
+        // For now, we'll use ssh key in the ssh config directly. Later the option to use a specified ssh-key will be added
+        let _temp_keyfile = generate_temp_keyfile(keypair.to_openssh()?.as_ref()).await?;
 
         let remote_addr = remote_addr
             .to_socket_addrs()?
@@ -136,11 +162,7 @@ mod unix_impl {
 
         let tunnel = SessionBuilder::default()
             .known_hosts_check(KnownHosts::Accept)
-            .keyfile(temp_keyfile.path())
-            // Set control directory explicitly. Otherwise we run the the
-            // chance of an error like the following:
-            //
-            // 'path ... too long for Unix domain socket'
+            // .keyfile(temp_keyfile.path())
             .control_directory(std::env::temp_dir())
             // Wait 15 seconds before timing out ssh connection attempt
             .connect_timeout(Duration::from_secs(15))

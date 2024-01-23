@@ -24,6 +24,10 @@ pub enum UdiPgpError {
     QueryExecutionError(String),
     #[error("Invalid SSH connection string: {0}")]
     SshConnectionParseError(String),
+    #[error(transparent)]
+    SshTunnelError(#[from] crate::ssh::session::SshTunnelError),
+    #[error(transparent)]
+    SshKeyError(#[from] crate::ssh::key::SshKeyError),
 }
 
 #[derive(Debug, Clone)]

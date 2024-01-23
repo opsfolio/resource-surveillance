@@ -1,6 +1,7 @@
-use std::process::Command;
+use std::{process::Command, str::FromStr};
 
 use async_trait::async_trait;
+use futures::{stream, StreamExt};
 use schema::OsquerySchema;
 use serde_json::Value;
 use tracing::{debug, error, info};
@@ -8,6 +9,7 @@ use udi_pgp::{
     error::{UdiPgpError, UdiPgpResult},
     parser::stmt::{ColumnMetadata, ExpressionType, UdiPgpStatment},
     sql_supplier::SqlSupplier,
+    ssh::{key::SshKey, session::SshTunnelAccess, SshConnectionParameters},
     FieldFormat, FieldInfo, Row, Type, UdiPgpModes,
 };
 
@@ -17,6 +19,7 @@ mod schema;
 pub struct OsquerySupplier {
     pub mode: UdiPgpModes,
     atc_file_path: Option<String>,
+    ssh_targets: Option<Vec<String>>,
 }
 
 impl OsquerySupplier {
@@ -24,11 +27,17 @@ impl OsquerySupplier {
         OsquerySupplier {
             mode,
             atc_file_path: None,
+            ssh_targets: None,
         }
     }
 
     pub fn with_atc_file(&mut self, file: &Option<String>) -> Self {
         self.atc_file_path = file.clone();
+        self.clone()
+    }
+
+    pub fn with_ssh_targets(&mut self, targets: Vec<String>) -> Self {
+        self.ssh_targets = Some(targets);
         self.clone()
     }
 
@@ -55,13 +64,9 @@ impl OsquerySupplier {
         }
     }
 
-    fn execute_local_query(
-        &self,
-        query: &str,
-        atc_config_file: &Option<String>,
-    ) -> UdiPgpResult<Vec<Value>> {
+    fn execute_local_query(&self, query: &str) -> UdiPgpResult<Vec<Value>> {
         let mut cmd = Command::new("osqueryi");
-        if let Some(cfg_file) = atc_config_file {
+        if let Some(cfg_file) = &self.atc_file_path {
             cmd.arg("--config_path").arg(cfg_file);
         }
         cmd.arg("--json").arg(query);
@@ -86,6 +91,68 @@ impl OsquerySupplier {
                 "Failed to convert json string to array".to_string(),
             ))
             .cloned()
+    }
+
+    async fn execute_remote_query(&self, query: &str) -> UdiPgpResult<Vec<Value>> {
+        let targets = self
+            .ssh_targets
+            .as_ref()
+            .unwrap_or(&vec![])
+            .iter()
+            .map(|t| SshConnectionParameters::from_str(t))
+            .collect::<UdiPgpResult<Vec<_>>>()?;
+
+        let concurrency_limit = 5;
+
+        let futures = targets.into_iter().map(|target| {
+            let query = query.to_owned(); // Clone query to move it into the async block
+            async move {
+                let addr = match target.port {
+                    Some(port) => format!("{}:{}", target.host, port),
+                    None => format!("{}:{}", target.host, 22),
+                };
+
+                let keypair = SshKey::generate_random().map_err(UdiPgpError::from)?;
+                let access = SshTunnelAccess {
+                    connection_string: format!("{}@{}", target.user, target.host),
+                    keypair,
+                };
+                let (session, _) = access.create_tunnel(&addr).await?;
+
+                let args = vec!["--json", &query];
+                let output = session.execute_command("osqueryi", args).await?;
+
+                let value: Value = serde_json::from_str(&output)?;
+                let rows = value
+                    .as_array()
+                    .ok_or(UdiPgpError::QueryExecutionError(
+                        "Failed to convert json string to array".to_string(),
+                    ))?
+                    .clone();
+
+                Ok::<Vec<Value>, UdiPgpError>(rows)
+            }
+        });
+
+        let (rows, errors): (Vec<_>, Vec<_>) = stream::iter(futures)
+            .buffer_unordered(concurrency_limit)
+            .collect::<Vec<UdiPgpResult<Vec<Value>>>>()
+            .await
+            .into_iter()
+            .partition(Result::is_ok);
+
+        let rows = rows
+            .into_iter()
+            .flat_map(Result::unwrap)
+            .collect::<Vec<_>>();
+        let errors = errors.into_iter().map(Result::unwrap_err);
+
+        // Log all errors
+        for error in errors {
+            error!("{}", error);
+        }
+
+        Ok(rows)
     }
 
     fn rows(&self, values: &[Value], columns: &[ColumnMetadata]) -> UdiPgpResult<Vec<Vec<Row>>> {
@@ -145,7 +212,28 @@ impl SqlSupplier for OsquerySupplier {
     }
 
     async fn schema(&mut self, stmt: &mut UdiPgpStatment) -> UdiPgpResult<Vec<FieldInfo>> {
-        let schema = schema::get_schema(&stmt.tables, &self.atc_file_path)?;
+        let mut schema = schema::get_schema(&stmt.tables, &self.atc_file_path)?;
+
+        if let UdiPgpModes::Remote = self.mode {
+            schema.insert(
+                "ssh_target".to_string(),
+                OsquerySchema::new(
+                    schema.len().to_string(),
+                    "".into(),
+                    "ssh_target".to_string(),
+                    "TEXT".to_string(),
+                ),
+            );
+            schema.insert(
+                "host_id".to_string(),
+                OsquerySchema::new(
+                    schema.len().to_string(),
+                    "".into(),
+                    "host_id".to_string(),
+                    "TEXT".to_string(),
+                ),
+            );
+        };
 
         stmt.columns = if stmt.columns.len() == 1 && stmt.columns.first().unwrap().name == "*" {
             schema
@@ -202,7 +290,10 @@ impl SqlSupplier for OsquerySupplier {
     }
 
     async fn execute(&mut self, stmt: &UdiPgpStatment) -> UdiPgpResult<Vec<Vec<Row>>> {
-        let rows = self.execute_local_query(&stmt.query, &self.atc_file_path)?;
+        let rows = match self.mode {
+            UdiPgpModes::Local => self.execute_local_query(&stmt.query)?,
+            UdiPgpModes::Remote => self.execute_remote_query(&stmt.query).await?,
+        };
         self.rows(&rows, &stmt.columns)
     }
 }

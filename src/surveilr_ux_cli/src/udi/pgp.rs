@@ -44,8 +44,12 @@ pub enum OsqueryCommands {
         #[arg(short = 'a', long)]
         atc_file_path: Option<String>,
     },
-    /// execute osquery on a remote machine
-    Remote,
+    /// execute osquery on remote hosts
+    Remote {
+        /// SSH details of hosts to execute osquery on. e,g. user@127.0.0.1:22/user@host.com:1234
+        #[arg(short = 's', long)]
+        ssh_targets: Vec<String>,
+    },
 }
 
 impl PgpArgs {
@@ -72,7 +76,9 @@ impl PgpArgs {
             OsqueryCommands::Local { atc_file_path } => {
                 Box::new(OsquerySupplier::new(UdiPgpModes::Local).with_atc_file(atc_file_path))
             }
-            OsqueryCommands::Remote => Box::new(OsquerySupplier::new(UdiPgpModes::Remote)),
+            OsqueryCommands::Remote { ssh_targets } => Box::new(
+                OsquerySupplier::new(UdiPgpModes::Remote).with_ssh_targets(ssh_targets.to_vec()),
+            ),
         }
     }
 }

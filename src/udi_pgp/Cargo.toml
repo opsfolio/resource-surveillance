@@ -19,7 +19,7 @@ clap.workspace = true
 thiserror = "1.0.56"
 include_dir = "0.7.3"
 serde_json.workspace = true
-ssh-key = "0.6.4"
+ssh-key = { version = "0.6.4", features = ["ed25519", "alloc"] }
 rand = "0.8.5"
 tempfile = "3.9.0"
 openssh = "0.10.3"

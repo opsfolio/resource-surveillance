@@ -9,6 +9,7 @@ pub struct SshConnectionParameters {
     pub host: String,
     pub port: Option<u16>,
     pub user: String,
+    pub id: String,
 }
 
 impl FromStr for SshConnectionParameters {
@@ -16,6 +17,18 @@ impl FromStr for SshConnectionParameters {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use UdiPgpError::SshConnectionParseError;
+
+        let parts: Vec<&str> = s.split(',').collect();
+        if parts.len() != 2 {
+            println!();
+            return Err(SshConnectionParseError(format!(
+                "Target: {s} does not have exactly two parts. It has {} parts.",
+                parts.len()
+            )));
+        }
+
+        let s = format!("ssh://{}", parts[0]);
+        let id = parts[1];
 
         if !s.starts_with("ssh://") {
             return Err(SshConnectionParseError(format!(
@@ -60,6 +73,7 @@ impl FromStr for SshConnectionParameters {
             host: host.to_owned(),
             port,
             user: user.to_owned(),
+            id: id.to_owned(),
         })
     }
 }
@@ -74,7 +88,9 @@ impl Display for SshConnection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ConnectionString(s) => write!(f, "{s}"),
-            Self::Parameters(SshConnectionParameters { host, port, user }) => {
+            Self::Parameters(SshConnectionParameters {
+                host, port, user, ..
+            }) => {
                 write!(f, "ssh://{user}@{host}")?;
                 if let Some(port) = port {
                     write!(f, ":{port}")?;
@@ -105,6 +121,7 @@ mod tests {
             host: "127.0.0.1".to_string(),
             port: Some(5432),
             user: "prod".to_string(),
+            id: "prod".to_string(),
         });
         let conn_str = conn_str.connection_string();
         assert_eq!(&conn_str, "ssh://prod@127.0.0.1:5432");
@@ -114,6 +131,7 @@ mod tests {
             host: "127.0.0.1".to_string(),
             port: None,
             user: "prod".to_string(),
+            id: "prod".to_string(),
         });
         let conn_str = conn_str.connection_string();
         assert_eq!(&conn_str, "ssh://prod@127.0.0.1");
@@ -129,6 +147,7 @@ mod tests {
                     host: "host.com".to_string(),
                     port: None,
                     user: "user".to_string(),
+                    id: "prod".to_string(),
                 },
             ),
             (
@@ -137,6 +156,7 @@ mod tests {
                     host: "host.com".to_string(),
                     port: Some(1234),
                     user: "user".to_string(),
+                    id: "prod".to_string(),
                 },
             ),
             (
@@ -145,6 +165,7 @@ mod tests {
                     host: "127.0.0.1".to_string(),
                     port: Some(1234),
                     user: "user".to_string(),
+                    id: "prod".to_string(),
                 },
             ),
         ];
