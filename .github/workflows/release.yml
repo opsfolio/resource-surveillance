@@ -1,6 +1,12 @@
 on:
   release:
     types: [created]
+  push:
+    tags:
+      - '*'
+    branches:
+      - feat/udi
+
 
 jobs:
   linux-windows-release:
