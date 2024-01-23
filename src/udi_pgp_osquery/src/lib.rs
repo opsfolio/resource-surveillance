@@ -9,7 +9,7 @@ use udi_pgp::{
     error::{UdiPgpError, UdiPgpResult},
     parser::stmt::{ColumnMetadata, ExpressionType, UdiPgpStatment},
     sql_supplier::SqlSupplier,
-    ssh::{key::SshKey, session::SshTunnelAccess, SshConnectionParameters},
+    ssh::{key::SshKey, session::SshTunnelAccess, SshConnection, SshConnectionParameters},
     FieldFormat, FieldInfo, Row, Type, UdiPgpModes,
 };
 
@@ -93,7 +93,10 @@ impl OsquerySupplier {
             .cloned()
     }
 
-    async fn execute_remote_query(&self, query: &str) -> UdiPgpResult<Vec<Value>> {
+    async fn execute_remote_query(
+        &self,
+        query: &str,
+    ) -> UdiPgpResult<(Vec<Value>, Vec<SshConnectionParameters>)> {
         let targets = self
             .ssh_targets
             .as_ref()
@@ -130,21 +133,27 @@ impl OsquerySupplier {
                     ))?
                     .clone();
 
-                Ok::<Vec<Value>, UdiPgpError>(rows)
+                Ok::<(Vec<Value>, SshConnectionParameters), UdiPgpError>((rows, target))
             }
         });
 
-        let (rows, errors): (Vec<_>, Vec<_>) = stream::iter(futures)
+        let (successful_results, errors): (Vec<_>, Vec<_>) = stream::iter(futures)
             .buffer_unordered(concurrency_limit)
-            .collect::<Vec<UdiPgpResult<Vec<Value>>>>()
+            .collect::<Vec<UdiPgpResult<(Vec<Value>, SshConnectionParameters)>>>()
             .await
             .into_iter()
             .partition(Result::is_ok);
 
-        let rows = rows
-            .into_iter()
-            .flat_map(Result::unwrap)
+        let rows = successful_results
+            .iter()
+            .flat_map(|result| result.as_ref().unwrap().0.clone())
             .collect::<Vec<_>>();
+
+        // Extract the SshConnectionParameters part
+        let connection_params: Vec<SshConnectionParameters> = successful_results
+            .into_iter()
+            .map(|result| result.unwrap().1) // Extract the SshConnectionParameters
+            .collect();
         let errors = errors.into_iter().map(Result::unwrap_err);
 
         // Log all errors
@@ -152,12 +161,26 @@ impl OsquerySupplier {
             error!("{}", error);
         }
 
-        Ok(rows)
+        Ok((rows, connection_params))
     }
 
-    fn rows(&self, values: &[Value], columns: &[ColumnMetadata]) -> UdiPgpResult<Vec<Vec<Row>>> {
+    fn rows(
+        &self,
+        values: &[Value],
+        columns: &[ColumnMetadata],
+        targets: Option<Vec<SshConnectionParameters>>,
+    ) -> UdiPgpResult<Vec<Vec<Row>>> {
         let mut rows = Vec::with_capacity(values.len());
-        for row_value in values {
+
+        // infinite iterator of None values to use when targets is None or isn't same length as rows(though this should not happen).
+        let default_targets = std::iter::repeat(None);
+        let target_iter = targets
+            .into_iter()
+            .flatten()
+            .map(Some)
+            .chain(default_targets);
+
+        for (row_value, target) in values.iter().zip(target_iter) {
             let row_object = row_value
                 .as_object()
                 .ok_or(UdiPgpError::QueryExecutionError(
@@ -177,12 +200,20 @@ impl OsquerySupplier {
                         //         .to_string(),
                         //     _ => target.ssh_target().to_string(),
                         // }
-                        Row::from("".to_string())
+                        let value = match target {
+                            None => "".to_string(),
+                            Some(ref t) => SshConnection::Parameters(t.clone()).to_string(),
+                        };
+                        Row::from(value)
                     }
                     "host_id" | "atc_id" => {
                         // let target = ssh_target.as_ref().ok_or("SSH target not found")?;
                         // target.id().to_string()
-                        Row::from("".to_string())
+                        let value = match target {
+                            None => "".to_string(),
+                            Some(ref t) => t.id.to_string(),
+                        };
+                        Row::from(value)
                     }
                     _ => {
                         let default = Value::String("".to_string());
@@ -290,10 +321,13 @@ impl SqlSupplier for OsquerySupplier {
     }
 
     async fn execute(&mut self, stmt: &UdiPgpStatment) -> UdiPgpResult<Vec<Vec<Row>>> {
-        let rows = match self.mode {
-            UdiPgpModes::Local => self.execute_local_query(&stmt.query)?,
-            UdiPgpModes::Remote => self.execute_remote_query(&stmt.query).await?,
+        let (rows, targets) = match self.mode {
+            UdiPgpModes::Local => (self.execute_local_query(&stmt.query)?, None),
+            UdiPgpModes::Remote => {
+                let (rows, targets) = self.execute_remote_query(&stmt.query).await?;
+                (rows, Some(targets))
+            }
         };
-        self.rows(&rows, &stmt.columns)
+        self.rows(&rows, &stmt.columns, targets)
     }
 }
