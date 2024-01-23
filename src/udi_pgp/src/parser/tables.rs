@@ -44,15 +44,19 @@ fn get_table_names_from_set_expression(expression: &SetExpr) -> Vec<String> {
         SetExpr::Select(select) => {
             let mut table_names: Vec<String> = Vec::new();
 
-            select.projection.clone().into_iter().for_each(|item| match item {
-                SelectItem::UnnamedExpr(expr) => {
-                    table_names.extend(get_table_names_from_expression(expr));
-                }
-                SelectItem::ExprWithAlias { expr, .. } => {
-                    table_names.extend(get_table_names_from_expression(expr));
-                }
-                _ => {}
-            });
+            select
+                .projection
+                .clone()
+                .into_iter()
+                .for_each(|item| match item {
+                    SelectItem::UnnamedExpr(expr) => {
+                        table_names.extend(get_table_names_from_expression(expr));
+                    }
+                    SelectItem::ExprWithAlias { expr, .. } => {
+                        table_names.extend(get_table_names_from_expression(expr));
+                    }
+                    _ => {}
+                });
 
             select.from.clone().into_iter().for_each(|from| {
                 let from_name = get_table_names_from_table_factor(from.relation);

@@ -62,7 +62,11 @@ impl SshTunnelSession {
         self.inner.close().await
     }
 
-    pub async fn execute_command(&self, cmd: &str, args: Vec<&str>) -> Result<String, SshTunnelError> {
+    pub async fn execute_command(
+        &self,
+        cmd: &str,
+        args: Vec<&str>,
+    ) -> Result<String, SshTunnelError> {
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         {
             self.inner.execute_command(cmd, args).await

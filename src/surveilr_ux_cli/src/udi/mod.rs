@@ -15,14 +15,14 @@ pub struct UdiArgs {
 #[derive(Debug, Serialize, Subcommand, Clone)]
 pub enum UdiCommands {
     Pgp(PgpArgs),
-    Admin
+    Admin,
 }
 
 impl UdiArgs {
     pub async fn execute(&self) -> anyhow::Result<()> {
         match &self.commands {
             UdiCommands::Pgp(args) => args.execute().await,
-            UdiCommands::Admin => Ok(())
+            UdiCommands::Admin => Ok(()),
         }
     }
 }
