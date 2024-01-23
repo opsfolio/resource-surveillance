@@ -53,7 +53,7 @@ jobs:
           override: true
       - name: Build with Cargo
         run: |
-          cargo build --release --target ${{ matrix.triple.target }}
+          cargo build --release --all --target ${{ matrix.triple.target }}
           ./target/${{ matrix.triple.target }}/release/surveilr --help
           zip -r resource-surveillance_${{github.ref_name}}_${{ matrix.triple.target }}.zip target/${{ matrix.triple.target }}/release/surveilr
       - name: Upload to Release
