@@ -264,6 +264,19 @@ impl SqlSupplier for OsquerySupplier {
                     "TEXT".to_string(),
                 ),
             );
+
+            stmt.columns.push(ColumnMetadata::new(
+                "ssh_target".to_string(),
+                ExpressionType::Standard,
+                None,
+                Type::VARCHAR,
+            ));
+            stmt.columns.push(ColumnMetadata::new(
+                "host_id".to_string(),
+                ExpressionType::Standard,
+                None,
+                Type::VARCHAR,
+            ));
         };
 
         stmt.columns = if stmt.columns.len() == 1 && stmt.columns.first().unwrap().name == "*" {
