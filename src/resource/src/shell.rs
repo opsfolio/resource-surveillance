@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use std::thread;
 
 use deno_task_shell::execute_with_pipes;
 use deno_task_shell::parser::parse;
@@ -251,42 +252,54 @@ impl ShellExecutive for DenoTaskShellExecutive {
             (writer, handle)
         }
 
-        RUNTIME.block_on(async {
-            match parse(&self.command) {
-                Ok(list) => {
-                    let (stdin, mut stdin_writer) = pipe();
-                    stdin_writer.write_all(&ce_stdin.bytes()).unwrap();
-                    drop(stdin_writer); // prevent a deadlock by dropping the writer
+        // spawning a thread to handle the async part since making the "ShellExecutive" trait async at this moment faces some drawbacks.
+        // 1. ShellResult is not Send and most of this "shell" module are not Send also, so using them in a full async context is not possible
+        // until we can implement the Send trait for them all.
+        // 2. One of the structs from the deno_task_shell crate has an Rc(Resource Counter) somewhere and it is by default 
+        // not Send which makes it impossible to implement Send
 
-                    let (stdout, stdout_handle) = get_output_writer_and_handle();
-                    let (stderr, stderr_handle) = get_output_writer_and_handle();
+        let command = self.command.clone();
+        let env_vars = self.env_vars.clone();
+        let cwd = self.cwd.clone();
 
-                    let local_set = tokio::task::LocalSet::new();
-                    let mut state =
-                        ShellState::new(self.env_vars.clone(), &self.cwd, Default::default());
-                    state
-                        .apply_env_var("INIT_CWD", self.cwd.to_string_lossy().to_string().as_str());
+        let handle = thread::spawn(move || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                match parse(&command) {
+                    Ok(list) => {
+                        let (stdin, mut stdin_writer) = pipe();
+                        stdin_writer.write_all(&ce_stdin.bytes()).unwrap();
+                        drop(stdin_writer); // prevent a deadlock by dropping the writer
 
-                    let status = local_set
-                        .run_until(execute_with_pipes(list, state, stdin, stdout, stderr))
-                        .await;
+                        let (stdout, stdout_handle) = get_output_writer_and_handle();
+                        let (stderr, stderr_handle) = get_output_writer_and_handle();
 
-                    let stderr = stderr_handle.await.unwrap();
-                    let stdout = stdout_handle.await.unwrap();
+                        let local_set = tokio::task::LocalSet::new();
+                        let mut state = ShellState::new(env_vars.clone(), &cwd, Default::default());
+                        state.apply_env_var("INIT_CWD", cwd.to_string_lossy().to_string().as_str());
 
-                    Ok(ShellResult {
-                        status: ExitStatus::Exited(status as u32),
-                        stderr,
-                        stdout,
-                    })
+                        let status = local_set
+                            .run_until(execute_with_pipes(list, state, stdin, stdout, stderr))
+                            .await;
+
+                        let stderr = stderr_handle.await.unwrap();
+                        let stdout = stdout_handle.await.unwrap();
+
+                        Ok(ShellResult {
+                            status: ExitStatus::Exited(status as u32),
+                            stderr,
+                            stdout,
+                        })
+                    }
+                    Err(err) => Ok(ShellResult {
+                        status: ExitStatus::Undetermined,
+                        stderr: format!("{err:?}"),
+                        stdout: String::new(),
+                    }),
                 }
-                Err(err) => Ok(ShellResult {
-                    status: ExitStatus::Undetermined,
-                    stderr: format!("{err:?}"),
-                    stdout: String::new(),
-                }),
-            }
-        })
+            })
+        });
+        handle.join().unwrap()
     }
 }
 
