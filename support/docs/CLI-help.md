@@ -23,6 +23,12 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr notebooks cat`↴](#surveilr-notebooks-cat)
 * [`surveilr notebooks ls`↴](#surveilr-notebooks-ls)
 * [`surveilr sqlpage`↴](#surveilr-sqlpage)
+* [`surveilr udi`↴](#surveilr-udi)
+* [`surveilr udi pgp`↴](#surveilr-udi-pgp)
+* [`surveilr udi pgp osquery`↴](#surveilr-udi-pgp-osquery)
+* [`surveilr udi pgp osquery local`↴](#surveilr-udi-pgp-osquery-local)
+* [`surveilr udi pgp osquery remote`↴](#surveilr-udi-pgp-osquery-remote)
+* [`surveilr udi admin`↴](#surveilr-udi-admin)
 
 ## `surveilr`
 
@@ -35,6 +41,7 @@ This document contains the help content for the `surveilr` command-line program.
 * `ingest` — Ingest content from device file system and other sources
 * `notebooks` — Notebooks maintenance utilities
 * `sqlpage` — Configuration to start the SQLPage webserver
+* `udi` — Universal Data Infrastructure
 
 ###### **Options:**
 
@@ -372,6 +379,82 @@ Configuration to start the SQLPage webserver
 * `-p`, `--port <PORT>` — Port to bind sqplage webserver to
 * `-o`, `--otel <OTEL>` — Port that any OTEL compatible service is running on
 * `-m`, `--metrics <METRICS>` — Metrics port. Used for scraping metrics with tools like OpenObserve or Prometheus
+
+
+
+## `surveilr udi`
+
+Universal Data Infrastructure
+
+**Usage:** `surveilr udi <COMMAND>`
+
+###### **Subcommands:**
+
+* `pgp` — UDI PostgreSQL Proxy for remote SQL starts up a server which pretends to be PostgreSQL but proxies its SQL to other CLI services with SQL-like interface (called SQL Suppliers)
+* `admin` — 
+
+
+
+## `surveilr udi pgp`
+
+UDI PostgreSQL Proxy for remote SQL starts up a server which pretends to be PostgreSQL but proxies its SQL to other CLI services with SQL-like interface (called SQL Suppliers)
+
+**Usage:** `surveilr udi pgp [OPTIONS] --username <USERNAME> --password <PASSWORD> <COMMAND>`
+
+###### **Subcommands:**
+
+* `osquery` — query a machine
+
+###### **Options:**
+
+* `-a`, `--addr <ADDR>` — IP address to bind udi-pgp to
+
+  Default value: `127.0.0.1:5432`
+* `-u`, `--username <USERNAME>` — Username for authentication
+* `-p`, `--password <PASSWORD>` — Password for authentication
+
+
+
+## `surveilr udi pgp osquery`
+
+query a machine
+
+**Usage:** `surveilr udi pgp osquery <COMMAND>`
+
+###### **Subcommands:**
+
+* `local` — execute osquery on the local machine
+* `remote` — execute osquery on remote hosts
+
+
+
+## `surveilr udi pgp osquery local`
+
+execute osquery on the local machine
+
+**Usage:** `surveilr udi pgp osquery local [OPTIONS]`
+
+###### **Options:**
+
+* `-a`, `--atc-file-path <ATC_FILE_PATH>` — ATC Configuration File path
+
+
+
+## `surveilr udi pgp osquery remote`
+
+execute osquery on remote hosts
+
+**Usage:** `surveilr udi pgp osquery remote [OPTIONS]`
+
+###### **Options:**
+
+* `-s`, `--ssh-targets <SSH_TARGETS>` — SSH details of hosts to execute osquery on including and identifier. e,g. "user@127.0.0.1:22,john"/"user@host.com:1234,doe"
+
+
+
+## `surveilr udi admin`
+
+**Usage:** `surveilr udi admin`
 
 
 

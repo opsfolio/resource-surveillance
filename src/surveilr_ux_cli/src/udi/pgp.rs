@@ -46,7 +46,7 @@ pub enum OsqueryCommands {
     },
     /// execute osquery on remote hosts
     Remote {
-        /// SSH details of hosts to execute osquery on. e,g. user@127.0.0.1:22/user@host.com:1234
+        /// SSH details of hosts to execute osquery on including and identifier. e,g. "user@127.0.0.1:22,john"/"user@host.com:1234,doe"
         #[arg(short = 's', long)]
         ssh_targets: Vec<String>,
     },
