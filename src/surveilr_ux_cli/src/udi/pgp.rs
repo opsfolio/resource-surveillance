@@ -1,5 +1,8 @@
+use std::{collections::HashMap, sync::Arc};
+
 use clap::{Args, Subcommand};
 use serde::Serialize;
+use tokio::sync::Mutex;
 use udi_pgp::{auth::Auth, sql_supplier::SqlSupplierType, UdiPgpModes};
 use udi_pgp_osquery::OsquerySupplier;
 
@@ -18,6 +21,12 @@ pub struct PgpArgs {
     /// Password for authentication
     #[arg(short = 'p', long)]
     pub password: String,
+
+    /// Identification for the supplier which will be passed to the client. e.g
+    /// surveilr udi pgp -u john -p doe -i test-supplier osquery local
+    /// The psql comand will be: psql -h 127.0.0.1 -p 5432 -d "test-supplier" -c "select * from system_info"
+    #[arg(short = 'i', long)]
+    pub supplier_id: String,
 
     #[command(subcommand)]
     pub command: PgpCommands,
@@ -59,16 +68,19 @@ impl PgpArgs {
             username,
             password,
             command,
+            supplier_id
         } = self;
 
         let auth = Auth::new(username, password);
         let config = udi_pgp::config::UdiPgpConfig::new(*addr, auth);
+        let mut suppliers = HashMap::new();
 
         let supplier = match command {
             PgpCommands::Osquery(OsqueryArgs { command }) => self.create_supplier(command),
         };
+        suppliers.insert(supplier_id.to_string(), Arc::new(Mutex::new(supplier)));
 
-        udi_pgp::run(&config, supplier).await
+        udi_pgp::run(&config, suppliers).await
     }
 
     fn create_supplier(&self, command: &OsqueryCommands) -> SqlSupplierType {

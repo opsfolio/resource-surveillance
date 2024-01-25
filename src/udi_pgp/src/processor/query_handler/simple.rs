@@ -7,6 +7,7 @@ use pgwire::{
     },
     error::PgWireResult,
 };
+use tracing::info;
 
 use crate::{
     parser::UdiPgpQueryParser,
@@ -21,13 +22,14 @@ use crate::{
 impl SimpleQueryHandler for UdiPgpProcessor {
     async fn do_query<'a, C>(
         &self,
-        _client: &mut C,
+        client: &mut C,
         query: &'a str,
     ) -> PgWireResult<Vec<Response<'a>>>
     where
         C: ClientInfo + Unpin + Send + Sync,
     {
         let mut statement = UdiPgpQueryParser::parse(query, false)?;
+        let metadata = client.metadata();
 
         let (schema, rows) = if statement.from_driver {
             match query {
@@ -40,7 +42,10 @@ impl SimpleQueryHandler for UdiPgpProcessor {
                 _ => self.simulate_driver_responses(query)?,
             }
         } else {
-            let mut supplier = self.supplier.lock().await;
+            let (supplier_id, _) = self.extract_supplier_and_database(metadata.get("database"))?;
+            let supplier = self.supplier(&supplier_id).await?;
+            let mut supplier = supplier.lock().await;
+            info!("Supplier: {supplier_id} currently in use.");
             (
                 supplier.schema(&mut statement).await?,
                 supplier.execute(&statement).await?,

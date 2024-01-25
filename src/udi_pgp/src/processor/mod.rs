@@ -1,4 +1,4 @@
-use std::{collections::HashMap, pin::Pin, str::FromStr, sync::Arc};
+use std::{pin::Pin, str::FromStr, sync::Arc};
 
 use futures::{stream, Stream};
 use pgwire::{
@@ -10,16 +10,18 @@ use pgwire::{
     messages::data::DataRow,
 };
 use tokio::sync::{Mutex, RwLock};
-use tracing::debug;
+use tracing::{debug, error};
 
 use crate::{
-    config::UdiPgpConfig, error::UdiPgpResult, parser::UdiPgpQueryParser, simulations::response,
-    sql_supplier::SqlSupplierType, Row,
+    config::UdiPgpConfig,
+    error::UdiPgpResult,
+    parser::UdiPgpQueryParser,
+    simulations::response,
+    sql_supplier::{SqlSupplierMap, SqlSupplierType},
+    Row,
 };
 
 pub mod query_handler;
-
-pub type SqlSupplierMap = HashMap<String, Arc<Mutex<SqlSupplierType>>>;
 
 #[derive(Debug, Clone)]
 pub struct UdiPgpProcessor {
@@ -48,18 +50,34 @@ impl UdiPgpProcessor {
         })
     }
 
-    pub async fn supplier_mut(
+    pub fn extract_supplier_and_database(
         &self,
-        identifier: &str,
-    ) -> PgWireResult<Arc<Mutex<SqlSupplierType>>> {
-        let suppliers = self.suppliers.write().await;
-        suppliers.get(identifier).cloned().ok_or_else(|| {
+        param: Option<&String>,
+    ) -> PgWireResult<(String, Option<String>)> {
+        let db = param.ok_or_else(|| {
+            error!("Cannot find database parameter");
             PgWireError::UserError(Box::new(ErrorInfo::new(
                 "FATAL".to_string(),
                 "PROCESSOR".to_string(),
-                format!("Supplier not found. Got: {}", identifier),
+                "Cannot find database parameter".to_string(),
             )))
-        })
+        })?;
+
+        let parts: Vec<&str> = db.split(':').collect();
+
+        let supplier = parts.first()
+            .ok_or_else(|| {
+                PgWireError::UserError(Box::new(ErrorInfo::new(
+                    "FATAL".to_string(),
+                    "01".to_string(),
+                    "Supplier is absent".to_string(),
+                )))
+            })?
+            .to_string();
+
+        let identifier = parts.get(1).map(|s| s.to_string());
+
+        Ok((supplier, identifier))
     }
 
     pub fn encode_rows(

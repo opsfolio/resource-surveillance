@@ -4,7 +4,7 @@ use config::UdiPgpConfig;
 use derive_new::new;
 use error::UdiPgpError;
 use pgwire::{api::MakeHandler, tokio::process_socket};
-use sql_supplier::SqlSupplierType;
+use sql_supplier::SqlSupplierMap;
 use startup::{UdiPgpParameters, UdiPgpStartupHandler};
 use tokio::{net::TcpListener, signal, sync::oneshot};
 use tracing::{error, info};
@@ -79,12 +79,12 @@ fn spawn_shutdown_handler() -> oneshot::Receiver<()> {
     rx
 }
 
-pub async fn run(config: &UdiPgpConfig, supplier: SqlSupplierType) -> anyhow::Result<()> {
+pub async fn run(config: &UdiPgpConfig, suppliers: SqlSupplierMap) -> anyhow::Result<()> {
     let authenticator = Arc::new(UdiPgpStartupHandler::new(
         config.auth().clone(),
         UdiPgpParameters::new(),
     ));
-    let processor = UdiPgpProcessor::new(config, supplier);
+    let processor = UdiPgpProcessor::new(config, suppliers);
     let mut rx = spawn_shutdown_handler();
     let listener = TcpListener::bind(config.addr()).await?;
 

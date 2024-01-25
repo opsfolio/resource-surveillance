@@ -1,7 +1,8 @@
-use std::fmt;
+use std::{collections::HashMap, fmt, sync::Arc};
 
 use async_trait::async_trait;
 use pgwire::api::results::FieldInfo;
+use tokio::sync::Mutex;
 
 use crate::{error::UdiPgpResult, parser::stmt::UdiPgpStatment, Row};
 
@@ -13,6 +14,7 @@ pub trait SqlSupplier: ClonableSqlSupplier {
 }
 
 pub type SqlSupplierType = Box<dyn SqlSupplier + Send + Sync>;
+pub type SqlSupplierMap = HashMap<String, Arc<Mutex<SqlSupplierType>>>;
 
 pub trait ClonableSqlSupplier {
     fn clone_box(&self) -> Box<dyn SqlSupplier + Send + Sync>;
