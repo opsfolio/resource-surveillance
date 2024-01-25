@@ -14,15 +14,16 @@ In local mode, the `surveilr udi pgp` command initiates a PostgreSQL proxy serve
 
 **Example Command:**
 ```bash
-surveilr udi pgp -a 127.0.0.1:5555 -u john -p doe osquery local
+surveilr udi pgp -a 127.0.0.1:5555 -u john -p doe -i supplier-one osquery local
 ```
 
 - `-a 127.0.0.1:5555`: Specifies the address and port for the proxy server.
 - `-u john -p doe`: Sets the username and password.
+-  `-i supplier-one`: Sets the supplier identifier or name.
 
 To query the server, use `psql` as follows:
 ```bash
-psql -h 127.0.0.1 -p 5555 -U john -c "SELECT cpu_type, cpu_brand, hardware_vendor, hardware_model FROM system_info"
+psql -h 127.0.0.1 -p 5555 -U john -d "supplier-one" -c "SELECT cpu_type, cpu_brand, hardware_vendor, hardware_model FROM system_info"
 ```
 
 #### Remote Mode
@@ -43,13 +44,14 @@ fi
 ```
 **Example Remote Mode Command:**
 ```bash
-surveilr udi pgp -a 127.0.0.1:5555 -u john -p doe osquery remote -s "user@127.0.0.1:22,john" -s "lilit@website.com:22,doe"
+surveilr udi pgp -a 127.0.0.1:5555 -u john -p doe -i second-supp osquery remote -s "user@127.0.0.1:22,john" -s "lilit@website.com:22,doe"
 ```
+- The `-i second-supp` specifies the supplier identifier or na,e.
 - The `-s` flag specifies remote hosts and credentials.
 
 To execute a query remotely:
 ```bash
-psql -h 127.0.0.1 -p 5555 -U john -c "SELECT cpu_type, cpu_brand, hardware_vendor, hardware_model FROM system_info"
+psql -h 127.0.0.1 -p 5555 -U john -d "second-supp" -c "SELECT cpu_type, cpu_brand, hardware_vendor, hardware_model FROM system_info"
 ```
 
 #### Using ATCs (Auto Table Construction)
