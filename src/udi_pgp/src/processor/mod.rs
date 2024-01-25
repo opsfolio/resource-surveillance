@@ -1,4 +1,4 @@
-use std::{pin::Pin, str::FromStr, sync::Arc};
+use std::{collections::HashMap, pin::Pin, str::FromStr, sync::Arc};
 
 use futures::{stream, Stream};
 use pgwire::{
@@ -6,10 +6,10 @@ use pgwire::{
         results::{DataRowEncoder, FieldInfo},
         MakeHandler,
     },
-    error::PgWireResult,
+    error::{ErrorInfo, PgWireError, PgWireResult},
     messages::data::DataRow,
 };
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use tracing::debug;
 
 use crate::{
@@ -19,20 +19,47 @@ use crate::{
 
 pub mod query_handler;
 
+pub type SqlSupplierMap = HashMap<String, Arc<Mutex<SqlSupplierType>>>;
+
 #[derive(Debug, Clone)]
 pub struct UdiPgpProcessor {
     query_parser: UdiPgpQueryParser,
     config: UdiPgpConfig,
-    supplier: Arc<Mutex<SqlSupplierType>>,
+    suppliers: Arc<RwLock<SqlSupplierMap>>,
 }
 
 impl UdiPgpProcessor {
-    pub fn new(config: &UdiPgpConfig, supplier: SqlSupplierType) -> Self {
+    pub fn new(config: &UdiPgpConfig, suppliers: SqlSupplierMap) -> Self {
         UdiPgpProcessor {
             query_parser: UdiPgpQueryParser::new(),
             config: config.clone(),
-            supplier: Arc::new(Mutex::new(supplier)),
+            suppliers: Arc::new(RwLock::new(suppliers)),
         }
+    }
+
+    pub async fn supplier(&self, identifier: &str) -> PgWireResult<Arc<Mutex<SqlSupplierType>>> {
+        let suppliers = self.suppliers.read().await;
+        suppliers.get(identifier).cloned().ok_or_else(|| {
+            PgWireError::UserError(Box::new(ErrorInfo::new(
+                "FATAL".to_string(),
+                "PROCESSOR".to_string(),
+                format!("Supplier not found. Got: {}", identifier),
+            )))
+        })
+    }
+
+    pub async fn supplier_mut(
+        &self,
+        identifier: &str,
+    ) -> PgWireResult<Arc<Mutex<SqlSupplierType>>> {
+        let suppliers = self.suppliers.write().await;
+        suppliers.get(identifier).cloned().ok_or_else(|| {
+            PgWireError::UserError(Box::new(ErrorInfo::new(
+                "FATAL".to_string(),
+                "PROCESSOR".to_string(),
+                format!("Supplier not found. Got: {}", identifier),
+            )))
+        })
     }
 
     pub fn encode_rows(
@@ -79,7 +106,7 @@ impl MakeHandler for UdiPgpProcessor {
         Arc::new(UdiPgpProcessor {
             query_parser: self.query_parser.clone(),
             config: self.config.clone(),
-            supplier: self.supplier.clone(),
+            suppliers: self.suppliers.clone(),
         })
     }
 }
