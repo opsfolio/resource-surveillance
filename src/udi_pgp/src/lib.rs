@@ -8,6 +8,7 @@ use serde::Deserialize;
 use sql_supplier::SqlSupplierMap;
 use startup::{UdiPgpParameters, UdiPgpStartupHandler};
 use tokio::{net::TcpListener, signal, sync::oneshot};
+use tracing::debug;
 use tracing::{error, info};
 
 use crate::processor::UdiPgpProcessor;
@@ -82,6 +83,7 @@ fn spawn_shutdown_handler() -> oneshot::Receiver<()> {
 }
 
 pub async fn run(config: Arc<UdiPgpConfig>, suppliers: SqlSupplierMap) -> anyhow::Result<()> {
+    debug!("Starting the pgp server with: {:#?}", config);
     let authenticator = Arc::new(UdiPgpStartupHandler::new(
         UdiPgpAuthSource::new(config.clone()),
         UdiPgpParameters::new(),

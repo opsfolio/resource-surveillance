@@ -246,6 +246,32 @@ impl SqlSupplier for OsquerySupplier {
     async fn schema(&mut self, stmt: &mut UdiPgpStatment) -> UdiPgpResult<Vec<FieldInfo>> {
         let mut schema = schema::get_schema(&stmt.tables, &self.atc_file_path)?;
 
+        debug!("{:#?}", stmt.columns);
+
+        stmt.columns = if stmt.columns.len() == 1 && stmt.columns.first().unwrap().name == "*" {
+            schema
+                .values()
+                .map(|schema| {
+                    ColumnMetadata::new(
+                        schema.name.clone(),
+                        ExpressionType::Standard,
+                        None,
+                        Type::VARCHAR,
+                    )
+                })
+                .collect::<Vec<_>>()
+        } else {
+            stmt.columns
+                .iter()
+                .map(|col| {
+                    let mut col = col.clone();
+                    col.name = col.name.to_lowercase();
+                    col
+                })
+                .collect::<Vec<_>>()
+        };
+
+        
         if let UdiPgpModes::Remote = self.mode {
             schema.insert(
                 "ssh_target".to_string(),
@@ -278,29 +304,6 @@ impl SqlSupplier for OsquerySupplier {
                 None,
                 Type::VARCHAR,
             ));
-        };
-
-        stmt.columns = if stmt.columns.len() == 1 && stmt.columns.first().unwrap().name == "*" {
-            schema
-                .values()
-                .map(|schema| {
-                    ColumnMetadata::new(
-                        schema.name.clone(),
-                        ExpressionType::Standard,
-                        None,
-                        Type::VARCHAR,
-                    )
-                })
-                .collect::<Vec<_>>()
-        } else {
-            stmt.columns
-                .iter()
-                .map(|col| {
-                    let mut col = col.clone();
-                    col.name = col.name.to_lowercase();
-                    col
-                })
-                .collect::<Vec<_>>()
         };
 
         stmt.columns
