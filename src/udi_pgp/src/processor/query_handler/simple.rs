@@ -32,7 +32,6 @@ impl SimpleQueryHandler for UdiPgpProcessor {
 
         debug!("{query}");
         debug!("{:#?}", statement);
-        // println!("{:#?}", self.config);
 
         if statement.config_query {
             // All these are done because we can't get a mutable reference to "self" due to the trait implementation

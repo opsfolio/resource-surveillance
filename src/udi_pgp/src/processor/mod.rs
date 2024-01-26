@@ -204,6 +204,8 @@ impl UdiPgpProcessor {
         // acquiring the lock requires ".await" which needs to be in the cintext of an async function
         // but the retain closure can't be asynchronous. Try this again in future Rust releases.
 
+        
+
         // get suppliers to remove
         let suppliers_to_remove: Vec<String> = current_suppliers
             .keys()
@@ -215,6 +217,18 @@ impl UdiPgpProcessor {
         for id in suppliers_to_remove {
             current_suppliers.remove(&id);
         }
+
+        for (id, supplier) in current_suppliers.iter_mut() {
+        if let Some(new_supplier_config) = new_config.suppliers.get(id) {
+            // Update the supplier if it exists in new_config
+            // TODO implement comparing. Compare if they are the same first before updating, To accomplish that:
+            // 1. add a .to_supplier() method on SqlSupplier trait
+            // 2. Implement the Eq and PartialEq trait for config::Supplier
+            debug!("Updating supplier: {id} to new state: {:#?}", new_supplier_config);
+            let mut supplier_lock = supplier.lock().await;
+            let _ = supplier_lock.update(new_supplier_config.clone());
+        }
+    }
 
         //get templates for new supplier types beforehand
         let mut templates = HashMap::new();
