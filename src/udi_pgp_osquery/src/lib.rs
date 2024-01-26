@@ -6,10 +6,11 @@ use schema::OsquerySchema;
 use serde_json::Value;
 use tracing::{debug, error, info};
 use udi_pgp::{
+    config::Supplier,
     error::{UdiPgpError, UdiPgpResult},
     parser::stmt::{ColumnMetadata, ExpressionType, UdiPgpStatment},
     sql_supplier::SqlSupplier,
-    ssh::{key::SshKey, session::SshTunnelAccess, SshConnection, SshConnectionParameters},
+    ssh::{key::SshKey, session::SshTunnelAccess, SshConnection, UdiPgpSshTarget},
     FieldFormat, FieldInfo, Row, Type, UdiPgpModes,
 };
 
@@ -19,8 +20,27 @@ mod schema;
 pub struct OsquerySupplier {
     pub mode: UdiPgpModes,
     atc_file_path: Option<String>,
-    // TODO change this to UdiPgpSshTargets and implement the SshConnectionParams for it.
-    ssh_targets: Option<Vec<String>>,
+    ssh_targets: Option<Vec<UdiPgpSshTarget>>,
+}
+
+impl From<Supplier> for OsquerySupplier {
+    fn from(value: Supplier) -> Self {
+        OsquerySupplier {
+            mode: value.mode,
+            atc_file_path: value.atc_file_path,
+            ssh_targets: value.ssh_targets,
+        }
+    }
+}
+
+impl From<&Supplier> for OsquerySupplier {
+    fn from(value: &Supplier) -> Self {
+        OsquerySupplier {
+            mode: value.mode.clone(),
+            atc_file_path: value.atc_file_path.clone(),
+            ssh_targets: value.ssh_targets.clone(),
+        }
+    }
 }
 
 impl OsquerySupplier {
@@ -37,8 +57,14 @@ impl OsquerySupplier {
         self.clone()
     }
 
+    // TODO handle error
     pub fn with_ssh_targets(&mut self, targets: Vec<String>) -> Self {
-        self.ssh_targets = Some(targets);
+        self.ssh_targets = Some(
+            targets
+                .iter()
+                .map(|t| UdiPgpSshTarget::from_str(t.as_str()).unwrap())
+                .collect(),
+        );
         self.clone()
     }
 
@@ -97,14 +123,8 @@ impl OsquerySupplier {
     async fn execute_remote_query(
         &self,
         query: &str,
-    ) -> UdiPgpResult<(Vec<Value>, Vec<SshConnectionParameters>)> {
-        let targets = self
-            .ssh_targets
-            .as_ref()
-            .unwrap_or(&vec![])
-            .iter()
-            .map(|t| SshConnectionParameters::from_str(t))
-            .collect::<UdiPgpResult<Vec<_>>>()?;
+    ) -> UdiPgpResult<(Vec<Value>, Vec<UdiPgpSshTarget>)> {
+        let targets = self.ssh_targets.as_ref().unwrap_or(&vec![]).clone();
 
         let concurrency_limit = 5;
 
@@ -134,13 +154,13 @@ impl OsquerySupplier {
                     ))?
                     .clone();
 
-                Ok::<(Vec<Value>, SshConnectionParameters), UdiPgpError>((rows, target))
+                Ok::<(Vec<Value>, UdiPgpSshTarget), UdiPgpError>((rows, target.clone()))
             }
         });
 
         let (successful_results, errors): (Vec<_>, Vec<_>) = stream::iter(futures)
             .buffer_unordered(concurrency_limit)
-            .collect::<Vec<UdiPgpResult<(Vec<Value>, SshConnectionParameters)>>>()
+            .collect::<Vec<UdiPgpResult<(Vec<Value>, UdiPgpSshTarget)>>>()
             .await
             .into_iter()
             .partition(Result::is_ok);
@@ -151,7 +171,7 @@ impl OsquerySupplier {
             .collect::<Vec<_>>();
 
         // Extract the SshConnectionParameters part
-        let connection_params: Vec<SshConnectionParameters> = successful_results
+        let connection_params: Vec<UdiPgpSshTarget> = successful_results
             .into_iter()
             .map(|result| result.unwrap().1) // Extract the SshConnectionParameters
             .collect();
@@ -169,7 +189,7 @@ impl OsquerySupplier {
         &self,
         values: &[Value],
         columns: &[ColumnMetadata],
-        targets: Option<Vec<SshConnectionParameters>>,
+        targets: Option<Vec<UdiPgpSshTarget>>,
     ) -> UdiPgpResult<Vec<Vec<Row>>> {
         let mut rows = Vec::with_capacity(values.len());
 
@@ -271,7 +291,6 @@ impl SqlSupplier for OsquerySupplier {
                 .collect::<Vec<_>>()
         };
 
-        
         if let UdiPgpModes::Remote = self.mode {
             schema.insert(
                 "ssh_target".to_string(),

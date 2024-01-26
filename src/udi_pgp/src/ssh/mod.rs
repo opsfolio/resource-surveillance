@@ -1,18 +1,30 @@
 use std::{fmt::Display, str::FromStr};
 
+use serde::Deserialize;
+
 use crate::error::UdiPgpError;
 
 pub mod key;
 pub mod session;
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct SshConnectionParameters {
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
+pub struct UdiPgpSshTarget {
     pub host: String,
     pub port: Option<u16>,
     pub user: String,
     pub id: String,
+    #[serde(rename = "  atc-file-path")]
+    pub atc_file_path: Option<String>,
 }
 
-impl FromStr for SshConnectionParameters {
+impl TryFrom<&String> for UdiPgpSshTarget {
+    type Error = UdiPgpError;
+
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        UdiPgpSshTarget::from_str(value)
+    }
+}
+
+impl FromStr for UdiPgpSshTarget {
     type Err = UdiPgpError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -73,6 +85,7 @@ impl FromStr for SshConnectionParameters {
             port,
             user: user.to_owned(),
             id: id.to_owned(),
+            atc_file_path: None,
         })
     }
 }
@@ -80,14 +93,14 @@ impl FromStr for SshConnectionParameters {
 #[derive(Debug)]
 pub enum SshConnection {
     ConnectionString(String),
-    Parameters(SshConnectionParameters),
+    Parameters(UdiPgpSshTarget),
 }
 
 impl Display for SshConnection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ConnectionString(s) => write!(f, "{s}"),
-            Self::Parameters(SshConnectionParameters {
+            Self::Parameters(UdiPgpSshTarget {
                 host, port, user, ..
             }) => {
                 write!(f, "ssh://{user}@{host}")?;
@@ -116,21 +129,23 @@ mod tests {
             .connection_string();
         assert_eq!(&conn_str, "ssh://prod@127.0.0.1:5432");
 
-        let conn_str = SshConnection::Parameters(SshConnectionParameters {
+        let conn_str = SshConnection::Parameters(UdiPgpSshTarget {
             host: "127.0.0.1".to_string(),
             port: Some(5432),
             user: "prod".to_string(),
             id: "prod".to_string(),
+            atc_file_path: None,
         });
         let conn_str = conn_str.connection_string();
         assert_eq!(&conn_str, "ssh://prod@127.0.0.1:5432");
 
         // Missing port.
-        let conn_str = SshConnection::Parameters(SshConnectionParameters {
+        let conn_str = SshConnection::Parameters(UdiPgpSshTarget {
             host: "127.0.0.1".to_string(),
             port: None,
             user: "prod".to_string(),
             id: "prod".to_string(),
+            atc_file_path: None,
         });
         let conn_str = conn_str.connection_string();
         assert_eq!(&conn_str, "ssh://prod@127.0.0.1");
@@ -142,34 +157,37 @@ mod tests {
         let test_cases = vec![
             (
                 "ssh://user@host.com",
-                SshConnectionParameters {
+                UdiPgpSshTarget {
                     host: "host.com".to_string(),
                     port: None,
                     user: "user".to_string(),
                     id: "prod".to_string(),
+                    atc_file_path: None,
                 },
             ),
             (
                 "ssh://user@host.com:1234",
-                SshConnectionParameters {
+                UdiPgpSshTarget {
                     host: "host.com".to_string(),
                     port: Some(1234),
                     user: "user".to_string(),
                     id: "prod".to_string(),
+                    atc_file_path: None,
                 },
             ),
             (
                 "ssh://user@127.0.0.1:1234",
-                SshConnectionParameters {
+                UdiPgpSshTarget {
                     host: "127.0.0.1".to_string(),
                     port: Some(1234),
                     user: "user".to_string(),
                     id: "prod".to_string(),
+                    atc_file_path: None,
                 },
             ),
         ];
         for (s, v) in test_cases {
-            let s: SshConnectionParameters = s.parse().unwrap();
+            let s: UdiPgpSshTarget = s.parse().unwrap();
             assert_eq!(s, v);
         }
 
@@ -184,7 +202,7 @@ mod tests {
             "ssh://host.com:abc",     // invalid port
         ];
         for s in test_cases {
-            s.parse::<SshConnectionParameters>()
+            s.parse::<UdiPgpSshTarget>()
                 .expect_err("invalid ssh connection string should error");
         }
     }

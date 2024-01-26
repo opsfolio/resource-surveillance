@@ -1,13 +1,15 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
+use anyhow::anyhow;
 use clap::{Args, Subcommand};
 use serde::Serialize;
 use tokio::sync::Mutex;
 use udi_pgp::{
     auth::Auth,
-    config::{Supplier, UdiPgpSshTarget},
+    config::{Supplier, SupplierType, UdiPgpConfig},
     error::UdiPgpResult,
-    sql_supplier::SqlSupplierType,
+    sql_supplier::{SqlSupplierMap, SqlSupplierType},
+    ssh::UdiPgpSshTarget,
     UdiPgpModes,
 };
 use udi_pgp_osquery::OsquerySupplier;
@@ -22,20 +24,24 @@ pub struct PgpArgs {
 
     /// Username for authentication
     #[arg(short = 'u', long)]
-    pub username: String,
+    pub username: Option<String>,
 
     /// Password for authentication
     #[arg(short = 'p', long)]
-    pub password: String,
+    pub password: Option<String>,
 
     /// Identification for the supplier which will be passed to the client. e.g
     /// surveilr udi pgp -u john -p doe -i test-supplier osquery local
     /// The psql comand will be: psql -h 127.0.0.1 -p 5432 -d "test-supplier" -c "select * from system_info"
     #[arg(short = 'i', long)]
-    pub supplier_id: String,
+    pub supplier_id: Option<String>,
+
+    /// Config file for UDI-PGP. Either a .ncl file or JSON file
+    #[arg(short = 'c', long)]
+    pub config: Option<PathBuf>,
 
     #[command(subcommand)]
-    pub command: PgpCommands,
+    pub command: Option<PgpCommands>,
 }
 
 #[derive(Debug, Serialize, Subcommand, Clone)]
@@ -69,20 +75,67 @@ pub enum OsqueryCommands {
 
 impl PgpArgs {
     pub async fn execute(&self) -> anyhow::Result<()> {
-        let auth = Auth::new(&self.username, &self.password);
-        let (supplier, config_supplier) = self.create_supplier(&self.command, auth)?;
-
-        let mut config_suppliers = HashMap::new();
-        config_suppliers.insert(self.supplier_id.to_string(), config_supplier);
-
-        let config = udi_pgp::config::UdiPgpConfig::new(self.addr, config_suppliers)?;
-        let mut suppliers = HashMap::new();
-        suppliers.insert(self.supplier_id.to_string(), Arc::new(Mutex::new(supplier)));
+        let (config, suppliers) = if let Some(config_file) = &self.config {
+            let config = UdiPgpConfig::try_from_file(config_file)?;
+            let suppliers = self.suppliers_from_config(&config);
+            (config, suppliers)
+        } else if let Some(pgp_command) = &self.command {
+            self.try_config_from_args(pgp_command)?
+        } else {
+            return Err(anyhow!("Either a subcommand or a config file is required"));
+        };
 
         udi_pgp::run(Arc::new(config), suppliers).await
     }
 
-    fn create_supplier(
+    fn suppliers_from_config(&self, config: &UdiPgpConfig) -> SqlSupplierMap {
+        config
+            .suppliers
+            .iter()
+            .map(|(k, v)| (k.to_string(), self.create_supplier_from_config(v)))
+            .collect()
+    }
+
+    fn create_supplier_from_config(
+        &self,
+        config_supplier: &Supplier,
+    ) -> Arc<Mutex<SqlSupplierType>> {
+        match config_supplier.supplier_type {
+            SupplierType::Osquery => Arc::new(Mutex::new(Box::new(OsquerySupplier::from(
+                config_supplier,
+            )) as SqlSupplierType)),
+            SupplierType::Git => unimplemented!(),
+        }
+    }
+
+    fn try_config_from_args(
+        &self,
+        commands: &PgpCommands,
+    ) -> anyhow::Result<(UdiPgpConfig, SqlSupplierMap)> {
+
+        let (username, password) = match (&self.username, &self.password) {
+            (Some(u), Some(p)) => (u, p),
+            _ => return Err(anyhow!("Authentication for supplier incomplete")),
+        };
+        let supplier_id = match &self.supplier_id {
+            None => return Err(anyhow!("Supplier ID must be present")),
+            Some(id) => id,
+        };
+
+        let auth = Auth::new(username, password);
+        let (supplier, config_supplier) = self.create_supplier_from_args(commands, auth)?;
+
+        let mut config_suppliers = HashMap::new();
+        config_suppliers.insert(supplier_id.to_string(), config_supplier);
+
+        let config = UdiPgpConfig::new(self.addr, config_suppliers)?;
+        let mut suppliers = HashMap::new();
+        suppliers.insert(supplier_id.to_string(), Arc::new(Mutex::new(supplier)));
+
+        Ok((config, suppliers))
+    }
+
+    fn create_supplier_from_args(
         &self,
         command: &PgpCommands,
         auth: Auth,
@@ -92,7 +145,7 @@ impl PgpArgs {
                 OsqueryCommands::Local { atc_file_path } => {
                     let mode = UdiPgpModes::Local;
                     let supplier = Supplier::new(
-                        "osquery",
+                        SupplierType::Osquery,
                         mode.clone(),
                         None,
                         atc_file_path.clone(),
@@ -109,8 +162,13 @@ impl PgpArgs {
                         .iter()
                         .map(UdiPgpSshTarget::try_from)
                         .collect::<UdiPgpResult<Vec<_>>>()?;
-                    let supplier =
-                        Supplier::new("osquery", mode.clone(), Some(targets), None, vec![auth]);
+                    let supplier = Supplier::new(
+                        SupplierType::Osquery,
+                        mode.clone(),
+                        Some(targets),
+                        None,
+                        vec![auth],
+                    );
                     Ok((
                         Box::new(OsquerySupplier::new(mode).with_ssh_targets(ssh_targets.to_vec())),
                         supplier,

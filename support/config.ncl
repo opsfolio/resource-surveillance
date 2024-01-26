@@ -67,7 +67,7 @@ let ConfigSchema =
 
 {
   config = {
-    port = 5556,
+    addr = "127.0.0.1:7777",
     metrics = 3144,
     health = 3155,
     suppliers = {

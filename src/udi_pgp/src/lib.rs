@@ -29,6 +29,7 @@ pub use pgwire::api::results::FieldInfo;
 pub use pgwire::api::Type;
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum UdiPgpModes {
     Local,
     Remote,
@@ -90,6 +91,7 @@ pub async fn run(config: Arc<UdiPgpConfig>, suppliers: SqlSupplierMap) -> anyhow
     ));
     let processor = UdiPgpProcessor::new(config.clone(), suppliers);
     let mut rx = spawn_shutdown_handler();
+    println!("{}", config.addr());
     let listener = TcpListener::bind(config.addr()).await?;
 
     info!("UDI PGP SQLD listening on {}", config.addr());

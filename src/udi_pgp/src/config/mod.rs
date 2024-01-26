@@ -3,70 +3,42 @@ use pgwire::error::{ErrorInfo, PgWireError, PgWireResult};
 use serde::de::Error;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::net::{SocketAddr, ToSocketAddrs};
-use std::str::FromStr;
+use std::path::Path;
 use tracing::error;
 
+use crate::ssh::UdiPgpSshTarget;
 use crate::{auth::Auth, error::UdiPgpResult, UdiPgpError, UdiPgpModes};
 
+mod nickel;
+
 #[derive(Debug, Clone, Deserialize)]
-pub struct UdiPgpSshTarget {
-    pub target: String,
-    pub id: String,
-    #[serde(rename = "  atc-file-path")]
-    pub atc_file_path: Option<String>,
+#[serde(rename_all = "lowercase")]
+pub enum SupplierType {
+    Osquery,
+    Git
 }
 
-impl FromStr for UdiPgpSshTarget {
-    type Err = UdiPgpError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Vec<&str> = s.split(',').collect();
-        if parts.len() != 2 {
-            println!();
-            return Err(UdiPgpError::ConfigError(format!(
-                "Target: {s} does not have exactly two parts. It has {} parts.",
-                parts.len()
-            )));
+impl Display for SupplierType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SupplierType::Git => f.write_str("git supplier"),
+            SupplierType::Osquery => f.write_str("osquery supplier")
         }
-
-        let target = parts[0];
-        let id = parts[1];
-        Ok(UdiPgpSshTarget {
-            target: target.to_string(),
-            id: id.to_string(),
-            atc_file_path: None,
-        })
     }
 }
 
-impl TryFrom<&String> for UdiPgpSshTarget {
-    type Error = UdiPgpError;
-
-    fn try_from(s: &std::string::String) -> Result<Self, Self::Error> {
-        let parts: Vec<&str> = s.split(',').collect();
-        if parts.len() != 2 {
-            println!();
-            return Err(UdiPgpError::ConfigError(format!(
-                "Target: {s} does not have exactly two parts. It has {} parts.",
-                parts.len()
-            )));
-        }
-
-        let target = parts[0];
-        let id = parts[1];
-        Ok(UdiPgpSshTarget {
-            target: target.to_string(),
-            id: id.to_string(),
-            atc_file_path: None,
-        })
+impl Default for SupplierType {
+    fn default() -> Self {
+        Self::Osquery
     }
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Supplier {
-    #[serde(default = "default_supplier_type", rename = "type")]
-    pub supplier_type: String,
+    #[serde(default, rename = "type")]
+    pub supplier_type: SupplierType,
     #[serde(default = "default_mode")]
     pub mode: UdiPgpModes,
     pub ssh_targets: Option<Vec<UdiPgpSshTarget>>,
@@ -78,14 +50,14 @@ pub struct Supplier {
 
 impl Supplier {
     pub fn new(
-        supplier_type: &str,
+        supplier_type: SupplierType,
         mode: UdiPgpModes,
         ssh_targets: Option<Vec<UdiPgpSshTarget>>,
         atc_file_path: Option<String>,
         auth: Vec<Auth>,
     ) -> Self {
         Supplier {
-            supplier_type: supplier_type.to_string(),
+            supplier_type,
             mode,
             ssh_targets,
             atc_file_path,
@@ -118,14 +90,31 @@ impl UdiPgpConfig {
             .with_suppliers(suppliers))
     }
 
-    //TODO use this for the ncl file straight up
-    // pub fn load_from_json(json: &str) -> UdiPgpResult<UdiPgpConfig> {
-    //     Ok(Config::builder()
-    //         .add_source(FileSourceString::from(json))
-    //         .build()?
-    //         .try_deserialize::<UdiPgpConfig>()
-    //         .map_err(UdiPgpError::ConfigBuilderError)?)
-    // }
+    // TODO implement file watching with config crate
+    // For ncl, write the config to a JSON file everytime it changes which will automatically trigger the watch
+    pub fn try_from_file<P: AsRef<Path>>(path: P) -> UdiPgpResult<UdiPgpConfig> {
+        let path = path.as_ref();
+        let extension = path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .ok_or_else(|| UdiPgpError::ConfigError("File has no extension".to_string()))?;
+
+        match extension {
+            "json" => Self::try_config_from_json(path.to_str().unwrap()),
+            "ncl" => nickel::try_config_from_ncl(path.as_os_str()),
+            other => Err(UdiPgpError::ConfigError(format!(
+                "File extension not supported. Got {other:?}. Expected json or ncl"
+            ))),
+        }
+    }
+
+    fn try_config_from_json(path: &str) -> UdiPgpResult<UdiPgpConfig> {
+        Config::builder()
+            .add_source(config::File::with_name(path))
+            .build()?
+            .try_deserialize::<UdiPgpConfig>()
+            .map_err(UdiPgpError::ConfigBuilderError)
+    }
 
     pub fn with_addr(&mut self, addr: SocketAddr) -> Self {
         self.addr = addr;
@@ -187,10 +176,6 @@ fn parse_socket_addr(host_str: &str) -> UdiPgpResult<SocketAddr> {
     host_str.to_socket_addrs()?.next().ok_or_else(|| {
         UdiPgpError::ConfigError(format!("host '{host_str}' does not resolve to an IP"))
     })
-}
-
-fn default_supplier_type() -> String {
-    "osquery".to_string()
 }
 
 fn default_mode() -> UdiPgpModes {
