@@ -6,7 +6,7 @@ use nickel_lang_core::{
     term::RichTerm,
 };
 use serde_json::Value;
-use std::ffi::OsString;
+use std::{ffi::OsString, io::Cursor};
 use tracing::error;
 
 use crate::error::{UdiPgpError, UdiPgpResult};
@@ -18,6 +18,22 @@ pub fn try_config_from_ncl(path: impl Into<OsString>) -> UdiPgpResult<UdiPgpConf
         error!("{}", err);
         UdiPgpError::ConfigError(err.to_string())
     })?;
+
+    let config = export(&mut program, ExportFormat::Json).map_err(|err| {
+        program.report(err, ErrorFormat::Text);
+        UdiPgpError::ConfigError("Failed to export configuration".to_string())
+    })?;
+
+    config_from_json(&config)
+}
+
+pub fn try_config_from_ncl_string(s: &str) -> UdiPgpResult<UdiPgpConfig> {
+    let src = Cursor::new(s);
+    let mut program =
+        Program::new_from_source(src, "<config>", std::io::sink()).map_err(|err| {
+            error!("{}", err);
+            UdiPgpError::ConfigError(err.to_string())
+        })?;
 
     let config = export(&mut program, ExportFormat::Json).map_err(|err| {
         program.report(err, ErrorFormat::Text);
@@ -41,7 +57,7 @@ fn config_from_json(json: &str) -> UdiPgpResult<UdiPgpConfig> {
         .get("config")
         .ok_or_else(|| UdiPgpError::ConfigError("Missing 'config' key in JSON".to_string()))?
         .clone();
-    
+
     serde_json::from_value(config).map_err(|err| {
         error!("{}", err);
         UdiPgpError::ConfigError("Failed to deserialize 'config'".to_string())

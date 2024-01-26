@@ -13,7 +13,7 @@ use crate::{auth::Auth, error::UdiPgpResult, UdiPgpError, UdiPgpModes};
 
 mod nickel;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum SupplierType {
     Osquery,
@@ -115,6 +115,10 @@ impl UdiPgpConfig {
             .build()?
             .try_deserialize::<UdiPgpConfig>()
             .map_err(UdiPgpError::ConfigBuilderError)
+    }
+
+    pub fn try_from_ncl_string(s: &str) -> UdiPgpResult<UdiPgpConfig> {
+        nickel::try_config_from_ncl_string(s)
     }
 
     pub fn with_addr(&mut self, addr: SocketAddr) -> Self {

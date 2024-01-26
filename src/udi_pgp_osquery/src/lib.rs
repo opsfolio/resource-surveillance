@@ -6,10 +6,10 @@ use schema::OsquerySchema;
 use serde_json::Value;
 use tracing::{debug, error, info};
 use udi_pgp::{
-    config::Supplier,
+    config::{Supplier, SupplierType},
     error::{UdiPgpError, UdiPgpResult},
     parser::stmt::{ColumnMetadata, ExpressionType, UdiPgpStatment},
-    sql_supplier::SqlSupplier,
+    sql_supplier::{SqlSupplier, SqlSupplierType},
     ssh::{key::SshKey, session::SshTunnelAccess, SshConnection, UdiPgpSshTarget},
     FieldFormat, FieldInfo, Row, Type, UdiPgpModes,
 };
@@ -261,6 +261,26 @@ impl OsquerySupplier {
 impl SqlSupplier for OsquerySupplier {
     fn name(&self) -> &str {
         "osquery"
+    }
+
+    fn supplier_type(&self) -> SupplierType {
+        SupplierType::Osquery
+    }
+
+    fn update(&mut self, supplier: Supplier) -> UdiPgpResult<()> {
+        self.mode = supplier.mode;
+        self.atc_file_path = supplier.atc_file_path;
+        self.ssh_targets = supplier.ssh_targets;
+        Ok(())
+    }
+
+    fn generate_new(&self, supplier: Supplier) -> UdiPgpResult<SqlSupplierType> {
+        let sql_suppler = OsquerySupplier {
+            mode: supplier.mode,
+            atc_file_path: supplier.atc_file_path,
+            ssh_targets: supplier.ssh_targets,
+        };
+        Ok(Box::new(sql_suppler) as SqlSupplierType)
     }
 
     async fn schema(&mut self, stmt: &mut UdiPgpStatment) -> UdiPgpResult<Vec<FieldInfo>> {

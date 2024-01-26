@@ -1,4 +1,4 @@
-use std::{pin::Pin, str::FromStr, sync::Arc};
+use std::{collections::HashMap, pin::Pin, str::FromStr, sync::Arc};
 
 use futures::{stream, Stream};
 use pgwire::{
@@ -9,13 +9,14 @@ use pgwire::{
     error::{ErrorInfo, PgWireError, PgWireResult},
     messages::data::DataRow,
 };
+use sqlparser::ast::{self, Expr, Statement};
 use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, error};
 
 use crate::{
     config::UdiPgpConfig,
     error::UdiPgpResult,
-    parser::UdiPgpQueryParser,
+    parser::{stmt::UdiPgpStatment, UdiPgpQueryParser},
     simulations::response,
     sql_supplier::{SqlSupplierMap, SqlSupplierType},
     Row,
@@ -26,12 +27,12 @@ pub mod query_handler;
 #[derive(Debug, Clone)]
 pub struct UdiPgpProcessor {
     query_parser: UdiPgpQueryParser,
-    config: Arc<UdiPgpConfig>,
+    config: Arc<RwLock<UdiPgpConfig>>,
     suppliers: Arc<RwLock<SqlSupplierMap>>,
 }
 
 impl UdiPgpProcessor {
-    pub fn new(config: Arc<UdiPgpConfig>, suppliers: SqlSupplierMap) -> Self {
+    pub fn new(config: Arc<RwLock<UdiPgpConfig>>, suppliers: SqlSupplierMap) -> Self {
         UdiPgpProcessor {
             query_parser: UdiPgpQueryParser::new(),
             config,
@@ -114,6 +115,138 @@ impl UdiPgpProcessor {
             .map(|r| Row::from_str(r).unwrap())
             .collect::<Vec<_>>()];
         Ok((schema, rows))
+    }
+
+    async fn update(
+        &self,
+        config: &mut UdiPgpConfig,
+        suppliers: &mut SqlSupplierMap,
+        stmt: &UdiPgpStatment,
+    ) -> PgWireResult<()> {
+        let ast = &stmt.stmt;
+
+        match ast {
+            Statement::SetVariable {
+                variable, value, ..
+            } => {
+                let name = variable
+                    .0
+                    .first()
+                    .ok_or_else(|| {
+                        PgWireError::UserError(Box::new(ErrorInfo::new(
+                            "WARNING".to_string(),
+                            "PARSER".to_string(),
+                            "Variable name is missing".to_string(),
+                        )))
+                    })?
+                    .value
+                    .as_str();
+
+                if !name.starts_with("udi_pgp_serve_") {
+                    return Err(PgWireError::UserError(Box::new(ErrorInfo::new(
+                        "WARNING".to_string(),
+                        "PARSER".to_string(),
+                        format!(
+                            "Expected variable to start with 'udi_pgp_serve_', got: {}",
+                            name
+                        ),
+                    ))));
+                }
+
+                let config_str =
+                    self.extract_single_quoted_string(value.first().ok_or_else(|| {
+                        PgWireError::UserError(Box::new(ErrorInfo::new(
+                            "WARNING".to_string(),
+                            "PARSER".to_string(),
+                            "Value is missing".to_string(),
+                        )))
+                    })?)?;
+
+                let new_config = UdiPgpConfig::try_from_ncl_string(&config_str)?;
+
+                self.refresh(config, suppliers, &new_config).await
+            }
+            _ => Err(PgWireError::UserError(Box::new(ErrorInfo::new(
+                "WARNING".to_string(),
+                "PARSER".to_string(),
+                format!("Expected SET statement, got: {:?}", ast),
+            )))),
+        }
+    }
+
+    fn extract_single_quoted_string(&self, expr: &Expr) -> Result<String, PgWireError> {
+        if let Expr::Value(ast::Value::SingleQuotedString(s)) = expr {
+            Ok(s.to_string())
+        } else {
+            Err(PgWireError::UserError(Box::new(ErrorInfo::new(
+                "WARNING".to_string(),
+                "PARSER".to_string(),
+                format!("Expected a single quoted string, got: {:?}", expr),
+            ))))
+        }
+    }
+
+    // loop over the current suppliers. check the correspondings in config and then update them
+    // for new suppliers:
+    // - check the processor suppliers to get a template for that supplier type and create from that
+    // - if no suppier type of that is present in the processor's suppliers list, throw an error
+    // - the reeason for the error is that udi_pgp core knows nothing of how suppliers are created or what it needs, so, we can only
+    //    infer new suppliers from templates(suppliers) that are already present, because those suppliers implement the SqlSupplier trait
+    //     which provides a way to create a new one from itself.
+    async fn refresh(
+        &self,
+        config: &mut UdiPgpConfig,
+        current_suppliers: &mut SqlSupplierMap,
+        new_config: &UdiPgpConfig,
+    ) -> PgWireResult<()> {
+        //TODO: updating and removing suppliers as per the new config could have been accomplished using
+        // the retain method on current_suplliers hashmap, but since each supplier is in an async Mutex
+        // acquiring the lock requires ".await" which needs to be in the cintext of an async function
+        // but the retain closure can't be asynchronous. Try this again in future Rust releases.
+
+        // get suppliers to remove
+        let suppliers_to_remove: Vec<String> = current_suppliers
+            .keys()
+            .filter(|id| !new_config.suppliers.contains_key(*id))
+            .cloned()
+            .collect();
+
+        // Remove the suppliers not present in new config
+        for id in suppliers_to_remove {
+            current_suppliers.remove(&id);
+        }
+
+        //get templates for new supplier types beforehand
+        let mut templates = HashMap::new();
+        for supplier in current_suppliers.values() {
+            let supplier_lock = supplier.lock().await;
+            templates.insert(supplier_lock.supplier_type(), supplier.clone());
+        }
+
+        // Add new suppliers
+        for (id, new_supplier_config) in &new_config.suppliers {
+            if !current_suppliers.contains_key(id) {
+                if let Some(template_supplier) = templates.get(&new_supplier_config.supplier_type) {
+                    let new_supplier = template_supplier
+                        .lock()
+                        .await
+                        .generate_new(new_supplier_config.clone())?;
+                    current_suppliers.insert(id.clone(), Arc::new(Mutex::new(new_supplier)));
+                } else {
+                    return Err(PgWireError::UserError(Box::new(ErrorInfo::new(
+                        "FATAL".to_string(),
+                        "PROCESSOR".to_string(),
+                        format!(
+                            "No template supplier found for supplier: {id} of type: {}",
+                            new_supplier_config.supplier_type
+                        ),
+                    ))));
+                }
+            }
+        }
+
+        *config = new_config.clone();
+        Ok(())
     }
 }
 

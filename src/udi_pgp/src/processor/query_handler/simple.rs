@@ -29,10 +29,18 @@ impl SimpleQueryHandler for UdiPgpProcessor {
         C: ClientInfo + Unpin + Send + Sync,
     {
         let mut statement = UdiPgpQueryParser::parse(query, false)?;
+
         debug!("{query}");
         debug!("{:#?}", statement);
-        
-        let metadata = client.metadata();
+        // println!("{:#?}", self.config);
+
+        if statement.config_query {
+            // All these are done because we can't get a mutable reference to "self" due to the trait implementation
+            let mut config = self.config.write().await;
+            let mut current_suppliers = self.suppliers.write().await;
+            self.update(&mut config, &mut current_suppliers, &statement).await?;
+            return Ok(vec![Response::Execution(Tag::new("UDI-PGP CONFIG SET"))]);
+        };
 
         let (schema, rows) = if statement.from_driver {
             match query {
@@ -45,6 +53,7 @@ impl SimpleQueryHandler for UdiPgpProcessor {
                 _ => self.simulate_driver_responses(query)?,
             }
         } else {
+            let metadata = client.metadata();
             let (supplier_id, _) =
                 Self::extract_supplier_and_database(metadata.get("database").map(|x| x.as_str()))?;
             let supplier = self.supplier(&supplier_id).await?;

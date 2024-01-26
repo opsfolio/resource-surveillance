@@ -77,6 +77,8 @@ pub struct UdiPgpStatment {
     pub query: String,
     pub stmt: Statement,
     pub from_driver: bool,
+    /// A udi set configuration query
+    pub config_query: bool,
 }
 
 impl TryFrom<ColumnDef> for ColumnMetadata {

@@ -7,6 +7,7 @@ use pgwire::{api::MakeHandler, tokio::process_socket};
 use serde::Deserialize;
 use sql_supplier::SqlSupplierMap;
 use startup::{UdiPgpParameters, UdiPgpStartupHandler};
+use tokio::sync::RwLock;
 use tokio::{net::TcpListener, signal, sync::oneshot};
 use tracing::debug;
 use tracing::{error, info};
@@ -90,9 +91,9 @@ pub async fn run(config: Arc<UdiPgpConfig>, suppliers: SqlSupplierMap) -> anyhow
         UdiPgpAuthSource::new(config.clone()),
         UdiPgpParameters::new(),
     ));
-    let processor = UdiPgpProcessor::new(config.clone(), suppliers);
+    let processor = UdiPgpProcessor::new(Arc::new(RwLock::new(config.as_ref().clone())), suppliers);
     let mut rx = spawn_shutdown_handler();
-    
+
     let listener = TcpListener::bind(config.addr()).await?;
 
     info!("UDI PGP SQLD listening on {}", config.addr());

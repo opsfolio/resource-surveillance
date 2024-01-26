@@ -81,8 +81,12 @@ impl UdiPgpQueryParser {
             )))
         })?;
 
+        let config_query = Self::query_is_udi_configuration(&ast);
+
         let (tables, columns) = if schema {
             Self::parse_create_table(&ast)?
+        } else if config_query {
+            (vec![], vec![])
         } else {
             Self::parse_query_statement(&ast)?
         };
@@ -93,6 +97,7 @@ impl UdiPgpQueryParser {
             query: query.to_string(),
             stmt: ast,
             from_driver: Self::check_if_query_is_from_driver(query),
+            config_query,
         })
     }
 
@@ -150,6 +155,28 @@ impl UdiPgpQueryParser {
                 1 => Ok(ast.remove(0)),
                 _ => Err(anyhow!("Expected only a single statement.")),
             })
+    }
+
+    /// This checks for configuration queries. e.e
+    /// SET udi_pgp_serve_ncl = '' or
+    /// SET udi_pgp_serve_json = '' or
+    /// STE udi_pgp_serve_ncl_uri or
+    /// STE udi_pgp_serve_json_uri
+    fn query_is_udi_configuration(ast: &Statement) -> bool {
+        match ast {
+            Statement::SetVariable { variable, .. } => {
+                let name = &variable.0.first().unwrap().value;
+                let targets = [
+                    "udi_pgp_serve_ncl",
+                    "udi_pgp_serve_json",
+                    "udi_pgp_serve_ncl_uri",
+                    "udi_pgp_serve_uri",
+                ];
+
+                targets.iter().any(|&target| name.contains(target))
+            }
+            _ => false,
+        }
     }
 
     // TODO: this is highly unoptimized. Consider cmparing Tokens from the AST or just traversing the AST and then compare
