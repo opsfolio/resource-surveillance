@@ -85,13 +85,14 @@ fn spawn_shutdown_handler() -> oneshot::Receiver<()> {
 
 pub async fn run(config: Arc<UdiPgpConfig>, suppliers: SqlSupplierMap) -> anyhow::Result<()> {
     debug!("Starting the pgp server with: {:#?}", config);
+
     let authenticator = Arc::new(UdiPgpStartupHandler::new(
         UdiPgpAuthSource::new(config.clone()),
         UdiPgpParameters::new(),
     ));
     let processor = UdiPgpProcessor::new(config.clone(), suppliers);
     let mut rx = spawn_shutdown_handler();
-    println!("{}", config.addr());
+    
     let listener = TcpListener::bind(config.addr()).await?;
 
     info!("UDI PGP SQLD listening on {}", config.addr());

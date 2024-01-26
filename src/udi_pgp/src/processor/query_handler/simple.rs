@@ -7,7 +7,7 @@ use pgwire::{
     },
     error::PgWireResult,
 };
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::{
     parser::UdiPgpQueryParser,
@@ -29,6 +29,9 @@ impl SimpleQueryHandler for UdiPgpProcessor {
         C: ClientInfo + Unpin + Send + Sync,
     {
         let mut statement = UdiPgpQueryParser::parse(query, false)?;
+        debug!("{query}");
+        debug!("{:#?}", statement);
+        
         let metadata = client.metadata();
 
         let (schema, rows) = if statement.from_driver {

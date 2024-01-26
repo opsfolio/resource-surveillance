@@ -41,7 +41,7 @@ fn config_from_json(json: &str) -> UdiPgpResult<UdiPgpConfig> {
         .get("config")
         .ok_or_else(|| UdiPgpError::ConfigError("Missing 'config' key in JSON".to_string()))?
         .clone();
-
+    
     serde_json::from_value(config).map_err(|err| {
         error!("{}", err);
         UdiPgpError::ConfigError("Failed to deserialize 'config'".to_string())

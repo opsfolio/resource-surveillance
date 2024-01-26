@@ -265,7 +265,6 @@ impl SqlSupplier for OsquerySupplier {
 
     async fn schema(&mut self, stmt: &mut UdiPgpStatment) -> UdiPgpResult<Vec<FieldInfo>> {
         let mut schema = schema::get_schema(&stmt.tables, &self.atc_file_path)?;
-
         debug!("{:#?}", stmt.columns);
 
         stmt.columns = if stmt.columns.len() == 1 && stmt.columns.first().unwrap().name == "*" {

@@ -9,9 +9,18 @@ let ConfigString = fun label value =>
 in
 
 let SSHTarget = {
-    target
+    host
       | ConfigString
-      | doc "IP Address and host of the host. e.g root@localhost:22",
+      | doc "e.g. localhost",
+    port
+      | Number
+      | doc "Port to bind SSH connection to"
+      | optional
+      | default
+      = 22,
+    user
+      | String
+      | doc "Username for the ssh connection",
     id
       | ConfigString
       | doc "Identifier for the remote connection. e.g lilit",
@@ -98,16 +107,22 @@ let ConfigSchema =
         ssh-targets = [
           {
             id = "one",
-            target = "oshuporu@157.245.40.97:22"
+            host = "157.245.40.97",
+            port = 22,
+            user = "oshuporu"
           },
           {
             id = "me",
-            target = "lilit@localhost:22"
+            host = "localhost",
+            port = 222,
+            user = "lilit"
           },
           {
             id = "do_test",
-            target = "root@128.199.1.17:22"
-          }
+            host = "128.199.1.17",
+            port = 22,
+            user = "root"
+          },
         ],
         auth = [
           {

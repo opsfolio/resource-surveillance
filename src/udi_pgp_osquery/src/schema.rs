@@ -96,8 +96,10 @@ pub fn get_schema(
         let output_str = String::from_utf8(output.stdout)
             .map_err(|err| UdiPgpError::SchemaError(table.to_string(), err.to_string()))?;
         let query = format_schema_query(&output_str);
+        if query.is_empty() {
+            return Err(UdiPgpError::QueryExecutionError("Schema query definition failed. Please check your query. Expected `CREATE ...`, got empty string".to_string()));
+        }
         let stmt = UdiPgpQueryParser::parse(&query, true)?;
-
         schema_data.push((table.clone(), stmt.columns));
     }
 

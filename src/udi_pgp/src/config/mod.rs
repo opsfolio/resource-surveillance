@@ -17,14 +17,14 @@ mod nickel;
 #[serde(rename_all = "lowercase")]
 pub enum SupplierType {
     Osquery,
-    Git
+    Git,
 }
 
 impl Display for SupplierType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SupplierType::Git => f.write_str("git supplier"),
-            SupplierType::Osquery => f.write_str("osquery supplier")
+            SupplierType::Osquery => f.write_str("osquery supplier"),
         }
     }
 }
@@ -41,8 +41,9 @@ pub struct Supplier {
     pub supplier_type: SupplierType,
     #[serde(default = "default_mode")]
     pub mode: UdiPgpModes,
+    #[serde(rename = "ssh-targets")]
     pub ssh_targets: Option<Vec<UdiPgpSshTarget>>,
-    #[serde(rename = "  atc-file-path")]
+    #[serde(rename = "atc-file-path")]
     pub atc_file_path: Option<String>,
     #[serde(default)]
     pub auth: Vec<Auth>,
