@@ -19,6 +19,7 @@ mod schema;
 pub struct OsquerySupplier {
     pub mode: UdiPgpModes,
     atc_file_path: Option<String>,
+    // TODO change this to UdiPgpSshTargets and implement the SshConnectionParams for it.
     ssh_targets: Option<Vec<String>>,
 }
 

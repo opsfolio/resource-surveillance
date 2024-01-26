@@ -20,7 +20,6 @@ impl FromStr for SshConnectionParameters {
 
         let parts: Vec<&str> = s.split(',').collect();
         if parts.len() != 2 {
-            println!();
             return Err(SshConnectionParseError(format!(
                 "Target: {s} does not have exactly two parts. It has {} parts.",
                 parts.len()

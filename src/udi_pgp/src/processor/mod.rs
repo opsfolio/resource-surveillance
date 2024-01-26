@@ -26,15 +26,15 @@ pub mod query_handler;
 #[derive(Debug, Clone)]
 pub struct UdiPgpProcessor {
     query_parser: UdiPgpQueryParser,
-    config: UdiPgpConfig,
+    config: Arc<UdiPgpConfig>,
     suppliers: Arc<RwLock<SqlSupplierMap>>,
 }
 
 impl UdiPgpProcessor {
-    pub fn new(config: &UdiPgpConfig, suppliers: SqlSupplierMap) -> Self {
+    pub fn new(config: Arc<UdiPgpConfig>, suppliers: SqlSupplierMap) -> Self {
         UdiPgpProcessor {
             query_parser: UdiPgpQueryParser::new(),
-            config: config.clone(),
+            config,
             suppliers: Arc::new(RwLock::new(suppliers)),
         }
     }
@@ -50,9 +50,8 @@ impl UdiPgpProcessor {
         })
     }
 
-    pub fn extract_supplier_and_database(
-        &self,
-        param: Option<&String>,
+    pub(crate) fn extract_supplier_and_database(
+        param: Option<&str>,
     ) -> PgWireResult<(String, Option<String>)> {
         let db = param.ok_or_else(|| {
             error!("Cannot find database parameter");
@@ -65,11 +64,12 @@ impl UdiPgpProcessor {
 
         let parts: Vec<&str> = db.split(':').collect();
 
-        let supplier = parts.first()
+        let supplier = parts
+            .first()
             .ok_or_else(|| {
                 PgWireError::UserError(Box::new(ErrorInfo::new(
                     "FATAL".to_string(),
-                    "01".to_string(),
+                    "PROCESSOR".to_string(),
                     "Supplier is absent".to_string(),
                 )))
             })?

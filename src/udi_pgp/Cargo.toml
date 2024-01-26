@@ -25,3 +25,4 @@ tempfile = "3.9.0"
 # SSH tunnels
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 openssh = "0.10.3"
+config = { version = "0.13.4", features = ["json"] }

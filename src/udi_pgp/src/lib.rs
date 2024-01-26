@@ -4,12 +4,14 @@ use config::UdiPgpConfig;
 use derive_new::new;
 use error::UdiPgpError;
 use pgwire::{api::MakeHandler, tokio::process_socket};
+use serde::Deserialize;
 use sql_supplier::SqlSupplierMap;
 use startup::{UdiPgpParameters, UdiPgpStartupHandler};
 use tokio::{net::TcpListener, signal, sync::oneshot};
 use tracing::{error, info};
 
 use crate::processor::UdiPgpProcessor;
+use crate::startup::UdiPgpAuthSource;
 
 mod processor;
 mod simulations;
@@ -25,7 +27,7 @@ pub use pgwire::api::results::FieldFormat;
 pub use pgwire::api::results::FieldInfo;
 pub use pgwire::api::Type;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub enum UdiPgpModes {
     Local,
     Remote,
@@ -79,12 +81,12 @@ fn spawn_shutdown_handler() -> oneshot::Receiver<()> {
     rx
 }
 
-pub async fn run(config: &UdiPgpConfig, suppliers: SqlSupplierMap) -> anyhow::Result<()> {
+pub async fn run(config: Arc<UdiPgpConfig>, suppliers: SqlSupplierMap) -> anyhow::Result<()> {
     let authenticator = Arc::new(UdiPgpStartupHandler::new(
-        config.auth().clone(),
+        UdiPgpAuthSource::new(config.clone()),
         UdiPgpParameters::new(),
     ));
-    let processor = UdiPgpProcessor::new(config, suppliers);
+    let processor = UdiPgpProcessor::new(config.clone(), suppliers);
     let mut rx = spawn_shutdown_handler();
     let listener = TcpListener::bind(config.addr()).await?;
 

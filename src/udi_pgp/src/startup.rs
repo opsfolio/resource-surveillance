@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Debug};
+use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 use async_trait::async_trait;
 use derive_new::new;
@@ -19,34 +19,45 @@ use pgwire::{
 };
 use tracing::{error, info};
 
-use crate::auth::Auth;
+use crate::{config::UdiPgpConfig, processor::UdiPgpProcessor};
+
+#[derive(new)]
+pub struct UdiPgpAuthSource {
+    config: Arc<UdiPgpConfig>,
+}
 
 #[async_trait]
-impl AuthSource for Auth {
+impl AuthSource for UdiPgpAuthSource {
     async fn get_password(&self, login: &LoginInfo) -> PgWireResult<Password> {
-        match login.user() {
-            Some(user) => {
-                if self.user() != user {
-                    error!("No user matching this username was found. Got: {user}");
-                    return Err(PgWireError::UserError(Box::new(ErrorInfo::new(
-                        "FATAL".to_string(),
-                        "000".to_string(),
-                        format!("No user matching this username was found. Got: {user}"),
-                    ))));
-                }
-            }
+        let (supplier_id, _) = UdiPgpProcessor::extract_supplier_and_database(login.database())?;
+
+        let user = match login.user() {
+            Some(user) => user,
             None => {
-                error!("User not found");
+                let err_msg = "Login information does not include a user.";
+                error!("{}", err_msg);
                 return Err(PgWireError::UserError(Box::new(ErrorInfo::new(
                     "FATAL".to_string(),
-                    "000".to_string(),
-                    "No user found".to_string(),
+                    "AUTH".to_string(),
+                    err_msg.to_string(),
                 ))));
             }
         };
 
-        let pass = self.password();
-        Ok(Password::new(None, pass.as_bytes().to_vec()))
+        let auth = match self.config.supplier_auth(&supplier_id, user)? {
+            Some(auth) => auth,
+            None => {
+                let err_msg = format!("No user matching this username was found. Got: {}", user);
+                error!("{}", err_msg);
+                return Err(PgWireError::UserError(Box::new(ErrorInfo::new(
+                    "FATAL".to_string(),
+                    "003".to_string(),
+                    err_msg,
+                ))));
+            }
+        };
+
+        Ok(Password::new(None, auth.password().as_bytes().to_vec()))
     }
 }
 

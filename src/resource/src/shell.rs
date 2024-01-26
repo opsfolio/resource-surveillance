@@ -255,7 +255,7 @@ impl ShellExecutive for DenoTaskShellExecutive {
         // spawning a thread to handle the async part since making the "ShellExecutive" trait async at this moment faces some drawbacks.
         // 1. ShellResult is not Send and most of this "shell" module are not Send also, so using them in a full async context is not possible
         // until we can implement the Send trait for them all.
-        // 2. One of the structs from the deno_task_shell crate has an Rc(Resource Counter) somewhere and it is by default 
+        // 2. One of the structs from the deno_task_shell crate has an Rc(Resource Counter) somewhere and it is by default
         // not Send which makes it impossible to implement Send
 
         let command = self.command.clone();

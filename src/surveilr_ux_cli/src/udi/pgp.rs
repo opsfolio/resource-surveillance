@@ -3,7 +3,13 @@ use std::{collections::HashMap, sync::Arc};
 use clap::{Args, Subcommand};
 use serde::Serialize;
 use tokio::sync::Mutex;
-use udi_pgp::{auth::Auth, sql_supplier::SqlSupplierType, UdiPgpModes};
+use udi_pgp::{
+    auth::Auth,
+    config::{Supplier, UdiPgpSshTarget},
+    error::UdiPgpResult,
+    sql_supplier::SqlSupplierType,
+    UdiPgpModes,
+};
 use udi_pgp_osquery::OsquerySupplier;
 
 /// UDI PostgreSQL Proxy for remote SQL starts up a server which pretends to be PostgreSQL
@@ -63,34 +69,54 @@ pub enum OsqueryCommands {
 
 impl PgpArgs {
     pub async fn execute(&self) -> anyhow::Result<()> {
-        let PgpArgs {
-            addr,
-            username,
-            password,
-            command,
-            supplier_id
-        } = self;
+        let auth = Auth::new(&self.username, &self.password);
+        let (supplier, config_supplier) = self.create_supplier(&self.command, auth)?;
 
-        let auth = Auth::new(username, password);
-        let config = udi_pgp::config::UdiPgpConfig::new(*addr, auth);
+        let mut config_suppliers = HashMap::new();
+        config_suppliers.insert(self.supplier_id.to_string(), config_supplier);
+
+        let config = udi_pgp::config::UdiPgpConfig::new(self.addr, config_suppliers)?;
         let mut suppliers = HashMap::new();
+        suppliers.insert(self.supplier_id.to_string(), Arc::new(Mutex::new(supplier)));
 
-        let supplier = match command {
-            PgpCommands::Osquery(OsqueryArgs { command }) => self.create_supplier(command),
-        };
-        suppliers.insert(supplier_id.to_string(), Arc::new(Mutex::new(supplier)));
-
-        udi_pgp::run(&config, suppliers).await
+        udi_pgp::run(Arc::new(config), suppliers).await
     }
 
-    fn create_supplier(&self, command: &OsqueryCommands) -> SqlSupplierType {
+    fn create_supplier(
+        &self,
+        command: &PgpCommands,
+        auth: Auth,
+    ) -> anyhow::Result<(SqlSupplierType, Supplier)> {
         match command {
-            OsqueryCommands::Local { atc_file_path } => {
-                Box::new(OsquerySupplier::new(UdiPgpModes::Local).with_atc_file(atc_file_path))
-            }
-            OsqueryCommands::Remote { ssh_targets } => Box::new(
-                OsquerySupplier::new(UdiPgpModes::Remote).with_ssh_targets(ssh_targets.to_vec()),
-            ),
+            PgpCommands::Osquery(OsqueryArgs { command }) => match command {
+                OsqueryCommands::Local { atc_file_path } => {
+                    let mode = UdiPgpModes::Local;
+                    let supplier = Supplier::new(
+                        "osquery",
+                        mode.clone(),
+                        None,
+                        atc_file_path.clone(),
+                        vec![auth],
+                    );
+                    Ok((
+                        Box::new(OsquerySupplier::new(mode).with_atc_file(atc_file_path)),
+                        supplier,
+                    ))
+                }
+                OsqueryCommands::Remote { ssh_targets } => {
+                    let mode = UdiPgpModes::Remote;
+                    let targets = ssh_targets
+                        .iter()
+                        .map(UdiPgpSshTarget::try_from)
+                        .collect::<UdiPgpResult<Vec<_>>>()?;
+                    let supplier =
+                        Supplier::new("osquery", mode.clone(), Some(targets), None, vec![auth]);
+                    Ok((
+                        Box::new(OsquerySupplier::new(mode).with_ssh_targets(ssh_targets.to_vec())),
+                        supplier,
+                    ))
+                }
+            },
         }
     }
 }

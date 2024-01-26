@@ -28,6 +28,10 @@ pub enum UdiPgpError {
     SshTunnelError(#[from] crate::ssh::session::SshTunnelError),
     #[error(transparent)]
     SshKeyError(#[from] crate::ssh::key::SshKeyError),
+    #[error("{0}")]
+    ConfigError(String),
+    #[error(transparent)]
+    ConfigBuilderError(#[from] config::ConfigError),
 }
 
 #[derive(Debug, Clone)]

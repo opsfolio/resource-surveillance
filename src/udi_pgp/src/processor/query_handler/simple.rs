@@ -42,7 +42,8 @@ impl SimpleQueryHandler for UdiPgpProcessor {
                 _ => self.simulate_driver_responses(query)?,
             }
         } else {
-            let (supplier_id, _) = self.extract_supplier_and_database(metadata.get("database"))?;
+            let (supplier_id, _) =
+                Self::extract_supplier_and_database(metadata.get("database").map(|x| x.as_str()))?;
             let supplier = self.supplier(&supplier_id).await?;
             let mut supplier = supplier.lock().await;
             info!("Supplier: {supplier_id} currently in use.");
