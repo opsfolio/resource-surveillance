@@ -1,5 +1,5 @@
 SET udi_pgp_serve_ncl_supplier = '
-  supplier1 = {
+  let new-supplier = { 
     type = "osquery",
     mode = "remote",
     ssh-targets = [
@@ -28,4 +28,4 @@ SET udi_pgp_serve_ncl_supplier = '
         password = "supplier",
       },
     ],
-  }';
+  } in new-supplier';

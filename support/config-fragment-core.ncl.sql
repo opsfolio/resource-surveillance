@@ -1,4 +1,7 @@
 SET udi_pgp_serve_ncl_core = '
-  addr = "127.0.0.1:5555",
-  metrics = 3144,
-  health = 3155';
+  let config = {  
+    addr = "127.0.0.1:5555",
+    metrics = 7777,
+    health = 9999 
+  } in config  
+';

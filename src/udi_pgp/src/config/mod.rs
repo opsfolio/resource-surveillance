@@ -1,5 +1,6 @@
 use config::Config;
 use pgwire::error::{ErrorInfo, PgWireError, PgWireResult};
+use regex::Regex;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
@@ -117,10 +118,6 @@ impl UdiPgpConfig {
             .map_err(UdiPgpError::ConfigBuilderError)
     }
 
-    pub fn try_from_ncl_string(s: &str) -> UdiPgpResult<UdiPgpConfig> {
-        nickel::try_config_from_ncl_string(s)
-    }
-
     pub fn with_addr(&mut self, addr: SocketAddr) -> Self {
         self.addr = addr;
         self.clone()
@@ -161,8 +158,30 @@ impl UdiPgpConfig {
         }
     }
 
-    pub fn execute(&self) -> anyhow::Result<()> {
-        Ok(())
+    // ====== UDI-PGP live config updates
+        pub fn try_from_ncl_string(s: &str) -> UdiPgpResult<UdiPgpConfig> {
+        nickel::try_config_from_ncl_string(s)
+    }
+    
+    pub fn try_config_from_ncl_serve_supplier(s: &str) -> UdiPgpResult<(String, Supplier)> {
+        let supplier_id = Self::get_supplier_id_from_serve_stmt(s)?;
+        Ok((supplier_id, nickel::try_supplier_from_ncl(s)?))
+    }
+
+    fn get_supplier_id_from_serve_stmt(s: &str) -> UdiPgpResult<String> {
+        let re = Regex::new(r"let\s+([\w-]+)\s+=").unwrap();
+        let remediation: &str = r"#`let supplier_name = { ... } in supplier_name`#";
+        let caps = re.captures(s).ok_or(UdiPgpError::ConfigError(format!(
+            "Expected: {remediation} got: {s}"
+        )))?;
+
+        let name = caps
+            .get(1)
+            .ok_or(UdiPgpError::ConfigError(format!(
+                "Could not extract supplier name from config. Expected: {remediation}"
+            )))?
+            .as_str();
+        Ok(name.to_string())
     }
 }
 

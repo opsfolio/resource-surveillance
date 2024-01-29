@@ -5863,6 +5863,7 @@ dependencies = [
  "openssh",
  "pgwire",
  "rand",
+ "regex",
  "resource_serde",
  "serde",
  "serde_json",

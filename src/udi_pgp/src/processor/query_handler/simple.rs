@@ -30,7 +30,7 @@ impl SimpleQueryHandler for UdiPgpProcessor {
     {
         let mut statement = UdiPgpQueryParser::parse(query, false)?;
 
-        println!("======{query}");
+        debug!("======{query}");
         debug!("{:#?}", statement);
 
         if statement.config_query {

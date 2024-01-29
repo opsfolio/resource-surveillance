@@ -51,6 +51,10 @@ impl UdiPgpProcessor {
         })
     }
 
+    // pub async fn start_metrics(&self, port: u16, former_port: Option<u16>) -> UdiPgpResult<()> {
+    //     Ok(())
+    // }
+
     pub(crate) fn extract_supplier_and_database(
         param: Option<&str>,
     ) -> PgWireResult<(String, Option<String>)> {
@@ -162,7 +166,21 @@ impl UdiPgpProcessor {
                         )))
                     })?)?;
 
-                let new_config = UdiPgpConfig::try_from_ncl_string(&config_str)?;
+                let mut new_config = config.clone();
+                match name {
+                    "udi_pgp_serve_ncl_supplier" => {
+                        let (id, new_supplier) =
+                            UdiPgpConfig::try_config_from_ncl_serve_supplier(&config_str)?;
+                        new_config.suppliers.insert(id, new_supplier);
+                    }
+                    "udi_pgp_serve_ncl_core" => {
+                        let core = UdiPgpConfig::try_from_ncl_string(&config_str)?;
+                        // TODO use chamged features to open ports
+                        new_config.health = core.health;
+                        new_config.metrics = core.metrics;
+                    }
+                    _ => {}
+                };
 
                 self.refresh(config, suppliers, &new_config).await
             }

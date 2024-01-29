@@ -11,7 +11,26 @@ use tracing::error;
 
 use crate::error::{UdiPgpError, UdiPgpResult};
 
-use super::UdiPgpConfig;
+use super::{Supplier, UdiPgpConfig};
+
+pub fn try_supplier_from_ncl(s: &str) -> UdiPgpResult<Supplier> {
+    let src = Cursor::new(s);
+    let mut program =
+        Program::new_from_source(src, "<config>", std::io::sink()).map_err(|err| {
+            error!("{}", err);
+            UdiPgpError::ConfigError(err.to_string())
+        })?;
+
+    let json = export(&mut program, ExportFormat::Json).map_err(|err| {
+        program.report(err, ErrorFormat::Text);
+        UdiPgpError::ConfigError("Failed to export configuration".to_string())
+    })?;
+
+    let supplier: Supplier = serde_json::from_str(&json)
+        .map_err(|err| UdiPgpError::ConfigError(format!("Failed to parse supplier: {}", err)))?;
+
+    Ok(supplier)
+}
 
 pub fn try_config_from_ncl(path: impl Into<OsString>) -> UdiPgpResult<UdiPgpConfig> {
     let mut program = Program::new_from_file(path, std::io::stderr()).map_err(|err| {
@@ -24,7 +43,7 @@ pub fn try_config_from_ncl(path: impl Into<OsString>) -> UdiPgpResult<UdiPgpConf
         UdiPgpError::ConfigError("Failed to export configuration".to_string())
     })?;
 
-    config_from_json(&config)
+    config_from_json(&config, true)
 }
 
 pub fn try_config_from_ncl_string(s: &str) -> UdiPgpResult<UdiPgpConfig> {
@@ -40,7 +59,7 @@ pub fn try_config_from_ncl_string(s: &str) -> UdiPgpResult<UdiPgpConfig> {
         UdiPgpError::ConfigError("Failed to export configuration".to_string())
     })?;
 
-    config_from_json(&config)
+    config_from_json(&config, false)
 }
 
 fn export(program: &mut Program<CacheImpl>, format: ExportFormat) -> Result<String, NickelError> {
@@ -49,17 +68,23 @@ fn export(program: &mut Program<CacheImpl>, format: ExportFormat) -> Result<Stri
     Ok(serialize::to_string(format, &rt)?)
 }
 
-fn config_from_json(json: &str) -> UdiPgpResult<UdiPgpConfig> {
+fn config_from_json(json: &str, config_key: bool) -> UdiPgpResult<UdiPgpConfig> {
     let value: Value = serde_json::from_str(json)
         .map_err(|_| UdiPgpError::ConfigError("Failed to parse JSON".to_string()))?;
 
-    let config = value
-        .get("config")
-        .ok_or_else(|| UdiPgpError::ConfigError("Missing 'config' key in JSON".to_string()))?
-        .clone();
+    if config_key {
+        let config = value
+            .get("config")
+            .ok_or_else(|| UdiPgpError::ConfigError("Missing 'config' key in JSON".to_string()))?
+            .clone();
 
-    serde_json::from_value(config).map_err(|err| {
-        error!("{}", err);
-        UdiPgpError::ConfigError("Failed to deserialize 'config'".to_string())
-    })
+        serde_json::from_value(config).map_err(|err| {
+            error!("{}", err);
+            UdiPgpError::ConfigError("Failed to deserialize 'config'".to_string())
+        })
+    } else {
+        let config: UdiPgpConfig = serde_json::from_str(json)
+            .map_err(|_| UdiPgpError::ConfigError("Failed to parse JSON".to_string()))?;
+        Ok(config)
+    }
 }
