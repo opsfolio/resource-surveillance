@@ -73,8 +73,8 @@ impl Supplier {
 pub struct UdiPgpConfig {
     #[serde(default = "default_addr", deserialize_with = "deserialize_socket_addr")]
     addr: SocketAddr,
-    pub metrics: Option<u16>,
-    pub health: Option<u16>,
+    pub metrics: Option<SocketAddr>,
+    pub health: Option<SocketAddr>,
     #[serde(default)]
     pub suppliers: HashMap<String, Supplier>,
 }

@@ -15,6 +15,8 @@ use tracing::{error, info};
 use crate::processor::UdiPgpProcessor;
 use crate::startup::UdiPgpAuthSource;
 
+mod health;
+mod metrics;
 mod processor;
 mod simulations;
 mod startup;
@@ -91,9 +93,11 @@ pub async fn run(config: Arc<UdiPgpConfig>, suppliers: SqlSupplierMap) -> anyhow
         UdiPgpAuthSource::new(config.clone()),
         UdiPgpParameters::new(),
     ));
-    let processor = UdiPgpProcessor::new(Arc::new(RwLock::new(config.as_ref().clone())), suppliers);
-    let mut rx = spawn_shutdown_handler();
 
+    let mut processor = UdiPgpProcessor::new(Arc::new(RwLock::new(config.as_ref().clone())), suppliers);
+    processor.start_core_services().await?;
+
+    let mut rx = spawn_shutdown_handler();
     let listener = TcpListener::bind(config.addr()).await?;
 
     info!("UDI PGP SQLD listening on {}", config.addr());

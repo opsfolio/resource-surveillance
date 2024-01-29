@@ -1,4 +1,4 @@
-use std::{collections::HashMap, pin::Pin, str::FromStr, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, pin::Pin, str::FromStr, sync::Arc};
 
 use futures::{stream, Stream};
 use pgwire::{
@@ -10,12 +10,13 @@ use pgwire::{
     messages::data::DataRow,
 };
 use sqlparser::ast::{self, Expr, Statement};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{oneshot, Mutex, RwLock};
 use tracing::{debug, error};
 
 use crate::{
     config::UdiPgpConfig,
     error::UdiPgpResult,
+    health, metrics,
     parser::{stmt::UdiPgpStatment, UdiPgpQueryParser},
     simulations::response,
     sql_supplier::{SqlSupplierMap, SqlSupplierType},
@@ -24,11 +25,13 @@ use crate::{
 
 pub mod query_handler;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct UdiPgpProcessor {
     query_parser: UdiPgpQueryParser,
     config: Arc<RwLock<UdiPgpConfig>>,
     suppliers: Arc<RwLock<SqlSupplierMap>>,
+    health_shutdown: Arc<Option<oneshot::Sender<()>>>,
+    metrics_shutdown: Arc<Option<oneshot::Sender<()>>>,
 }
 
 impl UdiPgpProcessor {
@@ -37,6 +40,8 @@ impl UdiPgpProcessor {
             query_parser: UdiPgpQueryParser::new(),
             config,
             suppliers: Arc::new(RwLock::new(suppliers)),
+            health_shutdown: Arc::new(None),
+            metrics_shutdown: Arc::new(None),
         }
     }
 
@@ -51,9 +56,50 @@ impl UdiPgpProcessor {
         })
     }
 
-    // pub async fn start_metrics(&self, port: u16, former_port: Option<u16>) -> UdiPgpResult<()> {
-    //     Ok(())
-    // }
+    pub async fn start_core_services(&mut self) -> UdiPgpResult<()> {
+        let (health_tx, health_rx) = oneshot::channel::<()>();
+        let (metrics_tx, metrics_rx) = oneshot::channel::<()>();
+
+        // Store shutdown senders to trigger shutdown later if needed
+        self.health_shutdown = Some(health_tx).into();
+        self.metrics_shutdown = Some(metrics_tx).into();
+
+        let config = self.config.clone();
+
+        let health_config = config.clone();
+        tokio::spawn(async move {
+            let config = health_config.read().await;
+            UdiPgpProcessor::start_health_server(config.health, health_rx).await
+        });
+
+        let metrics_config = config.clone();
+        tokio::spawn(async move {
+            let config = metrics_config.read().await;
+            UdiPgpProcessor::start_metrics_server(config.metrics, metrics_rx).await
+        });
+
+        Ok(())
+    }
+
+    async fn start_health_server(
+        address: Option<SocketAddr>,
+        rx: oneshot::Receiver<()>,
+    ) -> UdiPgpResult<()> {
+        if let Some(addr) = address {
+            let _ = health::start(addr, rx).await;
+        }
+        Ok(())
+    }
+
+    async fn start_metrics_server(
+        address: Option<SocketAddr>,
+        rx: oneshot::Receiver<()>,
+    ) -> UdiPgpResult<()> {
+        if let Some(addr) = address {
+            let _ = metrics::start(addr, rx).await;
+        }
+        Ok(())
+    }
 
     pub(crate) fn extract_supplier_and_database(
         param: Option<&str>,
@@ -291,6 +337,8 @@ impl MakeHandler for UdiPgpProcessor {
             query_parser: self.query_parser.clone(),
             config: self.config.clone(),
             suppliers: self.suppliers.clone(),
+            health_shutdown: self.health_shutdown.clone(),
+            metrics_shutdown: self.metrics_shutdown.clone(),
         })
     }
 }

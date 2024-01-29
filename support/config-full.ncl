@@ -66,19 +66,23 @@ let ConfigSchema =
       | doc "Address to start pgp on"
       = "127.0.0.1:5432",
     metrics
-      | Number
-      | optional,
+      | String
+      | optional
+      | default
+      = "127.0.0.1:3144",
     health
-      | Number
-      | optional,
+      | String
+      | optional
+      | default
+      = "127.0.0.1:3155",
     suppliers | { _: Supplier },
   } in
 
 {
   config = {
     addr = "127.0.0.1:7777",
-    metrics = 3144,
-    health = 3155,
+    metrics = "127.0.0.1:3333",
+    health = "127.0.0.1:2222",
     suppliers = {
       local-supplier = {
         type = "osquery",

@@ -9,6 +9,14 @@ with the database name being the name of the supplier, which in this case is "lo
 Run osquery sample against the active connection
 */
 
+SELECT * FROM udi_pgp_supplier;
+
+/*markdown
+All other 
+*/
+
+SEELCT * FROM udi_pgp_config;
+
 select uuid, hostname from system_info;
 
 /*markdown
