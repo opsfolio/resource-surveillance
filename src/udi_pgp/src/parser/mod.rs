@@ -15,7 +15,7 @@ mod columns;
 pub mod stmt;
 mod tables;
 
-static DRIVER_WORDS: [&str; 47] = [
+static DRIVER_WORDS: [&str; 50] = [
     "show",
     "current_session",
     "session_user",
@@ -64,6 +64,9 @@ static DRIVER_WORDS: [&str; 47] = [
     "pg_catalog.pg_settings",
     "standard_conforming_strings",
     "client_min_messages",
+    "pg_constraint",
+    "r.contype",
+    "pg_get_constraintdef"
 ];
 
 #[derive(new, Debug, Default, Clone)]

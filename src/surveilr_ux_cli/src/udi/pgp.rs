@@ -112,7 +112,6 @@ impl PgpArgs {
         &self,
         commands: &PgpCommands,
     ) -> anyhow::Result<(UdiPgpConfig, SqlSupplierMap)> {
-
         let (username, password) = match (&self.username, &self.password) {
             (Some(u), Some(p)) => (u, p),
             _ => return Err(anyhow!("Authentication for supplier incomplete")),

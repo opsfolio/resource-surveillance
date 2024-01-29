@@ -52,6 +52,201 @@ fn prepare_rows(settings: &mut Vec<String>, pg_settings: Vec<PgSettings>) -> Vec
 pub fn driver_queries_response(query: &str) -> UdiPgpResult<(Vec<FieldInfo>, Vec<&str>)> {
     static RESPONSES_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/simulations/responses");
 
+    // println!("{}", query.trim());
+    if query.trim().starts_with(
+        "SELECT c.oid,
+  n.nspname,
+  c.relname",
+    ) {
+        let field_infos = vec![
+            FieldInfo::new("oid".to_string(), None, None, Type::OID, FieldFormat::Text),
+            FieldInfo::new(
+                "nspname".to_string(),
+                None,
+                None,
+                Type::VARCHAR,
+                FieldFormat::Text,
+            ),
+            FieldInfo::new(
+                "relname".to_string(),
+                None,
+                None,
+                Type::VARCHAR,
+                FieldFormat::Text,
+            ),
+        ];
+        let rows = vec!["78", "public", "remote-supplier"];
+        return Ok((field_infos, rows));
+    }
+
+    // https://www.postgresql.org/docs/current/catalog-pg-class.html
+    if query.trim().starts_with("SELECT c.relchecks, c.relkind, c.relhasindex, c.relhasrules, c.relhastriggers, c.relrowsecurity, c.relforcerowsecurity,") {
+        let field_infos = vec![
+            FieldInfo::new("relchecks".to_string(), None, None, Type::INT2, FieldFormat::Text),
+            FieldInfo::new(
+                "relkind".to_string(),
+                None,
+                None,
+                Type::CHAR,
+                FieldFormat::Text,
+            ),
+            FieldInfo::new(
+                "relhasindex".to_string(),
+                None,
+                None,
+                Type::BOOL,
+                FieldFormat::Text,
+            ),
+                FieldInfo::new(
+                "relhasrules".to_string(),
+                None,
+                None,
+                Type::BOOL,
+                FieldFormat::Text,
+            ),
+                FieldInfo::new(
+                "relhastriggers".to_string(),
+                None,
+                None,
+                Type::BOOL,
+                FieldFormat::Text,
+            ),
+                FieldInfo::new(
+                "relrowsecurity".to_string(),
+                None,
+                None,
+                Type::BOOL,
+                FieldFormat::Text,
+            ),
+                FieldInfo::new(
+                "relforcerowsecurity".to_string(),
+                None,
+                None,
+                Type::BOOL,
+                FieldFormat::Text,
+            ),
+                FieldInfo::new(
+                "relhasoids".to_string(),
+                None,
+                None,
+                Type::BOOL,
+                FieldFormat::Text,
+            ),
+             FieldInfo::new(
+                "relispartition".to_string(),
+                None,
+                None,
+                Type::BOOL,
+                FieldFormat::Text,
+            ),
+             FieldInfo::new(
+                "reltablespace".to_string(),
+                None,
+                None,
+                Type::BOOL,
+                FieldFormat::Text,
+            ),
+               FieldInfo::new(
+                "reloftype".to_string(),
+                None,
+                None,
+                Type::BOOL,
+                FieldFormat::Text,
+            ),
+            FieldInfo::new(
+                "relpersistence".to_string(),
+                None,
+                None,
+                Type::BOOL,
+                FieldFormat::Text,
+            ),
+            FieldInfo::new(
+                "relreplident".to_string(),
+                None,
+                None,
+                Type::BOOL,
+                FieldFormat::Text,
+            ),
+            FieldInfo::new(
+                "amname".to_string(),
+                None,
+                None,
+                Type::BOOL,
+                FieldFormat::Text,
+            ),
+        ];
+        let rows = vec!["1", "r", "false", "false", "false", "false", "false", "false", "false", "0", "0", "p", "n", "meh"];
+        return Ok((field_infos, rows))
+    }
+
+    if query.trim().starts_with("SELECT a.attname,
+  pg_catalog.format_type(a.atttypid, a.atttypmod),") {
+     let field_infos = vec![
+            FieldInfo::new("attname".to_string(), None, None, Type::VARCHAR, FieldFormat::Text),
+            FieldInfo::new(
+                "".to_string(),
+                None,
+                None,
+                Type::VARCHAR,
+                FieldFormat::Text,
+            ),
+                FieldInfo::new(
+                "".to_string(),
+                None,
+                None,
+                Type::BOOL,
+                FieldFormat::Text,
+            ),
+                FieldInfo::new(
+                "attnotnull".to_string(),
+                None,
+                None,
+                Type::BOOL,
+                FieldFormat::Text,
+            ),
+                FieldInfo::new(
+                "attcollation".to_string(),
+                None,
+                None,
+                Type::OID,
+                FieldFormat::Text,
+            ),
+                FieldInfo::new(
+                "attidentity".to_string(),
+                None,
+                None,
+                Type::CHAR,
+                FieldFormat::Text,
+            ),
+                FieldInfo::new(
+                "attgenerated".to_string(),
+                None,
+                None,
+                Type::CHAR,
+                FieldFormat::Text,
+            ),
+        ];
+        let rows = vec!["mehh", "", "", "false", "55", "d", "s"];
+        return Ok((field_infos, rows))
+  }
+
+    if query.trim().starts_with("SELECT r.conname, pg_catalog.pg_get_constraintdef(r.oid, true)
+FROM pg_catalog.pg_constraint r") {
+     let field_infos = vec![
+            FieldInfo::new("conname".to_string(), None, None, Type::VARCHAR, FieldFormat::Text),
+            FieldInfo::new(
+                "".to_string(),
+                None,
+                None,
+                Type::VARCHAR,
+                FieldFormat::Text,
+            ),
+        ];
+        let rows = vec!["mehh", "stub for pg_constraint"];
+        return Ok((field_infos, rows))
+  }
+
+    
     match query {
         SHOW_SEARCH_PATH => Ok((
             vec![FieldInfo::new(

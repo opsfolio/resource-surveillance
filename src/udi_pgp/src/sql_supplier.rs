@@ -4,7 +4,12 @@ use async_trait::async_trait;
 use pgwire::api::results::FieldInfo;
 use tokio::sync::Mutex;
 
-use crate::{config::{Supplier, SupplierType}, error::UdiPgpResult, parser::stmt::UdiPgpStatment, Row};
+use crate::{
+    config::{Supplier, SupplierType},
+    error::UdiPgpResult,
+    parser::stmt::UdiPgpStatment,
+    Row,
+};
 
 #[async_trait]
 pub trait SqlSupplier: ClonableSqlSupplier {

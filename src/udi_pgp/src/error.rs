@@ -31,7 +31,7 @@ pub enum UdiPgpError {
     #[error("{0}")]
     ConfigError(String),
     #[error(transparent)]
-    ConfigBuilderError(#[from] config::ConfigError)
+    ConfigBuilderError(#[from] config::ConfigError),
 }
 
 #[derive(Debug, Clone)]

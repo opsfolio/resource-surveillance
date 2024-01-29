@@ -30,14 +30,15 @@ impl SimpleQueryHandler for UdiPgpProcessor {
     {
         let mut statement = UdiPgpQueryParser::parse(query, false)?;
 
-        debug!("{query}");
+        println!("======{query}");
         debug!("{:#?}", statement);
 
         if statement.config_query {
             // All these are done because we can't get a mutable reference to "self" due to the trait implementation
             let mut config = self.config.write().await;
             let mut current_suppliers = self.suppliers.write().await;
-            self.update(&mut config, &mut current_suppliers, &statement).await?;
+            self.update(&mut config, &mut current_suppliers, &statement)
+                .await?;
             return Ok(vec![Response::Execution(Tag::new("UDI-PGP CONFIG SET"))]);
         };
 
