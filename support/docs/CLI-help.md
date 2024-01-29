@@ -399,7 +399,7 @@ Universal Data Infrastructure
 
 UDI PostgreSQL Proxy for remote SQL starts up a server which pretends to be PostgreSQL but proxies its SQL to other CLI services with SQL-like interface (called SQL Suppliers)
 
-**Usage:** `surveilr udi pgp [OPTIONS] --username <USERNAME> --password <PASSWORD> <COMMAND>`
+**Usage:** `surveilr udi pgp [OPTIONS] [COMMAND]`
 
 ###### **Subcommands:**
 
@@ -412,6 +412,8 @@ UDI PostgreSQL Proxy for remote SQL starts up a server which pretends to be Post
   Default value: `127.0.0.1:5432`
 * `-u`, `--username <USERNAME>` — Username for authentication
 * `-p`, `--password <PASSWORD>` — Password for authentication
+* `-i`, `--supplier-id <SUPPLIER_ID>` — Identification for the supplier which will be passed to the client. e.g surveilr udi pgp -u john -p doe -i test-supplier osquery local The psql comand will be: psql -h 127.0.0.1 -p 5432 -d "test-supplier" -c "select * from system_info"
+* `-c`, `--config <CONFIG>` — Config file for UDI-PGP. Either a .ncl file or JSON file
 
 
 

@@ -68,3 +68,20 @@ To run a query using ATC:
 ```bash
 psql -h 127.0.0.1 -p 5432 -U john -c "SELECT * FROM person"
 ```
+
+## Configuration File Usage
+UDI-PGP has been enhanced to support the use of configuration files, offering an alternative to passing arguments and parameters directly. This feature is particularly beneficial when working with multiple suppliers. When a configuration file is provided as an optional parameter, UDI-PGP prioritizes the settings within this file, disregarding any other command-line arguments. The configuration files can be in either Nickel or JSON format. This approach includes automatic schema checking, along with error detection and remediation processes.
+
+For an illustrative example of a Nickel configuration file, please refer to the following [link](https://nickel-lang.org/getting-started/).
+
+**Example Configuration File Command:**
+```bash
+surveilr udi pgp -c ./support/config-full.ncl
+```
+
+### Updating Configuration
+
+UDI-PGP allows for dynamic configuration updates even while the proxy server is operational. This is achieved through the use of SET statements targeting specific keys, and is currently supported in NCL format. For instance, the command SET udi_pgp_serve_ncl_supplier = {...} can be used to introduce a new supplier. If a supplier configuration is updated, UDI-PGP automatically recognizes these changes, adjusting the parameters for that specific supplier and acknowledging the addition of new suppliers.
+To modify operational aspects such as health and port addresses, the udi_pgp_serve_ncl_core key is utilized.
+
+For comprehensive examples demonstrating these update processes, please refer to the following [resource](../../support/test-e2e.sql). 
