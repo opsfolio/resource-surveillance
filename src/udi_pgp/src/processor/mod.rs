@@ -49,7 +49,7 @@ impl UdiPgpProcessor {
         let (health_tx, health_rx) = oneshot::channel::<()>();
         let (metrics_tx, metrics_rx) = oneshot::channel::<()>();
 
-        // Store shutdown senders to trigger shutdown later if needed
+        // Store shutdown senders to trigger shutdown later when I need them
         self.health_shutdown = Some(health_tx).into();
         self.metrics_shutdown = Some(metrics_tx).into();
 

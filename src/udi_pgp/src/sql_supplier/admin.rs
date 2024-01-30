@@ -48,6 +48,10 @@ impl AdminSupplier {
         }
     }
 
+    pub async fn current_suppliers(&self) -> usize {
+        self.suppliers.read().await.len()
+    }
+
     pub async fn supplier(&self, identifier: &str) -> UdiPgpResult<Arc<Mutex<SqlSupplierType>>> {
         let suppliers = self.suppliers.read().await;
         Ok(suppliers.get(identifier).cloned().ok_or_else(|| {

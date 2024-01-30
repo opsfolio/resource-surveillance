@@ -27,7 +27,9 @@ pub struct UdiPgpAuthSource {
 
 impl UdiPgpAuthSource {
     pub fn new(config: &UdiPgpConfig) -> Self {
-        UdiPgpAuthSource { config: Arc::new(config.clone()) }
+        UdiPgpAuthSource {
+            config: Arc::new(config.clone()),
+        }
     }
 }
 
@@ -100,6 +102,7 @@ impl ServerParameterProvider for UdiPgpParameters {
 pub struct UdiPgpStartupHandler<A, P> {
     auth_source: A,
     parameter_provider: P,
+    no_of_suppliers: usize,
 }
 
 #[async_trait]
@@ -115,9 +118,15 @@ impl<V: AuthSource, P: ServerParameterProvider> StartupHandler for UdiPgpStartup
         PgWireError: From<<C as Sink<PgWireBackendMessage>>::Error>,
     {
         info!("Initializing udi-pgp...");
+
+        // that is, no supplier, just the admin supplier
         match message {
             PgWireFrontendMessage::Startup(ref startup) => {
                 save_startup_parameters_to_metadata(client, startup);
+                if self.no_of_suppliers == 0 {
+                    finish_authentication(client, &self.parameter_provider).await;
+                    return Ok(());
+                }
                 client.set_state(PgWireConnectionState::AuthenticationInProgress);
                 client
                     .send(PgWireBackendMessage::Authentication(

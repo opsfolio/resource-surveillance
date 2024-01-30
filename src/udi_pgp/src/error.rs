@@ -63,6 +63,7 @@ impl From<UdiPgpError> for PgWireError {
             UdiPgpError::SupplierError(name, severity, msg) => PgWireError::UserError(Box::new(
                 ErrorInfo::new(severity.to_string(), format!("Supplier-{}", name), msg),
             )),
+            UdiPgpError::PgWireError(err) => err,
             other => PgWireError::UserError(Box::new(ErrorInfo::new(
                 "ERROR".to_string(),
                 "1111".to_string(),

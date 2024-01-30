@@ -83,17 +83,6 @@ let ConfigSchema =
     addr = "127.0.0.1:7777",
     metrics = "127.0.0.1:3333",
     health = "127.0.0.1:2222",
-    suppliers = {
-      local-supplier = {
-        type = "osquery",
-        mode = "local",
-        auth = [
-          {
-            username = "baasit",
-            password = "supplier",
-          },
-        ],
-      },
-    }
+    suppliers = {}
   } | ConfigSchema
 }
