@@ -74,6 +74,11 @@ pub enum OsqueryCommands {
 }
 
 impl PgpArgs {
+    /// Register suppliers to udi-pgp-core. Use flag features
+    pub async fn register_suppliers(&self) {
+        udi_pgp_osquery::initialize().await;
+    }
+
     pub async fn execute(&self) -> anyhow::Result<()> {
         let (config, suppliers) = if let Some(config_file) = &self.config {
             let config = UdiPgpConfig::try_from_file(config_file)?;
@@ -85,7 +90,7 @@ impl PgpArgs {
             return Err(anyhow!("Either a subcommand or a config file is required"));
         };
 
-        udi_pgp::run(Arc::new(config), suppliers).await
+        udi_pgp::run(&config, suppliers).await
     }
 
     fn suppliers_from_config(&self, config: &UdiPgpConfig) -> SqlSupplierMap {

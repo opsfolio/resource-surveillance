@@ -24,8 +24,8 @@ pub enum SupplierType {
 impl Display for SupplierType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SupplierType::Git => f.write_str("git supplier"),
-            SupplierType::Osquery => f.write_str("osquery supplier"),
+            SupplierType::Git => f.write_str("git"),
+            SupplierType::Osquery => f.write_str("osquery"),
         }
     }
 }
@@ -159,17 +159,19 @@ impl UdiPgpConfig {
     }
 
     // ====== UDI-PGP live config updates
-        pub fn try_from_ncl_string(s: &str) -> UdiPgpResult<UdiPgpConfig> {
+    pub fn try_from_ncl_string(s: &str) -> UdiPgpResult<UdiPgpConfig> {
         nickel::try_config_from_ncl_string(s)
     }
-    
+
     pub fn try_config_from_ncl_serve_supplier(s: &str) -> UdiPgpResult<(String, Supplier)> {
         let supplier_id = Self::get_supplier_id_from_serve_stmt(s)?;
         Ok((supplier_id, nickel::try_supplier_from_ncl(s)?))
     }
 
     fn get_supplier_id_from_serve_stmt(s: &str) -> UdiPgpResult<String> {
-        let re = Regex::new(r"let\s+([\w-]+)\s+=").unwrap();
+        let re = Regex::new(r"let\s+([\w-]+)\s+=")
+            .map_err(|err| UdiPgpError::ConfigError(err.to_string()))?;
+        
         let remediation: &str = r"#`let supplier_name = { ... } in supplier_name`#";
         let caps = re.captures(s).ok_or(UdiPgpError::ConfigError(format!(
             "Expected: {remediation} got: {s}"

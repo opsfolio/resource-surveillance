@@ -1,5 +1,5 @@
 SET udi_pgp_serve_ncl_supplier = '
-  hetzner-atc = {
+  let hetzner-atc = {
     type = "osquery",
     mode = "local",
     atc-file-path = "./hetzner-atc.json",
@@ -9,4 +9,4 @@ SET udi_pgp_serve_ncl_supplier = '
         password = "supplier",
       },
     ],
-  }';
+  } in hetzner-atc';

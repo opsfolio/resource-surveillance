@@ -11,6 +11,8 @@ use crate::{
     Row,
 };
 
+pub mod admin;
+
 #[async_trait]
 pub trait SqlSupplier: ClonableSqlSupplier {
     fn name(&self) -> &str;

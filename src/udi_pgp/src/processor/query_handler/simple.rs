@@ -35,10 +35,7 @@ impl SimpleQueryHandler for UdiPgpProcessor {
 
         if statement.config_query {
             // All these are done because we can't get a mutable reference to "self" due to the trait implementation
-            let mut config = self.config.write().await;
-            let mut current_suppliers = self.suppliers.write().await;
-            self.update(&mut config, &mut current_suppliers, &statement)
-                .await?;
+            self.update(&statement).await?;
             return Ok(vec![Response::Execution(Tag::new("UDI-PGP CONFIG SET"))]);
         };
 
@@ -56,7 +53,8 @@ impl SimpleQueryHandler for UdiPgpProcessor {
             let metadata = client.metadata();
             let (supplier_id, _) =
                 Self::extract_supplier_and_database(metadata.get("database").map(|x| x.as_str()))?;
-            let supplier = self.supplier(&supplier_id).await?;
+            let exec_supplier = self.exec_supplier.read().await;
+            let supplier = exec_supplier.supplier(&supplier_id).await?;
             let mut supplier = supplier.lock().await;
             info!("Supplier: {supplier_id} currently in use.");
             (

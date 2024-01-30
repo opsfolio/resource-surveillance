@@ -11,10 +11,24 @@ use udi_pgp::{
     parser::stmt::{ColumnMetadata, ExpressionType, UdiPgpStatment},
     sql_supplier::{SqlSupplier, SqlSupplierType},
     ssh::{key::SshKey, session::SshTunnelAccess, SshConnection, UdiPgpSshTarget},
-    FieldFormat, FieldInfo, Row, Type, UdiPgpModes,
+    FieldFormat, FieldInfo, Row, Type, UdiPgpModes, FACTORY,
 };
 
 mod schema;
+
+pub async fn initialize() {
+    let mut factory = FACTORY().lock().await;
+    factory.register("osquery", generate_new);
+}
+
+fn generate_new(supplier: Supplier) -> UdiPgpResult<SqlSupplierType> {
+    let sql_suppler = OsquerySupplier {
+        mode: supplier.mode,
+        atc_file_path: supplier.atc_file_path,
+        ssh_targets: supplier.ssh_targets,
+    };
+    Ok(Box::new(sql_suppler) as SqlSupplierType)
+}
 
 #[derive(Debug, Clone)]
 pub struct OsquerySupplier {
@@ -275,12 +289,7 @@ impl SqlSupplier for OsquerySupplier {
     }
 
     fn generate_new(&self, supplier: Supplier) -> UdiPgpResult<SqlSupplierType> {
-        let sql_suppler = OsquerySupplier {
-            mode: supplier.mode,
-            atc_file_path: supplier.atc_file_path,
-            ssh_targets: supplier.ssh_targets,
-        };
-        Ok(Box::new(sql_suppler) as SqlSupplierType)
+        generate_new(supplier)
     }
 
     async fn schema(&mut self, stmt: &mut UdiPgpStatment) -> UdiPgpResult<Vec<FieldInfo>> {

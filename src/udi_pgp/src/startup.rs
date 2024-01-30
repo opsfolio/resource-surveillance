@@ -21,9 +21,14 @@ use tracing::{error, info};
 
 use crate::{config::UdiPgpConfig, processor::UdiPgpProcessor};
 
-#[derive(new)]
 pub struct UdiPgpAuthSource {
     config: Arc<UdiPgpConfig>,
+}
+
+impl UdiPgpAuthSource {
+    pub fn new(config: &UdiPgpConfig) -> Self {
+        UdiPgpAuthSource { config: Arc::new(config.clone()) }
+    }
 }
 
 #[async_trait]

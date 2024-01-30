@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr, pin::Pin, str::FromStr, sync::Arc};
+use std::{net::SocketAddr, pin::Pin, str::FromStr, sync::Arc};
 
 use futures::{stream, Stream};
 use pgwire::{
@@ -19,7 +19,7 @@ use crate::{
     health, metrics,
     parser::{stmt::UdiPgpStatment, UdiPgpQueryParser},
     simulations::response,
-    sql_supplier::{SqlSupplierMap, SqlSupplierType},
+    sql_supplier::admin::AdminSupplier,
     Row,
 };
 
@@ -28,32 +28,21 @@ pub mod query_handler;
 #[derive(Debug)]
 pub struct UdiPgpProcessor {
     query_parser: UdiPgpQueryParser,
-    config: Arc<RwLock<UdiPgpConfig>>,
-    suppliers: Arc<RwLock<SqlSupplierMap>>,
+    config: Arc<Mutex<UdiPgpConfig>>,
+    exec_supplier: Arc<RwLock<AdminSupplier>>,
     health_shutdown: Arc<Option<oneshot::Sender<()>>>,
     metrics_shutdown: Arc<Option<oneshot::Sender<()>>>,
 }
 
 impl UdiPgpProcessor {
-    pub fn new(config: Arc<RwLock<UdiPgpConfig>>, suppliers: SqlSupplierMap) -> Self {
+    pub fn new(config: &UdiPgpConfig, exec_supplier: AdminSupplier) -> Self {
         UdiPgpProcessor {
             query_parser: UdiPgpQueryParser::new(),
-            config,
-            suppliers: Arc::new(RwLock::new(suppliers)),
+            config: Arc::new(Mutex::new(config.clone())),
+            exec_supplier: Arc::new(RwLock::new(exec_supplier)),
             health_shutdown: Arc::new(None),
             metrics_shutdown: Arc::new(None),
         }
-    }
-
-    pub async fn supplier(&self, identifier: &str) -> PgWireResult<Arc<Mutex<SqlSupplierType>>> {
-        let suppliers = self.suppliers.read().await;
-        suppliers.get(identifier).cloned().ok_or_else(|| {
-            PgWireError::UserError(Box::new(ErrorInfo::new(
-                "FATAL".to_string(),
-                "PROCESSOR".to_string(),
-                format!("Supplier not found. Got: {}", identifier),
-            )))
-        })
     }
 
     pub async fn start_core_services(&mut self) -> UdiPgpResult<()> {
@@ -64,18 +53,27 @@ impl UdiPgpProcessor {
         self.health_shutdown = Some(health_tx).into();
         self.metrics_shutdown = Some(metrics_tx).into();
 
-        let config = self.config.clone();
+        let health_addr = {
+            debug!("Attempting to acquire lock for health config");
+            let config = self.config.lock().await;
+            debug!("Lock acquired for health config");
+            debug!("Releasing lock for health config");
+            config.health
+        };
 
-        let health_config = config.clone();
         tokio::spawn(async move {
-            let config = health_config.read().await;
-            UdiPgpProcessor::start_health_server(config.health, health_rx).await
+            let _ = UdiPgpProcessor::start_health_server(health_addr, health_rx).await;
         });
 
-        let metrics_config = config.clone();
+        let metrics_addr = {
+            debug!("Attempting to acquire lock for metrics config");
+            let config = self.config.lock().await;
+            debug!("Lock acquired for metrics config");
+            debug!("Releasing lock for metrics config");
+            config.metrics
+        };
         tokio::spawn(async move {
-            let config = metrics_config.read().await;
-            UdiPgpProcessor::start_metrics_server(config.metrics, metrics_rx).await
+            let _ = UdiPgpProcessor::start_metrics_server(metrics_addr, metrics_rx).await;
         });
 
         Ok(())
@@ -167,13 +165,9 @@ impl UdiPgpProcessor {
         Ok((schema, rows))
     }
 
-    async fn update(
-        &self,
-        config: &mut UdiPgpConfig,
-        suppliers: &mut SqlSupplierMap,
-        stmt: &UdiPgpStatment,
-    ) -> PgWireResult<()> {
+    async fn update(&self, stmt: &UdiPgpStatment) -> PgWireResult<()> {
         let ast = &stmt.stmt;
+        let mut config = self.config.lock().await;
 
         match ast {
             Statement::SetVariable {
@@ -212,23 +206,27 @@ impl UdiPgpProcessor {
                         )))
                     })?)?;
 
-                let mut new_config = config.clone();
-                match name {
-                    "udi_pgp_serve_ncl_supplier" => {
-                        let (id, new_supplier) =
-                            UdiPgpConfig::try_config_from_ncl_serve_supplier(&config_str)?;
-                        new_config.suppliers.insert(id, new_supplier);
-                    }
-                    "udi_pgp_serve_ncl_core" => {
-                        let core = UdiPgpConfig::try_from_ncl_string(&config_str)?;
-                        // TODO use chamged features to open ports
-                        new_config.health = core.health;
-                        new_config.metrics = core.metrics;
-                    }
-                    _ => {}
-                };
+                {
+                    match name {
+                        "udi_pgp_serve_ncl_supplier" => {
+                            let (id, new_supplier) =
+                                UdiPgpConfig::try_config_from_ncl_serve_supplier(&config_str)?;
+                            config.suppliers.insert(id, new_supplier);
+                        }
+                        "udi_pgp_serve_ncl_core" => {
+                            let core = UdiPgpConfig::try_from_ncl_string(&config_str)?;
+                            // TODO use chamged features to open ports
+                            config.health = core.health;
+                            config.metrics = core.metrics;
+                        }
+                        _ => {}
+                    };
+                }
 
-                self.refresh(config, suppliers, &new_config).await
+                let mut exec_supplier = self.exec_supplier.write().await;
+                exec_supplier.update(&config).await?;
+
+                Ok(())
             }
             _ => Err(PgWireError::UserError(Box::new(ErrorInfo::new(
                 "WARNING".to_string(),
@@ -249,84 +247,6 @@ impl UdiPgpProcessor {
             ))))
         }
     }
-
-    // loop over the current suppliers. check the correspondings in config and then update them
-    // for new suppliers:
-    // - check the processor suppliers to get a template for that supplier type and create from that
-    // - if no suppier type of that is present in the processor's suppliers list, throw an error
-    // - the reeason for the error is that udi_pgp core knows nothing of how suppliers are created or what it needs, so, we can only
-    //    infer new suppliers from templates(suppliers) that are already present, because those suppliers implement the SqlSupplier trait
-    //     which provides a way to create a new one from itself.
-    async fn refresh(
-        &self,
-        config: &mut UdiPgpConfig,
-        current_suppliers: &mut SqlSupplierMap,
-        new_config: &UdiPgpConfig,
-    ) -> PgWireResult<()> {
-        //TODO: updating and removing suppliers as per the new config could have been accomplished using
-        // the retain method on current_suplliers hashmap, but since each supplier is in an async Mutex
-        // acquiring the lock requires ".await" which needs to be in the cintext of an async function
-        // but the retain closure can't be asynchronous. Try this again in future Rust releases.
-
-        // get suppliers to remove
-        let suppliers_to_remove: Vec<String> = current_suppliers
-            .keys()
-            .filter(|id| !new_config.suppliers.contains_key(*id))
-            .cloned()
-            .collect();
-
-        // Remove the suppliers not present in new config
-        for id in suppliers_to_remove {
-            current_suppliers.remove(&id);
-        }
-
-        for (id, supplier) in current_suppliers.iter_mut() {
-            if let Some(new_supplier_config) = new_config.suppliers.get(id) {
-                // Update the supplier if it exists in new_config
-                // TODO implement comparing. Compare if they are the same first before updating, To accomplish that:
-                // 1. add a .to_supplier() method on SqlSupplier trait
-                // 2. Implement the Eq and PartialEq trait for config::Supplier
-                debug!(
-                    "Updating supplier: {id} to new state: {:#?}",
-                    new_supplier_config
-                );
-                let mut supplier_lock = supplier.lock().await;
-                let _ = supplier_lock.update(new_supplier_config.clone());
-            }
-        }
-
-        //get templates for new supplier types beforehand
-        let mut templates = HashMap::new();
-        for supplier in current_suppliers.values() {
-            let supplier_lock = supplier.lock().await;
-            templates.insert(supplier_lock.supplier_type(), supplier.clone());
-        }
-
-        // Add new suppliers
-        for (id, new_supplier_config) in &new_config.suppliers {
-            if !current_suppliers.contains_key(id) {
-                if let Some(template_supplier) = templates.get(&new_supplier_config.supplier_type) {
-                    let new_supplier = template_supplier
-                        .lock()
-                        .await
-                        .generate_new(new_supplier_config.clone())?;
-                    current_suppliers.insert(id.clone(), Arc::new(Mutex::new(new_supplier)));
-                } else {
-                    return Err(PgWireError::UserError(Box::new(ErrorInfo::new(
-                        "FATAL".to_string(),
-                        "PROCESSOR".to_string(),
-                        format!(
-                            "No template supplier found for supplier: {id} of type: {}",
-                            new_supplier_config.supplier_type
-                        ),
-                    ))));
-                }
-            }
-        }
-
-        *config = new_config.clone();
-        Ok(())
-    }
 }
 
 impl MakeHandler for UdiPgpProcessor {
@@ -336,7 +256,7 @@ impl MakeHandler for UdiPgpProcessor {
         Arc::new(UdiPgpProcessor {
             query_parser: self.query_parser.clone(),
             config: self.config.clone(),
-            suppliers: self.suppliers.clone(),
+            exec_supplier: self.exec_supplier.clone(),
             health_shutdown: self.health_shutdown.clone(),
             metrics_shutdown: self.metrics_shutdown.clone(),
         })
