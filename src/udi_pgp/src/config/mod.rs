@@ -30,24 +30,35 @@ impl Display for SupplierType {
     }
 }
 
-impl Default for SupplierType {
-    fn default() -> Self {
-        Self::Osquery
-    }
-}
-
 #[derive(Debug, Clone, Deserialize)]
 pub struct Supplier {
-    #[serde(default, rename = "type")]
+    #[serde(rename = "type")]
     pub supplier_type: SupplierType,
-    #[serde(default = "default_mode")]
     pub mode: UdiPgpModes,
     #[serde(rename = "ssh-targets")]
     pub ssh_targets: Option<Vec<UdiPgpSshTarget>>,
-    #[serde(rename = "atc-file-path")]
+    #[serde(
+        rename = "atc-file-path",
+        deserialize_with = "deserialize_atc_file_path"
+    )]
     pub atc_file_path: Option<String>,
     #[serde(default)]
     pub auth: Vec<Auth>,
+}
+
+fn deserialize_atc_file_path<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let path: Option<String> = Option::deserialize(deserializer)?;
+    match path {
+        Some(ref p) if Path::new(p).exists() => Ok(Some(p.clone())),
+        None => Ok(None),
+        _ => Err(serde::de::Error::custom(format!(
+            "atc_file_path does not exist. Resolved path: {}",
+            path.unwrap()
+        ))),
+    }
 }
 
 impl Supplier {
@@ -171,7 +182,7 @@ impl UdiPgpConfig {
     fn get_supplier_id_from_serve_stmt(s: &str) -> UdiPgpResult<String> {
         let re = Regex::new(r"let\s+([\w-]+)\s+=")
             .map_err(|err| UdiPgpError::ConfigError(err.to_string()))?;
-        
+
         let remediation: &str = r"#`let supplier_name = { ... } in supplier_name`#";
         let caps = re.captures(s).ok_or(UdiPgpError::ConfigError(format!(
             "Expected: {remediation} got: {s}"
@@ -202,8 +213,4 @@ fn parse_socket_addr(host_str: &str) -> UdiPgpResult<SocketAddr> {
     host_str.to_socket_addrs()?.next().ok_or_else(|| {
         UdiPgpError::ConfigError(format!("host '{host_str}' does not resolve to an IP"))
     })
-}
-
-fn default_mode() -> UdiPgpModes {
-    UdiPgpModes::Local
 }

@@ -62,7 +62,9 @@ impl UdiPgpProcessor {
         };
 
         tokio::spawn(async move {
-            let _ = UdiPgpProcessor::start_health_server(health_addr, health_rx).await;
+            if let Err(e) = UdiPgpProcessor::start_health_server(health_addr, health_rx).await {
+                error!("Failed to start health server: {}", e);
+            }
         });
 
         let metrics_addr = {
@@ -73,7 +75,9 @@ impl UdiPgpProcessor {
             config.metrics
         };
         tokio::spawn(async move {
-            let _ = UdiPgpProcessor::start_metrics_server(metrics_addr, metrics_rx).await;
+            if let Err(e) = UdiPgpProcessor::start_metrics_server(metrics_addr, metrics_rx).await {
+                error!("Failed to start metrics server: {}", e);
+            }
         });
 
         Ok(())
@@ -211,6 +215,7 @@ impl UdiPgpProcessor {
                         "udi_pgp_serve_ncl_supplier" => {
                             let (id, new_supplier) =
                                 UdiPgpConfig::try_config_from_ncl_serve_supplier(&config_str)?;
+                                println!("{:#?}", new_supplier);
                             config.suppliers.insert(id, new_supplier);
                         }
                         "udi_pgp_serve_ncl_core" => {

@@ -1,24 +1,22 @@
 /*markdown
 Start UDI-PGP with a config file. Find a sample config file in support/config-full.ncl.
-
-```bash
-surveilr udi pgp -c ./support/config.ncl
-```
+`surveilr udi pgp -c ./support/config-full.ncl`
 According to the configuration file PGP will start on the port 7777. Utilizing the VSCode SQL Editor to connect to UDI-PGP, connect to the 7777 port. Since the intitial configuration is devoid of any supplier, we don't need a database name yet as is a username and and passowrd, they can all be left empty.
-
 Run osquery sample against the active connection to get the list of suppliers which should be empty.
 */
 
-SELECT * FROM udi_pgp_supplier;
+SELECT * FROM udi_pgp_supplier; -- Show existing suppliers, at start there should be no suppliers
 
 /*markdown
 Query UDI-PGP for all other configuration parameters besides the suppliers, like the port and address PGP is bound to, the health and metrics addresses.
 */
 
-SEELCT * FROM udi_pgp_config;
+SEELCT * FROM udi_pgp_config; -- Show config entries, at start only rhe nind address and port should be seen
+
+SELECT query_id, query_text, exec_status, exec_msg, elaboration, exec_start_at, exec_finish_at FROM udi_pgp_observe_query_exec; -- Show log entries, at start of surveilr it should be empty
 
 /*markdown
-To add a supplier to UDI-PGP, we can utilize `SET` queries with specific variable names. For example, to add a new local supplier to the existing configuration, execute the below cell
+To add a supplier to UDI-PGP, we can utilize `SET` queries with specific variable names. For example, to add a new supplier called `local-supplier` (a supplier can be named anything) to the existing configuration, execute the below cell
 */
 
 SET udi_pgp_serve_ncl_supplier = '
@@ -34,14 +32,33 @@ SET udi_pgp_serve_ncl_supplier = '
     ],
   } in local-supplier';
 
+SELECT * FROM udi_pgp_supplier; -- Check to see if supplier was properly created
+
 /*markdown
-Initiate a new connection to UDI-PGP through the SQL Notebook editor, set the database name to "local-supplier" and add the password as "pass" and username as "john" (the authentication details are described in the auth section of a supplier). Then, execute the below query against the new connection to UDI-PGP.
+Initiate a new connection to UDI-PGP through the SQL Notebook editor, set the database name to "local-supplier" and add the password as "pass" and username as "john" (the authentication details are described in the auth section of a supplier). Then, execute the below query against the new connection to UDI-PGP which should return a row with a `uuid` and `hostname` columns.
 */
 
 select uuid, hostname from system_info;
 
 /*markdown
-Add a new supplier called "hetzner-atc"
+Add a new supplier called `hetzner` and introduce a known error by not supplying the `type`. You should see an error message stating that it failed to parse supplier due to a missing field.
+*/
+
+SET udi_pgp_serve_ncl_supplier = '
+  let hetzner = {
+    mode = "local",
+    auth = [
+      {
+        username = "john",
+        password = "doe",
+      },
+    ],
+  } in hetzner';
+
+SELECT * FROM udi_pgp_supplier; -- You should still have one supplier namely `local-supplier`, `hetzner-atc` should not be created because it's invalid
+
+/*markdown
+Add a new supplier called "hetzner-atc" with an invalid file path to the ATC file. This statement should fail due to the invalid ATC file.
 */
 
 SET udi_pgp_serve_ncl_supplier = '
@@ -57,14 +74,16 @@ SET udi_pgp_serve_ncl_supplier = '
     ],
   } in hetzner-atc';
 
+SELECT * FROM udi_pgp_supplier; -- You should see only one supplier because
+
 /*markdown
-Before executing the query, initiate another session with UDI-PGP through the SQL Notebook side panel. Use "hetzner" as the name of the database and fill in the username and password sections as described in the auth filed.
+Before executing the query, initiate another session with UDI-PGP through the SQL Notebook side panel. Use "hetzner" as the name of the database and fill in the username and password sections as described in the auth filed. After you execute this, a schema definition error will be returned due to the incorrect ATC file.
 */
 
 select id, person, code from party_role;
 
 /*markdown
-Adding a remote supplier to the current configuration. To make this work, edit the name of the supplier(remote-supplier) and also any parameter you need to change.
+Adding a remote supplier to the current configuration. To make this work, edit the name of the supplier(remote-supplier) and also any parameter you need to change. Ommiting a field like the `id` or `host` should display the appropriate error with the only exception being the port. If no port is passed, the default 22 port is assumed.
 */
 
 SET udi_pgp_serve_ncl_supplier = '

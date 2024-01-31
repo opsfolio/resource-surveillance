@@ -81,8 +81,8 @@ let ConfigSchema =
 {
   config = {
     addr = "127.0.0.1:7777",
-    metrics = "127.0.0.1:3333",
-    health = "127.0.0.1:2222",
+    metrics = "127.0.0.1:6666",
+    health = "127.0.0.1:5566",
     suppliers = {}
   } | ConfigSchema
 }

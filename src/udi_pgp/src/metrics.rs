@@ -8,13 +8,15 @@ use autometrics::prometheus_exporter::encode_to_string;
 
 pub async fn start(addr: SocketAddr, shutdown_signal: oneshot::Receiver<()>) -> anyhow::Result<()> {
     let app = Router::new().route("/health", get(get_metrics));
-
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     match axum::serve(listener, app)
         .with_graceful_shutdown(graceful_shutdown(shutdown_signal))
         .await
     {
-        Ok(_) => info!("Metrics server running on {}", addr),
+        Ok(_) => { 
+                info!("herreeeeeee");
+            info!("Metrics server running on {}", addr)
+         },
         Err(e) => error!("Server error: {}", e),
     }
 

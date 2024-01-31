@@ -12,7 +12,7 @@ pub struct UdiPgpSshTarget {
     pub port: Option<u16>,
     pub user: String,
     pub id: String,
-    #[serde(rename = "  atc-file-path")]
+    #[serde(rename = "atc-file-path")]
     pub atc_file_path: Option<String>,
 }
 
