@@ -67,6 +67,19 @@ impl Display for ExpressionType {
     }
 }
 
+/// Enum representing types of query UDI-PGP will receive
+#[derive(Debug, Clone, PartialEq)]
+pub enum StmtType {
+    /// Driver queries like `SEELCT 1`
+    Driver,
+    /// A config query sets or updates the configuration. e.g `SET udi_pgp_serve_ncl_core` or `SET udi_pgp_serve_ncl_supplier`
+    Config,
+    /// Queries to get suppliers and details about each supplier. e.g `SELECT * from udi_pgp_suppier`
+    Introspection,
+    /// Standard queries to suppliers
+    Supplier
+}
+
 /// Represents the metadata of a parsed SQL query, including details about the tables and columns involved.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UdiPgpStatment {
@@ -76,9 +89,7 @@ pub struct UdiPgpStatment {
     pub columns: Vec<ColumnMetadata>,
     pub query: String,
     pub stmt: Statement,
-    pub from_driver: bool,
-    /// A udi set configuration query
-    pub config_query: bool,
+    pub stmt_type: StmtType
 }
 
 impl TryFrom<ColumnDef> for ColumnMetadata {

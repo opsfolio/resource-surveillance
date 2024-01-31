@@ -39,7 +39,8 @@ pub struct Supplier {
     pub ssh_targets: Option<Vec<UdiPgpSshTarget>>,
     #[serde(
         rename = "atc-file-path",
-        deserialize_with = "deserialize_atc_file_path"
+        deserialize_with = "deserialize_atc_file_path",
+        default
     )]
     pub atc_file_path: Option<String>,
     #[serde(default)]

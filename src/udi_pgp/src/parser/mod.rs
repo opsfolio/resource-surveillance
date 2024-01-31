@@ -9,7 +9,7 @@ use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 
 use stmt::UdiPgpStatment;
 
-use self::stmt::ColumnMetadata;
+use self::stmt::{ColumnMetadata, StmtType};
 
 mod columns;
 pub mod stmt;
@@ -66,7 +66,7 @@ static DRIVER_WORDS: [&str; 50] = [
     "client_min_messages",
     "pg_constraint",
     "r.contype",
-    "pg_get_constraintdef"
+    "pg_get_constraintdef",
 ];
 
 #[derive(new, Debug, Default, Clone)]
@@ -99,8 +99,13 @@ impl UdiPgpQueryParser {
             columns,
             query: query.to_string(),
             stmt: ast,
-            from_driver: Self::check_if_query_is_from_driver(query),
-            config_query,
+            stmt_type: if Self::check_if_query_is_from_driver(query) {
+                StmtType::Driver
+            } else if config_query {
+                StmtType::Config
+            } else {
+                StmtType::Supplier
+            },
         })
     }
 

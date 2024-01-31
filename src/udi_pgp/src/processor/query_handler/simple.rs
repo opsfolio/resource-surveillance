@@ -1,21 +1,13 @@
 use async_trait::async_trait;
 use pgwire::{
-    api::{
-        query::SimpleQueryHandler,
-        results::{QueryResponse, Response, Tag},
-        ClientInfo,
-    },
+    api::{query::SimpleQueryHandler, results::Response, ClientInfo},
     error::PgWireResult,
 };
-use tracing::{debug, info};
+use tracing::debug;
 
 use crate::{
-    parser::UdiPgpQueryParser,
+    parser::{stmt::StmtType, UdiPgpQueryParser},
     processor::UdiPgpProcessor,
-    simulations::{
-        CLOSE_CURSOR, COMMIT_TRANSACTION, SET_DATE_STYLE, SET_EXTRA_FLOAT_DIGITS, SET_SEARCH_PATH,
-        SET_TIME_ZONE, START_TRANSACTION,
-    },
 };
 
 #[async_trait]
@@ -29,43 +21,14 @@ impl SimpleQueryHandler for UdiPgpProcessor {
         C: ClientInfo + Unpin + Send + Sync,
     {
         let mut statement = UdiPgpQueryParser::parse(query, false)?;
+        debug!("Executing query: {query}");
+        debug!("Parsed statement: {:#?}", statement);
 
-        debug!("======{query}");
-        debug!("{:#?}", statement);
-
-        if statement.config_query {
-            // All these are done because we can't get a mutable reference to "self" due to the trait implementation
-            self.update(&statement).await?;
-            return Ok(vec![Response::Execution(Tag::new("UDI-PGP CONFIG SET"))]);
-        };
-
-        let (schema, rows) = if statement.from_driver {
-            match query {
-                SET_SEARCH_PATH | SET_TIME_ZONE | SET_DATE_STYLE | SET_EXTRA_FLOAT_DIGITS => {
-                    return Ok(vec![Response::Execution(Tag::new("SET"))])
-                }
-                CLOSE_CURSOR => return Ok(vec![Response::Execution(Tag::new("CLOSE"))]),
-                START_TRANSACTION => return Ok(vec![Response::Execution(Tag::new("START"))]),
-                COMMIT_TRANSACTION => return Ok(vec![Response::Execution(Tag::new("COMMIT"))]),
-                _ => self.simulate_driver_responses(query)?,
-            }
-        } else {
-            let metadata = client.metadata();
-            let (supplier_id, _) =
-                Self::extract_supplier_and_database(metadata.get("database").map(|x| x.as_str()))?;
-            let exec_supplier = self.exec_supplier.read().await;
-            let supplier = exec_supplier.supplier(&supplier_id).await?;
-            let mut supplier = supplier.lock().await;
-            info!("Supplier: {supplier_id} currently in use.");
-            (
-                supplier.schema(&mut statement).await?,
-                supplier.execute(&statement).await?,
-            )
-        };
-
-        let row_stream = self.encode_rows(schema.clone().into(), &rows);
-        let response = Response::Query(QueryResponse::new(schema.into(), row_stream));
-
-        Ok(vec![response])
+        match statement.stmt_type {
+            StmtType::Config => self.handle_config(&statement).await,
+            StmtType::Driver => self.handle_driver(query),
+            StmtType::Supplier => self.handle_supplier(client, &mut statement).await,
+            StmtType::Introspection => Ok(vec![]), // Add logic here if needed
+        }
     }
 }

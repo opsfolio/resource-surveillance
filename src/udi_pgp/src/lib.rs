@@ -105,8 +105,6 @@ pub async fn run(config: &UdiPgpConfig, suppliers: SqlSupplierMap) -> anyhow::Re
         config.suppliers.len(),
     ));
 
-        // let authenticator = Arc::new(StatelessMakeHandler::new(Arc::new(NoopStartupHandler)));
-
 
     let factory = FACTORY().lock().await;
     let admin_supplier = AdminSupplier::new(suppliers, factory.clone());

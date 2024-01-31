@@ -3,22 +3,25 @@ use std::{net::SocketAddr, pin::Pin, str::FromStr, sync::Arc};
 use futures::{stream, Stream};
 use pgwire::{
     api::{
-        results::{DataRowEncoder, FieldInfo},
-        MakeHandler,
+        results::{DataRowEncoder, FieldInfo, QueryResponse, Response, Tag},
+        ClientInfo, MakeHandler,
     },
     error::{ErrorInfo, PgWireError, PgWireResult},
     messages::data::DataRow,
 };
 use sqlparser::ast::{self, Expr, Statement};
 use tokio::sync::{oneshot, Mutex, RwLock};
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 use crate::{
     config::UdiPgpConfig,
     error::UdiPgpResult,
     health, metrics,
     parser::{stmt::UdiPgpStatment, UdiPgpQueryParser},
-    simulations::response,
+    simulations::{
+        response, CLOSE_CURSOR, COMMIT_TRANSACTION, SET_DATE_STYLE, SET_EXTRA_FLOAT_DIGITS,
+        SET_SEARCH_PATH, SET_TIME_ZONE, START_TRANSACTION,
+    },
     sql_supplier::admin::AdminSupplier,
     Row,
 };
@@ -157,7 +160,34 @@ impl UdiPgpProcessor {
         Box::pin(stream::iter(results))
     }
 
-    pub fn simulate_driver_responses(
+    pub async fn handle_config<'a>(
+        &self,
+        statement: &UdiPgpStatment,
+    ) -> PgWireResult<Vec<Response<'a>>> {
+        self.update(statement).await?;
+        Ok(vec![Response::Execution(Tag::new("UDI-PGP CONFIG SET"))])
+    }
+
+    pub fn handle_driver<'a>(&self, query: &'a str) -> PgWireResult<Vec<Response<'a>>> {
+        match query {
+            SET_SEARCH_PATH | SET_TIME_ZONE | SET_DATE_STYLE | SET_EXTRA_FLOAT_DIGITS => {
+                Ok(vec![Response::Execution(Tag::new("SET"))])
+            }
+            CLOSE_CURSOR => Ok(vec![Response::Execution(Tag::new("CLOSE"))]),
+            START_TRANSACTION => Ok(vec![Response::Execution(Tag::new("START"))]),
+            COMMIT_TRANSACTION => Ok(vec![Response::Execution(Tag::new("COMMIT"))]),
+            _ => {
+                let (schema, rows) = self.simulate_driver_responses(query)?;
+
+                let row_stream = self.encode_rows(schema.clone().into(), &rows);
+                let response = Response::Query(QueryResponse::new(schema.into(), row_stream));
+
+                Ok(vec![response])
+            }
+        }
+    }
+
+    fn simulate_driver_responses(
         &self,
         query: &str,
     ) -> UdiPgpResult<(Vec<FieldInfo>, Vec<Vec<Row>>)> {
@@ -167,6 +197,31 @@ impl UdiPgpProcessor {
             .map(|r| Row::from_str(r).unwrap())
             .collect::<Vec<_>>()];
         Ok((schema, rows))
+    }
+
+    async fn handle_supplier<'a, C: ClientInfo + Unpin + Send + Sync>(
+        &self,
+        client: &mut C,
+        statement: &mut UdiPgpStatment,
+    ) -> PgWireResult<Vec<Response<'a>>> {
+        let metadata = client.metadata();
+        let (supplier_id, _) =
+            Self::extract_supplier_and_database(metadata.get("database").map(|x| x.as_str()))?;
+
+        let exec_supplier = self.exec_supplier.read().await;
+        let supplier = exec_supplier.supplier(&supplier_id).await?;
+        let mut supplier = supplier.lock().await;
+
+        info!("Supplier: {supplier_id} currently in use.");
+        let (schema, rows) = (
+            supplier.schema(statement).await?,
+            supplier.execute(statement).await?,
+        );
+
+        let row_stream = self.encode_rows(schema.clone().into(), &rows);
+        let response = Response::Query(QueryResponse::new(schema.into(), row_stream));
+
+        Ok(vec![response])
     }
 
     async fn update(&self, stmt: &UdiPgpStatment) -> PgWireResult<()> {
@@ -215,7 +270,6 @@ impl UdiPgpProcessor {
                         "udi_pgp_serve_ncl_supplier" => {
                             let (id, new_supplier) =
                                 UdiPgpConfig::try_config_from_ncl_serve_supplier(&config_str)?;
-                                println!("{:#?}", new_supplier);
                             config.suppliers.insert(id, new_supplier);
                         }
                         "udi_pgp_serve_ncl_core" => {

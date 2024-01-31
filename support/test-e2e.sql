@@ -23,7 +23,6 @@ SET udi_pgp_serve_ncl_supplier = '
   let local-supplier = {
     type = "osquery",
     mode = "local",
-    atc-file-path = "./hetzner-atc.json",
     auth = [
       {
         username = "john",
