@@ -1,12 +1,12 @@
 use std::{fmt::Display, str::FromStr};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::error::UdiPgpError;
 
 pub mod key;
 pub mod session;
-#[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
 pub struct UdiPgpSshTarget {
     pub host: String,
     pub port: Option<u16>,

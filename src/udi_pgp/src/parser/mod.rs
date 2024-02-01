@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::anyhow;
 use async_trait::async_trait;
 use derive_new::new;
@@ -8,6 +10,8 @@ use pgwire::{
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 
 use stmt::UdiPgpStatment;
+
+use crate::introspection::IntrospectionTable;
 
 use self::stmt::{ColumnMetadata, StmtType};
 
@@ -76,37 +80,64 @@ pub struct UdiPgpQueryParser;
 
 impl UdiPgpQueryParser {
     pub fn parse(query: &str, schema: bool) -> PgWireResult<UdiPgpStatment> {
-        let ast = Self::query_to_ast(query).map_err(|err| {
-            PgWireError::UserError(Box::new(ErrorInfo::new(
-                "FATAL".to_string(),
-                "PARSER".to_string(),
-                err.to_string(),
-            )))
-        })?;
-
+        let ast = Self::parse_query_to_ast(query)?;
         let config_query = Self::query_is_udi_configuration(&ast);
-
-        let (tables, columns) = if schema {
-            Self::parse_create_table(&ast)?
-        } else if config_query {
-            (vec![], vec![])
-        } else {
-            Self::parse_query_statement(&ast)?
-        };
+        let (tables, columns) = Self::determine_tables_and_columns(schema, config_query, &ast)?;
+        let introspection_query = Self::is_introspection_query(&tables);
 
         Ok(UdiPgpStatment {
             tables,
             columns,
             query: query.to_string(),
             stmt: ast,
-            stmt_type: if Self::check_if_query_is_from_driver(query) {
-                StmtType::Driver
-            } else if config_query {
-                StmtType::Config
-            } else {
-                StmtType::Supplier
-            },
+            stmt_type: Self::determine_statement_type(query, config_query, introspection_query),
         })
+    }
+
+    fn parse_query_to_ast(query: &str) -> PgWireResult<Statement> {
+        Self::query_to_ast(query).map_err(|err| {
+            PgWireError::UserError(Box::new(ErrorInfo::new(
+                "FATAL".to_string(),
+                "PARSER".to_string(),
+                err.to_string(),
+            )))
+        })
+    }
+
+    fn determine_tables_and_columns(
+        schema: bool,
+        config_query: bool,
+        ast: &Statement,
+    ) -> PgWireResult<(Vec<String>, Vec<ColumnMetadata>)> {
+        if schema {
+            Self::parse_create_table(ast)
+        } else if config_query {
+            Ok((vec![], vec![]))
+        } else {
+            Self::parse_query_statement(ast)
+        }
+    }
+
+    fn is_introspection_query(tables: &[String]) -> bool {
+        tables
+            .iter()
+            .any(|t| IntrospectionTable::from_str(t.as_str()).is_ok())
+    }
+
+    fn determine_statement_type(
+        query: &str,
+        config_query: bool,
+        introspection_query: bool,
+    ) -> StmtType {
+        if Self::check_if_query_is_from_driver(query) {
+            StmtType::Driver
+        } else if config_query {
+            StmtType::Config
+        } else if introspection_query {
+            StmtType::Introspection
+        } else {
+            StmtType::Supplier
+        }
     }
 
     fn parse_create_table(ast: &Statement) -> PgWireResult<(Vec<String>, Vec<ColumnMetadata>)> {

@@ -11,7 +11,7 @@ SELECT * FROM udi_pgp_supplier; -- Show existing suppliers, at start there shoul
 Query UDI-PGP for all other configuration parameters besides the suppliers, like the port and address PGP is bound to, the health and metrics addresses.
 */
 
-SEELCT * FROM udi_pgp_config; -- Show config entries, at start only rhe nind address and port should be seen
+SELECT * FROM udi_pgp_config; -- Show config entries, at start only rhe nind address and port should be seen
 
 SELECT query_id, query_text, exec_status, exec_msg, elaboration, exec_start_at, exec_finish_at FROM udi_pgp_observe_query_exec; -- Show log entries, at start of surveilr it should be empty
 

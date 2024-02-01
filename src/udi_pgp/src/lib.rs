@@ -22,6 +22,7 @@ mod metrics;
 mod processor;
 mod simulations;
 mod startup;
+mod introspection;
 
 pub mod auth;
 pub mod config;
@@ -29,6 +30,7 @@ pub mod error;
 pub mod parser;
 pub mod sql_supplier;
 pub mod ssh;
+
 pub use pgwire::api::results::FieldFormat;
 pub use pgwire::api::results::FieldInfo;
 pub use pgwire::api::Type;
@@ -101,9 +103,9 @@ pub async fn run(config: &UdiPgpConfig, suppliers: SqlSupplierMap) -> anyhow::Re
 
     let (tx, rx) = mpsc::channel(32);
     {
-        let shared_state = Arc::new(Mutex::new(config.clone()));
+        let shared_config = Arc::new(Mutex::new(config.clone()));
         tokio::spawn(async move {
-            config_manager(rx, shared_state.clone()).await;
+            config_manager(rx, shared_config.clone()).await;
         });
     }
 

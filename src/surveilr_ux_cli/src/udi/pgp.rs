@@ -109,7 +109,7 @@ impl PgpArgs {
             SupplierType::Osquery => Arc::new(Mutex::new(Box::new(OsquerySupplier::from(
                 config_supplier,
             )) as SqlSupplierType)),
-            SupplierType::Git => unimplemented!(),
+            _ => unimplemented!(),
         }
     }
 

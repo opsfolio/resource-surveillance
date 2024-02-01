@@ -1,4 +1,5 @@
-//! #Configuration Manager. Might be later moved to a central state handler
+//! # Configuration State Manager. 
+//! Might be later moved to a central state handler
 //!
 //! This module provides an asynchronous configuration manager for UDI-PGP. Seeing that multiple parts of UDI-PGP need
 //! access to the config like the authenticator and processor. This is used to keep the updates in sync.
@@ -14,7 +15,7 @@
 //! ## Usage
 //!
 //! The main components are:
-//! - `ConfigMessage`: Enum for representing different types of configuration messages.
+//! - `Message`: Enum for representing different types of configuration messages.
 //!
 //! Example of sending a configuration update:
 //!

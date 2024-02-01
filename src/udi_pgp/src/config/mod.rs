@@ -1,7 +1,7 @@
 use config::Config;
 use pgwire::error::{ErrorInfo, PgWireError, PgWireResult};
 use regex::Regex;
-use serde::de::Error;
+use serde::de::{self, Error, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -12,14 +12,15 @@ use tracing::error;
 use crate::ssh::UdiPgpSshTarget;
 use crate::{auth::Auth, error::UdiPgpResult, UdiPgpError, UdiPgpModes};
 
-mod nickel;
 pub mod manager;
+mod nickel;
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum SupplierType {
     Osquery,
     Git,
+    Introspection,
 }
 
 impl Display for SupplierType {
@@ -27,13 +28,14 @@ impl Display for SupplierType {
         match self {
             SupplierType::Git => f.write_str("git"),
             SupplierType::Osquery => f.write_str("osquery"),
+            SupplierType::Introspection => f.write_str("introspection"),
         }
     }
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Supplier {
-    #[serde(rename = "type")]
+    #[serde(rename = "type", deserialize_with = "deserialize_supplier_type")]
     pub supplier_type: SupplierType,
     pub mode: UdiPgpModes,
     #[serde(rename = "ssh-targets")]
@@ -46,6 +48,37 @@ pub struct Supplier {
     pub atc_file_path: Option<String>,
     #[serde(default)]
     pub auth: Vec<Auth>,
+}
+
+fn deserialize_supplier_type<'de, D>(deserializer: D) -> Result<SupplierType, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct SupplierTypeVisitor;
+
+    impl<'de> Visitor<'de> for SupplierTypeVisitor {
+        type Value = SupplierType;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a valid supplier type (git or osquery)")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<SupplierType, E>
+        where
+            E: de::Error,
+        {
+            match value.to_lowercase().as_str() {
+                "git" | "osquery" => Ok(match value {
+                    "git" => SupplierType::Git,
+                    "osquery" => SupplierType::Osquery,
+                    _ => unreachable!(), // This should never happen
+                }),
+                _ => Err(de::Error::invalid_value(de::Unexpected::Str(value), &self)),
+            }
+        }
+    }
+
+    deserializer.deserialize_str(SupplierTypeVisitor)
 }
 
 fn deserialize_atc_file_path<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>

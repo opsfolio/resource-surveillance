@@ -32,6 +32,8 @@ pub enum UdiPgpError {
     ConfigError(String),
     #[error(transparent)]
     ConfigBuilderError(#[from] config::ConfigError),
+    #[error(transparent)]
+    IntrospectionError(#[from] crate::introspection::IntrospectionError),
 }
 
 #[derive(Debug, Clone)]
