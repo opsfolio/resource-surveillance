@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use std::{collections::HashMap, fmt::Debug};
 
 use async_trait::async_trait;
 use derive_new::new;
@@ -17,18 +17,43 @@ use pgwire::{
         PgWireFrontendMessage,
     },
 };
-use tracing::{error, info};
+use tokio::sync::{mpsc, oneshot};
+use tracing::{debug, error, info};
 
-use crate::{config::UdiPgpConfig, processor::UdiPgpProcessor};
+use crate::{
+    config::{manager::Message, UdiPgpConfig},
+    error::{UdiPgpError, UdiPgpResult},
+    processor::UdiPgpProcessor,
+};
 
 pub struct UdiPgpAuthSource {
-    config: Arc<UdiPgpConfig>,
+    config_tx: mpsc::Sender<Message>,
 }
 
 impl UdiPgpAuthSource {
-    pub fn new(config: &UdiPgpConfig) -> Self {
-        UdiPgpAuthSource {
-            config: Arc::new(config.clone()),
+    pub fn new(tx: mpsc::Sender<Message>) -> Self {
+        Self { config_tx: tx }
+    }
+
+    async fn read_config(&self) -> UdiPgpResult<UdiPgpConfig> {
+        let (response_tx, response_rx) = oneshot::channel();
+        let read_state_msg = Message::ReadConfig(response_tx);
+        self.config_tx
+            .send(read_state_msg)
+            .await
+            .expect("Failed to send message");
+        match response_rx.await {
+            Ok(state) => {
+                debug!("Latest Config: {:#?}", state);
+                Ok(state)
+            }
+            Err(e) => {
+                error!("{}", e);
+                Err(UdiPgpError::ConfigError(format!(
+                    "Failed to read configuration: {}",
+                    e
+                )))
+            }
         }
     }
 }
@@ -51,7 +76,8 @@ impl AuthSource for UdiPgpAuthSource {
             }
         };
 
-        let auth = match self.config.supplier_auth(&supplier_id, user)? {
+        let config = self.read_config().await?;
+        let auth = match config.supplier_auth(&supplier_id, user)? {
             Some(auth) => auth,
             None => {
                 let err_msg = format!("No user matching this username was found. Got: {}", user);
@@ -102,7 +128,31 @@ impl ServerParameterProvider for UdiPgpParameters {
 pub struct UdiPgpStartupHandler<A, P> {
     auth_source: A,
     parameter_provider: P,
-    no_of_suppliers: usize,
+    config_tx: mpsc::Sender<Message>,
+}
+
+impl<V: AuthSource, P: ServerParameterProvider> UdiPgpStartupHandler<V, P> {
+    async fn read_config(&self) -> UdiPgpResult<UdiPgpConfig> {
+        let (response_tx, response_rx) = oneshot::channel();
+        let read_state_msg = Message::ReadConfig(response_tx);
+        self.config_tx
+            .send(read_state_msg)
+            .await
+            .expect("Failed to send message");
+        match response_rx.await {
+            Ok(state) => {
+                debug!("Latest Config: {:#?}", state);
+                Ok(state)
+            }
+            Err(e) => {
+                error!("{}", e);
+                Err(UdiPgpError::ConfigError(format!(
+                    "Failed to read configuration: {}",
+                    e
+                )))
+            }
+        }
+    }
 }
 
 #[async_trait]
@@ -123,10 +173,13 @@ impl<V: AuthSource, P: ServerParameterProvider> StartupHandler for UdiPgpStartup
         match message {
             PgWireFrontendMessage::Startup(ref startup) => {
                 save_startup_parameters_to_metadata(client, startup);
-                if self.no_of_suppliers == 0 {
+
+                let config = self.read_config().await?;
+                if config.suppliers.is_empty() {
                     finish_authentication(client, &self.parameter_provider).await;
                     return Ok(());
                 }
+
                 client.set_state(PgWireConnectionState::AuthenticationInProgress);
                 client
                     .send(PgWireBackendMessage::Authentication(

@@ -8,13 +8,13 @@ use pgwire::{api::MakeHandler, tokio::process_socket};
 use serde::Deserialize;
 use sql_supplier::SqlSupplierMap;
 use startup::{UdiPgpParameters, UdiPgpStartupHandler};
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex};
 use tokio::{net::TcpListener, signal, sync::oneshot};
 use tracing::debug;
 use tracing::{error, info};
 
+use crate::config::manager::config_manager;
 use crate::processor::UdiPgpProcessor;
-use crate::sql_supplier::admin::AdminSupplier;
 use crate::startup::UdiPgpAuthSource;
 
 mod health;
@@ -99,17 +99,22 @@ fn spawn_shutdown_handler() -> oneshot::Receiver<()> {
 pub async fn run(config: &UdiPgpConfig, suppliers: SqlSupplierMap) -> anyhow::Result<()> {
     debug!("Starting the pgp server with: {:#?}", config);
 
+    let (tx, rx) = mpsc::channel(32);
+    {
+        let shared_state = Arc::new(Mutex::new(config.clone()));
+        tokio::spawn(async move {
+            config_manager(rx, shared_state.clone()).await;
+        });
+    }
+
     let authenticator = Arc::new(UdiPgpStartupHandler::new(
-        UdiPgpAuthSource::new(config),
+        UdiPgpAuthSource::new(tx.clone()),
         UdiPgpParameters::new(),
-        config.suppliers.len(),
+        tx.clone(),
     ));
 
-
     let factory = FACTORY().lock().await;
-    let admin_supplier = AdminSupplier::new(suppliers, factory.clone());
-    let mut processor = UdiPgpProcessor::new(config, admin_supplier);
-    processor.start_core_services().await?;
+    let processor = UdiPgpProcessor::init(tx.clone(), factory.clone(), suppliers).await?;
 
     let mut rx = spawn_shutdown_handler();
     let listener = TcpListener::bind(config.addr()).await?;

@@ -10,19 +10,22 @@ use pgwire::{
     messages::data::DataRow,
 };
 use sqlparser::ast::{self, Expr, Statement};
-use tokio::sync::{oneshot, Mutex, RwLock};
+use tokio::sync::{mpsc, oneshot, RwLock};
 use tracing::{debug, error, info};
 
 use crate::{
-    config::UdiPgpConfig,
-    error::UdiPgpResult,
+    config::{manager::Message, UdiPgpConfig},
+    error::{UdiPgpError, UdiPgpResult},
     health, metrics,
     parser::{stmt::UdiPgpStatment, UdiPgpQueryParser},
     simulations::{
         response, CLOSE_CURSOR, COMMIT_TRANSACTION, SET_DATE_STYLE, SET_EXTRA_FLOAT_DIGITS,
         SET_SEARCH_PATH, SET_TIME_ZONE, START_TRANSACTION,
     },
-    sql_supplier::admin::AdminSupplier,
+    sql_supplier::{
+        admin::{AdminSupplier, UdiPgpSupplierFactory},
+        SqlSupplierMap,
+    },
     Row,
 };
 
@@ -31,24 +34,54 @@ pub mod query_handler;
 #[derive(Debug)]
 pub struct UdiPgpProcessor {
     query_parser: UdiPgpQueryParser,
-    config: Arc<Mutex<UdiPgpConfig>>,
+    config_tx: mpsc::Sender<Message>,
     exec_supplier: Arc<RwLock<AdminSupplier>>,
     health_shutdown: Arc<Option<oneshot::Sender<()>>>,
     metrics_shutdown: Arc<Option<oneshot::Sender<()>>>,
 }
 
 impl UdiPgpProcessor {
-    pub fn new(config: &UdiPgpConfig, exec_supplier: AdminSupplier) -> Self {
-        UdiPgpProcessor {
+    pub async fn init(
+        config_tx: mpsc::Sender<Message>,
+        factory: UdiPgpSupplierFactory,
+        suppliers: SqlSupplierMap,
+    ) -> UdiPgpResult<Self> {
+        let admin_supplier = AdminSupplier::new(suppliers, factory.clone());
+
+        let mut processor = UdiPgpProcessor {
             query_parser: UdiPgpQueryParser::new(),
-            config: Arc::new(Mutex::new(config.clone())),
-            exec_supplier: Arc::new(RwLock::new(exec_supplier)),
+            config_tx,
+            exec_supplier: Arc::new(RwLock::new(admin_supplier)),
             health_shutdown: Arc::new(None),
             metrics_shutdown: Arc::new(None),
+        };
+        processor.start_core_services().await?;
+        Ok(processor)
+    }
+
+    async fn read_config(&self) -> UdiPgpResult<UdiPgpConfig> {
+        let (response_tx, response_rx) = oneshot::channel();
+        let read_state_msg = Message::ReadConfig(response_tx);
+        self.config_tx
+            .send(read_state_msg)
+            .await
+            .expect("Failed to send message");
+        match response_rx.await {
+            Ok(config) => {
+                debug!("Latest Config: {:#?}", config);
+                Ok(config)
+            }
+            Err(e) => {
+                error!("{}", e);
+                Err(UdiPgpError::ConfigError(format!(
+                    "Failed to read configuration: {}",
+                    e
+                )))
+            }
         }
     }
 
-    pub async fn start_core_services(&mut self) -> UdiPgpResult<()> {
+    async fn start_core_services(&mut self) -> UdiPgpResult<()> {
         let (health_tx, health_rx) = oneshot::channel::<()>();
         let (metrics_tx, metrics_rx) = oneshot::channel::<()>();
 
@@ -56,13 +89,9 @@ impl UdiPgpProcessor {
         self.health_shutdown = Some(health_tx).into();
         self.metrics_shutdown = Some(metrics_tx).into();
 
-        let health_addr = {
-            debug!("Attempting to acquire lock for health config");
-            let config = self.config.lock().await;
-            debug!("Lock acquired for health config");
-            debug!("Releasing lock for health config");
-            config.health
-        };
+        let config = self.read_config().await?;
+
+        let health_addr = { config.health };
 
         tokio::spawn(async move {
             if let Err(e) = UdiPgpProcessor::start_health_server(health_addr, health_rx).await {
@@ -70,13 +99,7 @@ impl UdiPgpProcessor {
             }
         });
 
-        let metrics_addr = {
-            debug!("Attempting to acquire lock for metrics config");
-            let config = self.config.lock().await;
-            debug!("Lock acquired for metrics config");
-            debug!("Releasing lock for metrics config");
-            config.metrics
-        };
+        let metrics_addr = { config.metrics };
         tokio::spawn(async move {
             if let Err(e) = UdiPgpProcessor::start_metrics_server(metrics_addr, metrics_rx).await {
                 error!("Failed to start metrics server: {}", e);
@@ -226,7 +249,6 @@ impl UdiPgpProcessor {
 
     async fn update(&self, stmt: &UdiPgpStatment) -> PgWireResult<()> {
         let ast = &stmt.stmt;
-        let mut config = self.config.lock().await;
 
         match ast {
             Statement::SetVariable {
@@ -270,19 +292,34 @@ impl UdiPgpProcessor {
                         "udi_pgp_serve_ncl_supplier" => {
                             let (id, new_supplier) =
                                 UdiPgpConfig::try_config_from_ncl_serve_supplier(&config_str)?;
-                            config.suppliers.insert(id, new_supplier);
+
+                            let update_supplier_msg =
+                                Message::InsertSupplier(id, new_supplier.clone());
+
+                            self.config_tx
+                                .send(update_supplier_msg)
+                                .await
+                                .map_err(|err| {
+                                    error!("Failed to send message to insert supplier: {:#?}. Error: {}", new_supplier, err);
+                                    PgWireError::ApiError(Box::new(err))
+                                })?;
                         }
                         "udi_pgp_serve_ncl_core" => {
                             let core = UdiPgpConfig::try_from_ncl_string(&config_str)?;
                             // TODO use chamged features to open ports
-                            config.health = core.health;
-                            config.metrics = core.metrics;
+                            let update_core_msg = Message::UpdateCore(core.metrics, core.health);
+                            self.config_tx.send(update_core_msg).await.map_err(|err| {
+                                error!("Failed to send message to update core. {}", err);
+                                PgWireError::ApiError(Box::new(err))
+                            })?;
                         }
                         _ => {}
                     };
                 }
 
                 let mut exec_supplier = self.exec_supplier.write().await;
+                // config has been updated above, so to get the latest update
+                let config = self.read_config().await?;
                 exec_supplier.update(&config).await?;
 
                 Ok(())
@@ -313,8 +350,8 @@ impl MakeHandler for UdiPgpProcessor {
 
     fn make(&self) -> Self::Handler {
         Arc::new(UdiPgpProcessor {
+            config_tx: self.config_tx.clone(),
             query_parser: self.query_parser.clone(),
-            config: self.config.clone(),
             exec_supplier: self.exec_supplier.clone(),
             health_shutdown: self.health_shutdown.clone(),
             metrics_shutdown: self.metrics_shutdown.clone(),

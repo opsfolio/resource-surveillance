@@ -13,6 +13,7 @@ use crate::ssh::UdiPgpSshTarget;
 use crate::{auth::Auth, error::UdiPgpResult, UdiPgpError, UdiPgpModes};
 
 mod nickel;
+pub mod manager;
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
