@@ -2,3 +2,4 @@
 //! represent a distinct resource which is suppliers, core configuration and the logs
 
 pub mod suppliers_table;
+pub mod core_table;

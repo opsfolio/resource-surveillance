@@ -28,8 +28,12 @@ use tokio::sync::mpsc;
 use tracing::info;
 
 use crate::{
-    config::manager::Message, error::UdiPgpResult, introspection::sql_suppliers::suppliers_table,
-    parser::stmt::UdiPgpStatment, sql_supplier::SqlSupplier, Row,
+    config::manager::Message,
+    error::UdiPgpResult,
+    introspection::sql_suppliers::{core_table, suppliers_table},
+    parser::stmt::UdiPgpStatment,
+    sql_supplier::SqlSupplier,
+    Row,
 };
 mod error;
 mod sql_suppliers;
@@ -121,18 +125,13 @@ impl<'a> Introspection<'a> {
                 let rows = supp.execute(&stmt).await?;
                 (schema, rows)
             }
-            IntrospectionTable::Config => (
-                vec![FieldInfo::new(
-                    "test".to_string(),
-                    None,
-                    None,
-                    Type::VARCHAR,
-                    FieldFormat::Text,
-                )],
-                vec![vec![Row {
-                    value: "mee".to_string(),
-                }]],
-            ),
+            IntrospectionTable::Config => {
+                let mut supp = core_table::CoreTable::new(self.state_tx.clone());
+                let mut stmt = self.stmt.clone();
+                let schema = supp.schema(&mut stmt).await?;
+                let rows = supp.execute(&stmt).await?;
+                (schema, rows)
+            }
             IntrospectionTable::QueryExec => (
                 vec![FieldInfo::new(
                     "test".to_string(),
