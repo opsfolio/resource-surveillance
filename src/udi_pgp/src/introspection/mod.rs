@@ -25,7 +25,7 @@ use pgwire::api::{
     Type,
 };
 use tokio::sync::mpsc;
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::{
     config::manager::Message,
@@ -116,6 +116,7 @@ impl<'a> Introspection<'a> {
 
     pub async fn handle(&mut self) -> UdiPgpResult<(Vec<FieldInfo>, Vec<Vec<Row>>)> {
         info!("Executing Introspection Query");
+        debug!("{:#?}", self.stmt);
 
         let res = match self.table_type {
             IntrospectionTable::Supplier => {

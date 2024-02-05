@@ -5,13 +5,13 @@ According to the configuration file PGP will start on the port 7777. Utilizing t
 Run osquery sample against the active connection to get the list of suppliers which should be empty.
 */
 
-SELECT * FROM udi_pgp_supplier; -- Show existing suppliers, at start there should be no suppliers
+SELECT * FROM udi_pgp_supplier; -- Show current suppliers, at start, it should be empty
 
 /*markdown
 Query UDI-PGP for all other configuration parameters besides the suppliers, like the port and address PGP is bound to, the health and metrics addresses.
 */
 
-SELECT * FROM udi_pgp_config; -- Show config entries, at start only rhe nind address and port should be seen
+SELECT * FROM udi_pgp_config; -- Show the configuration for UDI-PGP, that is, the address it is bound to and the metrics and health addresses.
 
 SELECT query_id, query_text, exec_status, exec_msg, elaboration, exec_start_at, exec_finish_at FROM udi_pgp_observe_query_exec; -- Show log entries, at start of surveilr it should be empty
 
@@ -31,7 +31,7 @@ SET udi_pgp_serve_ncl_supplier = '
     ],
   } in local-supplier';
 
-SELECT * FROM udi_pgp_supplier; -- Check to see if supplier was properly created
+SELECT * FROM udi_pgp_supplier;
 
 /*markdown
 Initiate a new connection to UDI-PGP through the SQL Notebook editor, set the database name to "local-supplier" and add the password as "pass" and username as "john" (the authentication details are described in the auth section of a supplier). Then, execute the below query against the new connection to UDI-PGP which should return a row with a `uuid` and `hostname` columns.
@@ -64,7 +64,7 @@ SET udi_pgp_serve_ncl_supplier = '
   let hetzner-atc = {
     type = "osquery",
     mode = "local",
-    atc-file-path = "./hetzner-atc.json",
+    atc-file-path = "../atc/opsfolio.sqla.osquery-atc.json",
     auth = [
       {
         username = "john",
@@ -73,13 +73,13 @@ SET udi_pgp_serve_ncl_supplier = '
     ],
   } in hetzner-atc';
 
-SELECT * FROM udi_pgp_supplier; -- You should see only one supplier because
+SELECT * FROM udi_pgp_supplier; -- You should see only one supplier because the above query failed
 
 /*markdown
 Before executing the query, initiate another session with UDI-PGP through the SQL Notebook side panel. Use "hetzner" as the name of the database and fill in the username and password sections as described in the auth filed. After you execute this, a schema definition error will be returned due to the incorrect ATC file.
 */
 
-select id, person, code from party_role;
+select id, person, code from party_roles;
 
 /*markdown
 Adding a remote supplier to the current configuration. To make this work, edit the name of the supplier(remote-supplier) and also any parameter you need to change. Ommiting a field like the `id` or `host` should display the appropriate error with the only exception being the port. If no port is passed, the default 22 port is assumed.

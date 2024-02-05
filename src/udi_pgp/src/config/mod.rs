@@ -5,6 +5,7 @@ use serde::de::{self, Error, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::fs;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::Path;
 use tracing::error;
@@ -86,13 +87,25 @@ where
     D: Deserializer<'de>,
 {
     let path: Option<String> = Option::deserialize(deserializer)?;
-    match path {
-        Some(ref p) if Path::new(p).exists() => Ok(Some(p.clone())),
+    match &path {
+        Some(p) => match fs::canonicalize(p) {
+            Ok(resolved_path) => {
+                if resolved_path.exists() {
+                    Ok(Some(resolved_path.to_string_lossy().into_owned()))
+                } else {
+                    Err(serde::de::Error::custom(format!(
+                            "Provided atc_file_path '{}' does not exist after resolution. Resolved path was: '{}'",
+                            p,
+                            resolved_path.to_string_lossy()
+                        )))
+                }
+            }
+            Err(_) => Err(serde::de::Error::custom(format!(
+                "Failed to resolve the provided atc_file_path '{}'. Please ensure the path exists.",
+                p
+            ))),
+        },
         None => Ok(None),
-        _ => Err(serde::de::Error::custom(format!(
-            "atc_file_path does not exist. Resolved path: {}",
-            path.unwrap()
-        ))),
     }
 }
 

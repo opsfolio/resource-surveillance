@@ -7,11 +7,12 @@ use pgwire::{
     api::{stmt::QueryParser, Type},
     error::{ErrorInfo, PgWireError, PgWireResult},
 };
+use regex::Regex;
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 
 use stmt::UdiPgpStatment;
 
-use crate::introspection::IntrospectionTable;
+use crate::{error::UdiPgpResult, introspection::IntrospectionTable};
 
 use self::stmt::{ColumnMetadata, StmtType};
 
@@ -80,7 +81,8 @@ pub struct UdiPgpQueryParser;
 
 impl UdiPgpQueryParser {
     pub fn parse(query: &str, schema: bool) -> PgWireResult<UdiPgpStatment> {
-        let ast = Self::parse_query_to_ast(query)?;
+        let query = Self::remove_sql_comments(query)?;
+        let ast = Self::parse_query_to_ast(&query)?;
         let config_query = Self::query_is_udi_configuration(&ast);
         let (tables, columns) = Self::determine_tables_and_columns(schema, config_query, &ast)?;
         let introspection_query = Self::is_introspection_query(&tables);
@@ -90,8 +92,21 @@ impl UdiPgpQueryParser {
             columns,
             query: query.to_string(),
             stmt: ast,
-            stmt_type: Self::determine_statement_type(query, config_query, introspection_query),
+            stmt_type: Self::determine_statement_type(&query, config_query, introspection_query),
         })
+    }
+
+    fn remove_sql_comments(query: &str) -> UdiPgpResult<String> {
+        let re_single_line = Regex::new(r"--[^\n]*").unwrap();
+        let re_multi_line = Regex::new(r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/").unwrap();
+
+        // First, remove multi-line comments
+        let no_multi_line_comments = re_multi_line.replace_all(query, "");
+
+        // Then, remove single-line comments
+        let no_comments = re_single_line.replace_all(&no_multi_line_comments, "");
+
+        Ok(no_comments.into_owned())
     }
 
     fn parse_query_to_ast(query: &str) -> PgWireResult<Statement> {

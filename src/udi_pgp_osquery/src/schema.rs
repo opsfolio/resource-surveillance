@@ -97,7 +97,12 @@ pub fn get_schema(
             .map_err(|err| UdiPgpError::SchemaError(table.to_string(), err.to_string()))?;
         let query = format_schema_query(&output_str);
         if query.is_empty() {
-            return Err(UdiPgpError::QueryExecutionError("Schema query definition failed. Please check your query. Expected `CREATE ...`, got empty string".to_string()));
+            return Err(UdiPgpError::QueryExecutionError(format!(
+    "Failed to generate schema for the specified tables in the query: {:?}. 
+    This error usually occurs if osquery cannot interpret the table definition due to syntax errors or unsupported tables. 
+    If you're using an ATC file, make sure this table definition is present in the file.",
+    tables
+)));
         }
         let stmt = UdiPgpQueryParser::parse(&query, true)?;
         schema_data.push((table.clone(), stmt.columns));
