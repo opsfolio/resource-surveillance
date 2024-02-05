@@ -23,6 +23,7 @@ mod processor;
 mod simulations;
 mod startup;
 mod introspection;
+mod observability;
 
 pub mod auth;
 pub mod config;
@@ -34,6 +35,7 @@ pub mod ssh;
 pub use pgwire::api::results::FieldFormat;
 pub use pgwire::api::results::FieldInfo;
 pub use pgwire::api::Type;
+
 use sql_supplier::admin::UdiPgpSupplierFactory;
 
 static INSTANCE: OnceLock<Mutex<UdiPgpSupplierFactory>> = OnceLock::new();
@@ -108,6 +110,8 @@ pub async fn run(config: &UdiPgpConfig, suppliers: SqlSupplierMap) -> anyhow::Re
             config_manager(rx, shared_config.clone()).await;
         });
     }
+
+    observability::init()?;
 
     let authenticator = Arc::new(UdiPgpStartupHandler::new(
         UdiPgpAuthSource::new(tx.clone()),

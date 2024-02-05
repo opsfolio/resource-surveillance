@@ -52,6 +52,7 @@ opentelemetry_sdk = { version = "0.21.2", features = ["opentelemetry-http", "tra
 opentelemetry = { version = "0.21.0", features = ["trace"] }
 autometrics = { version = "1.0.0", features = ["otel-push-exporter-http", "otel-push-exporter-grpc", "otel-push-exporter-tokio-current-thread", "opentelemetry-prometheus", "metrics-exporter-prometheus", "prometheus-exporter"] }
 assert_cmd = "2.0.13"
+tracing-subscriber = {version = "0.3.18", features = ["std", "fmt", "json", "env-filter"] }
 
 ## workspaces members
 surveilr_ux_cli = { path = "src/surveilr_ux_cli" }
