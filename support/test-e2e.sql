@@ -117,13 +117,17 @@ SET udi_pgp_serve_ncl_supplier = '
     ],
   } in remote-supplier';
 
-SELECT * FROM udi_pgp_observe_query_exec; -- Show log entries
-
 /*markdown
 Before executing the query, initiate another session with UDI-PGP through the SQL Notebook side panel. Use "remote-supplier" as the name of the database and fill in the username and password sections as described in the auth filed.
 */
 
 select uuid, hostname from system_info;
+
+/*markdown
+Show log entries, the `exec_msg` field should be populated because the two of the specified SSH targets are invalid
+*/
+
+SELECT * FROM udi_pgp_observe_query_exec;
 
 /*markdown
 Core UDI-PGP configuration like the health address and the adress of the metrics port can be updated. The "addr" parameter is always ignored. 

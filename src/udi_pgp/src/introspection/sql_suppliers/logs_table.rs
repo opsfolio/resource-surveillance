@@ -26,7 +26,8 @@ impl LogTable {
         match col {
             "query_id" | "query_text" => Ok(Type::VARCHAR),
             "exec_finish_at" | "exec_start_at" => Ok(Type::TIMESTAMP),
-            "events" => Ok(Type::VARCHAR_ARRAY),
+            "exec_status" => Ok(Type::INT4),
+            "events" | "exec_msg" => Ok(Type::VARCHAR_ARRAY),
             other => Err(UdiPgpError::SchemaError(
                 other.to_string(),
                 "Column name invalid".to_string(),
@@ -41,6 +42,8 @@ impl LogTable {
             "exec_start_at",
             "exec_finish_at",
             "events",
+            "exec_msg",
+            "exec_status",
         ];
         stmt.columns = cols
             .iter()
@@ -153,6 +156,20 @@ impl SqlSupplier for LogTable {
                   "exec_finish_at" => serde_json::to_string_pretty(&log.exec_finish_at)?,
                   "events" => { 
                     serde_json::to_string_pretty(&log.events.join("\n"))? 
+                  },
+                  "exec_status" => {
+                    if log.exec_msg.is_empty() {
+                        0.to_string()
+                    } else {
+                        1.to_string()
+                    }
+                  }
+                  "exec_msg" => {
+                    if log.exec_msg.is_empty() {
+                        "_".to_string()
+                    } else {
+                        serde_json::to_string_pretty(&log.exec_msg.join("\n"))? 
+                    }
                   },
                   other => return Err(UdiPgpError::QueryExecutionError(format!("Invalid column name. Got: {}. Expected one of id, type, auth, ssh_target, atc_file_path", other)))
               };

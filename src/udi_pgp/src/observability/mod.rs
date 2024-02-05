@@ -61,6 +61,7 @@ where
         let span = ctx.current_span();
         if let Some(span_ref) = span.id().and_then(|id| ctx.span(id)) {
             debug!("An event in span {:#?} happened", span_ref.id());
+            
 
             let state_tx = self.state_tx.clone();
             let id = span_ref.id().clone();
@@ -71,11 +72,12 @@ where
             };
             event.record(&mut visitor);
             let event_msg = event_msg.trim().to_string();
+            let level = *event.metadata().level();
 
             tokio::spawn(async move {
                 let msg = Message::UpdateLogEntry {
                     span_id: id,
-                    msg: UpdateLogEntry::Event(event_msg),
+                    msg: UpdateLogEntry::Event(event_msg, level),
                 };
                 if let Err(e) = state_tx.send(msg).await {
                     error!("Failed to add event to log entry: {}", e);

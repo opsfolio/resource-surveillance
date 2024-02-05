@@ -37,12 +37,12 @@ use crate::observability::{log_entry::QueryLogEntry, QueryLogEntryMap};
 
 use super::{Supplier, UdiPgpConfig};
 use tokio::sync::{mpsc, oneshot, Mutex};
-use tracing::{debug, error, span};
+use tracing::{debug, error, span, Level};
 
 pub enum UpdateLogEntry {
     StartTime(String),
     EndTime(String),
-    Event(String),
+    Event(String, Level),
 }
 
 pub enum Message {
@@ -117,8 +117,11 @@ pub async fn config_manager(
             Message::UpdateLogEntry { span_id, msg } => {
                 let mut logs = log_entries.lock().await;
                 logs.entry(span_id.clone()).and_modify(|e| match msg {
-                    UpdateLogEntry::Event(event) => {
-                        e.events.push(event)
+                    UpdateLogEntry::Event(event, level) => {
+                        e.events.push(event.clone());
+                        if level == Level::ERROR {
+                            e.exec_msg.push(event);
+                        }
                     }
                     UpdateLogEntry::EndTime(t) => {
                         e.exec_finish_at = Some(t);
