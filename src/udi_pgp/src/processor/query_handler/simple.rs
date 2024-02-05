@@ -7,7 +7,7 @@ use pgwire::{
     },
     error::{ErrorInfo, PgWireError, PgWireResult},
 };
-use tracing::{debug, trace_span, Instrument};
+use tracing::{debug, debug_span, info_span, Instrument};
 
 use crate::{
     introspection::Introspection,
@@ -57,7 +57,14 @@ impl SimpleQueryHandler for UdiPgpProcessor {
     where
         C: ClientInfo + Unpin + Send + Sync,
     {
-        let span = trace_span!("hi hi");
+        let config = self.read_config().await?;
+
+        let span = if config.verbose {
+            debug_span!("simple query handler", query)
+        } else {
+            info_span!("simple query handler", query)
+        };
+
         async {
             let mut statement = UdiPgpQueryParser::parse(query, false)?;
             debug!("Executing query: {query}");

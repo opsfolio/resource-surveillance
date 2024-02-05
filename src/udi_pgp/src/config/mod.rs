@@ -136,6 +136,8 @@ pub struct UdiPgpConfig {
     pub health: Option<SocketAddr>,
     #[serde(default)]
     pub suppliers: HashMap<String, Supplier>,
+    #[serde(default = "default_verbose")]
+    pub verbose: bool,
 }
 
 impl UdiPgpConfig {
@@ -261,4 +263,8 @@ fn parse_socket_addr(host_str: &str) -> UdiPgpResult<SocketAddr> {
     host_str.to_socket_addrs()?.next().ok_or_else(|| {
         UdiPgpError::ConfigError(format!("host '{host_str}' does not resolve to an IP"))
     })
+}
+
+fn default_verbose() -> bool {
+    false
 }

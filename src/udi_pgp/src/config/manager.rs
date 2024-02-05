@@ -1,4 +1,4 @@
-//! # Configuration State Manager. 
+//! # Configuration State Manager.
 //! Might be later moved to a central state handler
 //!
 //! This module provides an asynchronous configuration manager for UDI-PGP. Seeing that multiple parts of UDI-PGP need
@@ -33,9 +33,17 @@
 
 use std::{net::SocketAddr, sync::Arc};
 
+use crate::observability::{log_entry::QueryLogEntry, QueryLogEntryMap};
+
 use super::{Supplier, UdiPgpConfig};
 use tokio::sync::{mpsc, oneshot, Mutex};
-use tracing::{debug, error};
+use tracing::{debug, error, span};
+
+pub enum UpdateLogEntry {
+    StartTime(String),
+    EndTime(String),
+    Event(String),
+}
 
 pub enum Message {
     /// Updates the metrics and health addresses
@@ -43,11 +51,21 @@ pub enum Message {
     /// Adds a new supplier to the configuration
     InsertSupplier(String, Supplier),
     ReadConfig(oneshot::Sender<UdiPgpConfig>),
+    ReadLogEntries(oneshot::Sender<QueryLogEntryMap>),
+    AddLogEntry {
+        log: QueryLogEntry,
+        span_id: span::Id,
+    },
+    UpdateLogEntry {
+        span_id: span::Id,
+        msg: UpdateLogEntry,
+    },
 }
 
 pub async fn config_manager(
     mut rx: mpsc::Receiver<Message>,
     shared_config: Arc<Mutex<UdiPgpConfig>>,
+    log_entries: Arc<Mutex<QueryLogEntryMap>>,
 ) {
     while let Some(message) = rx.recv().await {
         match message {
@@ -80,6 +98,33 @@ pub async fn config_manager(
                 let mut config = shared_config.lock().await;
                 config.suppliers.insert(id, supplier);
                 debug!("Supplier updated successfully",);
+            }
+            Message::ReadLogEntries(response_tx) => {
+                debug!("Attempting to acquire lock to read log entries");
+                let state = log_entries.lock().await;
+                debug!("Read log entries lock acquired");
+                let state_info = state.clone();
+
+                if response_tx.send(state_info).is_err() {
+                    error!("Failed to send log entries back to sender");
+                }
+                debug!("Read log entries lock released");
+            }
+            Message::AddLogEntry { log, span_id } => {
+                let mut logs = log_entries.lock().await;
+                logs.entry(span_id).or_insert_with(|| log);
+            }
+            Message::UpdateLogEntry { span_id, msg } => {
+                let mut logs = log_entries.lock().await;
+                logs.entry(span_id.clone()).and_modify(|e| match msg {
+                    UpdateLogEntry::Event(event) => {
+                        e.events.push(event)
+                    }
+                    UpdateLogEntry::EndTime(t) => {
+                        e.exec_finish_at = Some(t);
+                    }
+                    UpdateLogEntry::StartTime(t) => e.exec_start_at = Some(t),
+                });
             }
         }
     }

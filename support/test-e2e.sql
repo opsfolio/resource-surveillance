@@ -13,7 +13,7 @@ Query UDI-PGP for all other configuration parameters besides the suppliers, like
 
 SELECT * FROM udi_pgp_config; -- Show the configuration for UDI-PGP, that is, the address it is bound to and the metrics and health addresses.
 
-SELECT query_id, query_text, exec_status, exec_msg, elaboration, exec_start_at, exec_finish_at FROM udi_pgp_observe_query_exec; -- Show log entries, at start of surveilr it should be empty
+SELECT * FROM udi_pgp_observe_query_exec; -- Show log entries, at start of surveilr it should be empty
 
 /*markdown
 To add a supplier to UDI-PGP, we can utilize `SET` queries with specific variable names. For example, to add a new supplier called `local-supplier` (a supplier can be named anything) to the existing configuration, execute the below cell
@@ -116,6 +116,8 @@ SET udi_pgp_serve_ncl_supplier = '
       },
     ],
   } in remote-supplier';
+
+SELECT * FROM udi_pgp_observe_query_exec; -- Show log entries
 
 /*markdown
 Before executing the query, initiate another session with UDI-PGP through the SQL Notebook side panel. Use "remote-supplier" as the name of the database and fill in the username and password sections as described in the auth filed.

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::{fmt::Display, str::FromStr, sync::Arc};
 
@@ -18,12 +19,12 @@ use crate::processor::UdiPgpProcessor;
 use crate::startup::UdiPgpAuthSource;
 
 mod health;
+mod introspection;
 mod metrics;
+mod observability;
 mod processor;
 mod simulations;
 mod startup;
-mod introspection;
-mod observability;
 
 pub mod auth;
 pub mod config;
@@ -106,12 +107,13 @@ pub async fn run(config: &UdiPgpConfig, suppliers: SqlSupplierMap) -> anyhow::Re
     let (tx, rx) = mpsc::channel(32);
     {
         let shared_config = Arc::new(Mutex::new(config.clone()));
+        let log_entries = Arc::new(Mutex::new(HashMap::new()));
         tokio::spawn(async move {
-            config_manager(rx, shared_config.clone()).await;
+            config_manager(rx, shared_config.clone(), log_entries).await;
         });
     }
 
-    observability::init()?;
+    observability::init(&tx, config.verbose)?;
 
     let authenticator = Arc::new(UdiPgpStartupHandler::new(
         UdiPgpAuthSource::new(tx.clone()),

@@ -3,3 +3,4 @@
 
 pub mod suppliers_table;
 pub mod core_table;
+pub mod logs_table;

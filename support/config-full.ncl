@@ -75,6 +75,10 @@ let ConfigSchema =
       | optional
       | default
       = "127.0.0.1:3155",
+    verbose
+      | Bool
+      | default
+      = false,
     suppliers | { _: Supplier },
   } in
 
@@ -83,6 +87,7 @@ let ConfigSchema =
     addr = "127.0.0.1:7777",
     metrics = "127.0.0.1:6666",
     health = "127.0.0.1:5566",
+    verbose = false,
     suppliers = {}
   } | ConfigSchema
 }

@@ -20,17 +20,14 @@
 
 use std::{fmt::Display, str::FromStr};
 
-use pgwire::api::{
-    results::{FieldFormat, FieldInfo},
-    Type,
-};
+use pgwire::api::results::FieldInfo;
 use tokio::sync::mpsc;
 use tracing::{debug, info};
 
 use crate::{
     config::manager::Message,
     error::UdiPgpResult,
-    introspection::sql_suppliers::{core_table, suppliers_table},
+    introspection::sql_suppliers::{core_table, logs_table, suppliers_table},
     parser::stmt::UdiPgpStatment,
     sql_supplier::SqlSupplier,
     Row,
@@ -133,18 +130,13 @@ impl<'a> Introspection<'a> {
                 let rows = supp.execute(&stmt).await?;
                 (schema, rows)
             }
-            IntrospectionTable::QueryExec => (
-                vec![FieldInfo::new(
-                    "test".to_string(),
-                    None,
-                    None,
-                    Type::VARCHAR,
-                    FieldFormat::Text,
-                )],
-                vec![vec![Row {
-                    value: "mee".to_string(),
-                }]],
-            ),
+            IntrospectionTable::QueryExec => {
+                let mut supp = logs_table::LogTable::new(self.state_tx.clone());
+                let mut stmt = self.stmt.clone();
+                let schema = supp.schema(&mut stmt).await?;
+                let rows = supp.execute(&stmt).await?;
+                (schema, rows)
+            }
         };
 
         Ok(res)
