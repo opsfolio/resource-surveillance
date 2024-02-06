@@ -26,7 +26,7 @@ impl SupplierTable {
     fn convert_to_pgwire_type(&self, col: &str) -> UdiPgpResult<Type> {
         match col {
             "id" | "type" | "mode" | "atc_file_path" => Ok(Type::VARCHAR),
-            "ssh_targets" | "auth" => Ok(Type::VARCHAR_ARRAY),
+            "ssh_targets" | "auth" => Ok(Type::JSON),
             other => Err(UdiPgpError::SchemaError(
                 other.to_string(),
                 "Column name invalid".to_string(),
