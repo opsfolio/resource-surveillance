@@ -187,7 +187,10 @@ impl UdiPgpProcessor {
         &self,
         statement: &UdiPgpStatment,
     ) -> PgWireResult<Vec<Response<'a>>> {
-        self.update(statement).await?;
+        if let Err(err) = self.update(statement).await {
+            error!("{}", err);
+            return Err(err);
+        };
         Ok(vec![Response::Execution(Tag::new("UDI-PGP CONFIG SET"))])
     }
 

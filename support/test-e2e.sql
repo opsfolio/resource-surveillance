@@ -13,7 +13,7 @@ Query UDI-PGP for all other configuration parameters besides the suppliers, like
 
 SELECT * FROM udi_pgp_config; -- Show the configuration for UDI-PGP, that is, the address it is bound to and the metrics and health addresses.
 
-SELECT * FROM udi_pgp_observe_query_exec; -- Show log entries, at start of surveilr it should be empty
+SELECT * FROM udi_pgp_observe_query_exec; -- Show log entries, it should show result of the two queries ran earlier
 
 /*markdown
 To add a supplier to UDI-PGP, we can utilize `SET` queries with specific variable names. For example, to add a new supplier called `local-supplier` (a supplier can be named anything) to the existing configuration, execute the below cell
@@ -56,6 +56,8 @@ SET udi_pgp_serve_ncl_supplier = '
 
 SELECT * FROM udi_pgp_supplier; -- You should still have one supplier namely `local-supplier`, `hetzner-atc` should not be created because it's invalid
 
+SELECT * FROM udi_pgp_observe_query_exec; -- Show log entries
+
 /*markdown
 Add a new supplier called "hetzner-atc" with an invalid file path to the ATC file. This statement should fail due to the invalid ATC file.
 */
@@ -64,7 +66,7 @@ SET udi_pgp_serve_ncl_supplier = '
   let hetzner-atc = {
     type = "osquery",
     mode = "local",
-    atc-file-path = "../atc/opsfolio.sqla.osquery-atc.json",
+    atc-file-path = "../atc/opsfolio.sqla.osquery.json",
     auth = [
       {
         username = "john",
@@ -74,6 +76,8 @@ SET udi_pgp_serve_ncl_supplier = '
   } in hetzner-atc';
 
 SELECT * FROM udi_pgp_supplier; -- You should see only one supplier because the above query failed
+
+SELECT * FROM udi_pgp_observe_query_exec; -- Show log entries to see the errors that happened during creation of the supplier
 
 /*markdown
 Before executing the query, initiate another session with UDI-PGP through the SQL Notebook side panel. Use "hetzner" as the name of the database and fill in the username and password sections as described in the auth filed. After you execute this, a schema definition error will be returned due to the incorrect ATC file.
@@ -117,6 +121,8 @@ SET udi_pgp_serve_ncl_supplier = '
     ],
   } in remote-supplier';
 
+SELECT * FROM udi_pgp_supplier;
+
 /*markdown
 Before executing the query, initiate another session with UDI-PGP through the SQL Notebook side panel. Use "remote-supplier" as the name of the database and fill in the username and password sections as described in the auth filed.
 */
@@ -140,3 +146,5 @@ SET udi_pgp_serve_ncl_core = '
     health = "127.0.0.1:5555" 
   } in config  
 ';
+
+SELECT * FROM udi_pgp_config; -- Show the configuration for UDI-PGP, that is, the address it is bound to and the metrics and health addresses.

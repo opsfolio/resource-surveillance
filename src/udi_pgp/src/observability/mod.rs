@@ -62,7 +62,6 @@ where
         if let Some(span_ref) = span.id().and_then(|id| ctx.span(id)) {
             debug!("An event in span {:#?} happened", span_ref.id());
             
-
             let state_tx = self.state_tx.clone();
             let id = span_ref.id().clone();
 
@@ -136,7 +135,7 @@ where
     fn on_exit(&self, id: &span::Id, _ctx: tracing_subscriber::layer::Context<'_, S>) {
         let now = Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
         debug!("Span {:#?} exited at time: {now}", id);
-
+        
         let state_tx = self.state_tx.clone();
         let id = id.clone();
         tokio::spawn(async move {

@@ -226,7 +226,7 @@ impl OsquerySupplier {
             for col in columns {
                 let column_name = col.alias.as_ref().unwrap_or(&col.name);
                 let cell = match column_name.as_str() {
-                    "ssh_target" | "config_path" => {
+                    "udi_pgp_ssh_target" | "config_path" => {
                         // let target = ssh_target.as_ref().ok_or("SSH target not found")?;
                         // match self.name() {
                         //     SupplierName::OsqueryAtcLocal => target
@@ -241,7 +241,7 @@ impl OsquerySupplier {
                         };
                         Row::from(value)
                     }
-                    "host_id" | "atc_id" => {
+                    "udi_pgp_ssh_host_id" | "atc_id" => {
                         // let target = ssh_target.as_ref().ok_or("SSH target not found")?;
                         // target.id().to_string()
                         let value = match target {
@@ -321,32 +321,32 @@ impl SqlSupplier for OsquerySupplier {
 
         if let UdiPgpModes::Remote = self.mode {
             schema.insert(
-                "ssh_target".to_string(),
+                "udi_pgp_ssh_target".to_string(),
                 OsquerySchema::new(
                     schema.len().to_string(),
                     "".into(),
-                    "ssh_target".to_string(),
+                    "udi_pgp_ssh_target".to_string(),
                     "TEXT".to_string(),
                 ),
             );
             schema.insert(
-                "host_id".to_string(),
+                "udi_pgp_ssh_host_id".to_string(),
                 OsquerySchema::new(
                     schema.len().to_string(),
                     "".into(),
-                    "host_id".to_string(),
+                    "udi_pgp_ssh_host_id".to_string(),
                     "TEXT".to_string(),
                 ),
             );
 
             stmt.columns.push(ColumnMetadata::new(
-                "ssh_target".to_string(),
+                "udi_pgp_ssh_target".to_string(),
                 ExpressionType::Standard,
                 None,
                 Type::VARCHAR,
             ));
             stmt.columns.push(ColumnMetadata::new(
-                "host_id".to_string(),
+                "udi_pgp_ssh_host_id".to_string(),
                 ExpressionType::Standard,
                 None,
                 Type::VARCHAR,

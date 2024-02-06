@@ -27,7 +27,8 @@ impl LogTable {
             "query_id" | "query_text" => Ok(Type::VARCHAR),
             "exec_finish_at" | "exec_start_at" => Ok(Type::TIMESTAMP),
             "exec_status" => Ok(Type::INT4),
-            "events" | "exec_msg" => Ok(Type::VARCHAR_ARRAY),
+            "exec_msg" => Ok(Type::ANYARRAY),
+            "elaboration" => Ok(Type::JSON),
             other => Err(UdiPgpError::SchemaError(
                 other.to_string(),
                 "Column name invalid".to_string(),
@@ -41,7 +42,7 @@ impl LogTable {
             "query_text",
             "exec_start_at",
             "exec_finish_at",
-            "events",
+            "elaboration",
             "exec_msg",
             "exec_status",
         ];
@@ -154,8 +155,8 @@ impl SqlSupplier for LogTable {
                   "query_text" => log.query_text.to_string(),
                   "exec_start_at" => serde_json::to_string_pretty(&log.exec_start_at)?,
                   "exec_finish_at" => serde_json::to_string_pretty(&log.exec_finish_at)?,
-                  "events" => { 
-                    serde_json::to_string_pretty(&log.events.join("\n"))? 
+                  "elaboration" => { 
+                    serde_json::to_string(&log.elaboration)? 
                   },
                   "exec_status" => {
                     if log.exec_msg.is_empty() {
@@ -164,13 +165,7 @@ impl SqlSupplier for LogTable {
                         1.to_string()
                     }
                   }
-                  "exec_msg" => {
-                    if log.exec_msg.is_empty() {
-                        "_".to_string()
-                    } else {
-                        serde_json::to_string_pretty(&log.exec_msg.join("\n"))? 
-                    }
-                  },
+                  "exec_msg" => serde_json::to_string(&log.exec_msg)?,
                   other => return Err(UdiPgpError::QueryExecutionError(format!("Invalid column name. Got: {}. Expected one of id, type, auth, ssh_target, atc_file_path", other)))
               };
                 cell_row.push(Row::from(row));

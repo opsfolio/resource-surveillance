@@ -118,7 +118,7 @@ pub async fn config_manager(
                 let mut logs = log_entries.lock().await;
                 logs.entry(span_id.clone()).and_modify(|e| match msg {
                     UpdateLogEntry::Event(event, level) => {
-                        e.events.push(event.clone());
+                        e.elaboration.events.push(event.clone());
                         if level == Level::ERROR {
                             e.exec_msg.push(event);
                         }
