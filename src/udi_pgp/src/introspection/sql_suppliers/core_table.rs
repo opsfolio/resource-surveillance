@@ -6,6 +6,7 @@ use pgwire::api::{
 };
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, error};
+use uuid::Uuid;
 
 use crate::{
     config::{manager::Message, Supplier, SupplierType, UdiPgpConfig},
@@ -18,6 +19,7 @@ use crate::{
 #[derive(Debug, Clone, new)]
 pub struct CoreTable {
     state_tx: mpsc::Sender<Message>,
+    query_session_id: Option<Uuid>,
 }
 
 impl CoreTable {
@@ -107,6 +109,11 @@ impl SqlSupplier for CoreTable {
 
     fn generate_new(&self, _supplier: Supplier) -> UdiPgpResult<SqlSupplierType> {
         unimplemented!()
+    }
+
+    fn add_session_id(&mut self, session_id: Uuid) -> UdiPgpResult<()> {
+        self.query_session_id = Some(session_id);
+        Ok(())
     }
 
     async fn schema(&mut self, stmt: &mut UdiPgpStatment) -> UdiPgpResult<Vec<FieldInfo>> {

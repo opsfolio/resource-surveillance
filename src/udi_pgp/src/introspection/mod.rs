@@ -23,6 +23,7 @@ use std::{fmt::Display, str::FromStr};
 use pgwire::api::results::FieldInfo;
 use tokio::sync::mpsc;
 use tracing::{debug, info};
+use uuid::Uuid;
 
 use crate::{
     config::manager::Message,
@@ -111,27 +112,31 @@ impl<'a> Introspection<'a> {
         })
     }
 
-    pub async fn handle(&mut self) -> UdiPgpResult<(Vec<FieldInfo>, Vec<Vec<Row>>)> {
+    pub async fn handle(
+        &mut self,
+        session_id: &Uuid,
+    ) -> UdiPgpResult<(Vec<FieldInfo>, Vec<Vec<Row>>)> {
         info!("Executing Introspection Query");
         debug!("{:#?}", self.stmt);
 
         let res = match self.table_type {
             IntrospectionTable::Supplier => {
-                let mut supp = suppliers_table::SupplierTable::new(self.state_tx.clone());
+                let mut supp =
+                    suppliers_table::SupplierTable::new(self.state_tx.clone(), Some(*session_id));
                 let mut stmt = self.stmt.clone();
                 let schema = supp.schema(&mut stmt).await?;
                 let rows = supp.execute(&stmt).await?;
                 (schema, rows)
             }
             IntrospectionTable::Config => {
-                let mut supp = core_table::CoreTable::new(self.state_tx.clone());
+                let mut supp = core_table::CoreTable::new(self.state_tx.clone(), Some(*session_id));
                 let mut stmt = self.stmt.clone();
                 let schema = supp.schema(&mut stmt).await?;
                 let rows = supp.execute(&stmt).await?;
                 (schema, rows)
             }
             IntrospectionTable::QueryExec => {
-                let mut supp = logs_table::LogTable::new(self.state_tx.clone());
+                let mut supp = logs_table::LogTable::new(self.state_tx.clone(), Some(*session_id));
                 let mut stmt = self.stmt.clone();
                 let schema = supp.schema(&mut stmt).await?;
                 let rows = supp.execute(&stmt).await?;

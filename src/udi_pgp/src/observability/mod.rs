@@ -61,7 +61,7 @@ where
         let span = ctx.current_span();
         if let Some(span_ref) = span.id().and_then(|id| ctx.span(id)) {
             debug!("An event in span {:#?} happened", span_ref.id());
-            
+
             let state_tx = self.state_tx.clone();
             let id = span_ref.id().clone();
 
@@ -70,7 +70,6 @@ where
                 string: &mut event_msg,
             };
             event.record(&mut visitor);
-            let event_msg = event_msg.trim().to_string();
             let level = *event.metadata().level();
 
             tokio::spawn(async move {
@@ -93,15 +92,12 @@ where
     ) {
         debug!("New span {:#?} created", id);
 
-        let mut query = String::new();
-        let mut visitor = StringVisitor { string: &mut query };
-        attrs.record(&mut visitor);
-        let query = query.trim();
-        debug!("New span attrs {:#?} created", query);
+        let mut entry = QueryLogEntry::default();
+        attrs.record(&mut entry);
+        debug!("New span attrs {:#?} created", entry);
 
         let state_tx = self.state_tx.clone();
         let id_clone = id.clone();
-        let entry = QueryLogEntry::new(query);
 
         // TODO: look into this as it adds quite the overhead.
         tokio::spawn(async move {
@@ -135,7 +131,7 @@ where
     fn on_exit(&self, id: &span::Id, _ctx: tracing_subscriber::layer::Context<'_, S>) {
         let now = Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
         debug!("Span {:#?} exited at time: {now}", id);
-        
+
         let state_tx = self.state_tx.clone();
         let id = id.clone();
         tokio::spawn(async move {

@@ -4,14 +4,14 @@ use futures::{stream, Stream};
 use pgwire::{
     api::{
         results::{DataRowEncoder, FieldInfo, QueryResponse, Response, Tag},
-        ClientInfo, MakeHandler,
+        MakeHandler,
     },
     error::{ErrorInfo, PgWireError, PgWireResult},
     messages::data::DataRow,
 };
 use sqlparser::ast::{self, Expr, Statement};
 use tokio::sync::{mpsc, oneshot, RwLock};
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 
 use crate::{
     config::{manager::Message, UdiPgpConfig},
@@ -223,31 +223,6 @@ impl UdiPgpProcessor {
             .map(|r| Row::from_str(r).unwrap())
             .collect::<Vec<_>>()];
         Ok((schema, rows))
-    }
-
-    async fn handle_supplier<'a, C: ClientInfo + Unpin + Send + Sync>(
-        &self,
-        client: &mut C,
-        statement: &mut UdiPgpStatment,
-    ) -> PgWireResult<Vec<Response<'a>>> {
-        let metadata = client.metadata();
-        let (supplier_id, _) =
-            Self::extract_supplier_and_database(metadata.get("database").map(|x| x.as_str()))?;
-
-        let exec_supplier = self.exec_supplier.read().await;
-        let supplier = exec_supplier.supplier(&supplier_id).await?;
-        let mut supplier = supplier.lock().await;
-
-        info!("Supplier: {supplier_id} currently in use.");
-        let (schema, rows) = (
-            supplier.schema(statement).await?,
-            supplier.execute(statement).await?,
-        );
-
-        let row_stream = self.encode_rows(schema.clone().into(), &rows);
-        let response = Response::Query(QueryResponse::new(schema.into(), row_stream));
-
-        Ok(vec![response])
     }
 
     async fn update(&self, stmt: &UdiPgpStatment) -> PgWireResult<()> {

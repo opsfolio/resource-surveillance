@@ -19,6 +19,17 @@ pub struct ColumnMetadata {
     pub r#type: Type,
 }
 
+impl ColumnMetadata {
+    pub fn query_session_column() -> Self {
+        ColumnMetadata::new(
+            "udi_pgp_session_query_id".to_string(),
+            ExpressionType::Standard,
+            None,
+            Type::VARCHAR,
+        )
+    }
+}
+
 impl Default for ColumnMetadata {
     fn default() -> Self {
         ColumnMetadata {
@@ -77,7 +88,7 @@ pub enum StmtType {
     /// Queries to get suppliers and details about each supplier. e.g `SELECT * from udi_pgp_suppier`
     Introspection,
     /// Standard queries to suppliers
-    Supplier
+    Supplier,
 }
 
 /// Represents the metadata of a parsed SQL query, including details about the tables and columns involved.
@@ -89,7 +100,7 @@ pub struct UdiPgpStatment {
     pub columns: Vec<ColumnMetadata>,
     pub query: String,
     pub stmt: Statement,
-    pub stmt_type: StmtType
+    pub stmt_type: StmtType,
 }
 
 impl TryFrom<ColumnDef> for ColumnMetadata {

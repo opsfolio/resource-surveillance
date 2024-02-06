@@ -179,46 +179,42 @@ pub fn driver_queries_response(query: &str) -> UdiPgpResult<(Vec<FieldInfo>, Vec
         return Ok((field_infos, rows))
     }
 
-    if query.trim().starts_with("SELECT a.attname,
-  pg_catalog.format_type(a.atttypid, a.atttypmod),") {
-     let field_infos = vec![
-            FieldInfo::new("attname".to_string(), None, None, Type::VARCHAR, FieldFormat::Text),
+    if query.trim().starts_with(
+        "SELECT a.attname,
+  pg_catalog.format_type(a.atttypid, a.atttypmod),",
+    ) {
+        let field_infos = vec![
             FieldInfo::new(
-                "".to_string(),
+                "attname".to_string(),
                 None,
                 None,
                 Type::VARCHAR,
                 FieldFormat::Text,
             ),
-                FieldInfo::new(
-                "".to_string(),
-                None,
-                None,
-                Type::BOOL,
-                FieldFormat::Text,
-            ),
-                FieldInfo::new(
+            FieldInfo::new("".to_string(), None, None, Type::VARCHAR, FieldFormat::Text),
+            FieldInfo::new("".to_string(), None, None, Type::BOOL, FieldFormat::Text),
+            FieldInfo::new(
                 "attnotnull".to_string(),
                 None,
                 None,
                 Type::BOOL,
                 FieldFormat::Text,
             ),
-                FieldInfo::new(
+            FieldInfo::new(
                 "attcollation".to_string(),
                 None,
                 None,
                 Type::OID,
                 FieldFormat::Text,
             ),
-                FieldInfo::new(
+            FieldInfo::new(
                 "attidentity".to_string(),
                 None,
                 None,
                 Type::CHAR,
                 FieldFormat::Text,
             ),
-                FieldInfo::new(
+            FieldInfo::new(
                 "attgenerated".to_string(),
                 None,
                 None,
@@ -227,26 +223,27 @@ pub fn driver_queries_response(query: &str) -> UdiPgpResult<(Vec<FieldInfo>, Vec
             ),
         ];
         let rows = vec!["mehh", "", "", "false", "55", "d", "s"];
-        return Ok((field_infos, rows))
-  }
+        return Ok((field_infos, rows));
+    }
 
-    if query.trim().starts_with("SELECT r.conname, pg_catalog.pg_get_constraintdef(r.oid, true)
-FROM pg_catalog.pg_constraint r") {
-     let field_infos = vec![
-            FieldInfo::new("conname".to_string(), None, None, Type::VARCHAR, FieldFormat::Text),
+    if query.trim().starts_with(
+        "SELECT r.conname, pg_catalog.pg_get_constraintdef(r.oid, true)
+FROM pg_catalog.pg_constraint r",
+    ) {
+        let field_infos = vec![
             FieldInfo::new(
-                "".to_string(),
+                "conname".to_string(),
                 None,
                 None,
                 Type::VARCHAR,
                 FieldFormat::Text,
             ),
+            FieldInfo::new("".to_string(), None, None, Type::VARCHAR, FieldFormat::Text),
         ];
         let rows = vec!["mehh", "stub for pg_constraint"];
-        return Ok((field_infos, rows))
-  }
+        return Ok((field_infos, rows));
+    }
 
-    
     match query {
         SHOW_SEARCH_PATH => Ok((
             vec![FieldInfo::new(

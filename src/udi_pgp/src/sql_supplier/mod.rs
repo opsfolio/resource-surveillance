@@ -3,6 +3,7 @@ use std::{collections::HashMap, fmt, sync::Arc};
 use async_trait::async_trait;
 use pgwire::api::results::FieldInfo;
 use tokio::sync::Mutex;
+use uuid::Uuid;
 
 use crate::{
     config::{Supplier, SupplierType},
@@ -18,6 +19,7 @@ pub trait SqlSupplier: ClonableSqlSupplier {
     fn name(&self) -> &str;
     fn supplier_type(&self) -> SupplierType;
     fn update(&mut self, supplier: Supplier) -> UdiPgpResult<()>;
+    fn add_session_id(&mut self, session_id: Uuid) -> UdiPgpResult<()>;
     fn generate_new(&self, supplier: Supplier) -> UdiPgpResult<SqlSupplierType>;
     async fn schema(&mut self, stmt: &mut UdiPgpStatment) -> UdiPgpResult<Vec<FieldInfo>>;
     async fn execute(&mut self, stmt: &UdiPgpStatment) -> UdiPgpResult<Vec<Vec<Row>>>;

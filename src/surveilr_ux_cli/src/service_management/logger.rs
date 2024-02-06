@@ -65,9 +65,7 @@ pub fn log(
         .with_line_number(true)
         .with_writer(writer_factory);
 
-    let subscriber = Registry::default()
-        .with(env_filter)
-        .with(fmt_layer);
+    let subscriber = Registry::default().with(env_filter).with(fmt_layer);
 
     let _guard = subscriber.set_default();
 

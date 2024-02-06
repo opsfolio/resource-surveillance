@@ -1,4 +1,4 @@
-use std::{process::Command, str::FromStr};
+use std::{collections::HashMap, process::Command, str::FromStr};
 
 use async_trait::async_trait;
 use futures::{stream, StreamExt};
@@ -13,6 +13,7 @@ use udi_pgp::{
     ssh::{key::SshKey, session::SshTunnelAccess, SshConnection, UdiPgpSshTarget},
     FieldFormat, FieldInfo, Row, Type, UdiPgpModes, FACTORY,
 };
+use uuid::Uuid;
 
 mod schema;
 
@@ -26,6 +27,7 @@ fn generate_new(supplier: Supplier) -> UdiPgpResult<SqlSupplierType> {
         mode: supplier.mode,
         atc_file_path: supplier.atc_file_path,
         ssh_targets: supplier.ssh_targets,
+        query_session_id: None,
     };
     Ok(Box::new(sql_suppler) as SqlSupplierType)
 }
@@ -35,6 +37,7 @@ pub struct OsquerySupplier {
     pub mode: UdiPgpModes,
     atc_file_path: Option<String>,
     ssh_targets: Option<Vec<UdiPgpSshTarget>>,
+    query_session_id: Option<Uuid>,
 }
 
 impl From<Supplier> for OsquerySupplier {
@@ -43,6 +46,7 @@ impl From<Supplier> for OsquerySupplier {
             mode: value.mode,
             atc_file_path: value.atc_file_path,
             ssh_targets: value.ssh_targets,
+            query_session_id: None,
         }
     }
 }
@@ -53,6 +57,7 @@ impl From<&Supplier> for OsquerySupplier {
             mode: value.mode.clone(),
             atc_file_path: value.atc_file_path.clone(),
             ssh_targets: value.ssh_targets.clone(),
+            query_session_id: None,
         }
     }
 }
@@ -63,6 +68,7 @@ impl OsquerySupplier {
             mode,
             atc_file_path: None,
             ssh_targets: None,
+            query_session_id: None,
         }
     }
 
@@ -103,6 +109,92 @@ impl OsquerySupplier {
                 ))
             }
         }
+    }
+
+    fn process_columns(
+        &self,
+        stmt: &mut UdiPgpStatment,
+        schema: &mut HashMap<String, OsquerySchema>,
+    ) {
+        if stmt.columns.len() == 1 && stmt.columns.first().map_or(false, |c| c.name == "*") {
+            stmt.columns = schema
+                .iter()
+                .map(|(_, schema)| ColumnMetadata {
+                    name: schema.name.clone(),
+                    expr_type: ExpressionType::Standard,
+                    alias: None,
+                    r#type: Type::VARCHAR,
+                })
+                .collect();
+        } else {
+            stmt.columns
+                .iter_mut()
+                .for_each(|col| col.name = col.name.to_lowercase());
+        }
+    }
+
+    fn add_remote_specific_columns(&self, stmt: &mut UdiPgpStatment, mode: &UdiPgpModes) {
+        if let UdiPgpModes::Remote = mode {
+            let remote_columns = ["udi_pgp_ssh_target", "udi_pgp_ssh_host_id"];
+            for &name in &remote_columns {
+                stmt.columns.push(ColumnMetadata {
+                    name: name.to_string(),
+                    expr_type: ExpressionType::Standard,
+                    alias: None,
+                    r#type: Type::VARCHAR,
+                });
+            }
+        }
+    }
+
+    fn column_to_field_info(
+        &self,
+        col: &ColumnMetadata,
+        schema: &HashMap<String, OsquerySchema>,
+    ) -> UdiPgpResult<FieldInfo> {
+        let col_schema = match schema.get(&col.name) {
+            Some(col_schema) => col_schema.clone(),
+            None => {
+                if &col.name == "udi_pgp_session_query_id" {
+                    OsquerySchema::new(
+                        "100".to_string(),
+                        "name".to_owned(),
+                        "udi_pgp_session_query_id".to_string(),
+                        "TEXT".to_string(),
+                    )
+                } else if &col.name == "udi_pgp_ssh_host_id" {
+                    OsquerySchema::new(
+                        "101".to_string(),
+                        "name".to_owned(),
+                        "udi_pgp_ssh_host_id".to_string(),
+                        "TEXT".to_string(),
+                    )
+                } else if &col.name == "udi_pgp_ssh_target" {
+                    OsquerySchema::new(
+                        "102".to_string(),
+                        "name".to_owned(),
+                        "udi_pgp_ssh_target".to_string(),
+                        "TEXT".to_string(),
+                    )
+                } else {
+                    self.non_standard_column(col)?
+                }
+            }
+        };
+
+        let cid = col_schema
+            .cid
+            .parse::<i16>()
+            .map_err(|e| UdiPgpError::QueryExecutionError(format!("Failed to parse cid: {}", e)))?;
+
+        let name = match &col.alias {
+            Some(alias) => alias.to_string(),
+            None => col.name.to_string(),
+        };
+
+        let field_info =
+            FieldInfo::new(name, None, Some(cid), col.r#type.clone(), FieldFormat::Text);
+        Ok(field_info)
     }
 
     fn execute_local_query(&self, query: &str) -> UdiPgpResult<Vec<Value>> {
@@ -250,6 +342,13 @@ impl OsquerySupplier {
                         };
                         Row::from(value)
                     }
+                    "udi_pgp_session_query_id" => {
+                        let value = match self.query_session_id {
+                            Some(id) => id.to_string(),
+                            None => "null".to_string(),
+                        };
+                        Row::from(value)
+                    }
                     _ => {
                         let default = Value::String("".to_string());
                         let val = row_object
@@ -288,6 +387,11 @@ impl SqlSupplier for OsquerySupplier {
         Ok(())
     }
 
+    fn add_session_id(&mut self, session_id: Uuid) -> UdiPgpResult<()> {
+        self.query_session_id = Some(session_id);
+        Ok(())
+    }
+
     fn generate_new(&self, supplier: Supplier) -> UdiPgpResult<SqlSupplierType> {
         generate_new(supplier)
     }
@@ -296,92 +400,120 @@ impl SqlSupplier for OsquerySupplier {
         let mut schema = schema::get_schema(&stmt.tables, &self.atc_file_path)?;
         debug!("{:#?}", stmt.columns);
 
-        stmt.columns = if stmt.columns.len() == 1 && stmt.columns.first().unwrap().name == "*" {
-            schema
-                .values()
-                .map(|schema| {
-                    ColumnMetadata::new(
-                        schema.name.clone(),
-                        ExpressionType::Standard,
-                        None,
-                        Type::VARCHAR,
-                    )
-                })
-                .collect::<Vec<_>>()
-        } else {
-            stmt.columns
-                .iter()
-                .map(|col| {
-                    let mut col = col.clone();
-                    col.name = col.name.to_lowercase();
-                    col
-                })
-                .collect::<Vec<_>>()
-        };
+        // Process columns to either expand "*" or lowercase existing columns
+        self.process_columns(stmt, &mut schema);
+        self.add_remote_specific_columns(stmt, &self.mode);
 
-        if let UdiPgpModes::Remote = self.mode {
-            schema.insert(
-                "udi_pgp_ssh_target".to_string(),
-                OsquerySchema::new(
-                    schema.len().to_string(),
-                    "".into(),
-                    "udi_pgp_ssh_target".to_string(),
-                    "TEXT".to_string(),
-                ),
-            );
-            schema.insert(
-                "udi_pgp_ssh_host_id".to_string(),
-                OsquerySchema::new(
-                    schema.len().to_string(),
-                    "".into(),
-                    "udi_pgp_ssh_host_id".to_string(),
-                    "TEXT".to_string(),
-                ),
-            );
-
-            stmt.columns.push(ColumnMetadata::new(
-                "udi_pgp_ssh_target".to_string(),
-                ExpressionType::Standard,
-                None,
-                Type::VARCHAR,
-            ));
-            stmt.columns.push(ColumnMetadata::new(
-                "udi_pgp_ssh_host_id".to_string(),
-                ExpressionType::Standard,
-                None,
-                Type::VARCHAR,
-            ));
-        };
+        // Always add the query session column
+        stmt.columns.push(ColumnMetadata {
+            name: "udi_pgp_session_query_id".to_string(),
+            expr_type: ExpressionType::Standard,
+            alias: None,
+            r#type: Type::VARCHAR,
+        });
 
         stmt.columns
             .iter()
-            .map(|col| {
-                let col_schema = match schema.get(&col.name) {
-                    Some(sch) => {
-                        let mut sch = sch.clone();
-                        if let Some(alias) = &col.alias {
-                            sch.name = alias.clone();
-                        }
-                        sch
-                    }
-                    None => self.non_standard_column(col)?,
-                };
-
-                let col_type = col.r#type.clone();
-                let field_format = FieldFormat::Text;
-                let cid = col_schema.cid.parse::<i16>().map_err(|e| {
-                    UdiPgpError::QueryExecutionError(format!("Failed to parse cid: {}", e))
-                })?;
-
-                Ok(FieldInfo::new(
-                    col_schema.name,
-                    None,
-                    Some(cid),
-                    col_type,
-                    field_format,
-                ))
-            })
+            .map(|col| self.column_to_field_info(col, &schema))
             .collect()
+
+        // let mut schema = schema::get_schema(&stmt.tables, &self.atc_file_path)?;
+        // debug!("{:#?}", stmt.columns);
+
+        // stmt.columns = if stmt.columns.len() == 1 && stmt.columns.first().unwrap().name == "*" {
+        //     schema
+        //         .values()
+        //         .map(|schema| {
+        //             ColumnMetadata::new(
+        //                 schema.name.clone(),
+        //                 ExpressionType::Standard,
+        //                 None,
+        //                 Type::VARCHAR,
+        //             )
+        //         })
+        //         .collect::<Vec<_>>()
+        // } else {
+        //     stmt.columns
+        //         .iter()
+        //         .map(|col| {
+        //             let mut col = col.clone();
+        //             col.name = col.name.to_lowercase();
+        //             col
+        //         })
+        //         .collect::<Vec<_>>()
+        // };
+
+        // // Add query session
+        // stmt.columns.push(ColumnMetadata::new(
+        //     "udi_pgp_session_query_id".to_string(),
+        //     ExpressionType::Standard,
+        //     None,
+        //     Type::VARCHAR,
+        // ));
+
+        // if let UdiPgpModes::Remote = self.mode {
+        //     schema.insert(
+        //         "udi_pgp_ssh_target".to_string(),
+        //         OsquerySchema::new(
+        //             schema.len().to_string(),
+        //             "".into(),
+        //             "udi_pgp_ssh_target".to_string(),
+        //             "TEXT".to_string(),
+        //         ),
+        //     );
+        //     schema.insert(
+        //         "udi_pgp_ssh_host_id".to_string(),
+        //         OsquerySchema::new(
+        //             schema.len().to_string(),
+        //             "".into(),
+        //             "udi_pgp_ssh_host_id".to_string(),
+        //             "TEXT".to_string(),
+        //         ),
+        //     );
+
+        //     stmt.columns.push(ColumnMetadata::new(
+        //         "udi_pgp_ssh_target".to_string(),
+        //         ExpressionType::Standard,
+        //         None,
+        //         Type::VARCHAR,
+        //     ));
+        //     stmt.columns.push(ColumnMetadata::new(
+        //         "udi_pgp_ssh_host_id".to_string(),
+        //         ExpressionType::Standard,
+        //         None,
+        //         Type::VARCHAR,
+        //     ));
+        // };
+
+        // stmt.columns
+        //     .iter()
+        //     .map(|col| {
+        //         let col_schema = match schema.get(&col.name) {
+        //             Some(sch) => {
+        //                 let mut sch = sch.clone();
+        //                 if let Some(alias) = &col.alias {
+        //                     sch.name = alias.clone();
+        //                 }
+        //                 sch
+        //             }
+        //             None => self.non_standard_column(col)?,
+        //         };
+
+        //         let col_type = col.r#type.clone();
+        //         let field_format = FieldFormat::Text;
+        //         let cid = col_schema.cid.parse::<i16>().map_err(|e| {
+        //             UdiPgpError::QueryExecutionError(format!("Failed to parse cid: {}", e))
+        //         })?;
+
+        //         Ok(FieldInfo::new(
+        //             col_schema.name,
+        //             None,
+        //             Some(cid),
+        //             col_type,
+        //             field_format,
+        //         ))
+        //     })
+        //     .collect()
     }
 
     async fn execute(&mut self, stmt: &UdiPgpStatment) -> UdiPgpResult<Vec<Vec<Row>>> {

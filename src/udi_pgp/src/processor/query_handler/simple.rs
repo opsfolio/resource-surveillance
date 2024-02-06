@@ -7,7 +7,8 @@ use pgwire::{
     },
     error::{ErrorInfo, PgWireError, PgWireResult},
 };
-use tracing::{debug, debug_span, info_span, Instrument};
+use tracing::{debug, debug_span, info, info_span, Instrument};
+use uuid::Uuid;
 
 use crate::{
     introspection::Introspection,
@@ -19,9 +20,37 @@ use crate::{
 };
 
 impl UdiPgpProcessor {
+    async fn handle_supplier<'a, C: ClientInfo + Unpin + Send + Sync>(
+        &self,
+        client: &mut C,
+        statement: &mut UdiPgpStatment,
+        session_id: &Uuid,
+    ) -> PgWireResult<Vec<Response<'a>>> {
+        let metadata = client.metadata();
+        let (supplier_id, _) =
+            Self::extract_supplier_and_database(metadata.get("database").map(|x| x.as_str()))?;
+
+        let exec_supplier = self.exec_supplier.read().await;
+        let supplier = exec_supplier.supplier(&supplier_id).await?;
+        let mut supplier = supplier.lock().await;
+        supplier.add_session_id(*session_id)?;
+
+        info!("Supplier: {supplier_id} currently in use.");
+        let (schema, rows) = (
+            supplier.schema(statement).await?,
+            supplier.execute(statement).await?,
+        );
+
+        let row_stream = self.encode_rows(schema.clone().into(), &rows);
+        let response = Response::Query(QueryResponse::new(schema.into(), row_stream));
+
+        Ok(vec![response])
+    }
+
     async fn handle_introspection<'a>(
         &self,
         stmt: &UdiPgpStatment,
+        session_id: &Uuid,
     ) -> PgWireResult<Vec<Response<'a>>> {
         let mut introspection =
             Introspection::new(stmt, self.config_tx.clone()).map_err(|err| {
@@ -32,7 +61,7 @@ impl UdiPgpProcessor {
                 )))
             })?;
 
-        let (schema, rows) = introspection.handle().await.map_err(|err| {
+        let (schema, rows) = introspection.handle(session_id).await.map_err(|err| {
             PgWireError::UserError(Box::new(ErrorInfo::new(
                 "FATAL".to_string(),
                 "INTROSPECTION".to_string(),
@@ -58,11 +87,12 @@ impl SimpleQueryHandler for UdiPgpProcessor {
         C: ClientInfo + Unpin + Send + Sync,
     {
         let config = self.read_config().await?;
+        let query_id = Uuid::new_v4();
 
         let span = if config.verbose {
-            debug_span!("simple query handler", query)
+            debug_span!("simple query handler", query_text = query, query_id = ?query_id)
         } else {
-            info_span!("simple query handler", query)
+            info_span!("simple query handler", query_text = query, query_id = ?query_id)
         };
 
         async {
@@ -73,8 +103,11 @@ impl SimpleQueryHandler for UdiPgpProcessor {
             Ok(match statement.stmt_type {
                 StmtType::Config => self.handle_config(&statement).await?,
                 StmtType::Driver => self.handle_driver(query)?,
-                StmtType::Supplier => self.handle_supplier(client, &mut statement).await?,
-                StmtType::Introspection => self.handle_introspection(&statement).await?,
+                StmtType::Supplier => {
+                    self.handle_supplier(client, &mut statement, &query_id)
+                        .await?
+                }
+                StmtType::Introspection => self.handle_introspection(&statement, &query_id).await?,
             })
         }
         .instrument(span)

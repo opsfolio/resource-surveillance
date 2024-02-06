@@ -21,9 +21,10 @@ pub enum UdiCommands {
 impl UdiArgs {
     pub async fn execute(&self) -> anyhow::Result<()> {
         match &self.commands {
-            UdiCommands::Pgp(args) => { 
+            UdiCommands::Pgp(args) => {
                 args.register_suppliers().await;
-                args.execute().await },
+                args.execute().await
+            }
             UdiCommands::Admin => Ok(()),
         }
     }

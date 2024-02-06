@@ -13,10 +13,10 @@ pub async fn start(addr: SocketAddr, shutdown_signal: oneshot::Receiver<()>) -> 
         .with_graceful_shutdown(graceful_shutdown(shutdown_signal))
         .await
     {
-        Ok(_) => { 
-                info!("herreeeeeee");
+        Ok(_) => {
+            info!("herreeeeeee");
             info!("Metrics server running on {}", addr)
-         },
+        }
         Err(e) => error!("Server error: {}", e),
     }
 

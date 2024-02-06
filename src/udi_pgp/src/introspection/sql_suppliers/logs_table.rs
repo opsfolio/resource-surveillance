@@ -6,6 +6,7 @@ use pgwire::api::{
 };
 use tokio::sync::{mpsc, oneshot};
 use tracing::error;
+use uuid::Uuid;
 
 use crate::{
     config::{manager::Message, Supplier, SupplierType},
@@ -19,6 +20,7 @@ use crate::{
 #[derive(Debug, Clone, new)]
 pub struct LogTable {
     state_tx: mpsc::Sender<Message>,
+    query_session_id: Option<Uuid>,
 }
 
 impl LogTable {
@@ -129,6 +131,11 @@ impl SqlSupplier for LogTable {
         unimplemented!()
     }
 
+    fn add_session_id(&mut self, session_id: Uuid) -> UdiPgpResult<()> {
+        self.query_session_id = Some(session_id);
+        Ok(())
+    }
+
     async fn schema(&mut self, stmt: &mut UdiPgpStatment) -> UdiPgpResult<Vec<FieldInfo>> {
         if stmt.columns.len() == 1 && stmt.columns.first().unwrap().name == "*" {
             self.fill_columns_with_default(stmt)?;
@@ -155,9 +162,7 @@ impl SqlSupplier for LogTable {
                   "query_text" => log.query_text.to_string(),
                   "exec_start_at" => serde_json::to_string_pretty(&log.exec_start_at)?,
                   "exec_finish_at" => serde_json::to_string_pretty(&log.exec_finish_at)?,
-                  "elaboration" => { 
-                    serde_json::to_string(&log.elaboration)? 
-                  },
+                  "elaboration" => serde_json::to_string(&log.elaboration)?,
                   "exec_status" => {
                     if log.exec_msg.is_empty() {
                         0.to_string()
