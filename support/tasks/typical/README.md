@@ -3,11 +3,18 @@
 Prepare the device-* JSONL files here ,  pipe the respective queries to deno shell task via `surveilr ingest tasks`   to produce independent RSSD SQLite DB. 
 
 #### Prerequisites
+
+Add the user to the docker group:
+```bash
+sudo usermod -aG docker "$(whoami)"
+
+```
+
 ##### 1. PKGX
 
 Install Pkgx using the below command:
 
-```
+```bash
 curl -fsS https://pkgx.sh | sh
 ```
 
