@@ -1,11 +1,21 @@
 use std::{fmt::Display, str::FromStr};
 
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
-use crate::error::UdiPgpError;
+use crate::error::{UdiPgpError, UdiPgpResult};
+
+use self::{key::SshKey, session::SshTunnelAccess};
 
 pub mod key;
 pub mod session;
+
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
+pub struct TargetStatus {
+    pub is_accessible: bool,
+    pub reason: Option<String>,
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
 pub struct UdiPgpSshTarget {
     pub host: String,
@@ -14,6 +24,41 @@ pub struct UdiPgpSshTarget {
     pub id: String,
     #[serde(rename = "atc-file-path")]
     pub atc_file_path: Option<String>,
+    pub status: Option<TargetStatus>,
+}
+
+impl UdiPgpSshTarget {
+    pub async fn is_accessible(&mut self) -> UdiPgpResult<()> {
+        let keypair = SshKey::generate_random().map_err(UdiPgpError::from)?;
+        let access = SshTunnelAccess {
+            connection_string: format!("{}@{}", self.user, self.host),
+            keypair,
+        };
+
+        match access.check_access_connection().await {
+            Ok(accessible) => {
+                if accessible {
+                    self.status = Some(TargetStatus {
+                        is_accessible: true,
+                        reason: None,
+                    })
+                } else {
+                    self.status = Some(TargetStatus {
+                        is_accessible: false,
+                        reason: None,
+                    })
+                }
+            }
+            Err(err) => {
+                error!("{}", err);
+                self.status = Some(TargetStatus {
+                    is_accessible: false,
+                    reason: Some(format!("{}", err)),
+                });
+            }
+        };
+        Ok(())
+    }
 }
 
 impl TryFrom<&String> for UdiPgpSshTarget {
@@ -86,6 +131,7 @@ impl FromStr for UdiPgpSshTarget {
             user: user.to_owned(),
             id: id.to_owned(),
             atc_file_path: None,
+            status: None,
         })
     }
 }
@@ -135,6 +181,7 @@ mod tests {
             user: "prod".to_string(),
             id: "prod".to_string(),
             atc_file_path: None,
+            status: None,
         });
         let conn_str = conn_str.connection_string();
         assert_eq!(&conn_str, "ssh://prod@127.0.0.1:5432");
@@ -146,6 +193,7 @@ mod tests {
             user: "prod".to_string(),
             id: "prod".to_string(),
             atc_file_path: None,
+            status: None,
         });
         let conn_str = conn_str.connection_string();
         assert_eq!(&conn_str, "ssh://prod@127.0.0.1");
@@ -163,6 +211,7 @@ mod tests {
                     user: "user".to_string(),
                     id: "prod".to_string(),
                     atc_file_path: None,
+                    status: None,
                 },
             ),
             (
@@ -173,6 +222,7 @@ mod tests {
                     user: "user".to_string(),
                     id: "prod".to_string(),
                     atc_file_path: None,
+                    status: None,
                 },
             ),
             (
@@ -183,6 +233,7 @@ mod tests {
                     user: "user".to_string(),
                     id: "prod".to_string(),
                     atc_file_path: None,
+                    status: None,
                 },
             ),
         ];

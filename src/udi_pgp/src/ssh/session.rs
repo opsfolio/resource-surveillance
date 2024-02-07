@@ -111,6 +111,16 @@ impl SshTunnelAccess {
                 .await?;
         Ok((SshTunnelSession { inner }, addr))
     }
+
+    pub async fn check_access_connection(&self) -> Result<bool, SshTunnelError> {
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        let is_accessible = unix_impl::check_ssh_host_connection(&self.connection_string).await?;
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        let is_accessible =
+            not_unix_impl::check_ssh_host_connection(&self.connection_string).await?;
+
+        Ok(is_accessible)
+    }
 }
 
 /// Unix implementation for the ssh tunnel. This implementation is tested and
@@ -207,6 +217,24 @@ mod unix_impl {
         Err(SshTunnelError::NoOpenPorts)
     }
 
+    pub(super) async fn check_ssh_host_connection(
+        connection_str: &str,
+    ) -> Result<bool, SshTunnelError> {
+        let session_result = SessionBuilder::default()
+            .known_hosts_check(KnownHosts::Accept)
+            .connect_timeout(Duration::from_secs(5)) // I set it to 5 since we're just checking if it is accessible
+            .connect(connection_str)
+            .await;
+
+        match session_result {
+            Ok(session) => match session.check().await {
+                Ok(_) => Ok(true),
+                Err(e) => Err(SshTunnelError::OpenSsh(e)),
+            },
+            Err(e) => Err(SshTunnelError::OpenSsh(e)),
+        }
+    }
+
     /// Generate temproary keyfile using the given private_key
     async fn generate_temp_keyfile(private_key: &str) -> Result<NamedTempFile, SshTunnelError> {
         let temp_keyfile = tempfile::Builder::new()
@@ -283,6 +311,12 @@ mod not_unix_impl {
     where
         T: ToSocketAddrs,
     {
+        Err(SshTunnelError::Unsupported)
+    }
+
+    pub(super) async fn check_ssh_host_connection(
+        connection_str: &str,
+    ) -> Result<bool, SshTunnelError> {
         Err(SshTunnelError::Unsupported)
     }
 }

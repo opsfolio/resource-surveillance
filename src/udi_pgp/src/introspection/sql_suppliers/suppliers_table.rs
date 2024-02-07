@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use derive_new::new;
+use futures::future::join_all;
 use pgwire::api::{
     results::{FieldFormat, FieldInfo},
     Type,
@@ -141,11 +142,11 @@ impl SqlSupplier for SupplierTable {
 
     async fn execute(&mut self, stmt: &UdiPgpStatment) -> UdiPgpResult<Vec<Vec<Row>>> {
         let config = self.read_config().await?;
-        let suppliers = config.suppliers;
+        let mut suppliers = config.suppliers;
         let columns = &stmt.columns;
 
         let mut rows = Vec::with_capacity(suppliers.len());
-        for (id, supplier) in suppliers.iter() {
+        for (id, supplier) in suppliers.iter_mut() {
             let mut cell_row = Vec::with_capacity(columns.len());
             for col in columns {
                 let name = col.name.as_str();
@@ -160,7 +161,15 @@ impl SqlSupplier for SupplierTable {
                     }
                   }
                   "auth" => serde_json::to_string_pretty(&supplier.auth)?,
-                  "ssh_targets" => serde_json::to_string_pretty(&supplier.ssh_targets)?,
+                  "ssh_targets" => {
+                     if let Some(targets) = &mut supplier.ssh_targets {
+                        let check_accessibility = targets.iter_mut().map(|target| target.is_accessible());
+                        let _: Vec<UdiPgpResult<()>> = join_all(check_accessibility).await;
+                        serde_json::to_string_pretty(targets)?
+                    } else {
+                        "[]".to_string()
+                    }
+                  },
                   other => return Err(UdiPgpError::QueryExecutionError(format!("Invalid column name. Got: {}. Expected one of id, type, auth, ssh_target, atc_file_path", other)))
               };
                 cell_row.push(Row::from(row));

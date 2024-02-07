@@ -235,7 +235,7 @@ impl OsquerySupplier {
         let concurrency_limit = 5;
 
         let futures = targets.into_iter().map(|target| {
-            let query = query.to_owned(); // Clone query to move it into the async block
+            let query = query.to_owned();
             async move {
                 let addr = match target.port {
                     Some(port) => format!("{}:{}", target.host, port),

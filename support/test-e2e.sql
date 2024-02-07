@@ -31,6 +31,10 @@ SET udi_pgp_serve_ncl_supplier = '
     ],
   } in local-supplier';
 
+/*markdown
+NOTE: After adding a supplier, executing a query against the base configuration connection(the one created at the start of the file) will result in an error since it is now invalid. It is invalid due to the reason that it has no authentication mechanism and UDI-PGP only allows passwordless connections when there are no suppliers. 
+*/
+
 SELECT * FROM udi_pgp_supplier;
 
 /*markdown
