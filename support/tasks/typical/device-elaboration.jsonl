@@ -5,4 +5,4 @@
 { "osqueryWebsiteSslCertificate": "osqueryi \"SELECT valid_to, hostname FROM curl_certificate WHERE hostname in ('www.medigy.com', 'co.medigy.com')\" --json", "nature": "json" }
 
 # Syslog
-# {"sysLogInfo": "grep \"$(date +\\\"%b %d\\\")\" /var/log/syslog | jq -R -s -c 'split(\"\\n\") | .[:-1] | map(split(\" \") | {date: \"\\(.[0]) \\(.[1]) \\(.[2])\", message: \"\\(.[5:] | join(\" \"))\"})'", "nature": "json"}
+{"sysLogInfo": "grep \"$(date +\\\"%b %d\\\")\" /var/log/syslog | jq -R -s -c 'split(\"\\n\") | .[:-1] | map(split(\" \") | {date: \"\\(.[0]) \\(.[1]) \\(.[2])\", message: \"\\(.[5:] | join(\" \"))\"})'", "nature": "json"}
