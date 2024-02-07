@@ -6,28 +6,30 @@ use nickel_lang_core::{
     term::RichTerm,
 };
 use serde_json::Value;
-use std::{ffi::OsString, io::Cursor};
+use std::{ffi::OsString, io::Cursor, path::Path};
 use tracing::error;
 
 use crate::error::{UdiPgpError, UdiPgpResult};
 
 use super::{Supplier, UdiPgpConfig};
 
-pub fn try_supplier_from_ncl(s: &str) -> UdiPgpResult<Supplier> {
-    let src = Cursor::new(s);
-    let mut program =
-        Program::new_from_source(src, "<config>", std::io::sink()).map_err(|err| {
-            error!("{}", err);
-            UdiPgpError::ConfigError(err.to_string())
-        })?;
+pub fn try_supplier_from_ncl(path: &Path) -> UdiPgpResult<Supplier> {
+    let mut program = Program::new_from_file(path, std::io::stderr()).map_err(|err| {
+        error!("{}", err);
+        UdiPgpError::ConfigError(err.to_string())
+    })?;
 
     let json = export(&mut program, ExportFormat::Json).map_err(|err| {
         program.report(err, ErrorFormat::Text);
         UdiPgpError::ConfigError("Failed to export configuration".to_string())
     })?;
 
-    let supplier: Supplier = serde_json::from_str(&json)
-        .map_err(|err| UdiPgpError::ConfigError(format!("Failed to parse supplier: {}", err)))?;
+    let supplier: Supplier = serde_json::from_str(&json).map_err(|err| {
+        UdiPgpError::ConfigError(format!(
+            "Failed to parse supplier: {} in file: {:#?}",
+            err, path
+        ))
+    })?;
 
     Ok(supplier)
 }

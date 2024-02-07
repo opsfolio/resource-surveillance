@@ -70,7 +70,7 @@ SET udi_pgp_serve_ncl_supplier = '
   let hetzner-atc = {
     type = "osquery",
     mode = "local",
-    atc-file-path = "../atc/opsfolio.sqla.osquery.json",
+    atc-file-path = "../atc/opsfolio.sqla.json",
     auth = [
       {
         username = "john",

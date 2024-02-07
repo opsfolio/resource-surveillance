@@ -6,8 +6,10 @@ use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs;
+use std::io::Write;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::Path;
+use tempfile::NamedTempFile;
 use tracing::error;
 
 use crate::ssh::UdiPgpSshTarget;
@@ -226,7 +228,22 @@ impl UdiPgpConfig {
 
     pub fn try_config_from_ncl_serve_supplier(s: &str) -> UdiPgpResult<(String, Supplier)> {
         let supplier_id = Self::get_supplier_id_from_serve_stmt(s)?;
-        Ok((supplier_id, nickel::try_supplier_from_ncl(s)?))
+
+        let mut temp_file = NamedTempFile::new()?;
+        let temp_file_path = temp_file.path().with_extension("ncl");
+
+        temp_file.write_all(s.as_bytes())?;
+
+        let _file = temp_file.persist(&temp_file_path).map_err(|err| {
+            error!("{}", err);
+            UdiPgpError::ConfigError(format!(
+                "Failed to create temp config file at: {:#?}",
+                temp_file_path
+            ))
+        })?;
+
+            println!("Temporary file path: {:?}", temp_file_path);
+        Ok((supplier_id, nickel::try_supplier_from_ncl(&temp_file_path)?))
     }
 
     fn get_supplier_id_from_serve_stmt(s: &str) -> UdiPgpResult<String> {
