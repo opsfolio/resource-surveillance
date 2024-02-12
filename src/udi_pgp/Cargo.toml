@@ -34,3 +34,4 @@ tracing-subscriber.workspace = true
 chrono.workspace = true
 uuid.workspace = true
 rusqlite.workspace = true
+common.workspace = true

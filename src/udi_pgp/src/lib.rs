@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::{fmt::Display, str::FromStr, sync::Arc};
 
@@ -106,11 +105,10 @@ pub async fn run(config: &UdiPgpConfig, suppliers: SqlSupplierMap) -> anyhow::Re
     debug!("Starting the pgp server with: {:#?}", config);
 
     let (tx, rx) = mpsc::channel(32);
-    
+
     {
-        let shared_config = Arc::new(Mutex::new(config.clone()));
-        let log_entries = Arc::new(Mutex::new(HashMap::new()));
-        let mut state_manager = StateManager::init(shared_config, log_entries);
+        let mut state_manager =
+            StateManager::init(config)?;
         tokio::spawn(async move {
             state_manager.handle(rx).await;
         });

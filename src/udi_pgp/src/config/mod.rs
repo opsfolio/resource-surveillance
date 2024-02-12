@@ -140,7 +140,7 @@ pub struct UdiPgpConfig {
     pub suppliers: HashMap<String, Supplier>,
     #[serde(default = "default_verbose")]
     pub verbose: bool,
-    #[serde(rename = "admin-state-fs-path")]
+    #[serde(rename = "admin-state-fs-path", default = "default_admin_state_path")]
     pub admin_state_fs_path: String,
 }
 
@@ -293,4 +293,8 @@ fn parse_socket_addr(host_str: &str) -> UdiPgpResult<SocketAddr> {
 
 fn default_verbose() -> bool {
     false
+}
+
+fn default_admin_state_path() -> String {
+    "resource-surveillance-admin.sqlite.db".to_string()
 }

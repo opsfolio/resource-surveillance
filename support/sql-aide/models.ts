@@ -803,8 +803,7 @@ export function adminModels<
   });
 
   const udiQueryObservabilty = gm.textPkTable("udi_pgp_observe_query_exec", {
-    udi_pgp_observe_query_exec_id: gk.varCharPrimaryKey(),
-    query_id: gk.uuidPrimaryKey(),
+    udi_pgp_observe_query_exec_id: gk.uuidPrimaryKey(),
     query_text: gd.text(),
     exec_start_at: gd.dateTime(),
     exec_finish_at: gd.dateTimeNullable(),
@@ -821,8 +820,6 @@ export function adminModels<
      `;
       c.udi_pgp_observe_query_exec_id.description =
         `${tableName} primary key and internal label (not a ULID)`;
-      c.query_id.description =
-        `The UUID of the query. Each query that is executed gets tagged with an id for reference.`;
       c.query_text.description = `Actual query string with comments included`;
       c.exec_start_at.description =
         `Timestamp for when the query execution began`;

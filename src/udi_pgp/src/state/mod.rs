@@ -30,36 +30,187 @@
 //!
 //! For more details on each component, see the respective function documentation.
 
-use std::sync::Arc;
+use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
 
+use rusqlite::{Connection, Result as RusqliteResult, ToSql};
 use tokio::sync::{mpsc, Mutex};
-use tracing::{debug, error, Level};
+use tracing::{debug, error, info, Level};
+use uuid::Uuid;
 
-use crate::{config::UdiPgpConfig, observability::QueryLogEntryMap};
+use crate::{
+    config::UdiPgpConfig,
+    observability::{log_entry::QueryLogEntry, QueryLogEntryMap},
+};
+use common::{execute_sql, execute_sql_batch, execute_sql_no_args};
 
 use self::messages::{Message, UpdateLogEntry};
 
 mod database;
 pub mod messages;
 
+execute_sql_no_args!(clear_suppliers, "DELETE FROM udi_pgp_supplier");
+
+execute_sql!(
+    insert_supplier,
+    "INSERT INTO udi_pgp_supplier (udi_pgp_supplier_id, type, mode, ssh_targets, auth, atc_file_path, governance, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, activity_log) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, CURRENT_TIMESTAMP, 'UNKNOWN', NULL, NULL, NULL, NULL, NULL)",
+    udi_pgp_supplier_id: String,
+    supplier_type: String,
+    mode: String,
+    ssh_targets: String,
+    auth: String,
+    atc_file_path: Option<String>,
+    governance: Option<String>
+);
+
+execute_sql_batch!(admin_ddl, include_str!("../admin.sql"));
+
+execute_sql_no_args!(clear_udi_pgp_config, "DELETE FROM udi_pgp_config");
+
+execute_sql!(
+    insert_udi_pgp_config,
+    "INSERT INTO udi_pgp_config (udi_pgp_config_id, addr, health, metrics, config_ncl, governance, created_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, CURRENT_TIMESTAMP, 'UNKNOWN')",
+    udi_pgp_config_id: String,
+    addr: String,
+    health: Option<String>,
+    metrics: Option<String>,
+    config_ncl: String,
+    governance: Option<String>
+);
+
+execute_sql!(
+    upsert_udi_pgp_observe_query_exec,
+    "INSERT INTO udi_pgp_observe_query_exec (udi_pgp_observe_query_exec_id, query_text, exec_start_at, exec_finish_at, elaboration, exec_msg, exec_status, governance, created_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, CURRENT_TIMESTAMP, 'UNKNOWN')
+     ON CONFLICT(udi_pgp_observe_query_exec_id) DO UPDATE SET
+     query_text=excluded.query_text,
+     exec_start_at=excluded.exec_start_at,
+     exec_finish_at=excluded.exec_finish_at,
+     elaboration=excluded.elaboration,
+     exec_msg=excluded.exec_msg,
+     exec_status=excluded.exec_status,
+     governance=excluded.governance",
+    udi_pgp_observe_query_exec_id: String,
+    query_text: String,
+    exec_start_at: String,
+    exec_finish_at: Option<String>,
+    elaboration: String,
+    exec_msg: String,
+    exec_status: u8,
+    governance: Option<String>
+);
+
 /// State Manager
 pub struct StateManager {
     config: Arc<Mutex<UdiPgpConfig>>,
     log_entries: Arc<Mutex<QueryLogEntryMap>>,
+    conn: Connection,
 }
 
 impl StateManager {
-  /// Initialize the state manager
-    pub fn init(config: Arc<Mutex<UdiPgpConfig>>, entries: Arc<Mutex<QueryLogEntryMap>>) -> Self {
-        StateManager {
-            config,
-            log_entries: entries,
+    /// Initialize the state manager, load the databse with tables and insert the core config
+    pub fn init(config: &UdiPgpConfig) -> anyhow::Result<Self> {
+        let path = PathBuf::from(&config.admin_state_fs_path);
+        if path.exists() {
+            fs::remove_file(&path)?;
         }
+
+        let connection = Connection::open(&path)?;
+
+        admin_ddl(&connection)?;
+        insert_udi_pgp_config(
+            &connection,
+            Uuid::new_v4().to_string(),
+            config.addr().to_string(),
+            config.health.map(|s| s.to_string()),
+            config.metrics.map(|s| s.to_string()),
+            "".to_string(),
+            None,
+        )?;
+
+        Ok(StateManager {
+            config: Arc::new(Mutex::new(config.clone())),
+            log_entries: Arc::new(Mutex::new(HashMap::new())),
+            conn: connection,
+        })
     }
-    
+
+    fn update_suppliers(&self, config: &UdiPgpConfig) {
+        let conn = &self.conn;
+
+        info!("Clearing suppliers from DB");
+        clear_suppliers(conn).expect("Failed to delete all suppliers from DB");
+
+        info!("Inserting suppliers into DB");
+        for (id, supplier) in &config.suppliers {
+            let ssh_targets_json =
+                serde_json::to_string(&supplier.ssh_targets).unwrap_or("null".to_string());
+            let auth_json = serde_json::to_string(&supplier.auth).unwrap_or("null".to_string());
+            let atc_file_path = supplier.atc_file_path.clone();
+
+            insert_supplier(
+                conn,
+                id.to_string(),
+                supplier.supplier_type.to_string(),
+                supplier.mode.to_string(),
+                ssh_targets_json,
+                auth_json,
+                atc_file_path,
+                None,
+            )
+            .expect("Failed to insert suppliers");
+        }
+
+        info!("Inserting suppliers into DB was succesful");
+    }
+
+    fn update_core(&self, config: &UdiPgpConfig) {
+        let conn = &self.conn;
+
+        info!("Clearing core config from DB");
+        clear_udi_pgp_config(conn).expect("Failed to clear core config from DB");
+
+        info!("Inserting new core config");
+        insert_udi_pgp_config(
+            conn,
+            Uuid::new_v4().to_string(),
+            config.addr().to_string(),
+            config.health.map(|s| s.to_string()),
+            config.metrics.map(|s| s.to_string()),
+            "".to_string(),
+            None,
+        )
+        .expect("Failed to insert into core db");
+
+        info!("Successfully inserted new core config into DB");
+    }
+
+    fn insert_query_log(&self, entry: &QueryLogEntry) {
+        let conn = &self.conn;
+        info! {"Preparing to insert log"};
+
+        let elaboration =
+            serde_json::to_string_pretty(&entry.elaboration).unwrap_or("null".to_string());
+        let exec_status: u8 = if entry.exec_msg.is_empty() { 0 } else { 1 };
+        let exec_msg = serde_json::to_string_pretty(&entry.exec_msg).unwrap_or("null".to_string());
+
+        upsert_udi_pgp_observe_query_exec(
+            conn,
+            entry.query_id.to_string(),
+            entry.query_text.to_string(),
+            entry.exec_start_at.clone().unwrap_or_default(),
+            entry.exec_finish_at.clone(),
+            elaboration,
+            exec_msg,
+            exec_status,
+            None,
+        )
+        .expect("Failed to insert log");
+
+        info! {"Inserted log successfully"};
+    }
+
     pub async fn handle(&mut self, mut rx: mpsc::Receiver<Message>) {
-      let shared_config = &self.config;
-      let log_entries = &self.log_entries;
+        let shared_config = &self.config;
+        let log_entries = &self.log_entries;
 
         while let Some(message) = rx.recv().await {
             match message {
@@ -82,7 +233,8 @@ impl StateManager {
                     let mut config = shared_config.lock().await;
                     config.metrics = metrics;
                     config.health = health;
-                    debug!("Updated Core Config Successfully")
+                    debug!("Updated Core Config Successfully");
+                    self.update_core(&config);
                 }
                 Message::InsertSupplier(id, supplier) => {
                     debug!(
@@ -92,6 +244,7 @@ impl StateManager {
                     let mut config = shared_config.lock().await;
                     config.suppliers.insert(id, supplier);
                     debug!("Supplier updated successfully",);
+                    self.update_suppliers(&config);
                 }
                 Message::ReadLogEntries(response_tx) => {
                     debug!("Attempting to acquire lock to read log entries");
@@ -119,6 +272,7 @@ impl StateManager {
                         }
                         UpdateLogEntry::EndTime(t) => {
                             e.exec_finish_at = Some(t);
+                            self.insert_query_log(e);
                         }
                         UpdateLogEntry::StartTime(t) => e.exec_start_at = Some(t),
                     });

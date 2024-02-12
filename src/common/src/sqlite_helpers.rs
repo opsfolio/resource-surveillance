@@ -9,6 +9,7 @@
 // Macro for executing a non-query SQL command (like INSERT, UPDATE, DELETE) with type-safe bind parameters
 macro_rules! execute_sql {
     ($func_name:ident, $sql:expr, $($param_name:ident : $param_type:ty),*) => {
+        #[allow(clippy::too_many_arguments)]
         pub fn $func_name(conn: &Connection $(, $param_name: $param_type)*) -> RusqliteResult<usize> {
             let mut stmt = conn.prepare_cached($sql)?;
             let params = [$(&$param_name as &dyn ToSql),*];

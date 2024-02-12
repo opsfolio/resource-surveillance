@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use tracing::debug;
+use tracing::{debug, error};
 use udi_pgp::{
     error::{UdiPgpError, UdiPgpResult},
     parser::UdiPgpQueryParser,
@@ -97,12 +97,14 @@ pub fn get_schema(
             .map_err(|err| UdiPgpError::SchemaError(table.to_string(), err.to_string()))?;
         let query = format_schema_query(&output_str);
         if query.is_empty() {
-            return Err(UdiPgpError::QueryExecutionError(format!(
+            let err = format!(
     "Failed to generate schema for the specified tables in the query: {:?}. 
     This error usually occurs if osquery cannot interpret the table definition due to syntax errors or unsupported tables. 
     If you're using an ATC file, make sure this table definition is present in the file.",
     tables
-)));
+);
+            error!("{}", err);
+            return Err(UdiPgpError::QueryExecutionError(err));
         }
         let stmt = UdiPgpQueryParser::parse(&query, true)?;
         schema_data.push((table.clone(), stmt.columns));

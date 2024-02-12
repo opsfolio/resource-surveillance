@@ -31,8 +31,7 @@ CREATE TABLE IF NOT EXISTS "udi_pgp_config" (
     "activity_log" TEXT
 );
 CREATE TABLE IF NOT EXISTS "udi_pgp_observe_query_exec" (
-    "udi_pgp_observe_query_exec_id" VARCHAR PRIMARY KEY NOT NULL,
-    "query_id" UUID PRIMARY KEY NOT NULL,
+    "udi_pgp_observe_query_exec_id" UUID PRIMARY KEY NOT NULL,
     "query_text" TEXT NOT NULL,
     "exec_start_at" TIMESTAMPTZ NOT NULL,
     "exec_finish_at" TIMESTAMPTZ,
