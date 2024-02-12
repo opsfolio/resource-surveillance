@@ -101,7 +101,7 @@ impl SimpleQueryHandler for UdiPgpProcessor {
             debug!("Parsed statement: {:#?}", statement);
 
             Ok(match statement.stmt_type {
-                StmtType::Config => self.handle_config(&statement).await?,
+                StmtType::Config => self.handle_config(&statement, &query_id).await?,
                 StmtType::Driver => self.handle_driver(query)?,
                 StmtType::Supplier => {
                     self.handle_supplier(client, &mut statement, &query_id)

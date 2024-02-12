@@ -8,7 +8,7 @@ use std::fmt::Display;
 use std::fs;
 use std::io::Write;
 use std::net::{SocketAddr, ToSocketAddrs};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
 use tracing::error;
 
@@ -231,11 +231,26 @@ impl UdiPgpConfig {
     }
 
     // ====== UDI-PGP live config updates
-    pub fn try_from_ncl_string(s: &str) -> UdiPgpResult<UdiPgpConfig> {
-        nickel::try_config_from_ncl_string(s)
+    pub fn try_from_ncl_string(s: &str) -> UdiPgpResult<(UdiPgpConfig, PathBuf)> {
+        let mut temp_file = NamedTempFile::new()?;
+        let temp_file_path = temp_file.path().with_extension("ncl");
+
+        temp_file.write_all(s.as_bytes())?;
+
+        let _file = temp_file.persist(&temp_file_path).map_err(|err| {
+            error!("{}", err);
+            UdiPgpError::ConfigError(format!(
+                "Failed to create temp config file at: {:#?}",
+                temp_file_path
+            ))
+        })?;
+
+        Ok((nickel::try_config_from_ncl_string(s)?, temp_file_path))
     }
 
-    pub fn try_config_from_ncl_serve_supplier(s: &str) -> UdiPgpResult<(String, Supplier)> {
+    pub fn try_config_from_ncl_serve_supplier(
+        s: &str,
+    ) -> UdiPgpResult<(String, Supplier, PathBuf)> {
         let supplier_id = Self::get_supplier_id_from_serve_stmt(s)?;
 
         let mut temp_file = NamedTempFile::new()?;
@@ -251,8 +266,11 @@ impl UdiPgpConfig {
             ))
         })?;
 
-        println!("Temporary file path: {:?}", temp_file_path);
-        Ok((supplier_id, nickel::try_supplier_from_ncl(&temp_file_path)?))
+        Ok((
+            supplier_id,
+            nickel::try_supplier_from_ncl(&temp_file_path)?,
+            temp_file_path,
+        ))
     }
 
     fn get_supplier_id_from_serve_stmt(s: &str) -> UdiPgpResult<String> {

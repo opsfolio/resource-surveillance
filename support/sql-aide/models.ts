@@ -709,15 +709,17 @@ export function adminModels<
     status: gd.integer(), //zero or
     status_text: gd.textNullable(),
     elaboration: gd.jsonTextNullable(),
+    diagnostics_file: gd.textNullable(),
+    diagnostics_file_content: gd.textNullable(),
     ...gm.housekeeping.columns,
   }, {
     isIdempotent: true,
     populateQS: (t, c, _, tableName) => {
       t.description = markdown`
-        A Supplier is any source that can provide data to be retrieved, such as osquery, git.
-        Each supplier is stored in this table along with its metadata.`;
+      Specific table for all SET queries. That is, all configuration queries.
+        `;
       c.udi_pgp_set_id.description =
-        `${tableName} primary key and it corresponds to the name of the supplier passed in during creation of the supplier`;
+        `${tableName} primary key and it corresponds to the "udi_pgp_observe_query_exec_id" in "udi_pgp_observe_query_exec".`;
       c.query_text.description =
         `The original query passed to UDI-PGP through the SET command`;
       c.generated_ncl.description = `The NCL file generated from the schema`;
@@ -726,6 +728,8 @@ export function adminModels<
       c.status_text.description = `The reason the query failed`;
       c.elaboration.description =
         `A general object containing details like all the events that transpired during the execution of a query`;
+      c.diagnostics_file.description = `Location the config query was written to.`;
+      c.diagnostics_file_content.description = `Content of the diagnostics file.`;
     },
 
     qualitySystem: {

@@ -41,4 +41,11 @@ pub enum Message {
         span_id: span::Id,
         msg: UpdateLogEntry,
     },
+    /// Create a record for SET query, i.e a config query
+    CreateConfigQueryLog {
+        query_id: String,
+        query_text: String,
+        generated_ncl: String,
+        diagnostics_file: String,
+    }
 }

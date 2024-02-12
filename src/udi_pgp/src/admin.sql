@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS "udi_pgp_set" (
     "status" INTEGER NOT NULL,
     "status_text" TEXT,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
+    "diagnostics_file" TEXT,
+    "diagnostics_file_content" TEXT,
     "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT 'UNKNOWN',
     "updated_at" TIMESTAMPTZ,

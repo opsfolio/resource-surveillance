@@ -12,6 +12,7 @@ use pgwire::{
 use sqlparser::ast::{self, Expr, Statement};
 use tokio::sync::{mpsc, oneshot, RwLock};
 use tracing::{debug, error};
+use uuid::Uuid;
 
 use crate::{
     config::UdiPgpConfig,
@@ -187,8 +188,9 @@ impl UdiPgpProcessor {
     pub async fn handle_config<'a>(
         &self,
         statement: &UdiPgpStatment,
+        query_id: &Uuid,
     ) -> PgWireResult<Vec<Response<'a>>> {
-        if let Err(err) = self.update(statement).await {
+        if let Err(err) = self.update(statement, query_id).await {
             error!("{}", err);
             return Err(err);
         };
@@ -226,7 +228,70 @@ impl UdiPgpProcessor {
         Ok((schema, rows))
     }
 
-    async fn update(&self, stmt: &UdiPgpStatment) -> PgWireResult<()> {
+    async fn handle_set_config(
+        &self,
+        name: &str,
+        config_str: String,
+        query_id: &Uuid,
+        query: &str,
+    ) -> PgWireResult<()> {
+        
+        let diagnostics_file = match name {
+            "udi_pgp_serve_ncl_supplier" => {
+                let (id, new_supplier, diagnostics_file) =
+                    UdiPgpConfig::try_config_from_ncl_serve_supplier(&config_str)?;
+
+                let update_supplier_msg = Message::InsertSupplier(id, new_supplier.clone());
+
+                self.config_tx
+                    .send(update_supplier_msg)
+                    .await
+                    .map_err(|err| {
+                        error!(
+                            "Failed to send message to insert supplier: {:#?}. Error: {}",
+                            new_supplier, err
+                        );
+                        PgWireError::ApiError(Box::new(err))
+                    })?;
+                diagnostics_file
+            }
+            "udi_pgp_serve_ncl_core" => {
+                let (core, diagnostics_file) = UdiPgpConfig::try_from_ncl_string(&config_str)?;
+                // TODO use chamged features to open ports
+                let update_core_msg = Message::UpdateCore(core.metrics, core.health);
+                self.config_tx.send(update_core_msg).await.map_err(|err| {
+                    error!("Failed to send message to update core. {}", err);
+                    PgWireError::ApiError(Box::new(err))
+                })?;
+                diagnostics_file
+            }
+            other => {
+                return Err(PgWireError::UserError(Box::new(ErrorInfo::new(
+                    "FATAL".to_string(),
+                    "PROCESSOR".to_string(),
+                    format!("Config query not supported, got: {:?}", other),
+                ))))
+            }
+        };
+
+        let create_set_record = Message::CreateConfigQueryLog {
+            query_id: query_id.to_string(),
+            query_text: query.to_string(),
+            generated_ncl: config_str,
+            diagnostics_file: diagnostics_file.to_str().unwrap().to_string(),
+        };
+        self.config_tx
+            .send(create_set_record)
+            .await
+            .map_err(|err| {
+                error!("Failed to send message to create SET recor. Error: {}", err);
+                PgWireError::ApiError(Box::new(err))
+            })?;
+
+        Ok(())
+    }
+
+    async fn update(&self, stmt: &UdiPgpStatment, query_id: &Uuid) -> PgWireResult<()> {
         let ast = &stmt.stmt;
 
         match ast {
@@ -266,35 +331,8 @@ impl UdiPgpProcessor {
                         )))
                     })?)?;
 
-                {
-                    match name {
-                        "udi_pgp_serve_ncl_supplier" => {
-                            let (id, new_supplier) =
-                                UdiPgpConfig::try_config_from_ncl_serve_supplier(&config_str)?;
-
-                            let update_supplier_msg =
-                                Message::InsertSupplier(id, new_supplier.clone());
-
-                            self.config_tx
-                                .send(update_supplier_msg)
-                                .await
-                                .map_err(|err| {
-                                    error!("Failed to send message to insert supplier: {:#?}. Error: {}", new_supplier, err);
-                                    PgWireError::ApiError(Box::new(err))
-                                })?;
-                        }
-                        "udi_pgp_serve_ncl_core" => {
-                            let core = UdiPgpConfig::try_from_ncl_string(&config_str)?;
-                            // TODO use chamged features to open ports
-                            let update_core_msg = Message::UpdateCore(core.metrics, core.health);
-                            self.config_tx.send(update_core_msg).await.map_err(|err| {
-                                error!("Failed to send message to update core. {}", err);
-                                PgWireError::ApiError(Box::new(err))
-                            })?;
-                        }
-                        _ => {}
-                    };
-                }
+                self.handle_set_config(name, config_str, query_id, &stmt.query)
+                    .await?;
 
                 let mut exec_supplier = self.exec_supplier.write().await;
                 // config has been updated above, so to get the latest update

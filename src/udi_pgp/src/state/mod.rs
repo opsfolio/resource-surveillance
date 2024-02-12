@@ -1,4 +1,4 @@
-//! # UDI-PGP State Handler
+//! # UDI-PGP State Manager
 //!
 //! This module provides an asynchronous state manager for UDI-PGP. Seeing that multiple parts of UDI-PGP need
 //! access to configuration and the database like the authenticator and processor. This is used to keep the updates in sync.
@@ -96,6 +96,24 @@ execute_sql!(
     exec_msg: String,
     exec_status: u8,
     governance: Option<String>
+);
+
+execute_sql!(
+    insert_into_udi_pgp_set,
+    "INSERT INTO udi_pgp_set (udi_pgp_set_id, query_text, generated_ncl, diagnostics_file, diagnostics_file_content, status, created_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, 0, CURRENT_TIMESTAMP, 'UNKNOWN')",
+    udi_pgp_set_id: String,
+    query_text: String,
+    generated_ncl: String,
+    diagnostics_file: String,
+    diagnostics_file_content: String
+);
+
+execute_sql!(
+    update_udi_pgp_set,
+    "UPDATE udi_pgp_set SET status = ?2, status_text = ?3, updated_at = CURRENT_TIMESTAMP WHERE udi_pgp_set_id = ?1",
+    udi_pgp_set_id: String,
+    status: u8,
+    status_text: String
 );
 
 /// State Manager
@@ -208,6 +226,32 @@ impl StateManager {
         info! {"Inserted log successfully"};
     }
 
+    fn create_udi_pgp_set_record(
+        &self,
+        id: String,
+        query: String,
+        ncl: String,
+        diagnostics_file: String,
+        content: String,
+    ) {
+        info!("Preparring to create SET query record");
+        let conn = &self.conn;
+        insert_into_udi_pgp_set(conn, id, query, ncl, diagnostics_file, content)
+            .expect("Failed to create SET query record");
+        info!("Created SET record successfully");
+    }
+
+    fn update_udi_pgp_set_record(&self, entry: &QueryLogEntry) {
+        info!("Preparring to create SET query record");
+        let conn = &self.conn;
+        let exec_status: u8 = if entry.exec_msg.is_empty() { 0 } else { 1 };
+        let exec_msg = serde_json::to_string_pretty(&entry.exec_msg).unwrap_or("null".to_string());
+
+        update_udi_pgp_set(conn, entry.query_id.to_string(), exec_status, exec_msg)
+            .expect("Failed to updated SET query record");
+        info!("Updated SET record successfully");
+    }
+
     pub async fn handle(&mut self, mut rx: mpsc::Receiver<Message>) {
         let shared_config = &self.config;
         let log_entries = &self.log_entries;
@@ -273,9 +317,26 @@ impl StateManager {
                         UpdateLogEntry::EndTime(t) => {
                             e.exec_finish_at = Some(t);
                             self.insert_query_log(e);
+                            self.update_udi_pgp_set_record(e);
                         }
                         UpdateLogEntry::StartTime(t) => e.exec_start_at = Some(t),
                     });
+                }
+                Message::CreateConfigQueryLog {
+                    query_id,
+                    query_text,
+                    generated_ncl,
+                    diagnostics_file,
+                } => {
+                    let content = fs::read_to_string(&diagnostics_file)
+                        .expect("Failed to read diagnostics file");
+                    self.create_udi_pgp_set_record(
+                        query_id,
+                        query_text,
+                        generated_ncl,
+                        diagnostics_file,
+                        content,
+                    )
                 }
             }
         }
