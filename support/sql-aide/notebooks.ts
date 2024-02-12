@@ -164,6 +164,7 @@ export class SqlNotebookHelpers<EmitContext extends SQLa.SqlEmitContext>
   extends SQLa.SqlNotebook<EmitContext> {
   readonly emitCtx: EmitContext;
   readonly models: ReturnType<typeof m.serviceModels<EmitContext>>;
+    readonly adminModels: ReturnType<typeof m.adminModels<EmitContext>>;
   readonly loadExtnSQL: (
     extn: string,
   ) => SQLa.SqlTextBehaviorSupplier<EmitContext>;
@@ -186,6 +187,7 @@ export class SqlNotebookHelpers<EmitContext extends SQLa.SqlEmitContext>
   ) {
     super();
     this.models = options?.models ?? m.serviceModels<EmitContext>();
+    this.adminModels = m.adminModels<EmitContext>();
     this.modelsGovn = this.models.codeNbModels.modelsGovn;
     this.emitCtx = this.modelsGovn.sqlEmitContext();
     this.templateState = this.modelsGovn.templateState;

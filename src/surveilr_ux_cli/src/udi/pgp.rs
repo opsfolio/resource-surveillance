@@ -14,6 +14,8 @@ use udi_pgp::{
 };
 use udi_pgp_osquery::OsquerySupplier;
 
+const DEFAULT_ADMINSTATE_FS_PATH: &str = "resource-surveillance-admin.sqlite.db";
+
 /// UDI PostgreSQL Proxy for remote SQL starts up a server which pretends to be PostgreSQL
 /// but proxies its SQL to other CLI services with SQL-like interface (called SQL Suppliers).
 #[derive(Debug, Serialize, Args, Clone)]
@@ -39,6 +41,10 @@ pub struct PgpArgs {
     /// Config file for UDI-PGP. Either a .ncl file or JSON file
     #[arg(short = 'c', long)]
     pub config: Option<PathBuf>,
+
+    ///Admin SQLite Database path for state management
+    #[arg(short='d', long, default_value = DEFAULT_ADMINSTATE_FS_PATH, default_missing_value = "always", env="DEFAULT_ADMINSTATE_FS_PATH")]
+    pub admin_state_fs_path: String,
 
     #[command(subcommand)]
     pub command: Option<PgpCommands>,
