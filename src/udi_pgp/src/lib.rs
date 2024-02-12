@@ -14,9 +14,9 @@ use tokio::{net::TcpListener, signal, sync::oneshot};
 use tracing::debug;
 use tracing::{error, info};
 
-use crate::config::manager::config_manager;
 use crate::processor::UdiPgpProcessor;
 use crate::startup::UdiPgpAuthSource;
+use crate::state::StateManager;
 
 mod health;
 mod introspection;
@@ -25,6 +25,7 @@ mod observability;
 mod processor;
 mod simulations;
 mod startup;
+mod state;
 
 pub mod auth;
 pub mod config;
@@ -105,11 +106,13 @@ pub async fn run(config: &UdiPgpConfig, suppliers: SqlSupplierMap) -> anyhow::Re
     debug!("Starting the pgp server with: {:#?}", config);
 
     let (tx, rx) = mpsc::channel(32);
+    
     {
         let shared_config = Arc::new(Mutex::new(config.clone()));
         let log_entries = Arc::new(Mutex::new(HashMap::new()));
+        let mut state_manager = StateManager::init(shared_config, log_entries);
         tokio::spawn(async move {
-            config_manager(rx, shared_config.clone(), log_entries).await;
+            state_manager.handle(rx).await;
         });
     }
 

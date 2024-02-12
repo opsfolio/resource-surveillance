@@ -6177,6 +6177,7 @@ dependencies = [
  "rand",
  "regex",
  "resource_serde",
+ "rusqlite",
  "serde",
  "serde_json",
  "sqlparser 0.41.0",

@@ -20,7 +20,7 @@ pub struct QueryLogEntry {
 }
 
 impl QueryLogEntry {
-    pub fn new(query: &str) -> Self {
+    pub fn _new(query: &str) -> Self {
         let id = Uuid::new_v4();
         QueryLogEntry {
             query_id: id.to_string(),

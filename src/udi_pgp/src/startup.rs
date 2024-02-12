@@ -21,9 +21,9 @@ use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, error, info};
 
 use crate::{
-    config::{manager::Message, UdiPgpConfig},
+    config::UdiPgpConfig,
     error::{UdiPgpError, UdiPgpResult},
-    processor::UdiPgpProcessor,
+    processor::UdiPgpProcessor, state::messages::Message,
 };
 
 pub struct UdiPgpAuthSource {

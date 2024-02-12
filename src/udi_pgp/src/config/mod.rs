@@ -15,7 +15,7 @@ use tracing::error;
 use crate::ssh::UdiPgpSshTarget;
 use crate::{auth::Auth, error::UdiPgpResult, UdiPgpError, UdiPgpModes};
 
-pub mod manager;
+// pub mod manager;
 mod nickel;
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Hash)]
@@ -140,18 +140,22 @@ pub struct UdiPgpConfig {
     pub suppliers: HashMap<String, Supplier>,
     #[serde(default = "default_verbose")]
     pub verbose: bool,
+    #[serde(rename = "admin-state-fs-path")]
+    pub admin_state_fs_path: String,
 }
 
 impl UdiPgpConfig {
     pub fn new(
         addr: SocketAddr,
         suppliers: HashMap<String, Supplier>,
+        admin_db_file: &str,
     ) -> UdiPgpResult<UdiPgpConfig> {
         Ok(Config::builder()
             .build()?
             .try_deserialize::<UdiPgpConfig>()
             .map_err(UdiPgpError::ConfigBuilderError)?
             .with_addr(addr)
+            .with_admin_db_file(admin_db_file)
             .with_suppliers(suppliers))
     }
 
@@ -188,6 +192,11 @@ impl UdiPgpConfig {
 
     pub fn with_suppliers(&mut self, suppliers: HashMap<String, Supplier>) -> Self {
         self.suppliers = suppliers;
+        self.clone()
+    }
+
+    pub fn with_admin_db_file(&mut self, db: &str) -> Self {
+        self.admin_state_fs_path = db.to_string();
         self.clone()
     }
 
@@ -242,7 +251,7 @@ impl UdiPgpConfig {
             ))
         })?;
 
-            println!("Temporary file path: {:?}", temp_file_path);
+        println!("Temporary file path: {:?}", temp_file_path);
         Ok((supplier_id, nickel::try_supplier_from_ncl(&temp_file_path)?))
     }
 

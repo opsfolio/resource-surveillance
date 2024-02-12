@@ -14,7 +14,7 @@ use udi_pgp::{
 };
 use udi_pgp_osquery::OsquerySupplier;
 
-const DEFAULT_ADMINSTATE_FS_PATH: &str = "resource-surveillance-admin.sqlite.db";
+const DEFAULT_ADMIN_STATE_FS_PATH: &str = "resource-surveillance-admin.sqlite.db";
 
 /// UDI PostgreSQL Proxy for remote SQL starts up a server which pretends to be PostgreSQL
 /// but proxies its SQL to other CLI services with SQL-like interface (called SQL Suppliers).
@@ -43,7 +43,7 @@ pub struct PgpArgs {
     pub config: Option<PathBuf>,
 
     ///Admin SQLite Database path for state management
-    #[arg(short='d', long, default_value = DEFAULT_ADMINSTATE_FS_PATH, default_missing_value = "always", env="DEFAULT_ADMINSTATE_FS_PATH")]
+    #[arg(short='d', long, default_value = DEFAULT_ADMIN_STATE_FS_PATH, default_missing_value = "always", env="DEFAULT_ADMIN_STATE_FS_PATH")]
     pub admin_state_fs_path: String,
 
     #[command(subcommand)]
@@ -138,7 +138,7 @@ impl PgpArgs {
         let mut config_suppliers = HashMap::new();
         config_suppliers.insert(supplier_id.to_string(), config_supplier);
 
-        let config = UdiPgpConfig::new(self.addr, config_suppliers)?;
+        let config = UdiPgpConfig::new(self.addr, config_suppliers, &self.admin_state_fs_path)?;
         let mut suppliers = HashMap::new();
         suppliers.insert(supplier_id.to_string(), Arc::new(Mutex::new(supplier)));
 

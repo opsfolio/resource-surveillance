@@ -9,11 +9,12 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::{
-    config::{manager::Message, Supplier, SupplierType},
+    config::{Supplier, SupplierType},
     error::{UdiPgpError, UdiPgpResult},
     observability::QueryLogEntryMap,
     parser::stmt::{ColumnMetadata, ExpressionType, UdiPgpStatment},
     sql_supplier::{SqlSupplier, SqlSupplierType},
+    state::messages::Message,
     Row,
 };
 

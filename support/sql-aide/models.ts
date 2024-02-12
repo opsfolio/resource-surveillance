@@ -735,7 +735,6 @@ export function adminModels<
     },
   });
 
-  // Call DELETE FROM "udi_pgp_supplier" and then INSERT INTO whenever any SET statements are called
   const udiPgpSupplier = gm.textPkTable("udi_pgp_supplier", {
     udi_pgp_supplier_id: gk.varCharPrimaryKey(),
     type: gd.text(),

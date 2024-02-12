@@ -10,8 +10,8 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::{fmt, EnvFilter, Layer, Registry};
 
-use crate::config::manager::{Message, UpdateLogEntry};
 use crate::error::{UdiPgpError, UdiPgpResult};
+use crate::state::messages::{Message, UpdateLogEntry};
 
 use self::log_entry::QueryLogEntry;
 pub mod log_entry;

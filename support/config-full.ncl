@@ -79,6 +79,11 @@ let ConfigSchema =
       | Bool
       | default
       = false,
+    admin-state-fs-path
+      | String
+      | optional
+      | default
+      = "resource-surveillance-admin.sqlite.db",
     suppliers | { _: Supplier },
   } in
 

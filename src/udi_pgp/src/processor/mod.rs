@@ -14,7 +14,7 @@ use tokio::sync::{mpsc, oneshot, RwLock};
 use tracing::{debug, error};
 
 use crate::{
-    config::{manager::Message, UdiPgpConfig},
+    config::UdiPgpConfig,
     error::{UdiPgpError, UdiPgpResult},
     health, metrics,
     parser::{stmt::UdiPgpStatment, UdiPgpQueryParser},
@@ -26,6 +26,7 @@ use crate::{
         admin::{AdminSupplier, UdiPgpSupplierFactory},
         SqlSupplierMap,
     },
+    state::messages::Message,
     Row,
 };
 
