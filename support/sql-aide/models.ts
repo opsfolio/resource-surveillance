@@ -710,7 +710,7 @@ export function adminModels<
     status_text: gd.textNullable(),
     elaboration: gd.jsonTextNullable(),
     diagnostics_file: gd.textNullable(),
-    diagnostics_file_content: gd.textNullable(),
+    diagnostics_file_content: gd.jsonTextNullable(),
     ...gm.housekeeping.columns,
   }, {
     isIdempotent: true,

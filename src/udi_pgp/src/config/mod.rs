@@ -5,11 +5,10 @@ use serde::de::{self, Error, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::fs;
-use std::io::Write;
+use std::fs::{self, File};
+use std::io::BufReader;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
-use tempfile::NamedTempFile;
 use tracing::error;
 
 use crate::ssh::UdiPgpSshTarget;
@@ -170,7 +169,10 @@ impl UdiPgpConfig {
 
         match extension {
             "json" => Self::try_config_from_json(path.to_str().unwrap()),
-            "ncl" => nickel::try_config_from_ncl(path.as_os_str()),
+            "ncl" => {
+                let (config, _) = nickel::try_config_from_ncl(path.as_os_str())?;
+                Ok(config)
+            }
             other => Err(UdiPgpError::ConfigError(format!(
                 "File extension not supported. Got {other:?}. Expected json or ncl"
             ))),
@@ -232,45 +234,50 @@ impl UdiPgpConfig {
 
     // ====== UDI-PGP live config updates
     pub fn try_from_ncl_string(s: &str) -> UdiPgpResult<(UdiPgpConfig, PathBuf)> {
-        let mut temp_file = NamedTempFile::new()?;
-        let temp_file_path = temp_file.path().with_extension("ncl");
+        nickel::try_config_from_ncl_string(s)
+    }
 
-        temp_file.write_all(s.as_bytes())?;
+    pub fn try_config_from_diagnostics(path: &PathBuf) -> UdiPgpResult<UdiPgpConfig> {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
 
-        let _file = temp_file.persist(&temp_file_path).map_err(|err| {
-            error!("{}", err);
-            UdiPgpError::ConfigError(format!(
-                "Failed to create temp config file at: {:#?}",
-                temp_file_path
-            ))
+        let config = serde_json::from_reader(reader).map_err(|e| {
+            UdiPgpError::ConfigError(format!("Failed to parse JSON from file. Erro: {}", e))
         })?;
 
-        Ok((nickel::try_config_from_ncl_string(s)?, temp_file_path))
+        Ok(config)
+    }
+
+    /// Write the NCL string config to JSON file for diagnostics
+    /// `core` designates if it is core configuration or supplier config
+    pub fn diagnostics(s: &str, core: bool) -> UdiPgpResult<PathBuf> {
+        nickel::ncl_to_json_file(s, core)
     }
 
     pub fn try_config_from_ncl_serve_supplier(
         s: &str,
     ) -> UdiPgpResult<(String, Supplier, PathBuf)> {
         let supplier_id = Self::get_supplier_id_from_serve_stmt(s)?;
+        let (supplier, path) = nickel::try_supplier_from_ncl(s)?;
+        Ok((supplier_id, supplier, path))
+    }
 
-        let mut temp_file = NamedTempFile::new()?;
-        let temp_file_path = temp_file.path().with_extension("ncl");
+    pub fn try_supplier_from_diagnostics(
+        s: &str,
+        path: &PathBuf,
+    ) -> UdiPgpResult<(String, Supplier)> {
+        let supplier_id = Self::get_supplier_id_from_serve_stmt(s)?;
 
-        temp_file.write_all(s.as_bytes())?;
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
 
-        let _file = temp_file.persist(&temp_file_path).map_err(|err| {
-            error!("{}", err);
+        let supplier: Supplier = serde_json::from_reader(reader).map_err(|err| {
             UdiPgpError::ConfigError(format!(
-                "Failed to create temp config file at: {:#?}",
-                temp_file_path
+                "Failed to parse supplier: {} in file: {:#?}",
+                err, path
             ))
         })?;
-
-        Ok((
-            supplier_id,
-            nickel::try_supplier_from_ncl(&temp_file_path)?,
-            temp_file_path,
-        ))
+        Ok((supplier_id, supplier))
     }
 
     fn get_supplier_id_from_serve_stmt(s: &str) -> UdiPgpResult<String> {
