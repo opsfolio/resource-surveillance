@@ -1,0 +1,484 @@
+{
+  "DrawingSurfaceList": {
+    "DrawingSurfaceModel": {
+      "Borders": {
+        "KeyValueOfguidanyType": {
+          "Key": {
+            "$value": "2630a387-0a98-4028-9cdd-6f514b6a4b5d"
+          },
+          "Value": {
+            "GenericTypeId": {
+              "$value": "GE.TB.B"
+            },
+            "Guid": {
+              "$value": "2630a387-0a98-4028-9cdd-6f514b6a4b5d"
+            },
+            "Height": {
+              "$value": "313"
+            },
+            "Id": "i6",
+            "Left": {
+              "$value": "182"
+            },
+            "Properties": {
+              "anyType": {
+                "DisplayName": {
+                  "$value": "Dataflow Order"
+                },
+                "Name": {
+                  "$value": "15ccd509-98eb-49ad-b9c2-b4a2926d1780"
+                },
+                "Value": {
+                  "$value": "0",
+                  "type": "c:string"
+                },
+                "type": "b:StringDisplayAttribute"
+              }
+            },
+            "StrokeDashArray": {
+              "nil": "true"
+            },
+            "StrokeThickness": {
+              "$value": "1"
+            },
+            "Top": {
+              "$value": "25"
+            },
+            "TypeId": {
+              "$value": "GE.TB.B"
+            },
+            "Width": {
+              "$value": "429"
+            },
+            "type": "BorderBoundary"
+          }
+        }
+      },
+      "GenericTypeId": {
+        "$value": "DRAWINGSURFACE"
+      },
+      "Guid": {
+        "$value": "d8c8aab1-5108-49c5-92a1-b214ba353477"
+      },
+      "Header": {
+        "$value": "Diagram 1"
+      },
+      "Id": "i1",
+      "Lines": {
+        "KeyValueOfguidanyType": {
+          "Key": {
+            "$value": "08e0b8f7-07c4-47f0-a456-4090ceac2719"
+          },
+          "Value": {
+            "GenericTypeId": {
+              "$value": "GE.DF"
+            },
+            "Guid": {
+              "$value": "08e0b8f7-07c4-47f0-a456-4090ceac2719"
+            },
+            "HandleX": {
+              "$value": "628"
+            },
+            "HandleY": {
+              "$value": "245"
+            },
+            "Id": "i12",
+            "PortSource": {
+              "$value": "SouthEast"
+            },
+            "PortTarget": {
+              "$value": "West"
+            },
+            "Properties": {
+              "anyType": {
+                "DisplayName": {
+                  "$value": "Forgery Protection"
+                },
+                "Name": {
+                  "$value": "54851a3b-65da-4902-b4e0-94ef015be735"
+                },
+                "SelectedIndex": {
+                  "$value": "0"
+                },
+                "Value": {
+                  "string": {
+                    "$value": "Not applicable because the request does not change data"
+                  },
+                  "type": "a:ArrayOfstring"
+                },
+                "type": "b:ListDisplayAttribute"
+              }
+            },
+            "SourceGuid": {
+              "$value": "627d2636-7f62-481c-a46f-7af41e24c937"
+            },
+            "SourceX": {
+              "$value": "535"
+            },
+            "SourceY": {
+              "$value": "205"
+            },
+            "TargetGuid": {
+              "$value": "41cb799f-434b-4b35-bd8e-8970bb985ec9"
+            },
+            "TargetX": {
+              "$value": "680"
+            },
+            "TargetY": {
+              "$value": "207"
+            },
+            "TypeId": {
+              "$value": "SE.DF.TMCore.HTTPS"
+            },
+            "type": "Connector"
+          }
+        }
+      },
+      "Properties": {
+        "anyType": {
+          "DisplayName": {
+            "$value": "Name"
+          },
+          "Name": {},
+          "Value": {
+            "$value": "Diagram 1",
+            "type": "c:string"
+          },
+          "type": "b:StringDisplayAttribute"
+        }
+      },
+      "TypeId": {
+        "$value": "DRAWINGSURFACE"
+      },
+      "Zoom": {
+        "$value": "1"
+      }
+    }
+  },
+  "KnowledgeBase": {
+    "GenericElements": {
+      "ElementType": {
+        "Attributes": {},
+        "AvailableToBaseModels": {},
+        "Behavior": {
+          "nil": "true"
+        },
+        "Description": {
+          "$value": "A representation of an annotation."
+        },
+        "Hidden": {
+          "$value": "false"
+        },
+        "Id": {
+          "$value": "GE.A"
+        },
+        "ImageLocation": {
+          "$value": "Lower right of stencil"
+        },
+        "ImageSource": {
+          "$value": "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"
+        },
+        "ImageStream": {
+          "nil": "true"
+        },
+        "IsExtension": {
+          "$value": "false"
+        },
+        "Name": {
+          "$value": "Free Text Annotation"
+        },
+        "ParentId": {
+          "$value": "ROOT"
+        },
+        "Representation": {
+          "$value": "Annotation"
+        },
+        "Shape": {
+          "nil": "true"
+        },
+        "StencilConstraints": {}
+      }
+    },
+    "Id": "i13",
+    "Manifest": {
+      "Author": {
+        "$value": "TwC MSEC"
+      },
+      "Id": {
+        "$value": "cc62ebae-3748-431e-b1df-f4220dc9003f"
+      },
+      "Name": {
+        "$value": "SDL TM Knowledge Base (Core)"
+      },
+      "Version": {
+        "$value": "4.1.0.9"
+      }
+    },
+    "StandardElements": {
+      "ElementType": {
+        "Attributes": {
+          "Attribute": {
+            "AttributeValues": {
+              "Value": {
+                "$value": "Yes"
+              }
+            },
+            "DisplayName": {
+              "$value": "Firefox JavaScript Sandbox"
+            },
+            "Inheritance": {
+              "$value": "Virtual"
+            },
+            "IsExtension": {
+              "$value": "false"
+            },
+            "Mode": {
+              "$value": "Dynamic"
+            },
+            "Name": {
+              "$value": "FirefoxJava"
+            },
+            "Type": {
+              "$value": "List"
+            }
+          }
+        },
+        "AvailableToBaseModels": {},
+        "Behavior": {
+          "nil": "true"
+        },
+        "Description": {
+          "$value": "Describes the types of trust boundaries implemented by Google Chrome and Firefox."
+        },
+        "Hidden": {
+          "$value": "false"
+        },
+        "Id": {
+          "$value": "SE.TB.B.TMCore.NonIEB"
+        },
+        "ImageLocation": {
+          "$value": "Before label"
+        },
+        "ImageSource": {
+          "$value": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOxAAADsQBlSsOGwAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAABGSURBVDhPY/hPIWBQ9Ev6z2jqDccPnr0ESxArzoDMAeEDZy+DFRIrDjeAVDCcDIDyyQajgTioAhGEQekdHx+bGIUGeP8HAJ4fIfJijo6MAAAAAElFTkSuQmCC"
+        },
+        "ImageStream": {
+          "nil": "true"
+        },
+        "IsExtension": {
+          "$value": "false"
+        },
+        "Name": {
+          "$value": "Other Browsers Boundaries"
+        },
+        "ParentId": {
+          "$value": "GE.TB.B"
+        },
+        "Representation": {
+          "$value": "BorderBoundary"
+        },
+        "Shape": {
+          "nil": "true"
+        },
+        "StencilConstraints": {}
+      }
+    },
+    "ThreatCategories": {
+      "ThreatCategory": {
+        "Id": {
+          "$value": "A"
+        },
+        "IsExtension": {
+          "$value": "false"
+        },
+        "LongDescription": {},
+        "Name": {
+          "$value": "Abuse"
+        },
+        "ShortDescription": {
+          "$value": "Abuse is when a legitimate user violates the terms of use for the system without violating a system security policy."
+        }
+      }
+    },
+    "ThreatMetaData": {
+      "IsPriorityUsed": {
+        "$value": "true"
+      },
+      "IsStatusUsed": {
+        "$value": "true"
+      },
+      "PropertiesMetaData": {
+        "ThreatMetaDatum": {
+          "AttributeType": {
+            "$value": "1"
+          },
+          "HideFromUI": {
+            "$value": "false"
+          },
+          "Id": {
+            "$value": "bc9c6e2a-15d0-4863-9cac-589e51e4ca1e"
+          },
+          "Label": {
+            "$value": "Priority"
+          },
+          "Name": {
+            "$value": "Priority"
+          },
+          "Values": {
+            "string": {
+              "$value": "Low"
+            }
+          }
+        }
+      }
+    },
+    "ThreatTypes": {
+      "ThreatType": {
+        "Category": {
+          "$value": "E"
+        },
+        "Description": {
+          "$value": "Cross-site request forgery (CSRF or XSRF) is a type of attack in which an attacker forces a user's browser to make a forged request to a vulnerable site by exploiting an existing trust relationship between the browser and the vulnerable web site.  In a simple scenario, a user is logged in to web site A using a cookie as a credential.  The other browses to web site B.  Web site B returns a page with a hidden form that posts to web site A.  Since the browser will carry the user's cookie to web site A, web site B now can take any action on web site A, for example, adding an admin to an account.  The attack can be used to exploit any requests that the browser automatically authenticates, e.g. by session cookie, integrated authentication, IP whitelisting, …  The attack can be carried out in many ways such as by luring the victim to a site under control of the attacker, getting the user to click a link in a phishing email, or hacking a reputable web site that the victim will visit. The issue can only be resolved on the server side by requiring that all authenticated state-changing requests include an additional piece of secret payload (canary or CSRF token) which is known only to the legitimate web site and the browser and which is protected in transit through SSL/TLS. See the Forgery Protection property on the flow stencil for a list of mitigations."
+        },
+        "GenerationFilters": {
+          "Exclude": {
+            "$value": "(source is 'SE.P.TMCore.OSProcess' or source is 'SE.P.TMCore.Thread' or source is 'SE.P.TMCore.KernelThread' or source is 'SE.P.TMCore.WinApp' or source is 'SE.P.TMCore.NetApp' or source is 'SE.P.TMCore.WebServer' or source is 'SE.P.TMCore.Win32Service' or  source is 'SE.P.TMCore.WebSvc' or source is 'SE.P.TMCore.VM' or (source is 'SE.P.TMCore.Modern' and source.internetClientServer is 'No' and source.internetClient is 'No' ) or source is 'SE.EI.TMCore.AuthProvider' or source is 'SE.EI.TMCore.WebSvc' or source is 'SE.EI.TMCore.WebApp' or source is 'SE.EI.TMCore.Megasevrice' or source is 'SE.EI.TMCore.CRT' or source is 'SE.EI.TMCore.NFX' or source is 'SE.EI.TMCore.WinRT' ) or (target is 'SE.P.TMCore.ThickClient' or target is 'SE.P.TMCore.BrowserClient' or target is 'SE.P.TMCore.PlugIn' or target is 'SE.P.TMCore.Modern') or (flow crosses 'SE.TB.L.TMCore.Machine' or flow crosses 'SE.TB.L.TMCore.Kernel' or flow crosses 'SE.TB.L.TMCore.AppContainer' or flow crosses 'SE.TB.B.TMCore.CorpNet' or flow crosses 'SE.TB.B.TMCore.Sandbox')"
+          },
+          "Include": {
+            "$value": "(source is 'GE.P' or  source is  'GE.EI') and (target is 'GE.P' ) and (flow.authenticatesSource is 'Not Selected' or  flow.authenticatesSource is 'Yes') and (flow.54851a3b-65da-4902-b4e0-94ef015be735 is 'None' or flow.54851a3b-65da-4902-b4e0-94ef015be735 is 'Not Selected' ) and (flow crosses 'GE.TB.L' or flow crosses 'GE.TB.B')"
+          }
+        },
+        "Id": {
+          "$value": "8404dcf5-bdd8-4902-abc2-3b6c967b0261"
+        },
+        "IsExtension": {
+          "$value": "false"
+        },
+        "PropertiesMetaData": {
+          "ThreatMetaDatum": {
+            "AttributeType": {
+              "$value": "0"
+            },
+            "HideFromUI": {
+              "$value": "false"
+            },
+            "Id": {
+              "$value": "bc9c6e2a-15d0-4863-9cac-589e51e4ca1e"
+            },
+            "Label": {
+              "$value": "Priority"
+            },
+            "Name": {
+              "$value": "Priority"
+            },
+            "Values": {
+              "string": {
+                "nil": "true"
+              }
+            }
+          }
+        },
+        "RelatedCategory": {},
+        "ShortTitle": {
+          "$value": "Cross Site Request Forgery"
+        }
+      }
+    }
+  },
+  "MetaInformation": {
+    "Assumptions": {},
+    "Contributors": {},
+    "ExternalDependencies": {},
+    "HighLevelSystemDescription": {},
+    "Owner": {},
+    "Reviewer": {},
+    "ThreatModelName": {}
+  },
+  "Notes": {},
+  "Profile": {
+    "PromptedKb": {}
+  },
+  "ThreatGenerationEnabled": {
+    "$value": "true"
+  },
+  "ThreatInstances": {
+    "KeyValueOfstringThreatpc_P0_PhOB": {
+      "Key": {
+        "$value": "T117d402f21-b92a-4eeb-9b9d-362903405551060c42a9-68a9-4216-8b96-5443e65a4d56627d2636-7f62-481c-a46f-7af41e24c937"
+      },
+      "Value": {
+        "ChangedBy": {
+          "nil": "true"
+        },
+        "DrawingSurfaceGuid": {
+          "$value": "d8c8aab1-5108-49c5-92a1-b214ba353477"
+        },
+        "FlowGuid": {
+          "$value": "060c42a9-68a9-4216-8b96-5443e65a4d56"
+        },
+        "Id": {
+          "$value": "37"
+        },
+        "InteractionKey": {
+          "$value": "7d402f21-b92a-4eeb-9b9d-362903405551:060c42a9-68a9-4216-8b96-5443e65a4d56:627d2636-7f62-481c-a46f-7af41e24c937"
+        },
+        "InteractionString": {
+          "nil": "true"
+        },
+        "ModifiedAt": {
+          "$value": "0001-01-01T00:00:00"
+        },
+        "Priority": {
+          "$value": "High"
+        },
+        "Properties": {
+          "KeyValueOfstringstring": {
+            "Key": {
+              "$value": "Priority"
+            },
+            "Value": {
+              "$value": "High"
+            }
+          }
+        },
+        "SourceGuid": {
+          "$value": "7d402f21-b92a-4eeb-9b9d-362903405551"
+        },
+        "State": {
+          "$value": "AutoGenerated"
+        },
+        "StateInformation": {
+          "nil": "true"
+        },
+        "TargetGuid": {
+          "$value": "627d2636-7f62-481c-a46f-7af41e24c937"
+        },
+        "Title": {
+          "nil": "true"
+        },
+        "TypeId": {
+          "$value": "T11"
+        },
+        "Upgraded": {
+          "$value": "false"
+        },
+        "UserThreatCategory": {
+          "nil": "true"
+        },
+        "UserThreatDescription": {
+          "nil": "true"
+        },
+        "UserThreatShortDescription": {
+          "nil": "true"
+        },
+        "Wide": {
+          "$value": "false"
+        }
+      }
+    }
+  },
+  "Validations": {},
+  "Version": {
+    "$value": "4.3"
+  }
+}
