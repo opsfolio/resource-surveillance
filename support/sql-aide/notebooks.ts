@@ -164,6 +164,7 @@ export class SqlNotebookHelpers<EmitContext extends SQLa.SqlEmitContext>
   extends SQLa.SqlNotebook<EmitContext> {
   readonly emitCtx: EmitContext;
   readonly models: ReturnType<typeof m.serviceModels<EmitContext>>;
+    readonly adminModels: ReturnType<typeof m.adminModels<EmitContext>>;
   readonly loadExtnSQL: (
     extn: string,
   ) => SQLa.SqlTextBehaviorSupplier<EmitContext>;
@@ -186,6 +187,7 @@ export class SqlNotebookHelpers<EmitContext extends SQLa.SqlEmitContext>
   ) {
     super();
     this.models = options?.models ?? m.serviceModels<EmitContext>();
+    this.adminModels = m.adminModels<EmitContext>();
     this.modelsGovn = this.models.codeNbModels.modelsGovn;
     this.emitCtx = this.modelsGovn.sqlEmitContext();
     this.templateState = this.modelsGovn.templateState;
@@ -426,7 +428,7 @@ export class ConstructionSqlNotebook<EmitContext extends SQLa.SqlEmitContext>
         urIngestPathMatchRule.insertDML({
           ur_ingest_resource_path_match_rule_id,
           namespace,
-          regex: "\\.(?P<nature>md|mdx|html|json|jsonc|puml|txt|toml|yml)$",
+          regex: "\\.(?P<nature>md|mdx|html|json|jsonc|puml|txt|toml|yml|xml)$",
           flags: "CONTENT_ACQUIRABLE",
           nature: "?P<nature>", // should be same as src/resource.rs::PFRE_READ_NATURE_FROM_REGEX
           description:

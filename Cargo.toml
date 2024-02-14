@@ -1,10 +1,22 @@
-[package]
-name = "surveilr"
-version = "0.13.0"
+[workspace]
+members = [
+  "src/surveilr_ux_cli",
+  "src/resource_serde",
+  "src/common",
+  "src/resource",
+  "src/udi_pgp",
+  "src/udi_pgp_osquery"
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.15.5-alpha"
 edition = "2021"
+license = "GPL-3.0"
+
 
 # Before getting arbitrary crates check https://blessed.rs for opinionated list of "best" crates.
-[dependencies]
+[workspace.dependencies]
 anyhow = "1.0.75"
 base64 = "0.21.5"
 bitflags = { version = "2.4.1", features = ["serde"] }
@@ -12,39 +24,41 @@ chrono = { version = "0.4.31", features = ["serde"] }
 clap = { version = "4.4.7", features = ["derive", "env"] }
 clap-markdown = "0.1.3"
 comfy-table = "7.1.0"
-deno_task_shell = { version = "0.14.2", features = ["shell", "serialization"] }
 glob = "0.3.1"
 globset = "0.4.13"
 globwalk = "0.8.1"
 hostname = "0.3.1"
 ignore = "0.4.20"
-indoc = "2.0.4"
 is_executable = "1.0.1"
 lazy_static = "1.4.0"
-os_pipe = { version = "1.1.4", optional = true }
+os_pipe = { version = "1.1.4" }
 pretty_assertions = "1.4.0"
 regex = { version = "1.10.2", features = ["std"], default-features = false }
 rusqlite = { version = "0.30.0", features = ["bundled", "functions"] }
 serde = { version = "1.0.190", features = ["derive"] }
 serde_json = "1.0.107"
 serde_rusqlite = "0.34.0"
-serde_regex = "1.1.0"
 serde_yaml = "0.9.27"
 sha1 = "0.10.6"
 subprocess = "0.2.9"
 sysinfo = { version = "0.29.10", features = ["multithread", "rayon", "serde"] }
 tempfile = "3.8.1"
 tokio = { version = "1.34.0", features = ["full"] }
-toml = "0.8.8"
 ulid = { version = "1.1.0", features = ["rand", "std", "serde", "uuid"] }
-vfs = { version = "0.10.0", features = ["embedded-fs"] }
 walkdir = "2.4.0"
-sqlpage = "0.17.1"
 tracing = "0.1.40"
 tracing-log = "0.2.0"
-tracing-subscriber = {version = "0.3.18", features = ["std", "fmt", "json", "env-filter"] }
-opentelemetry-otlp = { version = "0.14.0", features = ["tokio", "http", "reqwest-client", "reqwest-rustls", "http-proto", "tls", "logs"] }
 opentelemetry_sdk = { version = "0.21.2", features = ["opentelemetry-http", "trace", "metrics" , "logs", "rt-tokio"] }
 opentelemetry = { version = "0.21.0", features = ["trace"] }
-autometrics = { version = "1.0.0", features = ["otel-push-exporter-http", "otel-push-exporter-grpc", "otel-push-exporter-tokio-current-thread"] }
+autometrics = { version = "1.0.0", features = ["otel-push-exporter-http", "otel-push-exporter-grpc", "otel-push-exporter-tokio-current-thread", "opentelemetry-prometheus", "metrics-exporter-prometheus", "prometheus-exporter"] }
 assert_cmd = "2.0.13"
+tracing-subscriber = {version = "0.3.18", features = ["std", "fmt", "json", "env-filter"] }
+uuid = { version = "1.7.0", features = ["v4", "fast-rng", "macro-diagnostics"] }
+
+## workspaces members
+surveilr_ux_cli = { path = "src/surveilr_ux_cli" }
+resource_serde = { path = "src/resource_serde" }
+common = { path = "src/common" }
+resource = { path = "src/resource" }
+udi_pgp = { path = "src/udi_pgp" }
+udi_pgp_osquery = { path = "src/udi_pgp_osquery" }

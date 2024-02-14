@@ -695,3 +695,176 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     informationSchema,
   };
 }
+
+export function adminModels<
+  EmitContext extends SQLa.SqlEmitContext,
+>() {
+  const modelsGovn = modelsGovernance<EmitContext>();
+  const { keys: gk, domains: gd, model: gm } = modelsGovn;
+
+  const udiPgpSet = gm.textPkTable("udi_pgp_set", {
+    udi_pgp_set_id: gk.varCharPrimaryKey(),
+    query_text: gd.text(),
+    generated_ncl: gd.text(),
+    status: gd.integer(), //zero or
+    status_text: gd.textNullable(),
+    elaboration: gd.jsonTextNullable(),
+    diagnostics_file: gd.textNullable(),
+    diagnostics_file_content: gd.jsonTextNullable(),
+    ...gm.housekeeping.columns,
+  }, {
+    isIdempotent: true,
+    populateQS: (t, c, _, tableName) => {
+      t.description = markdown`
+      Specific table for all SET queries. That is, all configuration queries.
+        `;
+      c.udi_pgp_set_id.description =
+        `${tableName} primary key and it corresponds to the "udi_pgp_observe_query_exec_id" in "udi_pgp_observe_query_exec".`;
+      c.query_text.description =
+        `The original query passed to UDI-PGP through the SET command`;
+      c.generated_ncl.description = `The NCL file generated from the schema`;
+      c.status.description =
+        `The status of the query. Corresponds to "exec_status" on the "udi_pgp_observe_query_exec" table.`;
+      c.status_text.description = `The reason the query failed`;
+      c.elaboration.description =
+        `A general object containing details like all the events that transpired during the execution of a query`;
+      c.diagnostics_file.description = `Location the config query was written to.`;
+      c.diagnostics_file_content.description = `Content of the diagnostics file.`;
+    },
+
+    qualitySystem: {
+      description: markdown`
+        A Supplier is any source that can provide data to be retrieved, such as osquery, git.
+        Each supplier is stored in this table along with its metadata`,
+    },
+  });
+
+  const udiPgpSupplier = gm.textPkTable("udi_pgp_supplier", {
+    udi_pgp_supplier_id: gk.varCharPrimaryKey(),
+    type: gd.text(),
+    mode: gd.text(),
+    ssh_targets: gd.jsonTextNullable(),
+    auth: gd.jsonTextNullable(),
+    atc_file_path: gd.textNullable(),
+    governance: gd.jsonTextNullable(),
+    ...gm.housekeeping.columns,
+  }, {
+    isIdempotent: true,
+    populateQS: (t, c, _, tableName) => {
+      t.description = markdown`
+        A Supplier is any source that can provide data to be retrieved, such as osquery, git.
+        Each supplier is stored in this table along with its metadata.`;
+      c.udi_pgp_supplier_id.description =
+        `${tableName} primary key and it corresponds to the name of the supplier passed in during creation of the supplier`;
+      c.mode.description =
+        `Specifies the mode of operation or interaction with the supplier. The modes define whether the supplier is accessed remotely or locally.`;
+      c.type.description =
+        `Identifies the type of supplier. UDI-PGP currently supports three types of suppliers: osquery, git`;
+      c.ssh_targets.description =
+        ` Lists the SSH targets for the supplier if the query is to be executed remotely. This field is optional and is relevant only for suppliers that have type of remote.`;
+      c.atc_file_path.description =
+        `Specifies the file path to an ATC (Auto Table Construction) file associated with a supplier of type "osquery".`;
+      c.auth.description =
+        `Defines authentication mechanisms or credentials required to interact with the supplier. This field is a vector, allowing for multiple authentication methods`;
+      c.governance.description =
+        `JSON schema-specific governance data (description, documentation, usage, etc. in JSON)`;
+    },
+
+    qualitySystem: {
+      description:
+        markdown`Get detailed information about the lifecycle of a configuration query.`,
+    },
+  });
+
+  const udiPgpConfig = gm.textPkTable("udi_pgp_config", {
+    udi_pgp_config_id: gk.varCharPrimaryKey(),
+    addr: gd.text(),
+    health: gd.textNullable(),
+    metrics: gd.textNullable(),
+    config_ncl: gd.textNullable(),
+    governance: gd.jsonTextNullable(),
+    ...gm.housekeeping.columns, // activity_log should store previous versions in JSON format (for history tracking)
+  }, {
+    isIdempotent: true,
+    populateQS: (t, c, _, tableName) => {
+      t.description = markdown` 
+      This table contains the all the data/information about UDI-PGP excluding the suppliers.
+     `;
+      c.udi_pgp_config_id.description =
+        `${tableName} primary key and internal label (not a ULID)`;
+      c.addr.description = `the address the proxy server is bound to.`;
+      c.metrics.description = `The address the health server started on.`;
+      c.metrics.description = `The address the metrics server started on.`;
+      c.config_ncl.description = `The most recent full NCL that was built and used for configuring the system.`
+      c.governance.description = `kernel-specific governance data`;
+    },
+
+    qualitySystem: {
+      description: markdown`
+            This table contains the all the data/information about UDI-PGP excluding the suppliers.
+        `,
+    },
+  });
+
+  const udiQueryObservabilty = gm.textPkTable("udi_pgp_observe_query_exec", {
+    udi_pgp_observe_query_exec_id: gk.uuidPrimaryKey(),
+    query_text: gd.text(),
+    exec_start_at: gd.dateTime(),
+    exec_finish_at: gd.dateTimeNullable(),
+    elaboration: gd.jsonTextNullable(),
+    exec_msg: gd.textArray,
+    exec_status: gd.integer(),
+    governance: gd.jsonTextNullable(),
+    ...gm.housekeeping.columns, // activity_log should store previous versions in JSON format (for history tracking)
+  }, {
+    isIdempotent: true,
+    populateQS: (t, c, _, tableName) => {
+      t.description = markdown` 
+      Get detailed information about the lifecycle of a query.
+     `;
+      c.udi_pgp_observe_query_exec_id.description =
+        `${tableName} primary key and internal label (not a ULID)`;
+      c.query_text.description = `Actual query string with comments included`;
+      c.exec_start_at.description =
+        `Timestamp for when the query execution began`;
+      c.exec_finish_at.description =
+        `Timestamp for when the query execution ended`;
+      c.elaboration.description =
+        `A general object containing details like all the events that transpired during the execution of a query`;
+      c.exec_msg.description =
+        `All errors encountered during the execution of a query`;
+      c.exec_status.description =
+        `An interger code denoting the execution statis of a query. A non zero code denotes that an error ocurred and thereby the "exec_msg" field should be populated`;
+      c.governance.description = `kernel-specific governance data`;
+    },
+
+    qualitySystem: {
+      description: markdown`
+      Get detailed information about the lifecycle of a query.
+        `,
+    },
+  });
+
+  const informationSchema = {
+    tables: [
+      udiPgpSupplier,
+      udiPgpConfig,
+      udiQueryObservabilty,
+      udiPgpSet,
+    ],
+    tableIndexes: [
+      ...udiPgpSupplier.indexes,
+      ...udiPgpConfig.indexes,
+      ...udiQueryObservabilty.indexes,
+      ...udiPgpSet.indexes,
+    ],
+  };
+
+  return {
+    modelsGovn,
+    udiPgpSupplier,
+    udiPgpConfig,
+    udiQueryObservabilty,
+    informationSchema,
+  };
+}

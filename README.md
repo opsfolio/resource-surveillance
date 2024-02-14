@@ -424,6 +424,10 @@ To update or add new content to SQLPage, you need to modify the SQL statements i
 
 However, it's important to note that SQLPage relies on timestamp updates to recognize changes. Therefore, every time you modify or add SQL content, you must also update the timestamp associated with these entries. This is a critical step as SQLPage only reloads and displays files that have a registered change in their timestamp.
 
+## UDI-PGP
+
+Check out the documentation [here](./src/udi_pgp/README.md)
+
 ## Contributing
 
 Check out [CONTRIBUTING.md](CONTRIBUTING.md).

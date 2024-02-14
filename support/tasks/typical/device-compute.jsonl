@@ -1,6 +1,3 @@
 # Osquery
 { "osquerySystemInfo": "osqueryi \"SELECT *  from system_info\" --json", "nature": "json" }
 { "osqueryAllProcesses": "osqueryi \"select pid,name, path from processes\" --json", "nature": "json" }
-
-# cnquery
-{ "cnqueryListAllAwsInstances": "pkgx cnquery run aws -c aws.ec2.instances --json", "nature": "json" }

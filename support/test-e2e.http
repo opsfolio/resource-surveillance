@@ -1,0 +1,16 @@
+@metrics_endpoint = http://127.0.0.1:3144
+@health_endpoint = http://127.0.0.1:3155
+
+#@authToken = your_auth_token_here
+
+###
+# Fetch the prometheus metrics
+# Add the server port to config 
+GET {{metrics_endpoint}}/metrics
+Accept: plain/text
+
+###
+# Fetch the service health
+GET {{health_endpoint}}/health
+Accept: application/json
+
