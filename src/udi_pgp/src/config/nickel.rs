@@ -21,8 +21,8 @@ use super::{Supplier, UdiPgpConfig};
 
 /// Write the NCL string config to JSON file for diagnostics
 pub fn ncl_to_json_file(s: &str, core: bool) -> UdiPgpResult<PathBuf> {
-        let src = Cursor::new(s);
-        let source_name = if core { "<config>" } else { "<supplier>" };
+    let src = Cursor::new(s);
+    let source_name = if core { "<config>" } else { "<supplier>" };
     let mut program =
         Program::new_from_source(src, source_name, std::io::sink()).map_err(|err| {
             error!("{}", err);

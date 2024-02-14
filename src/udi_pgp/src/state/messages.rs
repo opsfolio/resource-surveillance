@@ -47,5 +47,5 @@ pub enum Message {
         query_text: String,
         generated_ncl: String,
         diagnostics_file: String,
-    }
+    },
 }

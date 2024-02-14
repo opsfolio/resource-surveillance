@@ -630,7 +630,43 @@ impl UniformResourceWriter<ContentResource> for XmlResource<ContentResource> {
         urw_state: &mut UniformResourceWriterState<'_, '_>,
         entry: &mut UniformResourceWriterEntry,
     ) -> UniformResourceWriterResult {
-        self.insert_text(urw_state, &self.resource, entry)
+        let uri = &self.resource.uri;
+        let ur_res = self.insert_text(urw_state, &self.resource, entry);
+
+        if let UniformResourceWriterAction::Inserted(ur_id, _) = &ur_res.action {
+            let (json, hash) = match self.transform_to_json() {
+                Ok(s) => s,
+                Err(err) => {
+                    return UniformResourceWriterResult {
+                        uri: uri.to_string(),
+                        action: UniformResourceWriterAction::Error(err),
+                    };
+                }
+            };
+
+            match urw_state.ingest_stmts.ins_ur_transform_stmt.query_row(
+                params![
+                    ur_id,
+                    self.resource.uri.to_string(),
+                    "json".to_string(),
+                    hash,
+                    json,
+                    json.as_bytes().len()
+                ],
+                |row| row.get::<_, String>(0),
+            ) {
+                Ok(id) => UniformResourceWriterResult {
+                    uri: uri.to_string(),
+                    action: UniformResourceWriterAction::Inserted(id, None),
+                },
+                Err(err) => UniformResourceWriterResult {
+                    uri: uri.to_string(),
+                    action: UniformResourceWriterAction::Error(err.into()),
+                },
+            }
+        } else {
+            ur_res
+        }
     }
 }
 
@@ -809,7 +845,6 @@ pub fn ingest_files(debug: u8, ingest_args: &IngestFilesArgs) -> Result<String> 
 
     let (mut behavior, mut behavior_id) = IngestFilesBehavior::new(&device_id, ingest_args, &tx)
         .with_context(|| format!("[ingest_files] behavior issue {}", db_fs_path))?;
-
     if !ingest_args.include_state_db_in_ingestion {
         let canonical_db_fs_path = std::fs::canonicalize(std::path::Path::new(&db_fs_path))
             .with_context(|| format!("[ingest_files] unable to canonicalize in {}", db_fs_path))?;

@@ -35,4 +35,3 @@ chrono.workspace = true
 uuid.workspace = true
 rusqlite.workspace = true
 common.workspace = true
-aichat = "0.12.0"

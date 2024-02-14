@@ -23,7 +23,8 @@ use tracing::{debug, error, info};
 use crate::{
     config::UdiPgpConfig,
     error::{UdiPgpError, UdiPgpResult},
-    processor::UdiPgpProcessor, state::messages::Message,
+    processor::UdiPgpProcessor,
+    state::messages::Message,
 };
 
 pub struct UdiPgpAuthSource {

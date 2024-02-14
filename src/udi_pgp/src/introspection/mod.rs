@@ -26,7 +26,12 @@ use tracing::{debug, info};
 use uuid::Uuid;
 
 use crate::{
-    error::UdiPgpResult, introspection::sql_suppliers::{core_table, logs_table, suppliers_table}, parser::stmt::UdiPgpStatment, sql_supplier::SqlSupplier, state::messages::Message, Row
+    error::UdiPgpResult,
+    introspection::sql_suppliers::{core_table, logs_table, suppliers_table},
+    parser::stmt::UdiPgpStatment,
+    sql_supplier::SqlSupplier,
+    state::messages::Message,
+    Row,
 };
 mod error;
 mod sql_suppliers;

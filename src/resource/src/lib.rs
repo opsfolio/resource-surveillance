@@ -6,6 +6,7 @@ use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 
+use anyhow::anyhow;
 use bitflags::bitflags;
 use chrono::{DateTime, Utc};
 use is_executable::IsExecutable;
@@ -123,7 +124,7 @@ const PFRE_READ_NATURE_FROM_REGEX_CAPTURE: &str = "nature";
 
 const DEFAULT_IGNORE_PATHS_REGEX_PATTERNS: [&str; 1] = [r"/(\.git|node_modules)/"];
 const DEFAULT_ACQUIRE_CONTENT_EXTNS_REGEX_PATTERNS: [&str; 1] =
-    [r"\.(?P<nature>md|mdx|html|json|jsonc|puml|txt|toml|yml)$"];
+    [r"\.(?P<nature>md|mdx|html|json|jsonc|puml|txt|toml|yml|xml)$"];
 const DEFAULT_CAPTURE_EXEC_REGEX_PATTERNS: [&str; 1] = [r"surveilr\[(?P<nature>[^\]]*)\]"];
 const DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERNS: [&str; 1] = [r"surveilr-SQL"];
 
@@ -142,7 +143,7 @@ const DEFAULT_REWRITE_NATURE_PATTERNS: [(&str, &str); 3] = [
 // parent, it allows `surveilr` to ignore globs specified within it
 const SMART_IGNORE_CONF_FILES: [&str; 1] = [".surveilr_ignore"];
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct PersistableFlaggableRegEx {
     pub regex: String,          // untyped to make it easier to serialize/deserialize
     pub flags: String,          // untyped to make it easier to serialize/deserialize
@@ -469,6 +470,31 @@ pub struct XmlResource<Resource> {
     pub schema: XmlSchema,
 }
 
+impl XmlResource<ContentResource> {
+    pub fn transform_to_json(&self) -> Result<(String, String), anyhow::Error> {
+        if let Some(text_supplier) = &self.resource.content_text_supplier {
+            let text = text_supplier().map_err(|err| anyhow!("{}", err.to_string()))?;
+            let src = text.content_text();
+            let value: serde_json::Value =
+                xmltojson::to_json(src).map_err(|_| anyhow!("Failed to convert JSON to XML"))?;
+            let json = serde_json::to_string_pretty(&value)?;
+
+            let hash = {
+                let mut hasher = Sha1::new();
+                hasher.update(&json);
+                format!("{:x}", hasher.finalize())
+            };
+
+            Ok((json, hash))
+        } else {
+            Err(anyhow!(
+                "Content supplier absent for: {}",
+                self.resource.uri
+            ))
+        }
+    }
+}
+
 pub enum UniformResource<Resource> {
     CapturableExec(CapturableExecResource<Resource>),
     Html(HtmlResource<Resource>),
@@ -660,7 +686,6 @@ impl EncounteredResourceContentSuppliers {
     ) -> EncounteredResourceContentSuppliers {
         let binary: Option<BinaryContentSupplier>;
         let text: Option<TextContentSupplier>;
-
         if erc
             .flags
             .contains(EncounterableResourceFlags::CONTENT_ACQUIRABLE)

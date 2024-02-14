@@ -103,12 +103,11 @@ fn spawn_shutdown_handler() -> oneshot::Receiver<()> {
 
 pub async fn run(config: &UdiPgpConfig, suppliers: SqlSupplierMap) -> anyhow::Result<()> {
     debug!("Starting the pgp server with: {:#?}", config);
-    
+
     let (tx, rx) = mpsc::channel(32);
 
     {
-        let mut state_manager =
-            StateManager::init(config)?;
+        let mut state_manager = StateManager::init(config)?;
         tokio::spawn(async move {
             state_manager.handle(rx).await;
         });
