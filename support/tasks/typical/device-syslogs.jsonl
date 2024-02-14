@@ -1,0 +1,8 @@
+# Osqueryd
+{"osquerydFileEvents": "grep -E \"file_events.*$(date +\\\"%b %d\\\")\" /var/log/osquery/osqueryd.results.log | sed -e 's/$/,/' | paste -sd '' - | sed 's/\\(.*\\),/\\1/' | sed 's/^/[/' | sed 's/$/]/'", "nature": "json"}
+
+# Authlog
+{"authLogInfo": "grep \"$(date +\\\"%b %d\\\")\" /var/log/auth.log | jq -R -s -c 'split(\"\\n\") | .[:-1] | map(split(\" \") | {date: \"\\(.[0]) \\(.[1]) \\(.[2])\", message: \"\\(.[5:] | join(\" \"))\"})'", "nature": "json"}
+
+# Syslog
+{"sysLogInfo": "grep \"$(date +\\\"%b %d\\\")\" /var/log/syslog | jq -R -s -c 'split(\"\\n\") | .[:-1] | map(split(\" \") | {date: \"\\(.[0]) \\(.[1]) \\(.[2])\", message: \"\\(.[5:] | join(\" \"))\"})'", "nature": "json"}
