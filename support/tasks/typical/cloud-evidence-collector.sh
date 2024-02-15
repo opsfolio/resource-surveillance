@@ -26,14 +26,14 @@ fi
 # Define the GitHub repository and directory URL
 GITHUB_REPO_URL="https://api.github.com/repos/opsfolio/resource-surveillance/contents/support/tasks/typical"
 
-# Fetch all file URLs using GitHub API
-CLOUD_JSONL=($(curl -s "$GITHUB_REPO_URL" | grep -o 'https://raw.githubusercontent.com[^"]*'))
+# Fetch all file URLs using GitHub API and filter based on criteria
+CLOUD_JSONL=$(curl -s "$GITHUB_REPO_URL" | grep -o 'https://raw.githubusercontent.com[^"]*' | grep 'cloud-.*\.jsonl$')
 
-# Loop through the URLs and execute the curl command for those ending with ".jsonl"
-for JSONL in "${CLOUD_JSONL[@]}"; do
-  if [[ "$JSONL" == "cloud-"*.jsonl ]]; then
-    curl -sL "$JSONL" | surveilr ingest tasks
-  fi
+# Loop through the filtered URLs and execute surveilr ingest tasks
+for url in $CLOUD_JSONL; do
+    filename=$(basename "$url")
+    echo "Processing file: $filename"
+    curl -sL "$url" | surveilr ingest tasks
 done
 
 # Copy the created file to AWS using rclone
