@@ -10,7 +10,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.15.5-alpha"
+version = "0.15.6-alpha"
 edition = "2021"
 license = "GPL-3.0"
 

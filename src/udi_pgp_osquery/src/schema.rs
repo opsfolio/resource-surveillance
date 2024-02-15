@@ -72,14 +72,21 @@ pub fn get_schema(
         let mut child_process = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()
-            .map_err(UdiPgpError::IoError)?;
+            .map_err(|err| {
+                error!("{}", err);
+                UdiPgpError::IoError(err)
+            })?;
 
         let stdin = child_process
             .stdin
             .as_mut()
             .context("Failed to open stdin")
-            .map_err(|err| UdiPgpError::SchemaError(table.to_string(), err.to_string()))?;
+            .map_err(|err| {
+                error!("{}", err);
+                UdiPgpError::SchemaError(table.to_string(), err.to_string())
+            })?;
 
         let query = format!(".schema {}", table);
         stdin.write_all(query.as_bytes())?;
@@ -87,9 +94,18 @@ pub fn get_schema(
         let output = child_process.wait_with_output()?;
 
         if !output.status.success() {
+            let error_message = String::from_utf8_lossy(&output.stderr);
+            let err = format!(
+                "Failed to generate schema for: {table}. Osquery error: {}",
+                error_message
+            );
+            error!("{}", err);
             return Err(UdiPgpError::SchemaError(
                 table.to_string(),
-                "Failed to generate schema. Output Error".to_string(),
+                format!(
+                    "Failed to generate schema. Osquery Error: {}",
+                    error_message
+                ),
             ));
         }
 

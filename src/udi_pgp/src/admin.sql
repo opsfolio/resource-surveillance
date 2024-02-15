@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS "udi_pgp_config" (
     "health" TEXT,
     "metrics" TEXT,
     "config_ncl" TEXT,
+    "admin_db_path" TEXT,
+    "surveilr_version" TEXT,
     "governance" TEXT CHECK(json_valid(governance) OR governance IS NULL),
     "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT 'UNKNOWN',

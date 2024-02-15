@@ -240,7 +240,7 @@ pub struct UdiPgpConfig {
     #[serde(default = "default_verbose")]
     pub verbose: bool,
     #[serde(rename = "admin-state-fs-path", default = "default_admin_state_path")]
-    pub admin_state_fs_path: String,
+    pub admin_state_fs_path: PathBuf,
 }
 
 impl UdiPgpConfig {
@@ -298,7 +298,7 @@ impl UdiPgpConfig {
     }
 
     pub fn with_admin_db_file(&mut self, db: &str) -> Self {
-        self.admin_state_fs_path = db.to_string();
+        self.admin_state_fs_path = std::fs::canonicalize(std::path::Path::new(db)).unwrap();
         self.clone()
     }
 
@@ -430,6 +430,9 @@ fn default_verbose() -> bool {
     false
 }
 
-fn default_admin_state_path() -> String {
-    "resource-surveillance-admin.sqlite.db".to_string()
+fn default_admin_state_path() -> PathBuf {
+    std::fs::canonicalize(std::path::Path::new(
+        "resource-surveillance-admin.sqlite.db",
+    ))
+    .unwrap()
 }

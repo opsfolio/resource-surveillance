@@ -30,7 +30,7 @@
 //!
 //! For more details on each component, see the respective function documentation.
 
-use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, fs, sync::Arc};
 
 use rusqlite::{Connection, Result as RusqliteResult, ToSql};
 use tokio::sync::{mpsc, Mutex};
@@ -68,12 +68,14 @@ execute_sql_no_args!(clear_udi_pgp_config, "DELETE FROM udi_pgp_config");
 
 execute_sql!(
     insert_udi_pgp_config,
-    "INSERT INTO udi_pgp_config (udi_pgp_config_id, addr, health, metrics, config_ncl, governance, created_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, CURRENT_TIMESTAMP, 'UNKNOWN')",
+    "INSERT INTO udi_pgp_config (udi_pgp_config_id, addr, health, metrics, config_ncl, admin_db_path, surveilr_version, governance, created_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,?8, CURRENT_TIMESTAMP, 'UNKNOWN')",
     udi_pgp_config_id: String,
     addr: String,
     health: Option<String>,
     metrics: Option<String>,
     config_ncl: String,
+    admin_db_path: String,
+    surveilr_version: String,
     governance: Option<String>
 );
 
@@ -126,14 +128,11 @@ pub struct StateManager {
 impl StateManager {
     /// Initialize the state manager, load the databse with tables and insert the core config
     pub fn init(config: &UdiPgpConfig) -> anyhow::Result<Self> {
-        let path = PathBuf::from(&config.admin_state_fs_path);
-        if path.exists() {
-            fs::remove_file(&path)?;
-        }
-
-        let connection = Connection::open(&path)?;
+        let connection = Connection::open(&config.admin_state_fs_path)?;
 
         admin_ddl(&connection)?;
+        let admindb_path = config.admin_state_fs_path.to_str().unwrap();
+
         insert_udi_pgp_config(
             &connection,
             Uuid::new_v4().to_string(),
@@ -141,6 +140,8 @@ impl StateManager {
             config.health.map(|s| s.to_string()),
             config.metrics.map(|s| s.to_string()),
             "".to_string(),
+            admindb_path.to_string(),
+            env!("CARGO_PKG_VERSION").to_string(),
             None,
         )?;
 
@@ -187,6 +188,8 @@ impl StateManager {
         clear_udi_pgp_config(conn).expect("Failed to clear core config from DB");
 
         info!("Inserting new core config");
+        let admindb_path = config.admin_state_fs_path.to_str().unwrap();
+
         insert_udi_pgp_config(
             conn,
             Uuid::new_v4().to_string(),
@@ -194,6 +197,8 @@ impl StateManager {
             config.health.map(|s| s.to_string()),
             config.metrics.map(|s| s.to_string()),
             "".to_string(),
+            admindb_path.to_string(),
+            env!("CARGO_PKG_VERSION").to_string(),
             None,
         )
         .expect("Failed to insert into core db");

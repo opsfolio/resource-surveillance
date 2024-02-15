@@ -25,7 +25,13 @@ pub struct CoreTable {
 
 impl CoreTable {
     fn fill_columns_with_default(&mut self, stmt: &mut UdiPgpStatment) -> UdiPgpResult<()> {
-        let cols: Vec<&str> = vec!["addr", "health", "metrics"];
+        let cols: Vec<&str> = vec![
+            "addr",
+            "health",
+            "metrics",
+            "surveilr_version",
+            "admin_db_path",
+        ];
         stmt.columns = cols
             .iter()
             .map(|col| {
@@ -135,6 +141,7 @@ impl SqlSupplier for CoreTable {
 
         let mut rows = Vec::with_capacity(3);
         let mut cell_row = Vec::with_capacity(columns.len());
+
         cell_row.push(Row::from(config.addr().to_string()));
         cell_row.push(Row::from(match config.metrics {
             Some(a) => a.to_string(),
@@ -144,6 +151,12 @@ impl SqlSupplier for CoreTable {
             Some(a) => a.to_string(),
             None => "null".to_string(),
         }));
+        let surveilr_version = env!("CARGO_PKG_VERSION");
+        cell_row.push(Row::from(surveilr_version.to_string()));
+
+        let admindb_path = config.admin_state_fs_path.to_str().unwrap();
+        cell_row.push(Row::from(admindb_path.to_string()));
+
         rows.push(cell_row);
 
         Ok(rows)

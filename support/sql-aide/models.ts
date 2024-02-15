@@ -782,6 +782,8 @@ export function adminModels<
     health: gd.textNullable(),
     metrics: gd.textNullable(),
     config_ncl: gd.textNullable(),
+    admin_db_path: gd.textNullable(),
+    surveilr_version: gd.textNullable(),
     governance: gd.jsonTextNullable(),
     ...gm.housekeeping.columns, // activity_log should store previous versions in JSON format (for history tracking)
   }, {
@@ -796,6 +798,8 @@ export function adminModels<
       c.metrics.description = `The address the health server started on.`;
       c.metrics.description = `The address the metrics server started on.`;
       c.config_ncl.description = `The most recent full NCL that was built and used for configuring the system.`
+      c.admin_db_path.description = `The full path to admin state database for udi-pgp configuration and query logs.`
+      c.surveilr_version.description = `The current version of surveilr that's being executed.`
       c.governance.description = `kernel-specific governance data`;
     },
 
