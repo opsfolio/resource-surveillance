@@ -11,7 +11,7 @@ use tracing::{debug, debug_span, info, info_span, Instrument};
 use uuid::Uuid;
 
 use crate::{
-    introspection::Introspection,
+    introspection::IntrospectionBackend,
     parser::{
         stmt::{StmtType, UdiPgpStatment},
         UdiPgpQueryParser,
@@ -50,29 +50,18 @@ impl UdiPgpProcessor {
     async fn handle_introspection<'a>(
         &self,
         stmt: &UdiPgpStatment,
-        session_id: &Uuid,
+        _session_id: &Uuid,
     ) -> PgWireResult<Vec<Response<'a>>> {
-        let mut introspection =
-            Introspection::new(stmt, self.config_tx.clone()).map_err(|err| {
+        let config = self.read_config().await?;
+        let introspection =
+            IntrospectionBackend::new(&config.admin_state_fs_path).map_err(|err| {
                 PgWireError::UserError(Box::new(ErrorInfo::new(
                     "FATAL".to_string(),
                     "INTROSPECTION".to_string(),
                     err.to_string(),
                 )))
             })?;
-
-        let (schema, rows) = introspection.handle(session_id).await.map_err(|err| {
-            PgWireError::UserError(Box::new(ErrorInfo::new(
-                "FATAL".to_string(),
-                "INTROSPECTION".to_string(),
-                err.to_string(),
-            )))
-        })?;
-
-        let row_stream = self.encode_rows(schema.clone().into(), &rows);
-        let response = Response::Query(QueryResponse::new(schema.into(), row_stream));
-
-        Ok(vec![response])
+        introspection.do_query(stmt)
     }
 }
 

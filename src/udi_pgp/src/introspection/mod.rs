@@ -1,8 +1,9 @@
+
 //! # UDI-PGP Introspection Module.
 //!
 //! This module provides status update on the internals of UDI-PGP at a particular time, It exposes the
 //! processor configuration, suppliers and their details and query details for each query like the
-//! start and endtime.
+//! start and endtime. This is basically a thin layer over the admin DB SQLite file used for state management.
 //!
 //! ## Usage
 //! - Select all current suppliers
@@ -18,23 +19,25 @@
 //! SELECT query_id, query_text, exec_status, exec_msg, elaboration, exec_start_at, exec_finish_at FROM udi_pgp_observe_query_exec; -- Show log entries, at start of surveilr it should be empty
 //! ```
 
-use std::{fmt::Display, str::FromStr};
-
-use pgwire::api::results::FieldInfo;
-use tokio::sync::mpsc;
-use tracing::{debug, info};
-use uuid::Uuid;
-
-use crate::{
-    error::UdiPgpResult,
-    introspection::sql_suppliers::{core_table, logs_table, suppliers_table},
-    parser::stmt::UdiPgpStatment,
-    sql_supplier::SqlSupplier,
-    state::messages::Message,
-    Row,
+use std::{
+    fmt::Display, path::PathBuf, str::FromStr, sync::{Arc, Mutex}
 };
+
+use futures::{stream, Stream};
+use pgwire::{
+    api::{
+        portal::Format,
+        results::{DataRowEncoder, FieldInfo, QueryResponse, Response},
+        Type,
+    },
+    error::{ErrorInfo, PgWireError, PgWireResult},
+    messages::data::DataRow,
+};
+use rusqlite::{types::ValueRef, Connection, Error as RusqliteError, Rows, Statement};
+
+use crate::parser::stmt::UdiPgpStatment;
+
 mod error;
-mod sql_suppliers;
 
 pub use self::error::IntrospectionError;
 
@@ -73,77 +76,106 @@ impl Display for IntrospectionTable {
     }
 }
 
-#[derive(Debug)]
-pub struct Introspection<'a> {
-    stmt: &'a UdiPgpStatment,
-    state_tx: mpsc::Sender<Message>,
-    table_type: IntrospectionTable,
+
+
+pub struct IntrospectionBackend {
+    conn: Arc<Mutex<Connection>>,
 }
 
-impl<'a> Introspection<'a> {
-    /// Checks the table in the statement to decide what section a query falls under
-    /// - `udi_pgp_supplier` -> Suppliers Introspection
-    /// - `udi_pgp_config` -> Core Introspection
-    /// - `udi_pgp_observe_query_exec` -> Query and Logs introspection
-    pub fn new(
-        stmt: &'a UdiPgpStatment,
-        tx: mpsc::Sender<Message>,
-    ) -> Result<Self, IntrospectionError> {
-        if stmt.tables.len() > 1 {
-            return Err(IntrospectionError::TableError(format!(
-                "UDI-PGP Introspection queries currently supports just one table. Got: {:?}",
-                stmt.tables
-            )));
-        }
-
-        let table_name = stmt
-            .tables
-            .first()
-            .ok_or(IntrospectionError::TableError(
-                "Table list is empty. Execute a query like: ` SELECT * FROM udi_pgp_supplier;`"
-                    .to_string(),
-            ))?
-            .as_str();
-        let table_type = IntrospectionTable::from_str(table_name)?;
-        Ok(Introspection {
-            stmt,
-            state_tx: tx,
-            table_type,
+impl IntrospectionBackend {
+    pub fn new(path: &PathBuf) -> Result<Self, RusqliteError> {
+        let conn = Connection::open(path)?;
+        Ok(IntrospectionBackend {
+            conn: Arc::new(Mutex::new(conn)),
         })
     }
 
-    pub async fn handle(
-        &mut self,
-        session_id: &Uuid,
-    ) -> UdiPgpResult<(Vec<FieldInfo>, Vec<Vec<Row>>)> {
-        info!("Executing Introspection Query");
-        debug!("{:#?}", self.stmt);
+    fn name_to_type(&self, name: &str) -> PgWireResult<Type> {
+        match name.to_uppercase().as_ref() {
+            "INT" | "INTEGER" => Ok(Type::INT8),
+            "VARCHAR" => Ok(Type::VARCHAR),
+            "TEXT" => Ok(Type::TEXT),
+            "BINARY" => Ok(Type::BYTEA),
+            "FLOAT" => Ok(Type::FLOAT8),
+            "TIMESTAMPTZ" => Ok(Type::TIMESTAMPTZ),
+            "UUID" => Ok(Type::UUID),
+            "TEXT[]" => Ok(Type::VARCHAR_ARRAY),
+            _ => Err(PgWireError::UserError(Box::new(ErrorInfo::new(
+                "ERROR".to_owned(),
+                "42846".to_owned(),
+                format!("Unsupported data type: {name}"),
+            )))),
+        }
+    }
 
-        let res = match self.table_type {
-            IntrospectionTable::Supplier => {
-                let mut supp =
-                    suppliers_table::SupplierTable::new(self.state_tx.clone(), Some(*session_id));
-                let mut stmt = self.stmt.clone();
-                let schema = supp.schema(&mut stmt).await?;
-                let rows = supp.execute(&stmt).await?;
-                (schema, rows)
-            }
-            IntrospectionTable::Config => {
-                let mut supp = core_table::CoreTable::new(self.state_tx.clone(), Some(*session_id));
-                let mut stmt = self.stmt.clone();
-                let schema = supp.schema(&mut stmt).await?;
-                let rows = supp.execute(&stmt).await?;
-                (schema, rows)
-            }
-            IntrospectionTable::QueryExec => {
-                let mut supp = logs_table::LogTable::new(self.state_tx.clone(), Some(*session_id));
-                let mut stmt = self.stmt.clone();
-                let schema = supp.schema(&mut stmt).await?;
-                let rows = supp.execute(&stmt).await?;
-                (schema, rows)
-            }
-        };
+    fn row_desc_from_stmt(
+        &self,
+        stmt: &Statement,
+        format: &Format,
+    ) -> PgWireResult<Vec<FieldInfo>> {
+        stmt.columns()
+            .iter()
+            .enumerate()
+            .map(|(idx, col)| {
+                let field_type = self.name_to_type(col.decl_type().unwrap())?;
+                Ok(FieldInfo::new(
+                    col.name().to_owned(),
+                    None,
+                    None,
+                    field_type,
+                    format.format_for(idx),
+                ))
+            })
+            .collect()
+    }
 
-        Ok(res)
+    fn encode_row_data(
+        &self,
+        mut rows: Rows,
+        schema: Arc<Vec<FieldInfo>>,
+    ) -> impl Stream<Item = PgWireResult<DataRow>> {
+        let mut results = Vec::new();
+        let ncols = schema.len();
+        while let Ok(Some(row)) = rows.next() {
+            let mut encoder = DataRowEncoder::new(schema.clone());
+            for idx in 0..ncols {
+                let data = row.get_ref_unwrap::<usize>(idx);
+                match data {
+                    ValueRef::Null => encoder.encode_field(&None::<i8>).unwrap(),
+                    ValueRef::Integer(i) => {
+                        encoder.encode_field(&i).unwrap();
+                    }
+                    ValueRef::Real(f) => {
+                        encoder.encode_field(&f).unwrap();
+                    }
+                    ValueRef::Text(t) => {
+                        encoder
+                            .encode_field(&String::from_utf8_lossy(t).as_ref())
+                            .unwrap();
+                    }
+                    ValueRef::Blob(b) => {
+                        encoder.encode_field(&b).unwrap();
+                    }
+                }
+            }
+
+            results.push(encoder.finish());
+        }
+
+        stream::iter(results)
+    }
+
+    pub fn do_query<'a>(&self, stmt: &UdiPgpStatment) -> PgWireResult<Vec<Response<'a>>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare(&stmt.query)
+            .map_err(|e| PgWireError::ApiError(Box::new(e)))?;
+        let header = Arc::new(self.row_desc_from_stmt(&stmt, &Format::UnifiedText)?);
+        stmt.query(())
+            .map(|rows| {
+                let s = self.encode_row_data(rows, header.clone());
+                vec![Response::Query(QueryResponse::new(header, s))]
+            })
+            .map_err(|e| PgWireError::ApiError(Box::new(e)))
     }
 }

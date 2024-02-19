@@ -18,6 +18,7 @@ pub enum UpdateLogEntry {
     Event(String, Level),
 }
 
+#[allow(dead_code)]
 pub enum Message {
     /// Updates the metrics and health addresses
     UpdateCore(Option<SocketAddr>, Option<SocketAddr>),
