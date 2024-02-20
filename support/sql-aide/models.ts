@@ -653,6 +653,135 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     },
   );
 
+  const urIngestSessionImapAccount = gm.textPkTable("ur_ingest_session_imap_account", {
+    ur_ingest_session_imap_account_id: gm.keys.varCharPrimaryKey(),
+    ingest_session_id: urIngestSession.belongsTo
+      .ur_ingest_session_id(),
+    email: gd.text(),
+    password: gd.text(),
+    host: gd.text(),
+    elaboration: gd.jsonTextNullable(),
+    ...gm.housekeeping.columns,
+  }, {
+    isIdempotent: true,
+    constraints: (props, tableName) => {
+      const c = SQLa.tableConstraints(tableName, props);
+      return [
+        c.unique("ingest_session_id", "email", "created_at"),
+      ];
+    },
+    indexes: (props, tableName) => {
+      const tif = SQLa.tableIndexesFactory(tableName, props);
+      return [
+        tif.index({ isIdempotent: true }, "ingest_session_id", "email"),
+      ];
+    },
+    populateQS: (t, _c, cols, _tableName) => {
+      t.description = markdown`
+        Immutable ingest session folder system represents an email address to be ingested. Each
+        session includes an email, then ${cols.email.identity} is the
+        folder that was scanned.`;
+    },
+  });
+
+
+  const urIngestSessionImapAcctFolder = gm.textPkTable("ur_ingest_session_imap_acct_folder", {
+    ur_ingest_session_imap_acct_folder_id: gm.keys.varCharPrimaryKey(),
+    ingest_session_id: urIngestSession.belongsTo
+      .ur_ingest_session_id(),
+        ingest_account_id: urIngestSessionImapAccount.belongsTo
+      .ur_ingest_session_imap_account_id(),
+    folder_name: gd.text(),
+    elaboration: gd.jsonTextNullable(),
+    ...gm.housekeeping.columns,
+  }, {
+    isIdempotent: true,
+    constraints: (props, tableName) => {
+      const c = SQLa.tableConstraints(tableName, props);
+      return [
+        c.unique("ingest_session_id", "folder_name", "created_at"),
+      ];
+    },
+    indexes: (props, tableName) => {
+      const tif = SQLa.tableIndexesFactory(tableName, props);
+      return [
+        tif.index({ isIdempotent: true }, "ingest_session_id", "folder_name"),
+      ];
+    },
+    populateQS: (t, _c, cols, _tableName) => {
+      t.description = markdown`
+        Immutable ingest session folder system represents a folder or mailbox in an email account, e.g. "INBOX" or "SENT". Each
+        session includes a folder scan, then ${cols.folder_name.identity} is the
+        folder that was scanned.`;
+    },
+  });
+
+  const urIngestSessionImapAcctFolderMessage = gm.textPkTable(
+    "ur_ingest_session_imap_acct_folder_message",
+    {
+      ur_ingest_session_imap_acct_folder_message_id: gm.keys.varCharPrimaryKey(),
+      ingest_session_id: urIngestSession.belongsTo
+        .ur_ingest_session_id(),
+      ingest_imap_acct_folder_id: urIngestSessionImapAcctFolder.belongsTo
+        .ur_ingest_session_imap_acct_folder_id(),
+      uniform_resource_id: uniformResource.references.uniform_resource_id()
+        .optional(), // if a uniform_resource was prepared for this or already existed
+      message: gd.text(),
+      ...gm.housekeeping.columns,
+    },
+    {
+      isIdempotent: true,
+      indexes: (props, tableName) => {
+        const tif = SQLa.tableIndexesFactory(tableName, props);
+        return [
+          tif.index(
+            { isIdempotent: true },
+            "ingest_session_id",
+          ),
+        ];
+      },
+      populateQS: (t, _c, _cols, tableName) => {
+        t.description = markdown`
+          Contains messages related in a folder that was ingested. On multiple executions,
+          unlike ${uniformResource.tableName}, ${tableName} rows are always inserted and
+          references the ${uniformResource.tableName} primary key of its related content.
+          This method allows for a more efficient query of message version differences across
+          sessions. With SQL queries, you can detect which sessions have a messaged added or modified,
+          which sessions have a message deleted, and what the differences are in message contents
+          if they were modified across sessions.`;
+      },
+    },
+  );
+
+    const urIngestSessionImapAcctFolderMessageAttachment = gm.textPkTable(
+    "ur_ingest_session_imap_acct_folder_message_attachment",
+    {
+      ur_ingest_session_imap_acct_folder_message_attachment_id: gm.keys.varCharPrimaryKey(),
+      ingest_session_id: urIngestSession.belongsTo
+        .ur_ingest_session_id(),
+      ur_ingest_session_imap_acct_folder_message_id: urIngestSessionImapAcctFolderMessage.belongsTo
+        .ur_ingest_session_imap_acct_folder_message_id(),
+      uniform_resource_id: uniformResource.references.uniform_resource_id()
+        .optional(),
+      nature: gd.text(),
+      message: gd.text(),
+      ...gm.housekeeping.columns,
+    },
+    {
+      populateQS: (t, _c, _cols, tableName) => {
+        t.description = markdown`
+          Contains messages related in a folder that was ingested. On multiple executions,
+          unlike ${uniformResource.tableName}, ${tableName} rows are always inserted and
+          references the ${uniformResource.tableName} primary key of its related content.
+          This method allows for a more efficient query of message version differences across
+          sessions. With SQL queries, you can detect which sessions have a messaged added or modified,
+          which sessions have a message deleted, and what the differences are in message contents
+          if they were modified across sessions.`;
+      },
+    },
+  );
+
+
   const informationSchema = {
     tables: [
       device,
@@ -665,6 +794,9 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       uniformResourceTransform,
       urIngestSessionFsPathEntry,
       urIngestSessionTaskEntry,
+      urIngestSessionImapAcctFolder,
+      urIngestSessionImapAcctFolderMessage,
+      urIngestSessionImapAcctFolderMessageAttachment
     ],
     tableIndexes: [
       ...device.indexes,
@@ -677,6 +809,9 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       ...uniformResourceTransform.indexes,
       ...urIngestSessionFsPathEntry.indexes,
       ...urIngestSessionTaskEntry.indexes,
+      ...urIngestSessionImapAcctFolder.indexes,
+      ...urIngestSessionImapAcctFolderMessage.indexes,
+      ...urIngestSessionImapAcctFolderMessageAttachment.indexes,
     ],
   };
 

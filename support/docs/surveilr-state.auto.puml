@@ -73,6 +73,9 @@
     urIngestSessionFsPaths: UrIngestSessionFsPath[]
     uniformResources: UniformResource[]
     urIngestSessionFsPathEntrys: UrIngestSessionFsPathEntry[]
+    urIngestSessionImapAcctFolders: UrIngestSessionImapAcctFolder[]
+    urIngestSessionImapAcctFolderMessages: UrIngestSessionImapAcctFolderMessage[]
+    urIngestSessionImapAcctFolderMessageAttachments: UrIngestSessionImapAcctFolderMessageAttachment[]
   }
 
   entity "ur_ingest_session_fs_path" as ur_ingest_session_fs_path {
@@ -146,6 +149,38 @@
       elaboration: TEXT
   }
 
+  entity "ur_ingest_session_imap_acct_folder" as ur_ingest_session_imap_acct_folder {
+    * **ur_ingest_session_imap_acct_folder_id**: VARCHAR
+    --
+    * ingest_session_id: VARCHAR
+    * ingest_account_id: VARCHAR
+    * folder_name: TEXT
+      elaboration: TEXT
+    --
+    urIngestSessionImapAcctFolderMessages: UrIngestSessionImapAcctFolderMessage[]
+  }
+
+  entity "ur_ingest_session_imap_acct_folder_message" as ur_ingest_session_imap_acct_folder_message {
+    * **ur_ingest_session_imap_acct_folder_message_id**: VARCHAR
+    --
+    * ingest_session_id: VARCHAR
+    * ingest_imap_acct_folder_id: VARCHAR
+      uniform_resource_id: VARCHAR
+    * message: TEXT
+    --
+    urIngestSessionImapAcctFolderMessageAttachments: UrIngestSessionImapAcctFolderMessageAttachment[]
+  }
+
+  entity "ur_ingest_session_imap_acct_folder_message_attachment" as ur_ingest_session_imap_acct_folder_message_attachment {
+    * **ur_ingest_session_imap_acct_folder_message_attachment_id**: VARCHAR
+    --
+    * ingest_session_id: VARCHAR
+    * ur_ingest_session_imap_acct_folder_message_id: VARCHAR
+      uniform_resource_id: VARCHAR
+    * nature: TEXT
+    * message: TEXT
+  }
+
   device |o..o{ behavior
   device |o..o{ ur_ingest_session
   behavior |o..o{ ur_ingest_session
@@ -159,4 +194,11 @@
   uniform_resource |o..o{ ur_ingest_session_fs_path_entry
   ur_ingest_session |o..o{ ur_ingest_session_task
   uniform_resource |o..o{ ur_ingest_session_task
+  ur_ingest_session |o..o{ ur_ingest_session_imap_acct_folder
+  ur_ingest_session |o..o{ ur_ingest_session_imap_acct_folder_message
+  ur_ingest_session_imap_acct_folder |o..o{ ur_ingest_session_imap_acct_folder_message
+  uniform_resource |o..o{ ur_ingest_session_imap_acct_folder_message
+  ur_ingest_session |o..o{ ur_ingest_session_imap_acct_folder_message_attachment
+  ur_ingest_session_imap_acct_folder_message |o..o{ ur_ingest_session_imap_acct_folder_message_attachment
+  uniform_resource |o..o{ ur_ingest_session_imap_acct_folder_message_attachment
 @enduml
