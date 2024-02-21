@@ -9,6 +9,7 @@ const UNIFORM_RESOURCE: &str = "uniform_resource";
 const UNIFORM_RESOURCE_TRANSFORM: &str = "uniform_resource_transform";
 const UR_INGEST_SESSION_FS_PATH_ENTRY: &str = "ur_ingest_session_fs_path_entry";
 const UR_INGEST_SESSION_TASK: &str = "ur_ingest_session_task";
+const UR_INGEST_SESSION_IMAP_ACCOUNT: &str = "ur_ingest_session_imap_account";
 const UR_INGEST_SESSION_IMAP_ACCT_FOLDER: &str = "ur_ingest_session_imap_acct_folder";
 const UR_INGEST_SESSION_IMAP_ACCT_FOLDER_MESSAGE: &str = "ur_ingest_session_imap_acct_folder_message";
 const UR_INGEST_SESSION_IMAP_ACCT_FOLDER_MESSAGE_ATTACHMENT: &str = "ur_ingest_session_imap_acct_folder_message_attachment";
@@ -83,6 +84,7 @@ pub struct UrIngestSession {
     ur_ingest_session_fs_paths: Vec<UrIngestSessionFsPath>, // `ur_ingest_session_fs_path` belongsTo collection
     uniform_resources: Vec<UniformResource>, // `uniform_resource` belongsTo collection
     ur_ingest_session_fs_path_entrys: Vec<UrIngestSessionFsPathEntry>, // `ur_ingest_session_fs_path_entry` belongsTo collection
+    ur_ingest_session_imap_accounts: Vec<UrIngestSessionImapAccount>, // `ur_ingest_session_imap_account` belongsTo collection
     ur_ingest_session_imap_acct_folders: Vec<UrIngestSessionImapAcctFolder>, // `ur_ingest_session_imap_acct_folder` belongsTo collection
     ur_ingest_session_imap_acct_folder_messages: Vec<UrIngestSessionImapAcctFolderMessage>, // `ur_ingest_session_imap_acct_folder_message` belongsTo collection
     ur_ingest_session_imap_acct_folder_message_attachments: Vec<UrIngestSessionImapAcctFolderMessageAttachment>, // `ur_ingest_session_imap_acct_folder_message_attachment` belongsTo collection
@@ -160,6 +162,18 @@ pub struct UrIngestSessionTask {
     ur_diagnostics: Option<String>, // uknown type 'string::json', mapping to String by default
     ur_transformations: Option<String>, // uknown type 'string::json', mapping to String by default
     elaboration: Option<String>, // uknown type 'string::json', mapping to String by default
+}
+
+// `ur_ingest_session_imap_account` table
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct UrIngestSessionImapAccount {
+    ur_ingest_session_imap_account_id: String, // PRIMARY KEY ('string' maps directly to Rust type)
+    ingest_session_id: String, // 'string' maps directly to Rust type
+    email: String, // 'string' maps directly to Rust type
+    password: String, // 'string' maps directly to Rust type
+    host: String, // 'string' maps directly to Rust type
+    elaboration: Option<String>, // uknown type 'string::json', mapping to String by default
+    ur_ingest_session_imap_acct_folders: Vec<UrIngestSessionImapAcctFolder>, // `ur_ingest_session_imap_acct_folder` belongsTo collection
 }
 
 // `ur_ingest_session_imap_acct_folder` table

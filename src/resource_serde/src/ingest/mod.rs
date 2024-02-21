@@ -8,15 +8,14 @@ use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-
 use crate::persist::*;
 use resource::*;
 
 mod files;
 mod tasks;
 
-pub use tasks::ingest_tasks;
 pub use files::ingest_files;
+pub use tasks::ingest_tasks;
 
 // separate the SQL from the execute so we can use it in logging, errors, etc.
 const INS_UR_INGEST_SESSION_SQL: &str = indoc! {"
@@ -55,6 +54,18 @@ const INS_UR_IS_TASK_SQL: &str = indoc! {"
         INSERT INTO ur_ingest_session_task (ur_ingest_session_task_id, ingest_session_id, uniform_resource_id, captured_executable, ur_status, ur_diagnostics) 
                                             VALUES (ulid(), ?, ?, ?, ?, ?)"};
 
+const INS_UR_INGEST_SESSION_IMAP_ACCT: &str = indoc! {"INSERT INTO ur_ingest_session_imap_account (ur_ingest_session_imap_account_id, ingest_session_id, email, password, host, elaboration, created_at, created_by)
+VALUES (ulid(), ?, ?, ?, ?, '{}', CURRENT_TIMESTAMP, 'system') RETURNING ur_ingest_session_imap_account_id;"};
+
+const INS_UR_INGEST_SESSION_IMAP_ACCT_FOLDER: &str = indoc! {"INSERT INTO ur_ingest_session_imap_acct_folder (ur_ingest_session_imap_acct_folder_id, ingest_session_id, ingest_account_id, folder_name, elaboration, created_at, created_by)
+VALUES (ulid(), ?, ?, ?, '{}', CURRENT_TIMESTAMP, 'system') RETURNING ur_ingest_session_imap_acct_folder_id;"};
+
+const INS_UR_INGEST_SESSION_IMAP_ACCT_FOLDER_MESSAGE: &str = indoc! {"INSERT INTO ur_ingest_session_imap_acct_folder_message (ur_ingest_session_imap_acct_folder_message_id, ingest_session_id, ingest_imap_acct_folder_id, uniform_resource_id, message, created_at, created_by)
+VALUES (ulid(), ?, ?, ?, ?, CURRENT_TIMESTAMP, 'system') RETURNING ur_ingest_session_imap_acct_folder_message_id;"};
+
+const INS_UR_INGEST_SESSION_IMAP_ACCT_FOLDER_MSG_ATT: &str = indoc! {"INSERT INTO ur_ingest_session_imap_acct_folder_message_attachment (ur_ingest_session_imap_acct_folder_message_attachment_id, ingest_session_id, ur_ingest_session_imap_acct_folder_message_id, uniform_resource_id, nature, message, created_at, created_by)
+VALUES (ulid(), ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'system') RETURNING ur_ingest_session_imap_acct_folder_message_attachment_id;"};
+
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct IngestContext<'conn> {
@@ -63,6 +74,10 @@ pub struct IngestContext<'conn> {
     ins_ur_transform_stmt: rusqlite::Statement<'conn>,
     ins_ur_isfsp_entry_stmt: rusqlite::Statement<'conn>,
     ins_ur_is_task_stmt: rusqlite::Statement<'conn>,
+    ur_ingest_session_imap_account_stmt: rusqlite::Statement<'conn>,
+    ur_ingest_session_imap_acct_folder_stmt: rusqlite::Statement<'conn>,
+    ur_ingest_session_imap_acct_folder_message_stmt: rusqlite::Statement<'conn>,
+    ur_ingest_session_imap_acct_folder_msg_att_stmt: rusqlite::Statement<'conn>,
 }
 
 impl<'conn> IngestContext<'conn> {
@@ -98,12 +113,45 @@ impl<'conn> IngestContext<'conn> {
                 INS_UR_ISFSP_ENTRY_SQL, db_fs_path
             )
         })?;
+
+        let ur_ingest_session_imap_account_stmt = conn.prepare(INS_UR_INGEST_SESSION_IMAP_ACCT).with_context(|| {
+            format!(
+                "[IngestContext::from_conn] unable to create `ur_ingest_session_imap_account_stmt` SQL {} in {}",
+                INS_UR_ISFSP_ENTRY_SQL, db_fs_path
+            )
+        })?;
+
+        let ur_ingest_session_imap_acct_folder_stmt = conn.prepare(INS_UR_INGEST_SESSION_IMAP_ACCT_FOLDER).with_context(|| {
+            format!(
+                "[IngestContext::from_conn] unable to create `ur_ingest_session_imap_acct_folder_stmt` SQL {} in {}",
+                INS_UR_ISFSP_ENTRY_SQL, db_fs_path
+            )
+        })?;
+
+        let ur_ingest_session_imap_acct_folder_message_stmt = conn.prepare(INS_UR_INGEST_SESSION_IMAP_ACCT_FOLDER_MESSAGE).with_context(|| {
+            format!(
+                "[IngestContext::from_conn] unable to create `ur_ingest_session_imap_acct_folder_message_stmt` SQL {} in {}",
+                INS_UR_ISFSP_ENTRY_SQL, db_fs_path
+            )
+        })?;
+
+        let ur_ingest_session_imap_acct_folder_msg_att_stmt = conn.prepare(INS_UR_INGEST_SESSION_IMAP_ACCT_FOLDER_MSG_ATT).with_context(|| {
+            format!(
+                "[IngestContext::from_conn] unable to create `ur_ingest_session_imap_acct_folder_msg_att_stmt` SQL {} in {}",
+                INS_UR_ISFSP_ENTRY_SQL, db_fs_path
+            )
+        })?;
+
         Ok(IngestContext {
             ins_ur_isfsp_stmt,
             ins_ur_stmt,
             ins_ur_transform_stmt,
             ins_ur_isfsp_entry_stmt,
             ins_ur_is_task_stmt: ins_ur_istask_entry_stmt,
+            ur_ingest_session_imap_account_stmt,
+            ur_ingest_session_imap_acct_folder_stmt,
+            ur_ingest_session_imap_acct_folder_message_stmt,
+            ur_ingest_session_imap_acct_folder_msg_att_stmt,
         })
     }
 }

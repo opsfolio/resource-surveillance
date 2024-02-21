@@ -17,6 +17,7 @@ include:
   - uniform_resource_transform
   - ur_ingest_session_fs_path_entry
   - ur_ingest_session_task
+  - ur_ingest_session_imap_account
   - ur_ingest_session_imap_acct_folder
   - ur_ingest_session_imap_acct_folder_message
   - ur_ingest_session_imap_acct_folder_message_attachment
@@ -221,6 +222,19 @@ comments:
       contents
 
       if they were modified across sessions.
+  - table: ur_ingest_session_imap_account
+    columnComments:
+      ur_ingest_session_imap_account_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
+    tableComment: >-
+      Immutable ingest session folder system represents an email address to be
+      ingested. Each
+
+      session includes an email, then email is the
+
+      folder that was scanned.
   - table: ur_ingest_session_imap_acct_folder
     columnComments:
       ur_ingest_session_imap_acct_folder_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'

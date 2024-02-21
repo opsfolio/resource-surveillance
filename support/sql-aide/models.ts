@@ -794,6 +794,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       uniformResourceTransform,
       urIngestSessionFsPathEntry,
       urIngestSessionTaskEntry,
+      urIngestSessionImapAccount,
       urIngestSessionImapAcctFolder,
       urIngestSessionImapAcctFolderMessage,
       urIngestSessionImapAcctFolderMessageAttachment
@@ -812,6 +813,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       ...urIngestSessionImapAcctFolder.indexes,
       ...urIngestSessionImapAcctFolderMessage.indexes,
       ...urIngestSessionImapAcctFolderMessageAttachment.indexes,
+      ...urIngestSessionImapAccount.indexes,
     ],
   };
 

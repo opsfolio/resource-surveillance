@@ -73,6 +73,7 @@
     urIngestSessionFsPaths: UrIngestSessionFsPath[]
     uniformResources: UniformResource[]
     urIngestSessionFsPathEntrys: UrIngestSessionFsPathEntry[]
+    urIngestSessionImapAccounts: UrIngestSessionImapAccount[]
     urIngestSessionImapAcctFolders: UrIngestSessionImapAcctFolder[]
     urIngestSessionImapAcctFolderMessages: UrIngestSessionImapAcctFolderMessage[]
     urIngestSessionImapAcctFolderMessageAttachments: UrIngestSessionImapAcctFolderMessageAttachment[]
@@ -149,6 +150,18 @@
       elaboration: TEXT
   }
 
+  entity "ur_ingest_session_imap_account" as ur_ingest_session_imap_account {
+    * **ur_ingest_session_imap_account_id**: VARCHAR
+    --
+    * ingest_session_id: VARCHAR
+    * email: TEXT
+    * password: TEXT
+    * host: TEXT
+      elaboration: TEXT
+    --
+    urIngestSessionImapAcctFolders: UrIngestSessionImapAcctFolder[]
+  }
+
   entity "ur_ingest_session_imap_acct_folder" as ur_ingest_session_imap_acct_folder {
     * **ur_ingest_session_imap_acct_folder_id**: VARCHAR
     --
@@ -194,7 +207,9 @@
   uniform_resource |o..o{ ur_ingest_session_fs_path_entry
   ur_ingest_session |o..o{ ur_ingest_session_task
   uniform_resource |o..o{ ur_ingest_session_task
+  ur_ingest_session |o..o{ ur_ingest_session_imap_account
   ur_ingest_session |o..o{ ur_ingest_session_imap_acct_folder
+  ur_ingest_session_imap_account |o..o{ ur_ingest_session_imap_acct_folder
   ur_ingest_session |o..o{ ur_ingest_session_imap_acct_folder_message
   ur_ingest_session_imap_acct_folder |o..o{ ur_ingest_session_imap_acct_folder_message
   uniform_resource |o..o{ ur_ingest_session_imap_acct_folder_message

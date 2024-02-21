@@ -354,6 +354,23 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_task" (
     FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
     FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
 );
+CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_account" (
+    "ur_ingest_session_imap_account_id" VARCHAR PRIMARY KEY NOT NULL,
+    "ingest_session_id" VARCHAR NOT NULL,
+    "email" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
+    "host" TEXT NOT NULL,
+    "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT DEFAULT ''UNKNOWN'',
+    "updated_at" TIMESTAMPTZ,
+    "updated_by" TEXT,
+    "deleted_at" TIMESTAMPTZ,
+    "deleted_by" TEXT,
+    "activity_log" TEXT,
+    FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
+    UNIQUE("ingest_session_id", "email", "created_at")
+);
 CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder" (
     "ur_ingest_session_imap_acct_folder_id" VARCHAR PRIMARY KEY NOT NULL,
     "ingest_session_id" VARCHAR NOT NULL,
@@ -415,7 +432,8 @@ CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path_entry__ingest_session_
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_task__ingest_session_id" ON "ur_ingest_session_task"("ingest_session_id");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_acct_folder__ingest_session_id__folder_name" ON "ur_ingest_session_imap_acct_folder"("ingest_session_id", "folder_name");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_acct_folder_message__ingest_session_id" ON "ur_ingest_session_imap_acct_folder_message"("ingest_session_id");
-', 'c752530d14640d14da2955f48f092425eda3145b', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_account__ingest_session_id__email" ON "ur_ingest_session_imap_account"("ingest_session_id", "email");
+', '2a7f0e2d930eb689c177bca0bf379f47e55c87d0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -1083,6 +1101,23 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_task" (
     FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
     FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
 );
+CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_account" (
+    "ur_ingest_session_imap_account_id" VARCHAR PRIMARY KEY NOT NULL,
+    "ingest_session_id" VARCHAR NOT NULL,
+    "email" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
+    "host" TEXT NOT NULL,
+    "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT DEFAULT ''UNKNOWN'',
+    "updated_at" TIMESTAMPTZ,
+    "updated_by" TEXT,
+    "deleted_at" TIMESTAMPTZ,
+    "deleted_by" TEXT,
+    "activity_log" TEXT,
+    FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
+    UNIQUE("ingest_session_id", "email", "created_at")
+);
 CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder" (
     "ur_ingest_session_imap_acct_folder_id" VARCHAR PRIMARY KEY NOT NULL,
     "ingest_session_id" VARCHAR NOT NULL,
@@ -1144,6 +1179,7 @@ CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path_entry__ingest_session_
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_task__ingest_session_id" ON "ur_ingest_session_task"("ingest_session_id");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_acct_folder__ingest_session_id__folder_name" ON "ur_ingest_session_imap_acct_folder"("ingest_session_id", "folder_name");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_acct_folder_message__ingest_session_id" ON "ur_ingest_session_imap_acct_folder_message"("ingest_session_id");
+CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_account__ingest_session_id__email" ON "ur_ingest_session_imap_account"("ingest_session_id", "email");
 
 
 DROP VIEW IF EXISTS "ur_ingest_session_files_stats";
@@ -1205,7 +1241,7 @@ CREATE VIEW IF NOT EXISTS "ur_ingest_session_files_stats" AS
         device_id,
         ingest_session_finished_at,
         file_extension;
-      ', '1c18b33860a71fac072a774b2bbca05b64681755', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', '9e4540eabe1ebb0094251277a9fce227adfc3313', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -1286,6 +1322,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     urIngestSessionFsPaths: UrIngestSessionFsPath[]
     uniformResources: UniformResource[]
     urIngestSessionFsPathEntrys: UrIngestSessionFsPathEntry[]
+    urIngestSessionImapAccounts: UrIngestSessionImapAccount[]
     urIngestSessionImapAcctFolders: UrIngestSessionImapAcctFolder[]
     urIngestSessionImapAcctFolderMessages: UrIngestSessionImapAcctFolderMessage[]
     urIngestSessionImapAcctFolderMessageAttachments: UrIngestSessionImapAcctFolderMessageAttachment[]
@@ -1362,6 +1399,18 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       elaboration: TEXT
   }
 
+  entity "ur_ingest_session_imap_account" as ur_ingest_session_imap_account {
+    * **ur_ingest_session_imap_account_id**: VARCHAR
+    --
+    * ingest_session_id: VARCHAR
+    * email: TEXT
+    * password: TEXT
+    * host: TEXT
+      elaboration: TEXT
+    --
+    urIngestSessionImapAcctFolders: UrIngestSessionImapAcctFolder[]
+  }
+
   entity "ur_ingest_session_imap_acct_folder" as ur_ingest_session_imap_acct_folder {
     * **ur_ingest_session_imap_acct_folder_id**: VARCHAR
     --
@@ -1407,14 +1456,16 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   uniform_resource |o..o{ ur_ingest_session_fs_path_entry
   ur_ingest_session |o..o{ ur_ingest_session_task
   uniform_resource |o..o{ ur_ingest_session_task
+  ur_ingest_session |o..o{ ur_ingest_session_imap_account
   ur_ingest_session |o..o{ ur_ingest_session_imap_acct_folder
+  ur_ingest_session_imap_account |o..o{ ur_ingest_session_imap_acct_folder
   ur_ingest_session |o..o{ ur_ingest_session_imap_acct_folder_message
   ur_ingest_session_imap_acct_folder |o..o{ ur_ingest_session_imap_acct_folder_message
   uniform_resource |o..o{ ur_ingest_session_imap_acct_folder_message
   ur_ingest_session |o..o{ ur_ingest_session_imap_acct_folder_message_attachment
   ur_ingest_session_imap_acct_folder_message |o..o{ ur_ingest_session_imap_acct_folder_message_attachment
   uniform_resource |o..o{ ur_ingest_session_imap_acct_folder_message_attachment
-@enduml', '9a5b124fcbed06e7564915c832034fbebc776f4e', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', '81f23a9d36b12bef6a9418ad2c83041711931a84', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,
