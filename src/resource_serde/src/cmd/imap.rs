@@ -31,7 +31,7 @@ pub struct IngestImapArgs {
     #[arg(short, long)]
     pub password: String,
 
-    /// IMAP server address. e.g imap.google.com or outlook.office365.com
+    /// IMAP server address. e.g imap.gmail.com or outlook.office365.com
     #[arg(short = 'a', long)]
     pub server_addr: String,
 

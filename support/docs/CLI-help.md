@@ -326,7 +326,7 @@ Ingest content from email boxes
 * `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
 * `-u`, `--username <USERNAME>` — email address
 * `-p`, `--password <PASSWORD>` — password to the email. mainly an app password. See the documentation on how to create an app password
-* `-a`, `--server-addr <SERVER_ADDR>` — IMAP server address. e.g imap.google.com or outlook.office365.com
+* `-a`, `--server-addr <SERVER_ADDR>` — IMAP server address. e.g imap.gmail.com or outlook.office365.com
 * `--port <PORT>` — IMAP server port
 
   Default value: `993`
