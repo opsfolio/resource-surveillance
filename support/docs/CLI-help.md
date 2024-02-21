@@ -19,6 +19,7 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr ingest`↴](#surveilr-ingest)
 * [`surveilr ingest files`↴](#surveilr-ingest-files)
 * [`surveilr ingest tasks`↴](#surveilr-ingest-tasks)
+* [`surveilr ingest imap`↴](#surveilr-ingest-imap)
 * [`surveilr notebooks`↴](#surveilr-notebooks)
 * [`surveilr notebooks cat`↴](#surveilr-notebooks-cat)
 * [`surveilr notebooks ls`↴](#surveilr-notebooks-ls)
@@ -244,6 +245,7 @@ Ingest content from device file system and other sources
 
 * `files` — Ingest content from device file system and other sources
 * `tasks` — Notebooks maintenance utilities
+* `imap` — Ingest content from email boxes
 
 
 
@@ -307,6 +309,39 @@ Notebooks maintenance utilities
 
   Possible values: `true`, `false`
 
+
+
+
+## `surveilr ingest imap`
+
+Ingest content from email boxes
+
+**Usage:** `surveilr ingest imap [OPTIONS] --username <USERNAME> --password <PASSWORD> --server-addr <SERVER_ADDR>`
+
+###### **Options:**
+
+* `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
+
+  Default value: `resource-surveillance.sqlite.db`
+* `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
+* `-u`, `--username <USERNAME>` — email address
+* `-p`, `--password <PASSWORD>` — password to the email. mainly an app password. See the documentation on how to create an app password
+* `-a`, `--server-addr <SERVER_ADDR>` — IMAP server address. e.g imap.google.com or outlook.office365.com
+* `--port <PORT>` — IMAP server port
+
+  Default value: `993`
+* `-f`, `--folders <FOLDERS>` — Mailboxes to read from. i.e folders
+
+  Default value: `INBOX`
+* `-s`, `--status <STATUS>` — Status of the messages to be ingested
+
+  Default value: `unread`
+
+  Possible values: `unread`, `read`, `starred`
+
+* `-m`, `--max-no-messages <MAX_NO_MESSAGES>` — Maximum number of messages to be ingested
+
+  Default value: `100`
 
 
 
