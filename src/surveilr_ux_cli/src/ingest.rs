@@ -28,9 +28,7 @@ impl Ingest {
                 }
             }
             IngestCommands::Tasks(ifa) => self.tasks(cli, ifa),
-            IngestCommands::Imap(ima) => {
-                Ok(())
-            }
+            IngestCommands::Imap(ima) => ingest::ingest_imap(ima),
         }
     }
 

@@ -667,7 +667,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     constraints: (props, tableName) => {
       const c = SQLa.tableConstraints(tableName, props);
       return [
-        c.unique("ingest_session_id", "email", "created_at"),
+        c.unique("ingest_session_id", "email"),
       ];
     },
     indexes: (props, tableName) => {
@@ -699,7 +699,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     constraints: (props, tableName) => {
       const c = SQLa.tableConstraints(tableName, props);
       return [
-        c.unique("ingest_session_id", "folder_name", "created_at"),
+        c.unique("ingest_account_id", "folder_name"),
       ];
     },
     indexes: (props, tableName) => {
@@ -830,6 +830,10 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     urIngestSessionFsPathEntry,
     urIngestSessionTaskEntry,
     informationSchema,
+    urIngestSessionImapAccount,
+    urIngestSessionImapAcctFolder,
+    urIngestSessionImapAcctFolderMessage,
+    urIngestSessionImapAcctFolderMessageAttachment
   };
 }
 

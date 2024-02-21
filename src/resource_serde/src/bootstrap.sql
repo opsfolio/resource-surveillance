@@ -369,7 +369,7 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_account" (
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
-    UNIQUE("ingest_session_id", "email", "created_at")
+    UNIQUE("ingest_session_id", "email")
 );
 CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder" (
     "ur_ingest_session_imap_acct_folder_id" VARCHAR PRIMARY KEY NOT NULL,
@@ -386,7 +386,7 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder" (
     "activity_log" TEXT,
     FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
     FOREIGN KEY("ingest_account_id") REFERENCES "ur_ingest_session_imap_account"("ur_ingest_session_imap_account_id"),
-    UNIQUE("ingest_session_id", "folder_name", "created_at")
+    UNIQUE("ingest_account_id", "folder_name")
 );
 CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder_message" (
     "ur_ingest_session_imap_acct_folder_message_id" VARCHAR PRIMARY KEY NOT NULL,
@@ -433,7 +433,7 @@ CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_task__ingest_session_id" ON "u
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_acct_folder__ingest_session_id__folder_name" ON "ur_ingest_session_imap_acct_folder"("ingest_session_id", "folder_name");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_acct_folder_message__ingest_session_id" ON "ur_ingest_session_imap_acct_folder_message"("ingest_session_id");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_account__ingest_session_id__email" ON "ur_ingest_session_imap_account"("ingest_session_id", "email");
-', '2a7f0e2d930eb689c177bca0bf379f47e55c87d0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', 'bcfa92a6351a3bca85ce24dae63105d6fe312cde', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -1116,7 +1116,7 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_account" (
     "deleted_by" TEXT,
     "activity_log" TEXT,
     FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
-    UNIQUE("ingest_session_id", "email", "created_at")
+    UNIQUE("ingest_session_id", "email")
 );
 CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder" (
     "ur_ingest_session_imap_acct_folder_id" VARCHAR PRIMARY KEY NOT NULL,
@@ -1133,7 +1133,7 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder" (
     "activity_log" TEXT,
     FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
     FOREIGN KEY("ingest_account_id") REFERENCES "ur_ingest_session_imap_account"("ur_ingest_session_imap_account_id"),
-    UNIQUE("ingest_session_id", "folder_name", "created_at")
+    UNIQUE("ingest_account_id", "folder_name")
 );
 CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder_message" (
     "ur_ingest_session_imap_acct_folder_message_id" VARCHAR PRIMARY KEY NOT NULL,
@@ -1241,7 +1241,7 @@ CREATE VIEW IF NOT EXISTS "ur_ingest_session_files_stats" AS
         device_id,
         ingest_session_finished_at,
         file_extension;
-      ', '9e4540eabe1ebb0094251277a9fce227adfc3313', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', '261c9fe445f89081e1aaf2e9a39be47e65795048', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,

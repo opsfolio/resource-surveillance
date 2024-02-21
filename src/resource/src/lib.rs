@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use sha1::{Digest, Sha1};
 use tracing::error;
+use udi_pgp_imap::EmailResource;
 
 use crate::frontmatter::frontmatter;
 use crate::shell::*;
@@ -495,6 +496,16 @@ impl XmlResource<ContentResource> {
     }
 }
 
+pub struct ImapResource<Resource> {
+    pub resource: Resource,
+}
+
+impl ImapResource<EmailResource> {
+    pub fn uri() -> String {
+        "".to_string()
+    }
+}
+
 pub enum UniformResource<Resource> {
     CapturableExec(CapturableExecResource<Resource>),
     Html(HtmlResource<Resource>),
@@ -506,6 +517,7 @@ pub enum UniformResource<Resource> {
     SourceCode(SourceCodeResource<Resource>),
     Xml(XmlResource<Resource>),
     Unknown(Resource, Option<String>),
+    ImapResource(ImapResource<Resource>),
 }
 
 pub trait UniformResourceSupplier<Resource> {
@@ -533,6 +545,7 @@ impl UriNatureSupplier<ContentResource> for UniformResource<ContentResource> {
             UniformResource::SourceCode(sc) => &sc.resource.uri,
             UniformResource::Xml(xml) => &xml.resource.uri,
             UniformResource::Unknown(cr, _alternate) => &cr.uri,
+            UniformResource::ImapResource(email) => &email.resource.uri,
         }
     }
 
@@ -547,6 +560,7 @@ impl UriNatureSupplier<ContentResource> for UniformResource<ContentResource> {
             UniformResource::PlainText(txt) => &txt.resource.nature,
             UniformResource::SourceCode(sc) => &sc.resource.nature,
             UniformResource::Xml(xml) => &xml.resource.nature,
+            UniformResource::ImapResource(email) => &email.resource.nature,
             UniformResource::Unknown(_cr, _alternate) => &None::<String>,
         }
     }

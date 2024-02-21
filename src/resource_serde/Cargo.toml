@@ -39,3 +39,4 @@ indoc = "2.0.4"
 common.workspace = true
 resource.workspace= true
 clap.workspace = true
+udi_pgp_imap.workspace = true

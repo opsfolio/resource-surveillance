@@ -1,4 +1,3 @@
-
 //! # UDI-PGP Introspection Module.
 //!
 //! This module provides status update on the internals of UDI-PGP at a particular time, It exposes the
@@ -20,7 +19,10 @@
 //! ```
 
 use std::{
-    fmt::Display, path::PathBuf, str::FromStr, sync::{Arc, Mutex}
+    fmt::Display,
+    path::PathBuf,
+    str::FromStr,
+    sync::{Arc, Mutex},
 };
 
 use futures::{stream, Stream};
@@ -75,8 +77,6 @@ impl Display for IntrospectionTable {
         }
     }
 }
-
-
 
 pub struct IntrospectionBackend {
     conn: Arc<Mutex<Connection>>,

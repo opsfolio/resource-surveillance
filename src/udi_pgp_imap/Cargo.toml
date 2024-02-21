@@ -1,0 +1,13 @@
+[package]
+name = "udi_pgp_imap"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde_json.workspace = true
+serde.workspace = true
+mailparse = "0.13"
+native-tls = "0.2"
+imap = "2.4.1"
+anyhow.workspace = true

@@ -5,7 +5,8 @@ members = [
   "src/common",
   "src/resource",
   "src/udi_pgp",
-  "src/udi_pgp_osquery"
+  "src/udi_pgp_osquery",
+  "src/udi_pgp_imap"
 ]
 resolver = "2"
 
@@ -62,3 +63,4 @@ common = { path = "src/common" }
 resource = { path = "src/resource" }
 udi_pgp = { path = "src/udi_pgp" }
 udi_pgp_osquery = { path = "src/udi_pgp_osquery" }
+udi_pgp_imap = { path = "src/udi_pgp_imap" }

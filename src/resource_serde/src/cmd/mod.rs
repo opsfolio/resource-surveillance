@@ -6,7 +6,7 @@ use self::imap::IngestImapArgs;
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 const DEFAULT_MERGED_STATEDB_FS_PATH: &str = "resource-surveillance-aggregated.sqlite.db";
 
-mod imap;
+pub mod imap;
 
 /// Admin / maintenance utilities
 #[derive(Debug, Serialize, Args, Clone)]
@@ -227,7 +227,7 @@ pub struct IngestTasksArgs {
 pub enum IngestCommands {
     Files(IngestFilesArgs),
     Tasks(IngestTasksArgs),
-    Imap(IngestImapArgs)
+    Imap(IngestImapArgs),
 }
 
 /// Notebooks maintenance utilities

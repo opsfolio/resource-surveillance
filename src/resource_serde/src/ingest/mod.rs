@@ -12,9 +12,11 @@ use crate::persist::*;
 use resource::*;
 
 mod files;
+mod imap;
 mod tasks;
 
 pub use files::ingest_files;
+pub use imap::ingest_imap;
 pub use tasks::ingest_tasks;
 
 // separate the SQL from the execute so we can use it in logging, errors, etc.
@@ -54,13 +56,20 @@ const INS_UR_IS_TASK_SQL: &str = indoc! {"
         INSERT INTO ur_ingest_session_task (ur_ingest_session_task_id, ingest_session_id, uniform_resource_id, captured_executable, ur_status, ur_diagnostics) 
                                             VALUES (ulid(), ?, ?, ?, ?, ?)"};
 
-const INS_UR_INGEST_SESSION_IMAP_ACCT: &str = indoc! {"INSERT INTO ur_ingest_session_imap_account (ur_ingest_session_imap_account_id, ingest_session_id, email, password, host, elaboration, created_at, created_by)
-VALUES (ulid(), ?, ?, ?, ?, '{}', CURRENT_TIMESTAMP, 'system') RETURNING ur_ingest_session_imap_account_id;"};
+const INS_UR_INGEST_SESSION_IMAP_ACCT: &str = indoc! {"
+INSERT INTO ur_ingest_session_imap_account (ur_ingest_session_imap_account_id, ingest_session_id, email, password, host, elaboration, created_at, created_by) 
+VALUES (ulid(), ?, ?, ?, ?, '{}', CURRENT_TIMESTAMP, 'system') 
+ON CONFLICT (ingest_session_id, email) 
+DO UPDATE SET password = EXCLUDED.password, host = EXCLUDED.host 
+RETURNING ur_ingest_session_imap_account_id;"};
 
 const INS_UR_INGEST_SESSION_IMAP_ACCT_FOLDER: &str = indoc! {"INSERT INTO ur_ingest_session_imap_acct_folder (ur_ingest_session_imap_acct_folder_id, ingest_session_id, ingest_account_id, folder_name, elaboration, created_at, created_by)
-VALUES (ulid(), ?, ?, ?, '{}', CURRENT_TIMESTAMP, 'system') RETURNING ur_ingest_session_imap_acct_folder_id;"};
+VALUES (ulid(), ?, ?, ?, '{}', CURRENT_TIMESTAMP, 'system') 
+ON CONFLICT (ingest_account_id, folder_name) 
+DO UPDATE SET created_at = EXCLUDED.created_at RETURNING ur_ingest_session_imap_acct_folder_id;"};
 
-const INS_UR_INGEST_SESSION_IMAP_ACCT_FOLDER_MESSAGE: &str = indoc! {"INSERT INTO ur_ingest_session_imap_acct_folder_message (ur_ingest_session_imap_acct_folder_message_id, ingest_session_id, ingest_imap_acct_folder_id, uniform_resource_id, message, created_at, created_by)
+const INS_UR_INGEST_SESSION_IMAP_ACCT_FOLDER_MESSAGE: &str = indoc! {"
+INSERT INTO ur_ingest_session_imap_acct_folder_message (ur_ingest_session_imap_acct_folder_message_id, ingest_session_id, ingest_imap_acct_folder_id, uniform_resource_id, message, created_at, created_by)
 VALUES (ulid(), ?, ?, ?, ?, CURRENT_TIMESTAMP, 'system') RETURNING ur_ingest_session_imap_acct_folder_message_id;"};
 
 const INS_UR_INGEST_SESSION_IMAP_ACCT_FOLDER_MSG_ATT: &str = indoc! {"INSERT INTO ur_ingest_session_imap_acct_folder_message_attachment (ur_ingest_session_imap_acct_folder_message_attachment_id, ingest_session_id, ur_ingest_session_imap_acct_folder_message_id, uniform_resource_id, nature, message, created_at, created_by)
@@ -721,6 +730,16 @@ impl UniformResourceWriter<ContentResource> for XmlResource<ContentResource> {
     }
 }
 
+impl UniformResourceWriter<ContentResource> for ImapResource<ContentResource> {
+    fn insert(
+        &self,
+        urw_state: &mut UniformResourceWriterState<'_, '_>,
+        entry: &mut UniformResourceWriterEntry,
+    ) -> UniformResourceWriterResult {
+        self.insert_text(urw_state, &self.resource, entry)
+    }
+}
+
 fn insert_uniform_resource(
     resource: &UniformResource<ContentResource>,
     urw_state: &mut UniformResourceWriterState<'_, '_>,
@@ -736,6 +755,7 @@ fn insert_uniform_resource(
         UniformResource::PlainText(txt) => txt.insert(urw_state, entry),
         UniformResource::SourceCode(sc) => sc.insert(urw_state, entry),
         UniformResource::Xml(xml) => xml.insert(urw_state, entry),
+        UniformResource::ImapResource(imap) => imap.insert(urw_state, entry),
         UniformResource::Unknown(unknown, tried_alternate_nature) => {
             if let Some(tried_alternate_nature) = tried_alternate_nature {
                 entry.tried_alternate_nature = Some(tried_alternate_nature.clone());
