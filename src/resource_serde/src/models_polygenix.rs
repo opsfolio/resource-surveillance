@@ -193,6 +193,7 @@ pub struct UrIngestSessionImapAcctFolderMessage {
     ingest_imap_acct_folder_id: String, // 'string' maps directly to Rust type
     uniform_resource_id: Option<String>, // 'string' maps directly to Rust type
     message: String, // 'string' maps directly to Rust type
+    message_id: String, // 'string' maps directly to Rust type
 }
 
 // `assurance_schema` table

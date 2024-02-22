@@ -11,7 +11,7 @@ pub struct EmailResource {
     bcc: String,
     references: String,
     in_reply_to: String,
-    message_id: String,
+    pub message_id: String,
     to: String,
     pub date: String,
     text_plain: Vec<String>,

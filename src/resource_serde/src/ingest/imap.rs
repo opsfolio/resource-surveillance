@@ -119,7 +119,7 @@ fn process_emails(
                     device_id,
                     ingest_session_id,
                     &None::<String>,
-                    "uri".to_string(),
+                    format!("smtp://{}", email.message_id),
                     "text".to_string(),
                     email.raw_text,
                     hash,
@@ -134,7 +134,7 @@ fn process_emails(
             let _ur_sess_message_id: String = ingest_stmts
                 .ur_ingest_session_imap_acct_folder_message_stmt
                 .query_row(
-                    params![ingest_session_id, acct_folder_id, ur_id, text],
+                    params![ingest_session_id, acct_folder_id, ur_id, text, email.message_id],
                     |row| row.get(0),
                 )?;
         }

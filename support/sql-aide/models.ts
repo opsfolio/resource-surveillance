@@ -653,73 +653,81 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     },
   );
 
-  const urIngestSessionImapAccount = gm.textPkTable("ur_ingest_session_imap_account", {
-    ur_ingest_session_imap_account_id: gm.keys.varCharPrimaryKey(),
-    ingest_session_id: urIngestSession.belongsTo
-      .ur_ingest_session_id(),
-    email: gd.text(),
-    password: gd.text(),
-    host: gd.text(),
-    elaboration: gd.jsonTextNullable(),
-    ...gm.housekeeping.columns,
-  }, {
-    isIdempotent: true,
-    constraints: (props, tableName) => {
-      const c = SQLa.tableConstraints(tableName, props);
-      return [
-        c.unique("ingest_session_id", "email"),
-      ];
+  const urIngestSessionImapAccount = gm.textPkTable(
+    "ur_ingest_session_imap_account",
+    {
+      ur_ingest_session_imap_account_id: gm.keys.varCharPrimaryKey(),
+      ingest_session_id: urIngestSession.belongsTo
+        .ur_ingest_session_id(),
+      email: gd.text(),
+      password: gd.text(),
+      host: gd.text(),
+      elaboration: gd.jsonTextNullable(),
+      ...gm.housekeeping.columns,
     },
-    indexes: (props, tableName) => {
-      const tif = SQLa.tableIndexesFactory(tableName, props);
-      return [
-        tif.index({ isIdempotent: true }, "ingest_session_id", "email"),
-      ];
-    },
-    populateQS: (t, _c, cols, _tableName) => {
-      t.description = markdown`
+    {
+      isIdempotent: true,
+      constraints: (props, tableName) => {
+        const c = SQLa.tableConstraints(tableName, props);
+        return [
+          c.unique("ingest_session_id", "email"),
+        ];
+      },
+      indexes: (props, tableName) => {
+        const tif = SQLa.tableIndexesFactory(tableName, props);
+        return [
+          tif.index({ isIdempotent: true }, "ingest_session_id", "email"),
+        ];
+      },
+      populateQS: (t, _c, cols, _tableName) => {
+        t.description = markdown`
         Immutable ingest session folder system represents an email address to be ingested. Each
         session includes an email, then ${cols.email.identity} is the
         folder that was scanned.`;
+      },
     },
-  });
+  );
 
-
-  const urIngestSessionImapAcctFolder = gm.textPkTable("ur_ingest_session_imap_acct_folder", {
-    ur_ingest_session_imap_acct_folder_id: gm.keys.varCharPrimaryKey(),
-    ingest_session_id: urIngestSession.belongsTo
-      .ur_ingest_session_id(),
-        ingest_account_id: urIngestSessionImapAccount.belongsTo
-      .ur_ingest_session_imap_account_id(),
-    folder_name: gd.text(),
-    elaboration: gd.jsonTextNullable(),
-    ...gm.housekeeping.columns,
-  }, {
-    isIdempotent: true,
-    constraints: (props, tableName) => {
-      const c = SQLa.tableConstraints(tableName, props);
-      return [
-        c.unique("ingest_account_id", "folder_name"),
-      ];
+  const urIngestSessionImapAcctFolder = gm.textPkTable(
+    "ur_ingest_session_imap_acct_folder",
+    {
+      ur_ingest_session_imap_acct_folder_id: gm.keys.varCharPrimaryKey(),
+      ingest_session_id: urIngestSession.belongsTo
+        .ur_ingest_session_id(),
+      ingest_account_id: urIngestSessionImapAccount.belongsTo
+        .ur_ingest_session_imap_account_id(),
+      folder_name: gd.text(),
+      elaboration: gd.jsonTextNullable(),
+      ...gm.housekeeping.columns,
     },
-    indexes: (props, tableName) => {
-      const tif = SQLa.tableIndexesFactory(tableName, props);
-      return [
-        tif.index({ isIdempotent: true }, "ingest_session_id", "folder_name"),
-      ];
-    },
-    populateQS: (t, _c, cols, _tableName) => {
-      t.description = markdown`
+    {
+      isIdempotent: true,
+      constraints: (props, tableName) => {
+        const c = SQLa.tableConstraints(tableName, props);
+        return [
+          c.unique("ingest_account_id", "folder_name"),
+        ];
+      },
+      indexes: (props, tableName) => {
+        const tif = SQLa.tableIndexesFactory(tableName, props);
+        return [
+          tif.index({ isIdempotent: true }, "ingest_session_id", "folder_name"),
+        ];
+      },
+      populateQS: (t, _c, cols, _tableName) => {
+        t.description = markdown`
         Immutable ingest session folder system represents a folder or mailbox in an email account, e.g. "INBOX" or "SENT". Each
         session includes a folder scan, then ${cols.folder_name.identity} is the
         folder that was scanned.`;
+      },
     },
-  });
+  );
 
   const urIngestSessionImapAcctFolderMessage = gm.textPkTable(
     "ur_ingest_session_imap_acct_folder_message",
     {
-      ur_ingest_session_imap_acct_folder_message_id: gm.keys.varCharPrimaryKey(),
+      ur_ingest_session_imap_acct_folder_message_id: gm.keys
+        .varCharPrimaryKey(),
       ingest_session_id: urIngestSession.belongsTo
         .ur_ingest_session_id(),
       ingest_imap_acct_folder_id: urIngestSessionImapAcctFolder.belongsTo
@@ -727,10 +735,17 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       uniform_resource_id: uniformResource.references.uniform_resource_id()
         .optional(), // if a uniform_resource was prepared for this or already existed
       message: gd.text(),
+      message_id: gd.text(),
       ...gm.housekeeping.columns,
     },
     {
       isIdempotent: true,
+      constraints: (props, tableName) => {
+        const c = SQLa.tableConstraints(tableName, props);
+        return [
+          c.unique("message", "message_id"),
+        ];
+      },
       indexes: (props, tableName) => {
         const tif = SQLa.tableIndexesFactory(tableName, props);
         return [
@@ -767,7 +782,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       urIngestSessionTaskEntry,
       urIngestSessionImapAccount,
       urIngestSessionImapAcctFolder,
-      urIngestSessionImapAcctFolderMessage
+      urIngestSessionImapAcctFolderMessage,
     ],
     tableIndexes: [
       ...device.indexes,
@@ -837,8 +852,10 @@ export function adminModels<
       c.status_text.description = `The reason the query failed`;
       c.elaboration.description =
         `A general object containing details like all the events that transpired during the execution of a query`;
-      c.diagnostics_file.description = `Location the config query was written to.`;
-      c.diagnostics_file_content.description = `Content of the diagnostics file.`;
+      c.diagnostics_file.description =
+        `Location the config query was written to.`;
+      c.diagnostics_file_content.description =
+        `Content of the diagnostics file.`;
     },
 
     qualitySystem: {
@@ -906,9 +923,12 @@ export function adminModels<
       c.addr.description = `the address the proxy server is bound to.`;
       c.metrics.description = `The address the health server started on.`;
       c.metrics.description = `The address the metrics server started on.`;
-      c.config_ncl.description = `The most recent full NCL that was built and used for configuring the system.`
-      c.admin_db_path.description = `The full path to admin state database for udi-pgp configuration and query logs.`
-      c.surveilr_version.description = `The current version of surveilr that's being executed.`
+      c.config_ncl.description =
+        `The most recent full NCL that was built and used for configuring the system.`;
+      c.admin_db_path.description =
+        `The full path to admin state database for udi-pgp configuration and query logs.`;
+      c.surveilr_version.description =
+        `The current version of surveilr that's being executed.`;
       c.governance.description = `kernel-specific governance data`;
     },
 

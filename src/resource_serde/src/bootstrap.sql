@@ -394,6 +394,7 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder_message" (
     "ingest_imap_acct_folder_id" VARCHAR NOT NULL,
     "uniform_resource_id" VARCHAR,
     "message" TEXT NOT NULL,
+    "message_id" TEXT NOT NULL,
     "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
     "updated_at" TIMESTAMPTZ,
@@ -403,7 +404,8 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder_message" (
     "activity_log" TEXT,
     FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
     FOREIGN KEY("ingest_imap_acct_folder_id") REFERENCES "ur_ingest_session_imap_acct_folder"("ur_ingest_session_imap_acct_folder_id"),
-    FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
+    FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id"),
+    UNIQUE("message", "message_id")
 );
 
 CREATE INDEX IF NOT EXISTS "idx_device__name__state" ON "device"("name", "state");
@@ -415,7 +417,7 @@ CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_task__ingest_session_id" ON "u
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_acct_folder__ingest_session_id__folder_name" ON "ur_ingest_session_imap_acct_folder"("ingest_session_id", "folder_name");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_acct_folder_message__ingest_session_id" ON "ur_ingest_session_imap_acct_folder_message"("ingest_session_id");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_account__ingest_session_id__email" ON "ur_ingest_session_imap_account"("ingest_session_id", "email");
-', '9a76116f3758c4539a02af630575050a9679c67a', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', '6bb2463680ce3329b657fc5bcdc8e126ec8f94c9', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -1123,6 +1125,7 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder_message" (
     "ingest_imap_acct_folder_id" VARCHAR NOT NULL,
     "uniform_resource_id" VARCHAR,
     "message" TEXT NOT NULL,
+    "message_id" TEXT NOT NULL,
     "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
     "updated_at" TIMESTAMPTZ,
@@ -1132,7 +1135,8 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder_message" (
     "activity_log" TEXT,
     FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
     FOREIGN KEY("ingest_imap_acct_folder_id") REFERENCES "ur_ingest_session_imap_acct_folder"("ur_ingest_session_imap_acct_folder_id"),
-    FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
+    FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id"),
+    UNIQUE("message", "message_id")
 );
 
 CREATE INDEX IF NOT EXISTS "idx_device__name__state" ON "device"("name", "state");
@@ -1205,7 +1209,7 @@ CREATE VIEW IF NOT EXISTS "ur_ingest_session_files_stats" AS
         device_id,
         ingest_session_finished_at,
         file_extension;
-      ', 'd2eed2eeeeeb0b056cfd85e32b63562983bd28c8', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', '39f9bc64fa00886b8ab8ee70c41bda172e792fd2', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -1392,6 +1396,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     * ingest_imap_acct_folder_id: VARCHAR
       uniform_resource_id: VARCHAR
     * message: TEXT
+    * message_id: TEXT
   }
 
   device |o..o{ behavior
@@ -1413,7 +1418,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   ur_ingest_session |o..o{ ur_ingest_session_imap_acct_folder_message
   ur_ingest_session_imap_acct_folder |o..o{ ur_ingest_session_imap_acct_folder_message
   uniform_resource |o..o{ ur_ingest_session_imap_acct_folder_message
-@enduml', '3541fb396786c2e34ab929f16b42c12126f6613a', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', 'dd4e959ccd8c34a336395a3a850104ea30801ac1', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,

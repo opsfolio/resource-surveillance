@@ -179,6 +179,7 @@
     * ingest_imap_acct_folder_id: VARCHAR
       uniform_resource_id: VARCHAR
     * message: TEXT
+    * message_id: TEXT
   }
 
   device |o..o{ behavior
