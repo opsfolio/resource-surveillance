@@ -753,35 +753,6 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     },
   );
 
-    const urIngestSessionImapAcctFolderMessageAttachment = gm.textPkTable(
-    "ur_ingest_session_imap_acct_folder_message_attachment",
-    {
-      ur_ingest_session_imap_acct_folder_message_attachment_id: gm.keys.varCharPrimaryKey(),
-      ingest_session_id: urIngestSession.belongsTo
-        .ur_ingest_session_id(),
-      ur_ingest_session_imap_acct_folder_message_id: urIngestSessionImapAcctFolderMessage.belongsTo
-        .ur_ingest_session_imap_acct_folder_message_id(),
-      uniform_resource_id: uniformResource.references.uniform_resource_id()
-        .optional(),
-      nature: gd.text(),
-      message: gd.text(),
-      ...gm.housekeeping.columns,
-    },
-    {
-      populateQS: (t, _c, _cols, tableName) => {
-        t.description = markdown`
-          Contains messages related in a folder that was ingested. On multiple executions,
-          unlike ${uniformResource.tableName}, ${tableName} rows are always inserted and
-          references the ${uniformResource.tableName} primary key of its related content.
-          This method allows for a more efficient query of message version differences across
-          sessions. With SQL queries, you can detect which sessions have a messaged added or modified,
-          which sessions have a message deleted, and what the differences are in message contents
-          if they were modified across sessions.`;
-      },
-    },
-  );
-
-
   const informationSchema = {
     tables: [
       device,
@@ -796,8 +767,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       urIngestSessionTaskEntry,
       urIngestSessionImapAccount,
       urIngestSessionImapAcctFolder,
-      urIngestSessionImapAcctFolderMessage,
-      urIngestSessionImapAcctFolderMessageAttachment
+      urIngestSessionImapAcctFolderMessage
     ],
     tableIndexes: [
       ...device.indexes,
@@ -812,7 +782,6 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       ...urIngestSessionTaskEntry.indexes,
       ...urIngestSessionImapAcctFolder.indexes,
       ...urIngestSessionImapAcctFolderMessage.indexes,
-      ...urIngestSessionImapAcctFolderMessageAttachment.indexes,
       ...urIngestSessionImapAccount.indexes,
     ],
   };
@@ -833,7 +802,6 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     urIngestSessionImapAccount,
     urIngestSessionImapAcctFolder,
     urIngestSessionImapAcctFolderMessage,
-    urIngestSessionImapAcctFolderMessageAttachment
   };
 }
 

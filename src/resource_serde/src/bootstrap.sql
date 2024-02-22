@@ -405,24 +405,6 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder_message" (
     FOREIGN KEY("ingest_imap_acct_folder_id") REFERENCES "ur_ingest_session_imap_acct_folder"("ur_ingest_session_imap_acct_folder_id"),
     FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
 );
-CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder_message_attachment" (
-    "ur_ingest_session_imap_acct_folder_message_attachment_id" VARCHAR PRIMARY KEY NOT NULL,
-    "ingest_session_id" VARCHAR NOT NULL,
-    "ur_ingest_session_imap_acct_folder_message_id" VARCHAR NOT NULL,
-    "uniform_resource_id" VARCHAR,
-    "nature" TEXT NOT NULL,
-    "message" TEXT NOT NULL,
-    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMPTZ,
-    "updated_by" TEXT,
-    "deleted_at" TIMESTAMPTZ,
-    "deleted_by" TEXT,
-    "activity_log" TEXT,
-    FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
-    FOREIGN KEY("ur_ingest_session_imap_acct_folder_message_id") REFERENCES "ur_ingest_session_imap_acct_folder_message"("ur_ingest_session_imap_acct_folder_message_id"),
-    FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
-);
 
 CREATE INDEX IF NOT EXISTS "idx_device__name__state" ON "device"("name", "state");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path__ingest_session_id__root_path" ON "ur_ingest_session_fs_path"("ingest_session_id", "root_path");
@@ -433,7 +415,7 @@ CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_task__ingest_session_id" ON "u
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_acct_folder__ingest_session_id__folder_name" ON "ur_ingest_session_imap_acct_folder"("ingest_session_id", "folder_name");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_acct_folder_message__ingest_session_id" ON "ur_ingest_session_imap_acct_folder_message"("ingest_session_id");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_account__ingest_session_id__email" ON "ur_ingest_session_imap_account"("ingest_session_id", "email");
-', 'bcfa92a6351a3bca85ce24dae63105d6fe312cde', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', '9a76116f3758c4539a02af630575050a9679c67a', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -1152,24 +1134,6 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder_message" (
     FOREIGN KEY("ingest_imap_acct_folder_id") REFERENCES "ur_ingest_session_imap_acct_folder"("ur_ingest_session_imap_acct_folder_id"),
     FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
 );
-CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder_message_attachment" (
-    "ur_ingest_session_imap_acct_folder_message_attachment_id" VARCHAR PRIMARY KEY NOT NULL,
-    "ingest_session_id" VARCHAR NOT NULL,
-    "ur_ingest_session_imap_acct_folder_message_id" VARCHAR NOT NULL,
-    "uniform_resource_id" VARCHAR,
-    "nature" TEXT NOT NULL,
-    "message" TEXT NOT NULL,
-    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    "created_by" TEXT DEFAULT ''UNKNOWN'',
-    "updated_at" TIMESTAMPTZ,
-    "updated_by" TEXT,
-    "deleted_at" TIMESTAMPTZ,
-    "deleted_by" TEXT,
-    "activity_log" TEXT,
-    FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
-    FOREIGN KEY("ur_ingest_session_imap_acct_folder_message_id") REFERENCES "ur_ingest_session_imap_acct_folder_message"("ur_ingest_session_imap_acct_folder_message_id"),
-    FOREIGN KEY("uniform_resource_id") REFERENCES "uniform_resource"("uniform_resource_id")
-);
 
 CREATE INDEX IF NOT EXISTS "idx_device__name__state" ON "device"("name", "state");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_fs_path__ingest_session_id__root_path" ON "ur_ingest_session_fs_path"("ingest_session_id", "root_path");
@@ -1241,7 +1205,7 @@ CREATE VIEW IF NOT EXISTS "ur_ingest_session_files_stats" AS
         device_id,
         ingest_session_finished_at,
         file_extension;
-      ', '261c9fe445f89081e1aaf2e9a39be47e65795048', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', 'd2eed2eeeeeb0b056cfd85e32b63562983bd28c8', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -1325,7 +1289,6 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     urIngestSessionImapAccounts: UrIngestSessionImapAccount[]
     urIngestSessionImapAcctFolders: UrIngestSessionImapAcctFolder[]
     urIngestSessionImapAcctFolderMessages: UrIngestSessionImapAcctFolderMessage[]
-    urIngestSessionImapAcctFolderMessageAttachments: UrIngestSessionImapAcctFolderMessageAttachment[]
   }
 
   entity "ur_ingest_session_fs_path" as ur_ingest_session_fs_path {
@@ -1429,18 +1392,6 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     * ingest_imap_acct_folder_id: VARCHAR
       uniform_resource_id: VARCHAR
     * message: TEXT
-    --
-    urIngestSessionImapAcctFolderMessageAttachments: UrIngestSessionImapAcctFolderMessageAttachment[]
-  }
-
-  entity "ur_ingest_session_imap_acct_folder_message_attachment" as ur_ingest_session_imap_acct_folder_message_attachment {
-    * **ur_ingest_session_imap_acct_folder_message_attachment_id**: VARCHAR
-    --
-    * ingest_session_id: VARCHAR
-    * ur_ingest_session_imap_acct_folder_message_id: VARCHAR
-      uniform_resource_id: VARCHAR
-    * nature: TEXT
-    * message: TEXT
   }
 
   device |o..o{ behavior
@@ -1462,10 +1413,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   ur_ingest_session |o..o{ ur_ingest_session_imap_acct_folder_message
   ur_ingest_session_imap_acct_folder |o..o{ ur_ingest_session_imap_acct_folder_message
   uniform_resource |o..o{ ur_ingest_session_imap_acct_folder_message
-  ur_ingest_session |o..o{ ur_ingest_session_imap_acct_folder_message_attachment
-  ur_ingest_session_imap_acct_folder_message |o..o{ ur_ingest_session_imap_acct_folder_message_attachment
-  uniform_resource |o..o{ ur_ingest_session_imap_acct_folder_message_attachment
-@enduml', '81f23a9d36b12bef6a9418ad2c83041711931a84', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', '3541fb396786c2e34ab929f16b42c12126f6613a', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,

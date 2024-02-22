@@ -72,9 +72,6 @@ const INS_UR_INGEST_SESSION_IMAP_ACCT_FOLDER_MESSAGE: &str = indoc! {"
 INSERT INTO ur_ingest_session_imap_acct_folder_message (ur_ingest_session_imap_acct_folder_message_id, ingest_session_id, ingest_imap_acct_folder_id, uniform_resource_id, message, created_at, created_by)
 VALUES (ulid(), ?, ?, ?, ?, CURRENT_TIMESTAMP, 'system') RETURNING ur_ingest_session_imap_acct_folder_message_id;"};
 
-const INS_UR_INGEST_SESSION_IMAP_ACCT_FOLDER_MSG_ATT: &str = indoc! {"INSERT INTO ur_ingest_session_imap_acct_folder_message_attachment (ur_ingest_session_imap_acct_folder_message_attachment_id, ingest_session_id, ur_ingest_session_imap_acct_folder_message_id, uniform_resource_id, nature, message, created_at, created_by)
-VALUES (ulid(), ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'system') RETURNING ur_ingest_session_imap_acct_folder_message_attachment_id;"};
-
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct IngestContext<'conn> {
@@ -86,7 +83,6 @@ pub struct IngestContext<'conn> {
     ur_ingest_session_imap_account_stmt: rusqlite::Statement<'conn>,
     ur_ingest_session_imap_acct_folder_stmt: rusqlite::Statement<'conn>,
     ur_ingest_session_imap_acct_folder_message_stmt: rusqlite::Statement<'conn>,
-    ur_ingest_session_imap_acct_folder_msg_att_stmt: rusqlite::Statement<'conn>,
 }
 
 impl<'conn> IngestContext<'conn> {
@@ -144,12 +140,6 @@ impl<'conn> IngestContext<'conn> {
             )
         })?;
 
-        let ur_ingest_session_imap_acct_folder_msg_att_stmt = conn.prepare(INS_UR_INGEST_SESSION_IMAP_ACCT_FOLDER_MSG_ATT).with_context(|| {
-            format!(
-                "[IngestContext::from_conn] unable to create `ur_ingest_session_imap_acct_folder_msg_att_stmt` SQL {} in {}",
-                INS_UR_ISFSP_ENTRY_SQL, db_fs_path
-            )
-        })?;
 
         Ok(IngestContext {
             ins_ur_isfsp_stmt,
@@ -160,7 +150,6 @@ impl<'conn> IngestContext<'conn> {
             ur_ingest_session_imap_account_stmt,
             ur_ingest_session_imap_acct_folder_stmt,
             ur_ingest_session_imap_acct_folder_message_stmt,
-            ur_ingest_session_imap_acct_folder_msg_att_stmt,
         })
     }
 }

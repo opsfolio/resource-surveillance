@@ -76,7 +76,6 @@
     urIngestSessionImapAccounts: UrIngestSessionImapAccount[]
     urIngestSessionImapAcctFolders: UrIngestSessionImapAcctFolder[]
     urIngestSessionImapAcctFolderMessages: UrIngestSessionImapAcctFolderMessage[]
-    urIngestSessionImapAcctFolderMessageAttachments: UrIngestSessionImapAcctFolderMessageAttachment[]
   }
 
   entity "ur_ingest_session_fs_path" as ur_ingest_session_fs_path {
@@ -180,18 +179,6 @@
     * ingest_imap_acct_folder_id: VARCHAR
       uniform_resource_id: VARCHAR
     * message: TEXT
-    --
-    urIngestSessionImapAcctFolderMessageAttachments: UrIngestSessionImapAcctFolderMessageAttachment[]
-  }
-
-  entity "ur_ingest_session_imap_acct_folder_message_attachment" as ur_ingest_session_imap_acct_folder_message_attachment {
-    * **ur_ingest_session_imap_acct_folder_message_attachment_id**: VARCHAR
-    --
-    * ingest_session_id: VARCHAR
-    * ur_ingest_session_imap_acct_folder_message_id: VARCHAR
-      uniform_resource_id: VARCHAR
-    * nature: TEXT
-    * message: TEXT
   }
 
   device |o..o{ behavior
@@ -213,7 +200,4 @@
   ur_ingest_session |o..o{ ur_ingest_session_imap_acct_folder_message
   ur_ingest_session_imap_acct_folder |o..o{ ur_ingest_session_imap_acct_folder_message
   uniform_resource |o..o{ ur_ingest_session_imap_acct_folder_message
-  ur_ingest_session |o..o{ ur_ingest_session_imap_acct_folder_message_attachment
-  ur_ingest_session_imap_acct_folder_message |o..o{ ur_ingest_session_imap_acct_folder_message_attachment
-  uniform_resource |o..o{ ur_ingest_session_imap_acct_folder_message_attachment
 @enduml

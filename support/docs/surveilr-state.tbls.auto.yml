@@ -20,7 +20,6 @@ include:
   - ur_ingest_session_imap_account
   - ur_ingest_session_imap_acct_folder
   - ur_ingest_session_imap_acct_folder_message
-  - ur_ingest_session_imap_acct_folder_message_attachment
 name: Resource Surveillance State Schema
 comments:
   - table: device
@@ -262,33 +261,6 @@ comments:
 
       unlike uniform_resource, ur_ingest_session_imap_acct_folder_message rows
       are always inserted and
-
-      references the uniform_resource primary key of its related content.
-
-      This method allows for a more efficient query of message version
-      differences across
-
-      sessions. With SQL queries, you can detect which sessions have a messaged
-      added or modified,
-
-      which sessions have a message deleted, and what the differences are in
-      message contents
-
-      if they were modified across sessions.
-  - table: ur_ingest_session_imap_acct_folder_message_attachment
-    columnComments:
-      ur_ingest_session_imap_acct_folder_message_attachment_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
-      ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
-      ur_ingest_session_imap_acct_folder_message_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
-      uniform_resource_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
-      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
-    tableComment: >-
-      Contains messages related in a folder that was ingested. On multiple
-      executions,
-
-      unlike uniform_resource,
-      ur_ingest_session_imap_acct_folder_message_attachment rows are always
-      inserted and
 
       references the uniform_resource primary key of its related content.
 

@@ -120,7 +120,7 @@ fn process_emails(
                     ingest_session_id,
                     &None::<String>,
                     "uri".to_string(),
-                    "mail".to_string(),
+                    "text".to_string(),
                     email.raw_text,
                     hash,
                     size,
