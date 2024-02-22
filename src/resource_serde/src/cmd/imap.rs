@@ -50,6 +50,10 @@ pub struct IngestImapArgs {
     /// Maximum number of messages to be ingested.
     #[arg(short, long, default_value = "100")]
     pub max_no_messages: u64,
+
+    /// Extract Attachments
+    #[arg(short, long, default_value = "true")]
+    pub extract_attachments: bool,
 }
 
 impl From<IngestImapArgs> for ImapConfig {
@@ -61,6 +65,7 @@ impl From<IngestImapArgs> for ImapConfig {
             port: value.port,
             folders: value.folders,
             max_no_messages: value.max_no_messages,
+            extract_attachments: value.extract_attachments,
         }
     }
 }

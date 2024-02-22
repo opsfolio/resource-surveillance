@@ -127,7 +127,7 @@ comments:
       device_id: which device row introduced this resource
       ingest_session_id: which ur_ingest_session row introduced this resource
       ingest_fs_path_id: which ur_ingest_session_fs_path row introduced this resource
-      ur_ingest_session_imap_acct_folder_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      ingest_imap_acct_folder_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
       uri: >-
         the resource's URI (dependent on how it was acquired and on which
         device)

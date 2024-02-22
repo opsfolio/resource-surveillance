@@ -105,7 +105,7 @@ pub struct UniformResource {
     device_id: String, // 'string' maps directly to Rust type
     ingest_session_id: String, // 'string' maps directly to Rust type
     ingest_fs_path_id: Option<String>, // 'string' maps directly to Rust type
-    ur_ingest_session_imap_acct_folder_id: Option<String>, // 'string' maps directly to Rust type
+    ingest_imap_acct_folder_id: Option<String>, // 'string' maps directly to Rust type
     uri: String, // 'string' maps directly to Rust type
     content_digest: String, // 'string' maps directly to Rust type
     content: Option<Vec<u8>>, // 'blob' maps directly to Rust type

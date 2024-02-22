@@ -94,7 +94,7 @@
     * device_id: VARCHAR
     * ingest_session_id: VARCHAR
       ingest_fs_path_id: VARCHAR
-      ur_ingest_session_imap_acct_folder_id: VARCHAR
+      ingest_imap_acct_folder_id: VARCHAR
     * uri: TEXT
     * content_digest: TEXT
       content: BLOB

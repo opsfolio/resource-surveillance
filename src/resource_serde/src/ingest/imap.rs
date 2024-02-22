@@ -46,6 +46,7 @@ pub fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
             &device_id,
             &acct_id,
             &email_resources,
+            &config
         )?;
     }
 
@@ -96,6 +97,7 @@ fn process_emails(
     device_id: &str,
     acct_id: &str,
     email_resources: &HashMap<String, Vec<EmailResource>>,
+    config: &ImapConfig
 ) -> Result<()> {
     for (folder, emails) in email_resources {
         // insert folder into
@@ -113,6 +115,7 @@ fn process_emails(
                 hasher.update(text.as_bytes());
                 format!("{:x}", hasher.finalize())
             };
+            let message_id = format!("smtp://{}/{}", config.username, email.message_id);
 
             // 1. insert the raw text into ur, nature is text
             // 2. insert the whole json into ur, nature is ur
@@ -121,13 +124,12 @@ fn process_emails(
             // 4. get all the attachments and do the same
 
 
-
             let ur_id: String = ingest_stmts.ins_ur_stmt.query_row(
                 params![
                     device_id,
                     ingest_session_id,
                     &None::<String>,
-                    format!("smtp://{}", email.message_id),
+                    message_id,
                     "text".to_string(),
                     email.raw_text,
                     hash,
@@ -143,7 +145,7 @@ fn process_emails(
             let _ur_sess_message_id: String = ingest_stmts
                 .ur_ingest_session_imap_acct_folder_message_stmt
                 .query_row(
-                    params![ingest_session_id, acct_folder_id, ur_id, text, email.message_id],
+                    params![ingest_session_id, acct_folder_id, ur_id, text, message_id],
                     |row| row.get(0),
                 )?;
         }
