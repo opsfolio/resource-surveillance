@@ -127,6 +127,7 @@ fn process_emails(
                     email.date,
                     &None::<String>, // content_fm_body_attrs
                     &None::<String>, // frontmatter
+                    acct_folder_id,
                 ],
                 |row| row.get(0),
             )?;

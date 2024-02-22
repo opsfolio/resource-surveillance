@@ -35,8 +35,8 @@ const INS_UR_ISFSP_SQL: &str = indoc! {"
 
 // in INS_UR_SQL the `DO UPDATE SET size_bytes = EXCLUDED.size_bytes` is a workaround to allow RETURNING uniform_resource_id when the row already exists
 const INS_UR_SQL: &str = indoc! {"
-        INSERT INTO uniform_resource (uniform_resource_id, device_id, ingest_session_id, ingest_fs_path_id, uri, nature, content, content_digest, size_bytes, last_modified_at, content_fm_body_attrs, frontmatter)
-                              VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+        INSERT INTO uniform_resource (uniform_resource_id, device_id, ingest_session_id, ingest_fs_path_id, uri, nature, content, content_digest, size_bytes, last_modified_at, content_fm_body_attrs, frontmatter, ur_ingest_session_imap_acct_folder_id)
+                              VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
                          ON CONFLICT (device_id, content_digest, uri, size_bytes, last_modified_at) 
                            DO UPDATE SET size_bytes = EXCLUDED.size_bytes
                            RETURNING uniform_resource_id"};
@@ -146,7 +146,6 @@ impl<'conn> IngestContext<'conn> {
                 INS_UR_ISFSP_ENTRY_SQL, db_fs_path
             )
         })?;
-
 
         Ok(IngestContext {
             ins_ur_isfsp_stmt,
@@ -324,6 +323,7 @@ pub trait UniformResourceWriter<Resource> {
                         resource.last_modified_at.unwrap().to_string(),
                         &None::<String>, // content_fm_body_attrs
                         &None::<String>, // frontmatter
+                        &None::<String>, // ur_ingest_session_imap_acct_folder_id
                     ],
                     |row| row.get(0),
                 ) {
@@ -369,6 +369,7 @@ pub trait UniformResourceWriter<Resource> {
                 resource.last_modified_at.unwrap().to_string(),
                 &None::<String>, // content_fm_body_attrs
                 &None::<String>, // frontmatter
+                &None::<String>, // ur_ingest_session_imap_acct_folder_id
             ],
             |row| row.get(0),
         ) {
@@ -405,6 +406,7 @@ impl UniformResourceWriter<ContentResource> for ContentResource {
                 self.last_modified_at.unwrap().to_string(),
                 &None::<String>, // content_fm_body_attrs
                 &None::<String>, // frontmatter
+                &None::<String>, // ur_ingest_session_imap_acct_folder_id
             ],
             |row| row.get(0),
         ) {
@@ -631,6 +633,7 @@ impl UniformResourceWriter<ContentResource> for MarkdownResource<ContentResource
                             self.resource.last_modified_at.unwrap().to_string(),
                             fm_attrs,
                             fm_json,
+                            &None::<String>, // ur_ingest_session_imap_acct_folder_id
                         ],
                         |row| row.get(0),
                     ) {

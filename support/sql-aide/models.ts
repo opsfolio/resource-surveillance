@@ -444,12 +444,84 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     },
   });
 
+  const urIngestSessionImapAccount = gm.textPkTable(
+    "ur_ingest_session_imap_account",
+    {
+      ur_ingest_session_imap_account_id: gm.keys.varCharPrimaryKey(),
+      ingest_session_id: urIngestSession.belongsTo
+        .ur_ingest_session_id(),
+      email: gd.text(),
+      password: gd.text(),
+      host: gd.text(),
+      elaboration: gd.jsonTextNullable(),
+      ...gm.housekeeping.columns,
+    },
+    {
+      isIdempotent: true,
+      constraints: (props, tableName) => {
+        const c = SQLa.tableConstraints(tableName, props);
+        return [
+          c.unique("ingest_session_id", "email"),
+        ];
+      },
+      indexes: (props, tableName) => {
+        const tif = SQLa.tableIndexesFactory(tableName, props);
+        return [
+          tif.index({ isIdempotent: true }, "ingest_session_id", "email"),
+        ];
+      },
+      populateQS: (t, _c, cols, _tableName) => {
+        t.description = markdown`
+        Immutable ingest session folder system represents an email address to be ingested. Each
+        session includes an email, then ${cols.email.identity} is the
+        folder that was scanned.`;
+      },
+    },
+  );
+
+  const urIngestSessionImapAcctFolder = gm.textPkTable(
+    "ur_ingest_session_imap_acct_folder",
+    {
+      ur_ingest_session_imap_acct_folder_id: gm.keys.varCharPrimaryKey(),
+      ingest_session_id: urIngestSession.belongsTo
+        .ur_ingest_session_id(),
+      ingest_account_id: urIngestSessionImapAccount.belongsTo
+        .ur_ingest_session_imap_account_id(),
+      folder_name: gd.text(),
+      elaboration: gd.jsonTextNullable(),
+      ...gm.housekeeping.columns,
+    },
+    {
+      isIdempotent: true,
+      constraints: (props, tableName) => {
+        const c = SQLa.tableConstraints(tableName, props);
+        return [
+          c.unique("ingest_account_id", "folder_name"),
+        ];
+      },
+      indexes: (props, tableName) => {
+        const tif = SQLa.tableIndexesFactory(tableName, props);
+        return [
+          tif.index({ isIdempotent: true }, "ingest_session_id", "folder_name"),
+        ];
+      },
+      populateQS: (t, _c, cols, _tableName) => {
+        t.description = markdown`
+        Immutable ingest session folder system represents a folder or mailbox in an email account, e.g. "INBOX" or "SENT". Each
+        session includes a folder scan, then ${cols.folder_name.identity} is the
+        folder that was scanned.`;
+      },
+    },
+  );
+
   const uniformResource = gm.textPkTable(UNIFORM_RESOURCE, {
     uniform_resource_id: gm.keys.varCharPrimaryKey(),
     device_id: device.belongsTo.device_id(),
     ingest_session_id: urIngestSession.belongsTo.ur_ingest_session_id(),
     ingest_fs_path_id: urIngestSessionFsPath.references
       .ur_ingest_session_fs_path_id().optional(),
+    ur_ingest_session_imap_acct_folder_id: urIngestSessionImapAcctFolder
+      .references.ur_ingest_session_imap_acct_folder_id().optional(),
     uri: gd.text(),
     content_digest: gd.text(),
     content: gd.blobTextNullable(),
@@ -649,76 +721,6 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
           sessions. With SQL queries, you can detect which sessions have a file added or modified,
           which sessions have a file deleted, and what the differences are in file contents
           if they were modified across sessions.`;
-      },
-    },
-  );
-
-  const urIngestSessionImapAccount = gm.textPkTable(
-    "ur_ingest_session_imap_account",
-    {
-      ur_ingest_session_imap_account_id: gm.keys.varCharPrimaryKey(),
-      ingest_session_id: urIngestSession.belongsTo
-        .ur_ingest_session_id(),
-      email: gd.text(),
-      password: gd.text(),
-      host: gd.text(),
-      elaboration: gd.jsonTextNullable(),
-      ...gm.housekeeping.columns,
-    },
-    {
-      isIdempotent: true,
-      constraints: (props, tableName) => {
-        const c = SQLa.tableConstraints(tableName, props);
-        return [
-          c.unique("ingest_session_id", "email"),
-        ];
-      },
-      indexes: (props, tableName) => {
-        const tif = SQLa.tableIndexesFactory(tableName, props);
-        return [
-          tif.index({ isIdempotent: true }, "ingest_session_id", "email"),
-        ];
-      },
-      populateQS: (t, _c, cols, _tableName) => {
-        t.description = markdown`
-        Immutable ingest session folder system represents an email address to be ingested. Each
-        session includes an email, then ${cols.email.identity} is the
-        folder that was scanned.`;
-      },
-    },
-  );
-
-  const urIngestSessionImapAcctFolder = gm.textPkTable(
-    "ur_ingest_session_imap_acct_folder",
-    {
-      ur_ingest_session_imap_acct_folder_id: gm.keys.varCharPrimaryKey(),
-      ingest_session_id: urIngestSession.belongsTo
-        .ur_ingest_session_id(),
-      ingest_account_id: urIngestSessionImapAccount.belongsTo
-        .ur_ingest_session_imap_account_id(),
-      folder_name: gd.text(),
-      elaboration: gd.jsonTextNullable(),
-      ...gm.housekeeping.columns,
-    },
-    {
-      isIdempotent: true,
-      constraints: (props, tableName) => {
-        const c = SQLa.tableConstraints(tableName, props);
-        return [
-          c.unique("ingest_account_id", "folder_name"),
-        ];
-      },
-      indexes: (props, tableName) => {
-        const tif = SQLa.tableIndexesFactory(tableName, props);
-        return [
-          tif.index({ isIdempotent: true }, "ingest_session_id", "folder_name"),
-        ];
-      },
-      populateQS: (t, _c, cols, _tableName) => {
-        t.description = markdown`
-        Immutable ingest session folder system represents a folder or mailbox in an email account, e.g. "INBOX" or "SENT". Each
-        session includes a folder scan, then ${cols.folder_name.identity} is the
-        folder that was scanned.`;
       },
     },
   );

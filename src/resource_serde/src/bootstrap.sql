@@ -269,6 +269,7 @@ CREATE TABLE IF NOT EXISTS "uniform_resource" (
     "device_id" VARCHAR NOT NULL,
     "ingest_session_id" VARCHAR NOT NULL,
     "ingest_fs_path_id" VARCHAR,
+    "ur_ingest_session_imap_acct_folder_id" VARCHAR,
     "uri" TEXT NOT NULL,
     "content_digest" TEXT NOT NULL,
     "content" BLOB,
@@ -288,6 +289,7 @@ CREATE TABLE IF NOT EXISTS "uniform_resource" (
     FOREIGN KEY("device_id") REFERENCES "device"("device_id"),
     FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
     FOREIGN KEY("ingest_fs_path_id") REFERENCES "ur_ingest_session_fs_path"("ur_ingest_session_fs_path_id"),
+    FOREIGN KEY("ur_ingest_session_imap_acct_folder_id") REFERENCES "ur_ingest_session_imap_acct_folder"("ur_ingest_session_imap_acct_folder_id"),
     UNIQUE("device_id", "content_digest", "uri", "size_bytes", "last_modified_at")
 );
 CREATE TABLE IF NOT EXISTS "uniform_resource_transform" (
@@ -417,7 +419,7 @@ CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_task__ingest_session_id" ON "u
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_acct_folder__ingest_session_id__folder_name" ON "ur_ingest_session_imap_acct_folder"("ingest_session_id", "folder_name");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_acct_folder_message__ingest_session_id" ON "ur_ingest_session_imap_acct_folder_message"("ingest_session_id");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_account__ingest_session_id__email" ON "ur_ingest_session_imap_account"("ingest_session_id", "email");
-', '6bb2463680ce3329b657fc5bcdc8e126ec8f94c9', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', '443eac774509fa302b4488505c0a4925e75559ff', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -1000,6 +1002,7 @@ CREATE TABLE IF NOT EXISTS "uniform_resource" (
     "device_id" VARCHAR NOT NULL,
     "ingest_session_id" VARCHAR NOT NULL,
     "ingest_fs_path_id" VARCHAR,
+    "ur_ingest_session_imap_acct_folder_id" VARCHAR,
     "uri" TEXT NOT NULL,
     "content_digest" TEXT NOT NULL,
     "content" BLOB,
@@ -1019,6 +1022,7 @@ CREATE TABLE IF NOT EXISTS "uniform_resource" (
     FOREIGN KEY("device_id") REFERENCES "device"("device_id"),
     FOREIGN KEY("ingest_session_id") REFERENCES "ur_ingest_session"("ur_ingest_session_id"),
     FOREIGN KEY("ingest_fs_path_id") REFERENCES "ur_ingest_session_fs_path"("ur_ingest_session_fs_path_id"),
+    FOREIGN KEY("ur_ingest_session_imap_acct_folder_id") REFERENCES "ur_ingest_session_imap_acct_folder"("ur_ingest_session_imap_acct_folder_id"),
     UNIQUE("device_id", "content_digest", "uri", "size_bytes", "last_modified_at")
 );
 CREATE TABLE IF NOT EXISTS "uniform_resource_transform" (
@@ -1209,7 +1213,7 @@ CREATE VIEW IF NOT EXISTS "ur_ingest_session_files_stats" AS
         device_id,
         ingest_session_finished_at,
         file_extension;
-      ', '39f9bc64fa00886b8ab8ee70c41bda172e792fd2', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', '22b6420b1ea12090c8a5aea26852eec64509c544', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -1311,6 +1315,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     * device_id: VARCHAR
     * ingest_session_id: VARCHAR
       ingest_fs_path_id: VARCHAR
+      ur_ingest_session_imap_acct_folder_id: VARCHAR
     * uri: TEXT
     * content_digest: TEXT
       content: BLOB
@@ -1406,6 +1411,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   device |o..o{ uniform_resource
   ur_ingest_session |o..o{ uniform_resource
   ur_ingest_session_fs_path |o..o{ uniform_resource
+  ur_ingest_session_imap_acct_folder |o..o{ uniform_resource
   uniform_resource |o..o{ uniform_resource_transform
   ur_ingest_session |o..o{ ur_ingest_session_fs_path_entry
   ur_ingest_session_fs_path |o..o{ ur_ingest_session_fs_path_entry
@@ -1418,7 +1424,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   ur_ingest_session |o..o{ ur_ingest_session_imap_acct_folder_message
   ur_ingest_session_imap_acct_folder |o..o{ ur_ingest_session_imap_acct_folder_message
   uniform_resource |o..o{ ur_ingest_session_imap_acct_folder_message
-@enduml', 'dd4e959ccd8c34a336395a3a850104ea30801ac1', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', '65fce5bf3a8256f413f18e4d009a0b1bbcd63f56', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,
