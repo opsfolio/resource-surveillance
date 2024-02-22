@@ -3,7 +3,7 @@ use std::{collections::HashMap, vec};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
-use mail_parser::{Message, MessageParser, MimeHeaders};
+use mail_parser::{Message, MessageParser, MimeHeaders, PartType};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Attachment {
@@ -24,8 +24,8 @@ pub struct EmailResource {
     pub message_id: String,
     to: Vec<String>,
     pub date: String,
-    text_plain: Vec<String>,
-    text_html: Vec<String>,
+    pub text_plain: Vec<String>,
+    pub text_html: Vec<String>,
     pub raw_text: String,
     pub raw_json: String,
     attachments: Option<Vec<Attachment>>,
@@ -94,8 +94,20 @@ pub fn process_imap(config: &ImapConfig) -> anyhow::Result<HashMap<String, Vec<E
                 message_id: message.message_id().unwrap_or_default().to_string(),
                 to: parse_addresses(message.to()),
                 date: message.date().map(|d| d.to_rfc3339()).unwrap_or_default(),
-                text_plain: message.text_bodies().map(|s| s.to_string()).collect(),
-                text_html: message.html_bodies().map(|s| s.to_string()).collect(),
+                text_plain: message
+                    .text_bodies()
+                    .map(|s| match &s.body {
+                        PartType::Text(txt) => txt.to_string(),
+                        _ => "".to_string(),
+                    })
+                    .collect(),
+                text_html: message
+                    .html_bodies()
+                    .map(|s| match &s.body {
+                        PartType::Html(html) => html.to_string(),
+                        _ => "".to_string(),
+                    })
+                    .collect(),
                 raw_text: String::from_utf8_lossy(message.raw_message()).into_owned(),
                 raw_json: serde_json::to_string(&message)?,
                 attachments: if config.extract_attachments {

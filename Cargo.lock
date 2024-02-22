@@ -2546,6 +2546,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "html_parser"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec016cabcf7c9c48f9d5fdc6b03f273585bfce640a0f47a69552039e92b1959a"
+dependencies = [
+ "pest",
+ "pest_derive",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "http"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4674,6 +4688,7 @@ dependencies = [
  "globset",
  "globwalk",
  "hostname",
+ "html_parser",
  "ignore",
  "indoc",
  "is_executable",

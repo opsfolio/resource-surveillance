@@ -40,3 +40,4 @@ common.workspace = true
 resource.workspace= true
 clap.workspace = true
 udi_pgp_imap.workspace = true
+html_parser = "0.6.3"

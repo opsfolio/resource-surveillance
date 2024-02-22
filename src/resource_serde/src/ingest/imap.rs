@@ -11,6 +11,8 @@ use crate::{
     ingest::{IngestContext, INS_UR_INGEST_SESSION_SQL},
 };
 
+use html_parser::Dom;
+
 use super::{upserted_device, DbConn};
 
 /// Main entry point for ingesting emails from IMAP.
@@ -46,7 +48,7 @@ pub fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
             &device_id,
             &acct_id,
             &email_resources,
-            &config
+            &config,
         )?;
     }
 
@@ -97,7 +99,7 @@ fn process_emails(
     device_id: &str,
     acct_id: &str,
     email_resources: &HashMap<String, Vec<EmailResource>>,
-    config: &ImapConfig
+    config: &ImapConfig,
 ) -> Result<()> {
     for (folder, emails) in email_resources {
         // insert folder into
@@ -115,21 +117,17 @@ fn process_emails(
                 hasher.update(text.as_bytes());
                 format!("{:x}", hasher.finalize())
             };
-            let message_id = format!("smtp://{}/{}", config.username, email.message_id);
+            let uri = format!("smtp://{}/{}", config.username, email.message_id);
 
-            // 1. insert the raw text into ur, nature is text
-            // 2. insert the whole json into ur, nature is ur
-            // 3. take out the text/plain, insert it into ur as a row, nature text
-            // 4. take out the text/html convert it to a UniformResource of HTML and call insert on it.
             // 4. get all the attachments and do the same
 
-
+            // 1. insert the raw text into ur, nature is text
             let ur_id: String = ingest_stmts.ins_ur_stmt.query_row(
                 params![
                     device_id,
                     ingest_session_id,
                     &None::<String>,
-                    message_id,
+                    uri,
                     "text".to_string(),
                     email.raw_text,
                     hash,
@@ -145,9 +143,122 @@ fn process_emails(
             let _ur_sess_message_id: String = ingest_stmts
                 .ur_ingest_session_imap_acct_folder_message_stmt
                 .query_row(
-                    params![ingest_session_id, acct_folder_id, ur_id, text, message_id],
+                    params![
+                        ingest_session_id,
+                        acct_folder_id,
+                        ur_id,
+                        text,
+                        email.message_id
+                    ],
                     |row| row.get(0),
                 )?;
+
+            {
+                let json = &email.raw_json;
+                let size = json.as_bytes().len();
+                let hash = {
+                    let mut hasher = Sha1::new();
+                    hasher.update(json.as_bytes());
+                    format!("{:x}", hasher.finalize())
+                };
+
+                // 2. insert the whole json into ur, nature is json
+                let _: String = ingest_stmts.ins_ur_stmt.query_row(
+                    params![
+                        device_id,
+                        ingest_session_id,
+                        &None::<String>,
+                        format!("{uri}/json"),
+                        "json".to_string(),
+                        json,
+                        hash,
+                        size,
+                        email.date,
+                        &None::<String>, // content_fm_body_attrs
+                        &None::<String>, // frontmatter
+                        acct_folder_id,
+                    ],
+                    |row| row.get(0),
+                )?;
+            }
+
+            // 3. take out all the text/plain, insert it into ur as a row, nature text
+            for plain_text in &email.text_plain {
+                let size = plain_text.as_bytes().len();
+                let hash = {
+                    let mut hasher = Sha1::new();
+                    hasher.update(plain_text.as_bytes());
+                    format!("{:x}", hasher.finalize())
+                };
+
+                let _: String = ingest_stmts.ins_ur_stmt.query_row(
+                    params![
+                        device_id,
+                        ingest_session_id,
+                        &None::<String>,
+                        format!("{uri}/txt"),
+                        "txt".to_string(),
+                        plain_text,
+                        hash,
+                        size,
+                        email.date,
+                        &None::<String>, // content_fm_body_attrs
+                        &None::<String>, // frontmatter
+                        acct_folder_id,
+                    ],
+                    |row| row.get(0),
+                )?;
+            }
+
+            // 4. take out the text/html, insert it into uniform_resource, transform it to json and then put it in uniform_resource_transform.
+            for html in &email.text_html {
+                let size = html.as_bytes().len();
+                let hash = {
+                    let mut hasher = Sha1::new();
+                    hasher.update(html.as_bytes());
+                    format!("{:x}", hasher.finalize())
+                };
+                let ur_id: String = ingest_stmts.ins_ur_stmt.query_row(
+                    params![
+                        device_id,
+                        ingest_session_id,
+                        &None::<String>,
+                        format!("{uri}/html"),
+                        "html".to_string(),
+                        html,
+                        hash,
+                        size,
+                        email.date,
+                        &None::<String>, // content_fm_body_attrs
+                        &None::<String>, // frontmatter
+                        acct_folder_id,
+                    ],
+                    |row| row.get(0),
+                )?;
+
+                let html = clean_html(html);
+
+                let html_json = Dom::parse(html)?.to_json_pretty()?;
+
+                let html_json_size = html_json.as_bytes().len();
+                let html_json_hash = {
+                    let mut hasher = Sha1::new();
+                    hasher.update(html_json.as_bytes());
+                    format!("{:x}", hasher.finalize())
+                };
+
+                let _ur_transform_id: String = ingest_stmts.ins_ur_transform_stmt.query_row(
+                    params![
+                        ur_id,
+                        format!("{uri}/json"),
+                        "json",
+                        html_json_hash,
+                        html_json,
+                        html_json_size
+                    ],
+                    |row| row.get(0),
+                )?;
+            }
         }
     }
     Ok(())
@@ -156,4 +267,18 @@ fn process_emails(
 fn finalize_transaction(tx: rusqlite::Transaction) -> Result<()> {
     tx.commit()
         .with_context(|| "[ingest_imap] Failed to commit the transaction")
+}
+
+// I found that some of the html strings don't start with <!DOCTYPE> which breaks
+// html to json parsing
+fn clean_html(html: &str) -> &str {
+    if let Some(index) = html.to_lowercase().find("<!doctype") {
+        if index > 0 {
+            &html[index..]
+        } else {
+            html
+        }
+    } else {
+        html
+    }
 }

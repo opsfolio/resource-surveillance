@@ -376,6 +376,21 @@ $ surveilr notebooks cat --cell infoSchemaOsQueryATCs | sqlite3 resource-surveil
 $ sqlite3 resource-surveillance.sqlite.db "select interpretable_code from stored_notebook_cell where cell_name = 'infoSchemaOsQueryATCs'" | sqlite3 device-content.sqlite.db
 ```
 
+## Email Ingestion
+
+The `surveilr ingest imap` command faclitates the ingestion of emails from a single email address into a queryable SQL format. It enables conversion of emails from specified folders in the mailbox into structured data, enhancing the ability to analyze and query email content directly within the already provided RSSD.
+
+- **Data Transformation**: The command converts the original text of the email stored in the `ur_ingest_session_imap_acct_folder` table. For emails having a  text/html section, it transforms them into a valid, queryable JSON format, making it easier to perform SQL queries on email content.
+- **Supported Email Services**: Currently, the command supports Gmail and personal Outlook accounts only.
+- **App Passwords**: The password must be an App Password for authentication instead of the account's primary password. App Passwords provide a secure way of accessing your account through third-party applications. For guidance on creating an App Password, please refer [here]() to learn how to create app passwords.
+
+Support for attachements will be in the next release
+### Examples
+```bash
+$ surveilr ingest imap -u user@outlook.com -p 'apppassword' -a "outlook.office365.com" -f INBOX -f SENT
+$ surveilr ingest imap -u user@gmail.com -p 'apppassword' -a "imap.gmail.com" -f INBOX --max-no-messages=10000
+```
+
 ## Database Documentation
 
 - [SQLite State Schema Documentation](support/docs/surveilr-state-schema/README.md)
