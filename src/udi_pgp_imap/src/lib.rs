@@ -1,7 +1,9 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, vec};
 
-use mailparse::{parse_mail, MailHeaderMap};
+use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
+
+use mail_parser::MessageParser;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct EmailResource {
@@ -17,6 +19,7 @@ pub struct EmailResource {
     text_plain: Vec<String>,
     text_html: Vec<String>,
     pub raw_text: String,
+    pub raw_json: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -48,6 +51,7 @@ pub fn process_imap(config: &ImapConfig) -> anyhow::Result<HashMap<String, Vec<E
         // TODO: remove this or replace with max_no
         let messages_total = mailbox.exists;
         // println!("{:#?}", messages_total);
+
         // select the last 5 emails
         let start = if messages_total >= 5 {
             messages_total - 4
@@ -61,76 +65,41 @@ pub fn process_imap(config: &ImapConfig) -> anyhow::Result<HashMap<String, Vec<E
 
         for message in messages.iter() {
             let body = message.body().expect("message did not have a body!");
-            let body_str = std::str::from_utf8(body)
+
+            let message = MessageParser::default()
+                .parse(body)
+                .ok_or_else(|| anyhow!("Failed to parse email message"))?;
+
+            let raw_text = std::str::from_utf8(message.raw_message())
                 .expect("message was not valid utf-8")
                 .to_string();
-
-            let parsed_mail = parse_mail(body_str.as_bytes())?;
+            let raw_json = serde_json::to_string(&message).unwrap();
 
             let email = EmailResource {
-                raw_text: body_str.to_string(),
-                subject: parsed_mail
-                    .headers
-                    .get_first_value("Subject")
-                    .unwrap_or_default(),
-                from: parsed_mail
-                    .headers
-                    .get_first_value("From")
-                    .unwrap_or_default(),
-                to: parsed_mail
-                    .headers
-                    .get_first_value("To")
-                    .unwrap_or_default(),
-                cc: parsed_mail
-                    .headers
-                    .get_first_value("Cc")
-                    .unwrap_or_default(),
-                bcc: parsed_mail
-                    .headers
-                    .get_first_value("Bcc")
-                    .unwrap_or_default(),
-                references: parsed_mail
-                    .headers
-                    .get_first_value("References")
-                    .unwrap_or_default(),
-                in_reply_to: parsed_mail
-                    .headers
-                    .get_first_value("In-Reply-To")
-                    .unwrap_or_default(),
-                message_id: parsed_mail
-                    .headers
-                    .get_first_value("Message-ID")
-                    .unwrap_or_default(),
-                date: parsed_mail
-                    .headers
-                    .get_first_value("Date")
-                    .unwrap_or_default(),
-                text_plain: parsed_mail
-                    .subparts
-                    .iter()
-                    .filter_map(|p| {
-                        if p.ctype.mimetype == "text/plain" {
-                            p.get_body().ok()
-                        } else {
-                            None
-                        }
-                    })
-                    .collect(),
-                text_html: parsed_mail
-                    .subparts
-                    .iter()
-                    .filter_map(|p| {
-                        if p.ctype.mimetype == "text/html" {
-                            p.get_body().ok()
-                        } else {
-                            None
-                        }
-                    })
-                    .collect(),
+                subject: message.subject().unwrap_or_default().to_string(),
+                from: message
+                    .from()
+                    .unwrap()
+                    .first()
+                    .unwrap()
+                    .address
+                    .clone()
+                    .unwrap()
+                    .to_string(),
+                cc: "".to_string(),
+                bcc: "".to_string(),
+                references: "".to_string(),
+                in_reply_to: "".to_string(),
+                message_id: message.message_id().unwrap().to_string(),
+                to: "".to_string(),
+                date: "".to_string(),
+                text_plain: vec!["".to_string()],
+                text_html: vec!["".to_string()],
+                raw_text,
+                raw_json,
             };
             emails.push(email);
         }
-
         res.insert(folder.to_string(), emails);
     }
 

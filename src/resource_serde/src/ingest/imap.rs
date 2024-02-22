@@ -114,6 +114,14 @@ fn process_emails(
                 format!("{:x}", hasher.finalize())
             };
 
+            // 1. insert the raw text into ur, nature is text
+            // 2. insert the whole json into ur, nature is ur
+            // 3. take out the text/plain, insert it into ur as a row, nature text
+            // 4. take out the text/html convert it to a UniformResource of HTML and call insert on it.
+            // 4. get all the attachments and do the same
+
+
+
             let ur_id: String = ingest_stmts.ins_ur_stmt.query_row(
                 params![
                     device_id,

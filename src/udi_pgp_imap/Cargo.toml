@@ -7,7 +7,7 @@ license.workspace = true
 [dependencies]
 serde_json.workspace = true
 serde.workspace = true
-mailparse = "0.13"
 native-tls = "0.2"
 imap = "2.4.1"
 anyhow.workspace = true
+mail-parser = { version = "0.9.2", features = ["serde_support", "full_encoding"] }

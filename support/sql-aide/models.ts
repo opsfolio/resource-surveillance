@@ -520,7 +520,7 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     ingest_session_id: urIngestSession.belongsTo.ur_ingest_session_id(),
     ingest_fs_path_id: urIngestSessionFsPath.references
       .ur_ingest_session_fs_path_id().optional(),
-    ur_ingest_session_imap_acct_folder_id: urIngestSessionImapAcctFolder
+    ingest_imap_acct_folder_id: urIngestSessionImapAcctFolder
       .references.ur_ingest_session_imap_acct_folder_id().optional(),
     uri: gd.text(),
     content_digest: gd.text(),
