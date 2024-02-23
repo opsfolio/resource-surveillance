@@ -1203,7 +1203,7 @@ dependencies = [
 
 [[package]]
 name = "common"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -4634,7 +4634,7 @@ dependencies = [
 
 [[package]]
 name = "resource"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -4674,7 +4674,7 @@ dependencies = [
 
 [[package]]
 name = "resource_serde"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -5811,7 +5811,7 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "surveilr"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "autometrics",
@@ -6424,7 +6424,7 @@ checksum = "ed646292ffc8188ef8ea4d1e0e0150fb15a5c2e12ad9b8fc191ae7a8a7f3c4b9"
 
 [[package]]
 name = "udi_pgp"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6458,7 +6458,7 @@ dependencies = [
 
 [[package]]
 name = "udi_pgp_imap"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "imap",
@@ -6470,7 +6470,7 @@ dependencies = [
 
 [[package]]
 name = "udi_pgp_osquery"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "async-trait",
