@@ -3,24 +3,21 @@ on:
     types: [created]
 
 jobs:
-  linux-windows-release:
+  release:
     name: release ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
           - target: x86_64-pc-windows-gnu
             archive: zip
-            os: ubuntu-latest
           - target: x86_64-unknown-linux-musl
             archive: tar.gz tar.xz tar.zst
-            os: ubuntu-latest
           - target: x86_64-apple-darwin
             archive: zip
-            os: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@master
       - name: Compile and release
         uses: rust-build/rust-build.action@v1.4.4
         env:
