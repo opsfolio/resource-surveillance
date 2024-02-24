@@ -1,6 +1,7 @@
-use std::{collections::HashMap, vec};
+use std::{collections::HashMap, net::TcpStream, sync::Arc, vec};
 
 use anyhow::anyhow;
+use rustls::RootCertStore;
 use serde::{Deserialize, Serialize};
 
 use mail_parser::{Message, MessageParser, MimeHeaders, PartType};
@@ -44,10 +45,25 @@ pub struct ImapConfig {
 
 /// Traverses through each mailbox/folder, processes the email and extracts details.
 /// Returns a hashmap containing each folder processed whuich points to all the emails in that folder.
+extern crate imap;
 
 pub fn process_imap(config: &ImapConfig) -> anyhow::Result<HashMap<String, Vec<EmailResource>>> {
-    let tls = native_tls::TlsConnector::builder().build()?;
-    let client = imap::connect((config.addr.clone(), config.port), &config.addr, &tls)?;
+
+    let mut root_store = RootCertStore::empty();
+    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+
+    let mut client_config = rustls::ClientConfig::builder()
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
+    client_config.key_log = Arc::new(rustls::KeyLogFile::new());
+
+    let server_name = config.addr.clone().try_into().unwrap();
+    let mut conn = rustls::ClientConnection::new(Arc::new(client_config), server_name).unwrap();
+    let mut sock = TcpStream::connect(format!("{}:{}", config.addr, config.port)).unwrap();
+    let tls = rustls::Stream::new(&mut conn, &mut sock);
+
+    let client = imap::Client::new(tls);
+
     let mut imap_session = client
         .login(&config.username, &config.password)
         .map_err(|e| e.0)?;

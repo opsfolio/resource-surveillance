@@ -3,21 +3,22 @@ on:
     types: [created]
 
 jobs:
-  release:
+  linux-windows-release:
     name: release ${{ matrix.target }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - target: x86_64-pc-windows-gnu
             archive: zip
+            os: ubuntu-latest
           - target: x86_64-unknown-linux-musl
             archive: tar.gz tar.xz tar.zst
-          - target: x86_64-apple-darwin
-            archive: zip
+            os: ubuntu-latest
+          
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v2
       - name: Compile and release
         uses: rust-build/rust-build.action@v1.4.4
         env:
@@ -26,3 +27,37 @@ jobs:
           RUSTTARGET: ${{ matrix.target }}
           ARCHIVE_TYPES: ${{ matrix.archive }}
           SRC_DIR: "src/surveilr_ux_cli"
+
+  macos-release:
+    name: release x86_64-apple-darwin
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        toolchain: [stable]
+        triple:
+          - { target: x86_64-apple-darwin, cross: false }
+    steps:
+      - uses: actions/checkout@v2
+      - name: Extract Release Version
+        id: release_version
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          override: true
+      - name: Build with Cargo
+        run: |
+          cargo build --release --target ${{ matrix.triple.target }}
+          ./target/${{ matrix.triple.target }}/release/surveilr --help
+          zip -r resource-surveillance_${{github.ref_name}}_${{ matrix.triple.target }}.zip target/${{ matrix.triple.target }}/release/surveilr
+      - name: Upload to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }} # This is the upload URL for the release
+          asset_path: resource-surveillance_${{github.ref_name}}_${{ matrix.triple.target }}.zip
+          asset_name: resource-surveillance_${{github.ref_name}}_${{ matrix.triple.target }}.zip
+          asset_content_type: application/zip

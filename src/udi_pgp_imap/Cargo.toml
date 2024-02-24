@@ -7,7 +7,11 @@ license.workspace = true
 [dependencies]
 serde_json.workspace = true
 serde.workspace = true
-native-tls = "0.2"
-imap = "2.4.1"
 anyhow.workspace = true
 mail-parser = { version = "0.9.2", features = ["serde_support", "full_encoding"] }
+rustls = "0.22.2"
+webpki-roots = "0.26.1"
+
+[dependencies.imap]
+version = "2.4.1"
+default-features = false
