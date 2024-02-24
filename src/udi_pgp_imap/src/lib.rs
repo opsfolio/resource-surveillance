@@ -57,9 +57,9 @@ pub fn process_imap(config: &ImapConfig) -> anyhow::Result<HashMap<String, Vec<E
         .with_no_client_auth();
     client_config.key_log = Arc::new(rustls::KeyLogFile::new());
 
-    let server_name = config.addr.clone().try_into().unwrap();
-    let mut conn = rustls::ClientConnection::new(Arc::new(client_config), server_name).unwrap();
-    let mut sock = TcpStream::connect(format!("{}:{}", config.addr, config.port)).unwrap();
+    let server_name = config.addr.clone().try_into()?;
+    let mut conn = rustls::ClientConnection::new(Arc::new(client_config), server_name)?;
+    let mut sock = TcpStream::connect(format!("{}:{}", config.addr, config.port))?;
     let tls = rustls::Stream::new(&mut conn, &mut sock);
 
     let client = imap::Client::new(tls);
