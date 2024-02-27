@@ -62,7 +62,7 @@ pub async fn execute(cli: &Cli) -> anyhow::Result<()> {
     match &cli.command {
         CliCommands::Admin(args) => admin::Admin::default().execute(args, cli),
         CliCommands::CapturableExec(args) => capexec::CapturableExec::default().execute(cli, args),
-        CliCommands::Ingest(args) => ingest::Ingest::default().execute(cli, args),
+        CliCommands::Ingest(args) => ingest::Ingest::default().execute(cli, args).await,
         CliCommands::Notebooks(args) => notebooks::Notebooks::default().execute(cli, args),
         CliCommands::SQLPage(args) => sql_page::SqlPage::default().execute(args).await,
         CliCommands::Udi(args) => args.execute().await,

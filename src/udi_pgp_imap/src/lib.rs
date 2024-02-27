@@ -6,6 +6,10 @@ use serde::{Deserialize, Serialize};
 
 use mail_parser::{Message, MessageParser, MimeHeaders, PartType};
 
+mod msft;
+
+pub use msft::{MsftAuthServerConfig, MsftConfig, TokenGenerationMethod};
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Attachment {
     filename: String,
@@ -34,20 +38,29 @@ pub struct EmailResource {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ImapConfig {
-    pub username: String,
-    pub password: String,
-    pub addr: String,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub addr: Option<String>,
     pub port: u16,
     pub folders: Vec<String>,
     pub max_no_messages: u64,
     pub extract_attachments: bool,
+    pub msft: Option<MsftConfig>,
 }
 
 /// Traverses through each mailbox/folder, processes the email and extracts details.
 /// Returns a hashmap containing each folder processed whuich points to all the emails in that folder.
 extern crate imap;
 
-pub fn process_imap(config: &ImapConfig) -> anyhow::Result<HashMap<String, Vec<EmailResource>>> {
+pub async fn process_imap(
+    config: &ImapConfig,
+) -> anyhow::Result<HashMap<String, Vec<EmailResource>>> {
+
+    if let Some(msft_config) = &config.msft {
+        msft::device_code::init(msft_config)
+            .await
+            .map_err(|err| anyhow!("{err}"))?;
+    }
 
     let mut root_store = RootCertStore::empty();
     root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
@@ -57,15 +70,15 @@ pub fn process_imap(config: &ImapConfig) -> anyhow::Result<HashMap<String, Vec<E
         .with_no_client_auth();
     client_config.key_log = Arc::new(rustls::KeyLogFile::new());
 
-    let server_name = config.addr.clone().try_into()?;
+    let server_name = config.addr.clone().unwrap().clone().try_into()?;
     let mut conn = rustls::ClientConnection::new(Arc::new(client_config), server_name)?;
-    let mut sock = TcpStream::connect(format!("{}:{}", config.addr, config.port))?;
+    let mut sock = TcpStream::connect(format!("{}:{}", config.addr.clone().unwrap(), config.port))?;
     let tls = rustls::Stream::new(&mut conn, &mut sock);
 
     let client = imap::Client::new(tls);
 
     let mut imap_session = client
-        .login(&config.username, &config.password)
+        .login(&config.username.clone().unwrap(), &config.password.clone().unwrap())
         .map_err(|e| e.0)?;
 
     let mut res = HashMap::new();

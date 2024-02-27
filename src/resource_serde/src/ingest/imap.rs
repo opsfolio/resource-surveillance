@@ -16,7 +16,7 @@ use html_parser::Dom;
 use super::{upserted_device, DbConn};
 
 /// Main entry point for ingesting emails from IMAP.
-pub fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
+pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
     let mut dbc = establish_db_connection(args)?;
     let db_fs_path = &dbc.db_fs_path.clone();
 
@@ -27,7 +27,7 @@ pub fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
     debug!("Imap Session: {ingest_session_id}");
 
     let config: ImapConfig = args.clone().into();
-    let email_resources = fetch_email_resources(&config)?;
+    let email_resources = fetch_email_resources(&config).await?;
 
     {
         let mut ingest_stmts = IngestContext::from_conn(&tx, db_fs_path)
@@ -88,8 +88,8 @@ fn create_ingest_session(tx: &rusqlite::Transaction, device_id: &String) -> Resu
 }
 
 /// Fetches email resources using the IMAP protocol.
-fn fetch_email_resources(config: &ImapConfig) -> Result<HashMap<String, Vec<EmailResource>>> {
-    process_imap(config).with_context(|| "[ingest_imap] Failed to fetch email resources")
+async fn fetch_email_resources(config: &ImapConfig) -> Result<HashMap<String, Vec<EmailResource>>> {
+    process_imap(config).await.with_context(|| "[ingest_imap] Failed to fetch email resources")
 }
 
 /// Processes emails fetched from the IMAP server.

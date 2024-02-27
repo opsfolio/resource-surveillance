@@ -18,7 +18,7 @@ pub struct Ingest {}
 
 impl Ingest {
     #[autometrics]
-    pub fn execute(&self, cli: &super::Cli, args: &IngestArgs) -> anyhow::Result<()> {
+    pub async fn execute(&self, cli: &super::Cli, args: &IngestArgs) -> anyhow::Result<()> {
         match &args.command {
             IngestCommands::Files(ifa) => {
                 if ifa.dry_run {
@@ -28,7 +28,7 @@ impl Ingest {
                 }
             }
             IngestCommands::Tasks(ifa) => self.tasks(cli, ifa),
-            IngestCommands::Imap(ima) => ingest::ingest_imap(ima),
+            IngestCommands::Imap(ima) => ingest::ingest_imap(ima).await,
         }
     }
 
@@ -436,8 +436,8 @@ mod tests {
         Cli::parse_from(args)
     }
 
-    #[test]
-    fn test_dry_run() {
+    #[tokio::test]
+    async fn test_dry_run() {
         let mut fixtures_dir = std::env::current_dir().expect("Failed to get current directory");
         fixtures_dir.push("../../support/test-fixtures");
 
@@ -465,12 +465,12 @@ mod tests {
             &IngestArgs {
                 command: ingest_cmd.clone(),
             },
-        );
+        ).await;
         assert!(res.is_ok());
     }
 
-    #[test]
-    fn test_file_ingestion() {
+    #[tokio::test]
+    async fn test_file_ingestion() {
         let mut fixtures_dir = std::env::current_dir().expect("Failed to get current directory");
         fixtures_dir.push("../../support/test-fixtures");
 
@@ -498,7 +498,7 @@ mod tests {
             &IngestArgs {
                 command: ingest_cmd.clone(),
             },
-        );
+        ).await;
         assert!(res.is_ok());
     }
 }
