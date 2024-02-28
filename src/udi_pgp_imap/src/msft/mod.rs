@@ -1,11 +1,13 @@
-use std::fmt::Display;
-
-use graph_rs_sdk::oauth::OAuth;
+use anyhow::anyhow;
+use graph_rs_sdk::oauth::{AccessToken, OAuth};
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
+use tokio::sync::mpsc;
 use tracing::warn;
 
-pub mod auth_code;
-pub mod device_code;
+mod auth_code;
+mod device_code;
+mod emails;
 
 /// The method for retrieving the access token.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,7 +29,7 @@ impl Display for TokenGenerationMethod {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MsftAuthServerConfig {
+pub struct Microsoft365AuthServerConfig {
     /// Address to bind the server to
     pub addr: String,
     /// Base redirect url. Defaults to `/redirect`
@@ -37,7 +39,7 @@ pub struct MsftAuthServerConfig {
 /// Credentials for Microsoft Graph API.
 /// Enabling `surveilr` to get an `access_token` on behalf of the user.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MsftConfig {
+pub struct Microsoft365Config {
     /// Client ID of the application from MSFT Azure App Directory
     pub client_id: String,
     /// Client Secret of the application from MSFT Azure App Directory
@@ -47,10 +49,10 @@ pub struct MsftConfig {
     /// The mode to generate an access_token. Default is 'DeviceCode'.
     pub mode: TokenGenerationMethod,
     /// Address to start the authentication server on. Used by the redirect_uri
-    pub auth_server: Option<MsftAuthServerConfig>,
+    pub auth_server: Option<Microsoft365AuthServerConfig>,
 }
 
-fn oauth_client(creds: &MsftConfig) -> OAuth {
+fn oauth_client(creds: &Microsoft365Config) -> OAuth {
     let mut oauth = OAuth::new();
     oauth
         .client_id(&creds.client_id)
@@ -78,4 +80,25 @@ fn oauth_client(creds: &MsftConfig) -> OAuth {
         TokenGenerationMethod::DeviceCode => {}
     };
     oauth
+}
+
+pub async fn retrieve_emails(config: &Microsoft365Config) -> anyhow::Result<()> {
+    let access_token = match &config.mode {
+        TokenGenerationMethod::AuthCode => {
+            let (tx, mut rx) = mpsc::channel::<AccessToken>(32);
+
+            let config_clone = config.clone();
+            tokio::spawn(async move {
+                auth_code::init_server(config_clone, tx).await;
+            });
+
+            rx.recv()
+                .await
+                .ok_or_else(|| anyhow!("Failed to receive access token"))?
+        }
+        TokenGenerationMethod::DeviceCode => device_code::init(config)
+            .await
+            .map_err(|err| anyhow!("{err}"))?,
+    };
+    Ok(())
 }

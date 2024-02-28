@@ -7,8 +7,11 @@ use serde::{Deserialize, Serialize};
 use mail_parser::{Message, MessageParser, MimeHeaders, PartType};
 
 mod msft;
+mod app_password;
 
-pub use msft::{MsftAuthServerConfig, MsftConfig, TokenGenerationMethod};
+pub use msft::{Microsoft365AuthServerConfig, Microsoft365Config, TokenGenerationMethod};
+
+use crate::msft::retrieve_emails;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Attachment {
@@ -45,7 +48,7 @@ pub struct ImapConfig {
     pub folders: Vec<String>,
     pub max_no_messages: u64,
     pub extract_attachments: bool,
-    pub msft: Option<MsftConfig>,
+    pub microsoft365: Option<Microsoft365Config>,
 }
 
 /// Traverses through each mailbox/folder, processes the email and extracts details.
@@ -56,10 +59,10 @@ pub async fn process_imap(
     config: &ImapConfig,
 ) -> anyhow::Result<HashMap<String, Vec<EmailResource>>> {
 
-    if let Some(msft_config) = &config.msft {
-        msft::device_code::init(msft_config)
-            .await
-            .map_err(|err| anyhow!("{err}"))?;
+    println!("{:#?}", config);
+
+    if let Some(msft_config) = &config.microsoft365 {
+       retrieve_emails(msft_config).await?;
     }
 
     let mut root_store = RootCertStore::empty();

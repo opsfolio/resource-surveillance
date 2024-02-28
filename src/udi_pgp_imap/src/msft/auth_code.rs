@@ -1,33 +1,24 @@
-use graph_rs_sdk::oauth::{AccessToken, OAuth};
-use graph_rs_sdk::*;
+use std::sync::Arc;
+
+use anyhow::anyhow;
+use graph_rs_sdk::oauth::AccessToken;
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc;
 use warp::Filter;
+
+use crate::msft::oauth_client;
+use crate::Microsoft365Config;
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct AccessCode {
     code: String,
 }
 
-fn oauth_client() -> OAuth {
-    let mut oauth = OAuth::new();
-    oauth
-        .client_id("<YOUR_CLIENT_ID>")
-        .client_secret("<YOUR_CLIENT_SECRET>")
-        .add_scope("files.read")
-        .add_scope("files.readwrite")
-        .add_scope("files.read.all")
-        .add_scope("files.readwrite.all")
-        .add_scope("offline_access")
-        .redirect_uri("http://localhost:8000/redirect")
-        .authorize_url("https://login.microsoftonline.com/common/oauth2/v2.0/authorize")
-        .access_token_url("https://login.microsoftonline.com/common/oauth2/v2.0/token")
-        .refresh_token_url("https://login.microsoftonline.com/common/oauth2/v2.0/token")
-        .response_type("code");
-    oauth
-}
-
-pub async fn set_and_req_access_code(access_code: AccessCode) -> GraphResult<()> {
-    let mut oauth = oauth_client();
+async fn set_and_req_access_code(
+    access_code: AccessCode,
+    config: &Microsoft365Config,
+) -> anyhow::Result<AccessToken> {
+    let mut oauth = oauth_client(config);
     // The response type is automatically set to token and the grant type is automatically
     // set to authorization_code if either of these were not previously set.
     // This is done here as an example.
@@ -46,26 +37,26 @@ pub async fn set_and_req_access_code(access_code: AccessCode) -> GraphResult<()>
         println!("{jwt:#?}");
 
         // Store in OAuth to make requests for refresh tokens.
-        oauth.access_token(access_token);
+        oauth.access_token(access_token.clone());
 
         // If all went well here we can print out the OAuth config with the Access Token.
         println!("{:#?}", &oauth);
+        Ok(access_token)
     } else {
         // See if Microsoft Graph returned an error in the Response body
         let result: reqwest::Result<serde_json::Value> = response.json().await;
 
         match result {
-            Ok(body) => println!("{body:#?}"),
-            Err(err) => println!("Error on deserialization:\n{err:#?}"),
+            Ok(body) => Err(anyhow!("{body:#?}")),
+            Err(err) => Err(anyhow!("Error on deserialization:\n{err:#?}")),
         }
     }
-
-    Ok(())
 }
 
 async fn handle_redirect(
     code_option: Option<AccessCode>,
-) -> Result<Box<dyn warp::Reply>, warp::Rejection> {
+    config: &Microsoft365Config,
+) -> anyhow::Result<AccessToken> {
     match code_option {
         Some(access_code) => {
             // Print out the code for debugging purposes.
@@ -74,39 +65,52 @@ async fn handle_redirect(
             // Set the access code and request an access token.
             // Callers should handle the Result from requesting an access token
             // in case of an error here.
-            set_and_req_access_code(access_code).await;
-
-            // Generic login page response.
-            Ok(Box::new(
-                "Successfully Logged In! You can close your browser.",
-            ))
+            set_and_req_access_code(access_code, config).await
         }
-        None => Err(warp::reject()),
+        None => Err(anyhow!("Could not get access code")),
     }
 }
 
-/// # Example
-/// ```
-/// use graph_rs_sdk::*:
-///
-/// #[tokio::main]
-/// async fn main() {
-///   start_server_main().await;
-/// }
-/// ```
-pub async fn start_server_main() {
+pub async fn init_server(config: Microsoft365Config, tx: mpsc::Sender<AccessToken>) {
+    let config = Arc::new(config);
+
     let query = warp::query::<AccessCode>()
         .map(Some)
         .or_else(|_| async { Ok::<(Option<AccessCode>,), std::convert::Infallible>((None,)) });
 
+    let config_for_routes = config.clone();
+
     let routes = warp::get()
         .and(warp::path("redirect"))
         .and(query)
-        .and_then(handle_redirect);
+        .and_then(move |code| {
+            let config_clone = config_for_routes.clone();
+            let tx_clone = tx.clone(); // Clone the sender for use in the closure
 
-    let mut oauth = oauth_client();
-    let mut request = oauth.build_async().authorization_code_grant();
-    request.browser_authorization().open().unwrap();
+            async move {
+                match handle_redirect(code, &config_clone).await {
+                    Ok(token) => {
+                        if let Err(err) = tx_clone.send(token).await {
+                            eprintln!("Failed to send acccess token accross channel: {err:#?}");
+                        };
+
+                        Ok(Box::new(
+                            "Successfully Logged In! You can close your browser.",
+                        ))
+                    }
+                    Err(_) => Err(warp::reject()),
+                }
+            }
+        });
+
+    let config_for_oauth = config.clone();
+
+    oauth_client(&config_for_oauth)
+        .build_async()
+        .authorization_code_grant()
+        .browser_authorization()
+        .open()
+        .expect("Failed to open browser for OAuth");
 
     warp::serve(routes).run(([127, 0, 0, 1], 8000)).await;
 }

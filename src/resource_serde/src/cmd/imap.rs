@@ -1,26 +1,26 @@
 use clap::{Args, Subcommand, ValueEnum};
 use serde::Serialize;
-use udi_pgp_imap::{ImapConfig, MsftAuthServerConfig, MsftConfig};
+use udi_pgp_imap::{ImapConfig, Microsoft365AuthServerConfig, Microsoft365Config};
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 
 #[derive(Debug, Serialize, Clone, ValueEnum, Default)]
-pub enum MsftAuthMethod {
+pub enum Microsoft365AuthMethod {
     AuthCode,
     #[default]
     DeviceCode,
 }
 
 #[derive(Debug, Serialize, Args, Clone)]
-pub struct MsftSericeArgs {
+pub struct Microsoft365ServiceArgs {
     /// Client ID of the application from MSFT Azure App Directory
-    #[arg(short = 'i', long)]
+    #[arg(short = 'i', long, env = "MICROSOFT_365_CLIENT_ID")]
     pub client_id: String,
     /// Client Secret of the application from MSFT Azure App Directory
-    #[arg(short = 's', long)]
+    #[arg(short = 's', long, env = "MICROSOFT_365_CLIENT_SECRET")]
     pub client_secret: String,
     /// The mode to generate an access_token. Default is 'DeviceCode'.
     #[arg(short = 'm', long)]
-    pub mode: MsftAuthMethod,
+    pub mode: Microsoft365AuthMethod,
     /// Address to start the authentication server on, when using the `auth_code` mode for token generation.
     #[arg(short = 'a', long, default_value = "http://127.0.0.1:8000")]
     pub addr: Option<String>,
@@ -33,7 +33,9 @@ pub struct MsftSericeArgs {
 /// Email services that require oauth or a more complicated workflow
 #[derive(Debug, Serialize, Subcommand, Clone)]
 pub enum ServiceCommands {
-    Msft(MsftSericeArgs),
+    /// Microsoft 365 Credentials
+    #[clap(name = "microsoft-365")]
+    Microsoft365(Microsoft365ServiceArgs),
 }
 
 #[derive(Debug, Serialize, Clone, ValueEnum, Default)]
@@ -103,14 +105,14 @@ impl From<IngestImapArgs> for ImapConfig {
             folders: value.folders,
             max_no_messages: value.max_no_messages,
             extract_attachments: value.extract_attachments,
-            msft: {
+            microsoft365: {
                 if let Some(service_cmds) = value.command {
                     match service_cmds {
-                        ServiceCommands::Msft(config) => {
+                        ServiceCommands::Microsoft365(config) => {
                             let (server, redirect_uri) = match (config.addr, config.redirect_uri) {
                                 (Some(a), Some(r)) => {
                                     let full_redirect_url = format!("{a}{r}");
-                                    let server_config = MsftAuthServerConfig {
+                                    let server_config = Microsoft365AuthServerConfig {
                                         addr: a,
                                         base_url: r,
                                     };
@@ -119,16 +121,16 @@ impl From<IngestImapArgs> for ImapConfig {
                                 _ => (None, None),
                             };
 
-                            let msft_config = MsftConfig {
+                            let msft_config = Microsoft365Config {
                                 client_id: config.client_id,
                                 client_secret: config.client_secret,
                                 redirect_uri,
                                 mode: {
                                     match config.mode {
-                                        MsftAuthMethod::AuthCode => {
+                                        Microsoft365AuthMethod::AuthCode => {
                                             udi_pgp_imap::TokenGenerationMethod::AuthCode
                                         }
-                                        MsftAuthMethod::DeviceCode => {
+                                        Microsoft365AuthMethod::DeviceCode => {
                                             udi_pgp_imap::TokenGenerationMethod::DeviceCode
                                         }
                                     }

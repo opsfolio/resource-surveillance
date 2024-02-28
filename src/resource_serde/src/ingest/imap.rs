@@ -117,7 +117,7 @@ fn process_emails(
                 hasher.update(text.as_bytes());
                 format!("{:x}", hasher.finalize())
             };
-            let uri = format!("smtp://{}/{}", config.username, email.message_id);
+            let uri = format!("smtp://{}/{}", config.username.clone().unwrap(), email.message_id);
 
             // 4. get all the attachments and do the same
 

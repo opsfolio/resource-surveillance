@@ -4,13 +4,13 @@ use std::time::Duration;
 
 use crate::msft::oauth_client;
 
-use super::MsftConfig;
+use super::Microsoft365Config;
 
 async fn poll_for_access_token(
     device_code: &str,
     interval: u64,
     message: &str,
-    config: &MsftConfig,
+    config: &Microsoft365Config,
 ) -> GraphResult<serde_json::Value> {
     let mut oauth = oauth_client(config);
     oauth.device_code(device_code);
@@ -64,7 +64,7 @@ async fn poll_for_access_token(
     Ok(body)
 }
 
-pub async fn init(config: &MsftConfig) -> GraphResult<()> {
+pub async fn init(config: &Microsoft365Config) -> GraphResult<AccessToken> {
     let mut oauth = oauth_client(config);
 
     let mut handler = oauth.build_async().device_code();
@@ -101,7 +101,7 @@ pub async fn init(config: &MsftConfig) -> GraphResult<()> {
     println!("{access_token:#?}");
 
     // Get a refresh token. First pass the access token to the oauth instance.
-    oauth.access_token(access_token);
+    oauth.access_token(access_token.clone());
     let mut handler = oauth.build_async().device_code();
 
     let response = handler.refresh_token().send().await?;
@@ -110,5 +110,5 @@ pub async fn init(config: &MsftConfig) -> GraphResult<()> {
     let body: serde_json::Value = response.json().await?;
     println!("{body:#?}");
 
-    Ok(())
+    Ok(access_token)
 }
