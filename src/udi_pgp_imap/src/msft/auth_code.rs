@@ -4,6 +4,7 @@ use anyhow::anyhow;
 use graph_rs_sdk::oauth::AccessToken;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
+use tracing::{debug, error};
 use warp::Filter;
 
 use crate::msft::oauth_client;
@@ -19,28 +20,25 @@ async fn set_and_req_access_code(
     config: &Microsoft365Config,
 ) -> anyhow::Result<AccessToken> {
     let mut oauth = oauth_client(config);
-    // The response type is automatically set to token and the grant type is automatically
-    // set to authorization_code if either of these were not previously set.
-    // This is done here as an example.
     oauth.access_code(access_code.code.as_str());
     let mut request = oauth.build_async().authorization_code_grant();
 
     // Returns reqwest::Response
     let response = request.access_token().send().await?;
-    println!("{response:#?}");
+    debug!("{response:#?}");
 
     if response.status().is_success() {
         let mut access_token: AccessToken = response.json().await?;
 
         // Option<&JsonWebToken>
         let jwt = access_token.jwt();
-        println!("{jwt:#?}");
+        debug!("{jwt:#?}");
 
         // Store in OAuth to make requests for refresh tokens.
         oauth.access_token(access_token.clone());
 
         // If all went well here we can print out the OAuth config with the Access Token.
-        println!("{:#?}", &oauth);
+        debug!("{:#?}", &oauth);
         Ok(access_token)
     } else {
         // See if Microsoft Graph returned an error in the Response body
@@ -60,11 +58,7 @@ async fn handle_redirect(
     match code_option {
         Some(access_code) => {
             // Print out the code for debugging purposes.
-            println!("{access_code:#?}");
-
-            // Set the access code and request an access token.
-            // Callers should handle the Result from requesting an access token
-            // in case of an error here.
+            debug!("{access_code:#?}");
             set_and_req_access_code(access_code, config).await
         }
         None => Err(anyhow!("Could not get access code")),
@@ -91,7 +85,7 @@ pub async fn init_server(config: Microsoft365Config, tx: mpsc::Sender<AccessToke
                 match handle_redirect(code, &config_clone).await {
                     Ok(token) => {
                         if let Err(err) = tx_clone.send(token).await {
-                            eprintln!("Failed to send acccess token accross channel: {err:#?}");
+                            error!("Failed to send acccess token accross channel: {err:#?}");
                         };
 
                         Ok(Box::new(
@@ -112,5 +106,10 @@ pub async fn init_server(config: Microsoft365Config, tx: mpsc::Sender<AccessToke
         .open()
         .expect("Failed to open browser for OAuth");
 
-    warp::serve(routes).run(([127, 0, 0, 1], 8000)).await;
+    let port = config.auth_server.clone().unwrap().port;
+    println!(
+        "Microsoft 365 Oauth Server Listening on: http://127.0.0.1:{}",
+        port
+    );
+    warp::serve(routes).run(([127, 0, 0, 1], port)).await;
 }

@@ -6742,6 +6742,7 @@ name = "udi_pgp_imap"
 version = "0.5.5"
 dependencies = [
  "anyhow",
+ "futures-util",
  "graph-rs-sdk",
  "imap",
  "mail-parser",

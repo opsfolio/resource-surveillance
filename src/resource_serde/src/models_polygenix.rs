@@ -168,9 +168,9 @@ pub struct UrIngestSessionTask {
 pub struct UrIngestSessionImapAccount {
     ur_ingest_session_imap_account_id: String, // PRIMARY KEY ('string' maps directly to Rust type)
     ingest_session_id: String, // 'string' maps directly to Rust type
-    email: String, // 'string' maps directly to Rust type
-    password: String, // 'string' maps directly to Rust type
-    host: String, // 'string' maps directly to Rust type
+    email: Option<String>, // 'string' maps directly to Rust type
+    password: Option<String>, // 'string' maps directly to Rust type
+    host: Option<String>, // 'string' maps directly to Rust type
     elaboration: Option<String>, // uknown type 'string::json', mapping to String by default
     ur_ingest_session_imap_acct_folders: Vec<UrIngestSessionImapAcctFolder>, // `ur_ingest_session_imap_acct_folder` belongsTo collection
 }

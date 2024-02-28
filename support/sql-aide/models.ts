@@ -450,9 +450,9 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       ur_ingest_session_imap_account_id: gm.keys.varCharPrimaryKey(),
       ingest_session_id: urIngestSession.belongsTo
         .ur_ingest_session_id(),
-      email: gd.text(),
-      password: gd.text(),
-      host: gd.text(),
+      email: gd.textNullable(),
+      password: gd.textNullable(),
+      host: gd.textNullable(),
       elaboration: gd.jsonTextNullable(),
       ...gm.housekeeping.columns,
     },

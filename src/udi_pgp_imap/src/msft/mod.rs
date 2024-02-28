@@ -1,9 +1,11 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use graph_rs_sdk::oauth::{AccessToken, OAuth};
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 use tokio::sync::mpsc;
 use tracing::warn;
+
+use crate::{EmailResource, ImapConfig};
 
 mod auth_code;
 mod device_code;
@@ -34,6 +36,8 @@ pub struct Microsoft365AuthServerConfig {
     pub addr: String,
     /// Base redirect url. Defaults to `/redirect`
     pub base_url: String,
+    /// Port to start the server on
+    pub port: u16
 }
 
 /// Credentials for Microsoft Graph API.
@@ -82,12 +86,15 @@ fn oauth_client(creds: &Microsoft365Config) -> OAuth {
     oauth
 }
 
-pub async fn retrieve_emails(config: &Microsoft365Config) -> anyhow::Result<()> {
-    let access_token = match &config.mode {
+pub async fn retrieve_emails(
+    msft_365_config: &Microsoft365Config,
+    imap_config: &ImapConfig,
+) -> anyhow::Result<HashMap<String, Vec<EmailResource>>> {
+    let access_token = match &msft_365_config.mode {
         TokenGenerationMethod::AuthCode => {
             let (tx, mut rx) = mpsc::channel::<AccessToken>(32);
 
-            let config_clone = config.clone();
+            let config_clone = msft_365_config.clone();
             tokio::spawn(async move {
                 auth_code::init_server(config_clone, tx).await;
             });
@@ -96,9 +103,11 @@ pub async fn retrieve_emails(config: &Microsoft365Config) -> anyhow::Result<()> 
                 .await
                 .ok_or_else(|| anyhow!("Failed to receive access token"))?
         }
-        TokenGenerationMethod::DeviceCode => device_code::init(config)
+        TokenGenerationMethod::DeviceCode => device_code::init(msft_365_config)
             .await
             .map_err(|err| anyhow!("{err}"))?,
     };
-    Ok(())
+    emails::fetch_emails_from_graph_api(&access_token, imap_config)
+        .await
+        .with_context(|| "[ingest_imap]: microsoft_365. Failed to fetch emails from graph api")
 }

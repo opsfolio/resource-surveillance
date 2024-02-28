@@ -359,9 +359,9 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_task" (
 CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_account" (
     "ur_ingest_session_imap_account_id" VARCHAR PRIMARY KEY NOT NULL,
     "ingest_session_id" VARCHAR NOT NULL,
-    "email" TEXT NOT NULL,
-    "password" TEXT NOT NULL,
-    "host" TEXT NOT NULL,
+    "email" TEXT,
+    "password" TEXT,
+    "host" TEXT,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
@@ -419,7 +419,7 @@ CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_task__ingest_session_id" ON "u
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_acct_folder__ingest_session_id__folder_name" ON "ur_ingest_session_imap_acct_folder"("ingest_session_id", "folder_name");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_acct_folder_message__ingest_session_id" ON "ur_ingest_session_imap_acct_folder_message"("ingest_session_id");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_account__ingest_session_id__email" ON "ur_ingest_session_imap_account"("ingest_session_id", "email");
-', '3060cb84322e26876b5e09105b31afff6705931d', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', 'd042ea9094d63f87ca1c7021deecdad716db62d0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -1092,9 +1092,9 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_task" (
 CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_account" (
     "ur_ingest_session_imap_account_id" VARCHAR PRIMARY KEY NOT NULL,
     "ingest_session_id" VARCHAR NOT NULL,
-    "email" TEXT NOT NULL,
-    "password" TEXT NOT NULL,
-    "host" TEXT NOT NULL,
+    "email" TEXT,
+    "password" TEXT,
+    "host" TEXT,
     "elaboration" TEXT CHECK(json_valid(elaboration) OR elaboration IS NULL),
     "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
@@ -1213,7 +1213,7 @@ CREATE VIEW IF NOT EXISTS "ur_ingest_session_files_stats" AS
         device_id,
         ingest_session_finished_at,
         file_extension;
-      ', 'ba57957e49177311d77a0f9b46de0610e26a699f', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', 'c0e000c58acc1ccd0a56cd95e5bd0acf29b84ac3', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -1375,9 +1375,9 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
     * **ur_ingest_session_imap_account_id**: VARCHAR
     --
     * ingest_session_id: VARCHAR
-    * email: TEXT
-    * password: TEXT
-    * host: TEXT
+      email: TEXT
+      password: TEXT
+      host: TEXT
       elaboration: TEXT
     --
     urIngestSessionImapAcctFolders: UrIngestSessionImapAcctFolder[]
@@ -1424,7 +1424,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   ur_ingest_session |o..o{ ur_ingest_session_imap_acct_folder_message
   ur_ingest_session_imap_acct_folder |o..o{ ur_ingest_session_imap_acct_folder_message
   uniform_resource |o..o{ ur_ingest_session_imap_acct_folder_message
-@enduml', '45d90d30e109ed78a98c47ce8612b3610680e7b5', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', 'a4a4a6badf1a8d473f047fb9333dafa063989432', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,

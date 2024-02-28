@@ -1,13 +1,12 @@
 use std::{collections::HashMap, net::TcpStream, sync::Arc, vec};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use rustls::RootCertStore;
 use serde::{Deserialize, Serialize};
 
 use mail_parser::{Message, MessageParser, MimeHeaders, PartType};
 
 mod msft;
-mod app_password;
 
 pub use msft::{Microsoft365AuthServerConfig, Microsoft365Config, TokenGenerationMethod};
 
@@ -59,10 +58,10 @@ pub async fn process_imap(
     config: &ImapConfig,
 ) -> anyhow::Result<HashMap<String, Vec<EmailResource>>> {
 
-    println!("{:#?}", config);
-
     if let Some(msft_config) = &config.microsoft365 {
-       retrieve_emails(msft_config).await?;
+        return retrieve_emails(msft_config, config)
+            .await
+            .with_context(|| "[ingest_imap]: microsoft_365. Failed to retrieve emails")
     }
 
     let mut root_store = RootCertStore::empty();
@@ -81,7 +80,10 @@ pub async fn process_imap(
     let client = imap::Client::new(tls);
 
     let mut imap_session = client
-        .login(&config.username.clone().unwrap(), &config.password.clone().unwrap())
+        .login(
+            &config.username.clone().unwrap(),
+            &config.password.clone().unwrap(),
+        )
         .map_err(|e| e.0)?;
 
     let mut res = HashMap::new();

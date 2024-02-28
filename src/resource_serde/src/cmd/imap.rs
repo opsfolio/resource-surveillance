@@ -28,6 +28,9 @@ pub struct Microsoft365ServiceArgs {
     /// when using the `auth_code` mode for token generation.
     #[arg(short = 'r', long, default_value = "/redirect")]
     pub redirect_uri: Option<String>,
+    /// Port to bind the server to
+    #[arg(short = 'p', long, default_value = "8000")]
+    pub port: u16,
 }
 
 /// Email services that require oauth or a more complicated workflow
@@ -115,6 +118,7 @@ impl From<IngestImapArgs> for ImapConfig {
                                     let server_config = Microsoft365AuthServerConfig {
                                         addr: a,
                                         base_url: r,
+                                        port: config.port
                                     };
                                     (Some(server_config), Some(full_redirect_url))
                                 }

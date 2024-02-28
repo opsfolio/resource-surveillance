@@ -154,9 +154,9 @@
     * **ur_ingest_session_imap_account_id**: VARCHAR
     --
     * ingest_session_id: VARCHAR
-    * email: TEXT
-    * password: TEXT
-    * host: TEXT
+      email: TEXT
+      password: TEXT
+      host: TEXT
       elaboration: TEXT
     --
     urIngestSessionImapAcctFolders: UrIngestSessionImapAcctFolder[]
