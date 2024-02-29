@@ -1,5 +1,5 @@
 use graph_rs_sdk::oauth::AccessToken;
-use graph_rs_sdk::GraphResult;
+use graph_rs_sdk::{GraphFailure, GraphResult};
 use std::time::Duration;
 
 use crate::msft::oauth_client;
@@ -18,12 +18,9 @@ async fn poll_for_access_token(
     let mut request = oauth.build_async().device_code();
     let response = request.access_token().send().await?;
 
-    println!("{response:#?}");
-
     let status = response.status();
 
     let body: serde_json::Value = response.json().await?;
-    println!("{body:#?}");
 
     if !status.is_success() {
         loop {
@@ -33,12 +30,11 @@ async fn poll_for_access_token(
             let response = request.access_token().send().await?;
 
             let status = response.status();
-            println!("{response:#?}");
 
             let body: serde_json::Value = response.json().await?;
-            println!("{body:#?}");
 
             if status.is_success() {
+                println!("Signed in successfully");
                 return Ok(body);
             } else {
                 let option_error = body["error"].as_str();
@@ -55,7 +51,7 @@ async fn poll_for_access_token(
                     }
                 } else {
                     // Body should have error or we should bail.
-                    panic!("Crap hit the fan");
+                    panic!("Something went wrong. Please try to sign in again");
                 }
             }
         }
@@ -70,9 +66,15 @@ pub async fn init(config: &Microsoft365Config) -> GraphResult<AccessToken> {
     let mut handler = oauth.build_async().device_code();
     let response = handler.authorization().send().await?;
 
-    println!("{:#?}", response);
     let json: serde_json::Value = response.json().await?;
-    println!("{:#?}", json);
+
+    if let Some(err) = json["error_description"].as_str() {
+        return Err(GraphFailure::Default {
+            url: None,
+            headers: None,
+            message: err.to_string(),
+        });
+    }
 
     let device_code = json["device_code"].as_str().unwrap();
     let interval = json["interval"].as_u64().unwrap();
@@ -98,17 +100,14 @@ pub async fn init(config: &Microsoft365Config) -> GraphResult<AccessToken> {
     // the user has entered the code and signed in.
     let access_token_json = poll_for_access_token(device_code, interval, message, config).await?;
     let access_token: AccessToken = serde_json::from_value(access_token_json)?;
-    println!("{access_token:#?}");
 
     // Get a refresh token. First pass the access token to the oauth instance.
     oauth.access_token(access_token.clone());
     let mut handler = oauth.build_async().device_code();
 
     let response = handler.refresh_token().send().await?;
-    println!("{response:#?}");
 
-    let body: serde_json::Value = response.json().await?;
-    println!("{body:#?}");
+    let _body: serde_json::Value = response.json().await?;
 
     Ok(access_token)
 }

@@ -37,7 +37,7 @@ pub struct Microsoft365AuthServerConfig {
     /// Base redirect url. Defaults to `/redirect`
     pub base_url: String,
     /// Port to start the server on
-    pub port: u16
+    pub port: u16,
 }
 
 /// Credentials for Microsoft Graph API.
@@ -60,12 +60,10 @@ fn oauth_client(creds: &Microsoft365Config) -> OAuth {
     let mut oauth = OAuth::new();
     oauth
         .client_id(&creds.client_id)
-        .client_secret(&creds.client_secret)
         .add_scope("files.read")
         .add_scope("Mail.Read")
         .add_scope("User.Read")
         .add_scope("offline_access")
-        .authorize_url("https://login.microsoftonline.com/common/oauth2/v2.0/authorize")
         .access_token_url("https://login.microsoftonline.com/common/oauth2/v2.0/token")
         .refresh_token_url("https://login.microsoftonline.com/common/oauth2/v2.0/token");
 
@@ -75,13 +73,17 @@ fn oauth_client(creds: &Microsoft365Config) -> OAuth {
                 // can safely unwrap here
                 let server_config = creds.auth_server.as_ref().unwrap();
                 oauth
+                    .client_secret(&creds.client_secret)
+                    .authorize_url("https://login.microsoftonline.com/common/oauth2/v2.0/authorize")
                     .response_type("code")
                     .redirect_uri(&format!("{}{}", server_config.addr, server_config.base_url));
             } else {
                 warn!("The authenctication mode is auth code grant, but no server config was supplied");
             }
         }
-        TokenGenerationMethod::DeviceCode => {}
+        TokenGenerationMethod::DeviceCode => {
+            oauth.authorize_url("https://login.microsoftonline.com/common/oauth2/v2.0/devicecode");
+        }
     };
     oauth
 }
