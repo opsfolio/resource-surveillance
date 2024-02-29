@@ -56,6 +56,7 @@ impl Admin {
                 // test_args.command.execute(cli, args, test_args)
                 AdminTest::new().execute(cli, args, test_args)
             }
+            AdminCommands::Credentials(creds) => self.credentials(&creds.command),
         }
     }
 
@@ -227,6 +228,35 @@ impl Admin {
                 Some(sql_script.as_str()),
             )
         }
+    }
+
+    fn credentials(&self, cmd: &CredentialsCommands) -> anyhow::Result<()> {
+        match cmd {
+            CredentialsCommands::Microsoft365 {
+                client_id,
+                client_secret,
+                redirect_uri,
+                env,
+                export,
+            } => {
+                if *env {
+                    println!("MICROSOFT_365_CLIENT_ID={client_id}");
+                    println!("MICROSOFT_365_CLIENT_SECRET={client_secret}");
+                    if let Some(url) = redirect_uri {
+                        println!("MICROSOFT_365_CLIENT_REDIRECT_URI={url}")
+                    }
+                }
+
+                if *export {
+                    println!("export MICROSOFT_365_CLIENT_ID={client_id}");
+                    println!("export MICROSOFT_365_CLIENT_SECRET={client_secret}");
+                    if let Some(url) = redirect_uri {
+                        println!("export MICROSOFT_365_CLIENT_REDIRECT_URI={url}")
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 }
 

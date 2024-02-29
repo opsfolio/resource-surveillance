@@ -11,6 +11,8 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr admin cli-help-md`↴](#surveilr-admin-cli-help-md)
 * [`surveilr admin test`↴](#surveilr-admin-test)
 * [`surveilr admin test classifiers`↴](#surveilr-admin-test-classifiers)
+* [`surveilr admin credentials`↴](#surveilr-admin-credentials)
+* [`surveilr admin credentials microsoft-365`↴](#surveilr-admin-credentials-microsoft-365)
 * [`surveilr capturable-exec`↴](#surveilr-capturable-exec)
 * [`surveilr capturable-exec ls`↴](#surveilr-capturable-exec-ls)
 * [`surveilr capturable-exec test`↴](#surveilr-capturable-exec-test)
@@ -20,6 +22,7 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr ingest files`↴](#surveilr-ingest-files)
 * [`surveilr ingest tasks`↴](#surveilr-ingest-tasks)
 * [`surveilr ingest imap`↴](#surveilr-ingest-imap)
+* [`surveilr ingest imap microsoft-365`↴](#surveilr-ingest-imap-microsoft-365)
 * [`surveilr notebooks`↴](#surveilr-notebooks)
 * [`surveilr notebooks cat`↴](#surveilr-notebooks-cat)
 * [`surveilr notebooks ls`↴](#surveilr-notebooks-ls)
@@ -70,6 +73,7 @@ Admin / maintenance utilities
 * `merge` — merge multiple surveillance state databases into a single one
 * `cli-help-md` — generate CLI help markdown
 * `test` — generate CLI help markdown
+* `credentials` — emit credentials
 
 
 
@@ -156,6 +160,40 @@ test capturable executables files
   Default value: `resource-surveillance.sqlite.db`
 * `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
 * `--builtins` — only show the builtins, not from the database
+
+  Possible values: `true`, `false`
+
+
+
+
+## `surveilr admin credentials`
+
+emit credentials
+
+**Usage:** `surveilr admin credentials <COMMAND>`
+
+###### **Subcommands:**
+
+* `microsoft-365` — microsoft 365 credentials
+
+
+
+## `surveilr admin credentials microsoft-365`
+
+microsoft 365 credentials
+
+**Usage:** `surveilr admin credentials microsoft-365 [OPTIONS] --client-id <CLIENT_ID> --client-secret <CLIENT_SECRET>`
+
+###### **Options:**
+
+* `-i`, `--client-id <CLIENT_ID>` — Client ID of the application from MSFT Azure App Directory
+* `-s`, `--client-secret <CLIENT_SECRET>` — Client Secret of the application from MSFT Azure App Directory
+* `-r`, `--redirect-uri <REDIRECT_URI>` — Redirect URL. Base redirect URL path. It gets concatenated with the server address to form the full redirect url, when using the `auth_code` mode for token generation
+* `--env` — Emit values to stdout
+
+  Possible values: `true`, `false`
+
+* `--export` — Emit values to stdout with the "export" syntax right in front to enable direct sourcing
 
   Possible values: `true`, `false`
 
@@ -316,7 +354,11 @@ Notebooks maintenance utilities
 
 Ingest content from email boxes
 
-**Usage:** `surveilr ingest imap [OPTIONS] --username <USERNAME> --password <PASSWORD> --server-addr <SERVER_ADDR>`
+**Usage:** `surveilr ingest imap [OPTIONS] [COMMAND]`
+
+###### **Subcommands:**
+
+* `microsoft-365` — Microsoft 365 Credentials
 
 ###### **Options:**
 
@@ -342,6 +384,38 @@ Ingest content from email boxes
 * `-m`, `--max-no-messages <MAX_NO_MESSAGES>` — Maximum number of messages to be ingested
 
   Default value: `100`
+* `-e`, `--extract-attachments` — Extract Attachments
+
+  Default value: `true`
+
+  Possible values: `true`, `false`
+
+
+
+
+## `surveilr ingest imap microsoft-365`
+
+Microsoft 365 Credentials
+
+**Usage:** `surveilr ingest imap microsoft-365 [OPTIONS] --client-id <CLIENT_ID> --client-secret <CLIENT_SECRET> --mode <MODE>`
+
+###### **Options:**
+
+* `-i`, `--client-id <CLIENT_ID>` — Client ID of the application from MSFT Azure App Directory
+* `-s`, `--client-secret <CLIENT_SECRET>` — Client Secret of the application from MSFT Azure App Directory
+* `-m`, `--mode <MODE>` — The mode to generate an access_token. Default is 'DeviceCode'
+
+  Possible values: `auth-code`, `device-code`
+
+* `-a`, `--addr <ADDR>` — Address to start the authentication server on, when using the `auth_code` mode for token generation
+
+  Default value: `http://127.0.0.1:8000`
+* `-r`, `--redirect-uri <REDIRECT_URI>` — Redirect URL. Base redirect URL path. It gets concatenated with the server address to form the full redirect url, when using the `auth_code` mode for token generation
+
+  Default value: `/redirect`
+* `-p`, `--port <PORT>` — Port to bind the server to
+
+  Default value: `8000`
 
 
 

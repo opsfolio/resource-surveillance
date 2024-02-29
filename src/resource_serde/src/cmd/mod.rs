@@ -68,6 +68,40 @@ pub enum AdminCommands {
 
     /// generate CLI help markdown
     Test(AdminTestArgs),
+
+    /// emit credentials
+    Credentials(CredentialArgs),
+}
+
+/// Credentials for several services used in surveilr
+#[derive(Debug, Serialize, Args, Clone)]
+pub struct CredentialArgs {
+    #[command(subcommand)]
+    pub command: CredentialsCommands,
+}
+
+#[derive(Debug, Serialize, Subcommand, Clone)]
+pub enum CredentialsCommands {
+    #[clap(name = "microsoft-365")]
+    /// microsoft 365 credentials
+    Microsoft365 {
+        /// Client ID of the application from MSFT Azure App Directory
+        #[arg(short = 'i', long)]
+        client_id: String,
+        /// Client Secret of the application from MSFT Azure App Directory
+        #[arg(short = 's', long)]
+        client_secret: String,
+        /// Redirect URL. Base redirect URL path. It gets concatenated with the server address to form the full redirect url,
+        /// when using the `auth_code` mode for token generation.
+        #[arg(short = 'r', long)]
+        redirect_uri: Option<String>,
+        /// Emit values to stdout
+        #[arg(long)]
+        env: bool,
+        /// Emit values to stdout with the "export" syntax right in front to enable direct sourcing
+        #[arg(long)]
+        export: bool,
+    },
 }
 
 /// Capturable Executables (CE) assurance tools
