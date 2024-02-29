@@ -391,6 +391,48 @@ $ surveilr ingest imap -u user@outlook.com -p 'apppassword' -a "outlook.office36
 $ surveilr ingest imap -u user@gmail.com -p 'apppassword' -a "imap.gmail.com" -f INBOX --max-no-messages=10000
 ```
 
+## Microsoft 365
+For enterprise Microsoft accounts, app passwords have been disabled and emails can only be accessed through an oauth method. `surveilr` now supports signing in to an enterprise account through two main methods.
+
+**Note**: Before utilizing the new authentication methods, you'll need to register an application in the Azure App Directory. This process involves generating a `client_id` and `client_secret`, which are essential for authenticating with Microsoft 365.
+  - Navigate to your Azure console and access the Azure App Directory.
+  - Create a new application registration.
+  - If you intend to use the Device Code method on headless devices, ensure the application is configured to support them.
+
+### Authentication Methods
+Surveilr supports two primary methods for signing into your enterprise account:
+
+1. **Authentication Code**: Ideal for scenarios where `surveilr` is running on a device with browser access. This method involves Surveilr initiating an authentication process in a browser, facilitating the secure login and subsequent email fetching from the Microsoft 365 inbox.
+
+- When setting up the redirect_uri in Azure, it must match the one used in Surveilr and adhere to HTTPS protocols.
+- For local or demonstration purposes, tools like ngrok or nginx can be used to proxy requests to the designated port.
+
+```bash
+surveilr ingest imap microsoft-365 -i="<client_id>" -s="<client_secret>" -m auth-code -a "https://641c92d93b6f.ngrok.app"
+```
+In the event that you don't want to pass your credentials in the terminal, `surveilr` provides a utility command to emit the credentials and then you can source them into your current shell.
+```bash
+$ surveilr admin credentials microsoft-365 -i="<client_id>" -s"<client_secret>" -r="https://641c92d93b6f.ngrok.app" --env ## Prints the credentials to stdout
+```
+
+```bash
+$ surveilr admin credentials microsoft-365 -i="<client_id>" -s"<client_secret>" -r="https://641c92d93b6f.ngrok.app" --export | source  ## adds the credentials as env variables to the current shell execution
+```
+then
+```bash
+surveilr ingest imap microsoft-365 -m auth-code
+```
+
+2. **Device Code**: Provides a user-friendly way to authenticate without direct browser access on the host machine. This method displays a code and URL, prompting the user to manually complete the authentication process.
+
+```bash
+surveilr ingest imap microsoft-365 -i="<client_id>" -m device-code
+```
+If you've added the credntials to the current shell:
+```bash
+surveilr ingest imap microsoft-365 -m device-code
+```
+
 ## Database Documentation
 
 - [SQLite State Schema Documentation](support/docs/surveilr-state-schema/README.md)
