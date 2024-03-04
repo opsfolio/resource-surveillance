@@ -1,5 +1,6 @@
 use graph_rs_sdk::oauth::AccessToken;
 use graph_rs_sdk::{GraphFailure, GraphResult};
+use std::process::exit;
 use std::time::Duration;
 
 use crate::msft::oauth_client;
@@ -46,7 +47,8 @@ async fn poll_for_access_token(
                         "bad_verification_code" => println!("User is lost\n{message:#?}"),
                         "expired_token" => panic!("token has expired - user did not sign in"),
                         _ => {
-                            panic!("This isn't the error we expected: {error:#?}");
+                            eprintln!("This isn't the error we expected: {error:#?}");
+                            exit(1);
                         }
                     }
                 } else {

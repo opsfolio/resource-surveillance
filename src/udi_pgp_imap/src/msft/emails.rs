@@ -4,7 +4,6 @@ use crate::{EmailResource, ImapConfig};
 use anyhow::Context;
 use graph_rs_sdk::{oauth::AccessToken, Graph, ODataQuery};
 use serde::{Deserialize, Serialize};
-use tracing::warn;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -105,10 +104,12 @@ impl TryFrom<Message> for EmailResource {
 
 pub async fn fetch_emails_from_graph_api(
     token: &AccessToken,
-    config: &ImapConfig,
+    config: &mut ImapConfig,
 ) -> anyhow::Result<HashMap<String, Vec<EmailResource>>> {
     let client = Graph::new(token.bearer_token());
 
+    // FIXME: handle selecting the specified folder name
+    // check the graph API
     let res = client
         .me()
         .mail_folders()
@@ -124,36 +125,23 @@ pub async fn fetch_emails_from_graph_api(
         .await
         .with_context(|| "[ingest_imap]: microsoft_365. Deserializing mail folders failed")?;
 
-    let mail_folders = mail_folders_res.mail_folders;
-
-    let fetched_folder_names: Vec<String> = mail_folders
+    config.mailboxes = mail_folders_res
+        .mail_folders
         .clone()
         .into_iter()
         .map(|f| f.display_name.to_lowercase())
         .collect();
 
-    let mut folders_to_be_used = Vec::new();
-    for folder_name in &config.folders {
-        if !fetched_folder_names.contains(&folder_name.to_lowercase()) {
-            warn!(
-                "Warning: The folder name '{}' does not exist. The default 'INBOX' will be used.",
-                folder_name
-            );
-        } else {
-            folders_to_be_used.push(folder_name)
-        }
-    }
-
     let mut emails = HashMap::new();
-    for folder in folders_to_be_used {
+    for folder in &config.mailboxes {
         let res = client
             .me()
             .mail_folder(folder)
             .messages()
             .list_messages()
-            .top(config.max_no_messages.to_string())
+            .top(config.batch_size.to_string())
             .send().await
-            .with_context(|| format!("[ingest_imap]: microsoft_365. Failed to get {:#?} number of emails in the {} folder", config.max_no_messages, folder))?;
+            .with_context(|| format!("[ingest_imap]: microsoft_365. Failed to get {:#?} number of emails in the {} folder", config.batch_size, folder))?;
 
         let messages_list: MessageList = res.json().await.with_context(|| {
             "[ingest_imap]: microsoft_365. Deserializing email messages list failed"
@@ -164,8 +152,8 @@ pub async fn fetch_emails_from_graph_api(
             .into_iter()
             .map(EmailResource::try_from)
             .collect::<anyhow::Result<Vec<EmailResource>>>()?;
-          emails.insert(folder.to_string(), messages);
+        emails.insert(folder.to_string(), messages);
     }
 
-   Ok(emails)
+    Ok(emails)
 }

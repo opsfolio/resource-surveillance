@@ -44,6 +44,7 @@ pub enum ServiceCommands {
 #[derive(Debug, Serialize, Clone, ValueEnum, Default)]
 pub enum ImapMessageStatus {
     #[default]
+    All,
     Unread,
     Read,
     Starred,
@@ -77,17 +78,18 @@ pub struct IngestImapArgs {
     #[arg(long, default_value = "993")]
     pub port: u16,
 
-    /// Mailboxes to read from. i.e folders.
-    #[arg(short, long, default_value = "INBOX")]
-    pub folders: Vec<String>,
+    /// Mailboxes to read from. i.e folders. Takes a regular expression matching the folder names.
+    /// The default is a "*" which means all folders.
+    #[arg(short, long, default_value = "*")]
+    pub folder: String,
 
     /// Status of the messages to be ingested.
     #[arg(short, long, default_value = "unread")]
     pub status: Vec<ImapMessageStatus>,
 
     /// Maximum number of messages to be ingested.
-    #[arg(short, long, default_value = "100")]
-    pub max_no_messages: u64,
+    #[arg(short, long, default_value = "1000")]
+    pub batch_size: u64,
 
     /// Extract Attachments
     #[arg(short, long, default_value = "true")]
@@ -105,8 +107,9 @@ impl From<IngestImapArgs> for ImapConfig {
             password: value.password,
             addr: value.server_addr,
             port: value.port,
-            folders: value.folders,
-            max_no_messages: value.max_no_messages,
+            folder: value.folder,
+            mailboxes: vec![],
+            batch_size: value.batch_size,
             extract_attachments: value.extract_attachments,
             microsoft365: {
                 if let Some(service_cmds) = value.command {
@@ -118,7 +121,7 @@ impl From<IngestImapArgs> for ImapConfig {
                                     let server_config = Microsoft365AuthServerConfig {
                                         addr: a,
                                         base_url: r,
-                                        port: config.port
+                                        port: config.port,
                                     };
                                     (Some(server_config), Some(full_redirect_url))
                                 }

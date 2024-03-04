@@ -26,8 +26,8 @@ pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
 
     debug!("Imap Session: {ingest_session_id}");
 
-    let config: ImapConfig = args.clone().into();
-    let email_resources = fetch_email_resources(&config).await?;
+    let mut config: ImapConfig = args.clone().into();
+    let email_resources = fetch_email_resources(&mut config).await?;
 
     {
         let mut ingest_stmts = IngestContext::from_conn(&tx, db_fs_path)
@@ -88,8 +88,12 @@ fn create_ingest_session(tx: &rusqlite::Transaction, device_id: &String) -> Resu
 }
 
 /// Fetches email resources using the IMAP protocol.
-async fn fetch_email_resources(config: &ImapConfig) -> Result<HashMap<String, Vec<EmailResource>>> {
-    process_imap(config).await.with_context(|| "[ingest_imap] Failed to fetch email resources")
+async fn fetch_email_resources(
+    config: &mut ImapConfig,
+) -> Result<HashMap<String, Vec<EmailResource>>> {
+    process_imap(config)
+        .await
+        .with_context(|| "[ingest_imap] Failed to fetch email resources")
 }
 
 /// Processes emails fetched from the IMAP server.
@@ -117,7 +121,11 @@ fn process_emails(
                 hasher.update(text.as_bytes());
                 format!("{:x}", hasher.finalize())
             };
-            let uri = format!("smtp://{}/{}", config.username.clone().unwrap_or_default(), email.message_id);
+            let uri = format!(
+                "smtp://{}/{}",
+                config.username.clone().unwrap_or_default(),
+                email.message_id
+            );
 
             // 4. get all the attachments and do the same
 

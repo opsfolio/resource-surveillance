@@ -90,7 +90,7 @@ fn oauth_client(creds: &Microsoft365Config) -> OAuth {
 
 pub async fn retrieve_emails(
     msft_365_config: &Microsoft365Config,
-    imap_config: &ImapConfig,
+    imap_config: &mut ImapConfig,
 ) -> anyhow::Result<HashMap<String, Vec<EmailResource>>> {
     let access_token = match &msft_365_config.mode {
         TokenGenerationMethod::AuthCode => {

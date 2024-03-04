@@ -25,27 +25,32 @@ async fn set_and_req_access_code(
 
     // Returns reqwest::Response
     let response = request.access_token().send().await?;
-    debug!("{response:#?}");
+    debug!("SET_AND_REQ=={response:#?}");
 
     if response.status().is_success() {
         let mut access_token: AccessToken = response.json().await?;
 
         // Option<&JsonWebToken>
         let jwt = access_token.jwt();
-        debug!("{jwt:#?}");
+        println!("JWT==={jwt:#?}");
 
         // Store in OAuth to make requests for refresh tokens.
         oauth.access_token(access_token.clone());
 
         // If all went well here we can print out the OAuth config with the Access Token.
-        debug!("{:#?}", &oauth);
+        println!("ACCESS_TOKEN{:#?}", &oauth);
         Ok(access_token)
     } else {
         // See if Microsoft Graph returned an error in the Response body
         let result: reqwest::Result<serde_json::Value> = response.json().await;
 
         match result {
-            Ok(body) => Err(anyhow!("{body:#?}")),
+            Ok(body) => {
+                if let Some(err) = body["error_description"].as_str() {
+                    eprintln!("Failed to authenticate: {err}")
+                };
+                Err(anyhow!("{body:#?}"))
+            }
             Err(err) => Err(anyhow!("Error on deserialization:\n{err:#?}")),
         }
     }
@@ -58,7 +63,7 @@ async fn handle_redirect(
     match code_option {
         Some(access_code) => {
             // Print out the code for debugging purposes.
-            debug!("{access_code:#?}");
+            debug!("ACCESS_CODE=={access_code:#?}");
             set_and_req_access_code(access_code, config).await
         }
         None => Err(anyhow!("Could not get access code")),
@@ -79,7 +84,7 @@ pub async fn init_server(config: Microsoft365Config, tx: mpsc::Sender<AccessToke
         .and(query)
         .and_then(move |code| {
             let config_clone = config_for_routes.clone();
-            let tx_clone = tx.clone(); // Clone the sender for use in the closure
+            let tx_clone = tx.clone();
 
             async move {
                 match handle_redirect(code, &config_clone).await {

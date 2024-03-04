@@ -9,6 +9,7 @@ use mail_parser::{Message, MessageParser, MimeHeaders, PartType};
 mod msft;
 
 pub use msft::{Microsoft365AuthServerConfig, Microsoft365Config, TokenGenerationMethod};
+use tracing::{debug, error};
 
 use crate::msft::retrieve_emails;
 
@@ -44,8 +45,9 @@ pub struct ImapConfig {
     pub password: Option<String>,
     pub addr: Option<String>,
     pub port: u16,
-    pub folders: Vec<String>,
-    pub max_no_messages: u64,
+    pub folder: String,
+    pub mailboxes: Vec<String>,
+    pub batch_size: u64,
     pub extract_attachments: bool,
     pub microsoft365: Option<Microsoft365Config>,
 }
@@ -55,13 +57,14 @@ pub struct ImapConfig {
 extern crate imap;
 
 pub async fn process_imap(
-    config: &ImapConfig,
+    config: &mut ImapConfig,
 ) -> anyhow::Result<HashMap<String, Vec<EmailResource>>> {
+    debug!("{config:#?}");
 
-    if let Some(msft_config) = &config.microsoft365 {
-        return retrieve_emails(msft_config, config)
+    if let Some(msft_config) = config.microsoft365.clone() {
+        return retrieve_emails(&msft_config, config)
             .await
-            .with_context(|| "[ingest_imap]: microsoft_365. Failed to retrieve emails")
+            .with_context(|| "[ingest_imap]: microsoft_365. Failed to retrieve emails");
     }
 
     let mut root_store = RootCertStore::empty();
@@ -86,74 +89,96 @@ pub async fn process_imap(
         )
         .map_err(|e| e.0)?;
 
+    let mailboxes = imap_session.list(None, Some(&config.folder))?;
+    config.mailboxes = mailboxes
+        .into_iter()
+        .map(|m| m.name().to_string())
+        .collect();
+
     let mut res = HashMap::new();
+    for folder in &config.mailboxes {
+        debug!("Processing messages in {} folder", folder);
+        match imap_session.select(folder) {
+            Ok(mailbox) => {
+                let messages_total = mailbox.exists;
 
-    for folder in &config.folders {
-        let mailbox = imap_session.select(folder)?;
-        let messages_total = mailbox.exists;
-        let start =
-            messages_total.saturating_sub(config.max_no_messages.saturating_sub(1).try_into()?);
-        let fetch_range = format!("{}:*", std::cmp::max(start, 1));
+                if messages_total == 0 {
+                    error!("No messages in {} folder", folder);
+                    continue;
+                }
+                let start =
+                    messages_total.saturating_sub(config.batch_size.saturating_sub(1).try_into()?);
+                let fetch_range = format!("{}:*", std::cmp::max(start, 1));
+                debug!("Fetching the latest: {fetch_range}");
 
-        let messages = imap_session.fetch(fetch_range, "RFC822")?;
-        let mut emails = Vec::new();
+                let messages = imap_session.fetch(fetch_range, "RFC822")?;
+                let mut emails = Vec::new();
 
-        for message in messages.iter() {
-            let body = message
-                .body()
-                .ok_or_else(|| anyhow!("Message did not have a body"))?;
+                for message in messages.iter() {
+                    let body = message
+                        .body()
+                        .ok_or_else(|| anyhow!("Message did not have a body"))?;
 
-            let message = MessageParser::default()
-                .parse(body)
-                .ok_or_else(|| anyhow!("Failed to parse email message"))?;
+                    let message = MessageParser::default()
+                        .parse(body)
+                        .ok_or_else(|| anyhow!("Failed to parse email message"))?;
 
-            let email = EmailResource {
-                subject: message.subject().unwrap_or_default().to_string(),
-                from: message
-                    .from()
-                    .map(|addresses| {
-                        addresses
-                            .first()
-                            .unwrap()
-                            .address
-                            .clone()
+                    let email = EmailResource {
+                        subject: message.subject().unwrap_or_default().to_string(),
+                        from: message
+                            .from()
+                            .map(|addresses| {
+                                addresses
+                                    .first()
+                                    .unwrap()
+                                    .address
+                                    .clone()
+                                    .unwrap_or_default()
+                            })
                             .unwrap_or_default()
-                    })
-                    .unwrap_or_default()
-                    .to_string(),
-                cc: parse_addresses(message.cc()),
-                bcc: parse_addresses(message.bcc()),
-                references: vec![],
-                in_reply_to: None,
-                message_id: message.message_id().unwrap_or_default().to_string(),
-                to: parse_addresses(message.to()),
-                date: message.date().map(|d| d.to_rfc3339()).unwrap_or_default(),
-                text_plain: message
-                    .text_bodies()
-                    .map(|s| match &s.body {
-                        PartType::Text(txt) => txt.to_string(),
-                        _ => "".to_string(),
-                    })
-                    .collect(),
-                text_html: message
-                    .html_bodies()
-                    .map(|s| match &s.body {
-                        PartType::Html(html) => html.to_string(),
-                        _ => "".to_string(),
-                    })
-                    .collect(),
-                raw_text: String::from_utf8_lossy(message.raw_message()).into_owned(),
-                raw_json: serde_json::to_string(&message)?,
-                attachments: if config.extract_attachments {
-                    Some(extract_attachments(&message))
-                } else {
-                    None
-                },
-            };
+                            .to_string(),
+                        cc: parse_addresses(message.cc()),
+                        bcc: parse_addresses(message.bcc()),
+                        references: vec![],
+                        in_reply_to: None,
+                        message_id: message.message_id().unwrap_or_default().to_string(),
+                        to: parse_addresses(message.to()),
+                        date: message.date().map(|d| d.to_rfc3339()).unwrap_or_default(),
+                        text_plain: message
+                            .text_bodies()
+                            .map(|s| match &s.body {
+                                PartType::Text(txt) => txt.to_string(),
+                                _ => "".to_string(),
+                            })
+                            .collect(),
+                        text_html: message
+                            .html_bodies()
+                            .map(|s| match &s.body {
+                                PartType::Html(html) => html.to_string(),
+                                _ => "".to_string(),
+                            })
+                            .collect(),
+                        raw_text: String::from_utf8_lossy(message.raw_message()).into_owned(),
+                        raw_json: serde_json::to_string(&message)?,
+                        attachments: if config.extract_attachments {
+                            Some(extract_attachments(&message))
+                        } else {
+                            None
+                        },
+                    };
 
-            emails.push(email);
+                    emails.push(email);
+                }
+                res.insert(folder.clone(), emails);
+            }
+            Err(err) => {
+                error!(
+                    "Error selecting folder '{}': {}. Skipping this folder.",
+                    folder, err
+                );
+                continue;
+            }
         }
-        res.insert(folder.clone(), emails);
     }
 
     Ok(res)
