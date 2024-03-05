@@ -181,6 +181,11 @@
       uniform_resource_id: VARCHAR
     * message: TEXT
     * message_id: TEXT
+    * subject: TEXT
+    * from: TEXT
+    * cc: TEXT
+    * bcc: TEXT
+    * email_references: TEXT
   }
 
   device |o..o{ behavior

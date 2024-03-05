@@ -195,6 +195,11 @@ pub struct UrIngestSessionImapAcctFolderMessage {
     uniform_resource_id: Option<String>, // 'string' maps directly to Rust type
     message: String, // 'string' maps directly to Rust type
     message_id: String, // 'string' maps directly to Rust type
+    subject: String, // 'string' maps directly to Rust type
+    from: String, // 'string' maps directly to Rust type
+    cc: String, // uknown type 'string::json', mapping to String by default
+    bcc: String, // uknown type 'string::json', mapping to String by default
+    email_references: String, // uknown type 'string::json', mapping to String by default
 }
 
 // `assurance_schema` table

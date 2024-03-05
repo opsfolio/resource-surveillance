@@ -255,6 +255,9 @@ comments:
       ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
       ingest_imap_acct_folder_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
       uniform_resource_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      cc: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      bcc: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      email_references: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
       activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
     tableComment: >-
       Contains messages related in a folder that was ingested. On multiple

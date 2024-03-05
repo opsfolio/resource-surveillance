@@ -397,6 +397,11 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder_message" (
     "uniform_resource_id" VARCHAR,
     "message" TEXT NOT NULL,
     "message_id" TEXT NOT NULL,
+    "subject" TEXT NOT NULL,
+    "from" TEXT NOT NULL,
+    "cc" TEXT CHECK(json_valid(cc)) NOT NULL,
+    "bcc" TEXT CHECK(json_valid(bcc)) NOT NULL,
+    "email_references" TEXT CHECK(json_valid(email_references)) NOT NULL,
     "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
     "updated_at" TIMESTAMPTZ,
@@ -419,7 +424,7 @@ CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_task__ingest_session_id" ON "u
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_acct_folder__ingest_session_id__folder_name" ON "ur_ingest_session_imap_acct_folder"("ingest_session_id", "folder_name");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_acct_folder_message__ingest_session_id" ON "ur_ingest_session_imap_acct_folder_message"("ingest_session_id");
 CREATE INDEX IF NOT EXISTS "idx_ur_ingest_session_imap_account__ingest_session_id__email" ON "ur_ingest_session_imap_account"("ingest_session_id", "email");
-', 'd042ea9094d63f87ca1c7021deecdad716db62d0', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+', '4cdfbc7f1483b3ac3d908cb75c939429f8db4384', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
             interpretable_code = EXCLUDED.interpretable_code,
             notebook_kernel_id = EXCLUDED.notebook_kernel_id,
             updated_at = CURRENT_TIMESTAMP,
@@ -1130,6 +1135,11 @@ CREATE TABLE IF NOT EXISTS "ur_ingest_session_imap_acct_folder_message" (
     "uniform_resource_id" VARCHAR,
     "message" TEXT NOT NULL,
     "message_id" TEXT NOT NULL,
+    "subject" TEXT NOT NULL,
+    "from" TEXT NOT NULL,
+    "cc" TEXT CHECK(json_valid(cc)) NOT NULL,
+    "bcc" TEXT CHECK(json_valid(bcc)) NOT NULL,
+    "email_references" TEXT CHECK(json_valid(email_references)) NOT NULL,
     "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT DEFAULT ''UNKNOWN'',
     "updated_at" TIMESTAMPTZ,
@@ -1213,7 +1223,7 @@ CREATE VIEW IF NOT EXISTS "ur_ingest_session_files_stats" AS
         device_id,
         ingest_session_finished_at,
         file_extension;
-      ', 'c0e000c58acc1ccd0a56cd95e5bd0acf29b84ac3', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+      ', 'b03283e4fd0b7f867d564c08481d2adaec5315cf', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
                    interpretable_code = EXCLUDED.interpretable_code,
                    notebook_kernel_id = EXCLUDED.notebook_kernel_id,
                    updated_at = CURRENT_TIMESTAMP,
@@ -1402,6 +1412,11 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
       uniform_resource_id: VARCHAR
     * message: TEXT
     * message_id: TEXT
+    * subject: TEXT
+    * from: TEXT
+    * cc: TEXT
+    * bcc: TEXT
+    * email_references: TEXT
   }
 
   device |o..o{ behavior
@@ -1424,7 +1439,7 @@ INSERT INTO "code_notebook_cell" ("code_notebook_cell_id", "notebook_kernel_id",
   ur_ingest_session |o..o{ ur_ingest_session_imap_acct_folder_message
   ur_ingest_session_imap_acct_folder |o..o{ ur_ingest_session_imap_acct_folder_message
   uniform_resource |o..o{ ur_ingest_session_imap_acct_folder_message
-@enduml', 'a4a4a6badf1a8d473f047fb9333dafa063989432', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
+@enduml', '23f9c3c8a6b75ff4c471689c9851fb2b84da7f1c', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT(notebook_name, cell_name, interpretable_code_hash) DO UPDATE SET
              interpretable_code = EXCLUDED.interpretable_code,
              notebook_kernel_id = EXCLUDED.notebook_kernel_id,
              updated_at = CURRENT_TIMESTAMP,

@@ -738,6 +738,11 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
         .optional(), // if a uniform_resource was prepared for this or already existed
       message: gd.text(),
       message_id: gd.text(),
+      subject: gd.text(),
+      from: gd.text(),
+      cc: gd.jsonText(),
+      bcc: gd.jsonText(),
+      email_references: gd.jsonText(),
       ...gm.housekeeping.columns,
     },
     {

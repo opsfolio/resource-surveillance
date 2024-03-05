@@ -156,7 +156,12 @@ fn process_emails(
                         acct_folder_id,
                         ur_id,
                         text,
-                        email.message_id
+                        email.message_id,
+                        email.subject,
+                        email.from,
+                        serde_json::to_string_pretty(&email.cc).unwrap_or("[]".to_string()),
+                        serde_json::to_string_pretty(&email.bcc).unwrap_or("[]".to_string()),
+                        serde_json::to_string_pretty(&email.references).unwrap_or("[".to_string()),
                     ],
                     |row| row.get(0),
                 )?;

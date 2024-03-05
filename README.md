@@ -387,8 +387,8 @@ The `surveilr ingest imap` command faclitates the ingestion of emails from a sin
 Support for attachements will be in the next release
 ### Examples
 ```bash
-$ surveilr ingest imap -u user@outlook.com -p 'apppassword' -a "outlook.office365.com" -f INBOX -f SENT
-$ surveilr ingest imap -u user@gmail.com -p 'apppassword' -a "imap.gmail.com" -f INBOX --max-no-messages=10000
+$ surveilr ingest imap -u user@outlook.com -p 'apppassword' -a "outlook.office365.com" -f="inb*" ## -f is a regeulare expression with the dafult being "*" to match all folders.mailboxes
+$ surveilr ingest imap -u user@gmail.com -p 'apppassword' -a "imap.gmail.com" --batch-size=10000
 ```
 
 ## Microsoft 365

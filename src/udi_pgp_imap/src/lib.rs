@@ -23,14 +23,14 @@ pub struct Attachment {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct EmailResource {
-    subject: String,
-    from: String,
-    cc: Vec<String>,
-    bcc: Vec<String>,
-    references: Vec<String>,
+    pub subject: String,
+    pub from: String,
+    pub cc: Vec<String>,
+    pub bcc: Vec<String>,
+    pub references: Vec<String>,
     in_reply_to: Option<String>,
     pub message_id: String,
-    to: Vec<String>,
+    pub to: Vec<String>,
     pub date: String,
     pub text_plain: Vec<String>,
     pub text_html: Vec<String>,

@@ -69,15 +69,32 @@ ON CONFLICT (ingest_account_id, folder_name)
 DO UPDATE SET created_at = EXCLUDED.created_at RETURNING ur_ingest_session_imap_acct_folder_id;"};
 
 const INS_UR_INGEST_SESSION_IMAP_ACCT_FOLDER_MESSAGE: &str = indoc! {"
-INSERT INTO ur_ingest_session_imap_acct_folder_message (ur_ingest_session_imap_acct_folder_message_id, ingest_session_id, ingest_imap_acct_folder_id, uniform_resource_id, message, message_id, created_at, created_by)
-VALUES (ulid(), ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'system') 
+INSERT INTO ur_ingest_session_imap_acct_folder_message (
+    ur_ingest_session_imap_acct_folder_message_id, 
+    ingest_session_id, 
+    ingest_imap_acct_folder_id, 
+    uniform_resource_id, 
+    message, 
+    message_id,
+    subject,
+    'from',
+    cc,
+    bcc,
+    email_references,
+    created_at, 
+    created_by
+)
+VALUES (
+    ulid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'system'
+) 
 ON CONFLICT (message, message_id)
 DO UPDATE SET 
     ur_ingest_session_imap_acct_folder_message_id = EXCLUDED.ur_ingest_session_imap_acct_folder_message_id, 
     ingest_session_id = EXCLUDED.ingest_session_id,
     ingest_imap_acct_folder_id = EXCLUDED.ingest_imap_acct_folder_id,
     uniform_resource_id = EXCLUDED.uniform_resource_id
-RETURNING ur_ingest_session_imap_acct_folder_message_id;"};
+RETURNING ur_ingest_session_imap_acct_folder_message_id;
+"};
 
 #[allow(dead_code)]
 #[derive(Debug)]
