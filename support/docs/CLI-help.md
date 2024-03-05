@@ -372,18 +372,18 @@ Ingest content from email boxes
 * `--port <PORT>` — IMAP server port
 
   Default value: `993`
-* `-f`, `--folders <FOLDERS>` — Mailboxes to read from. i.e folders
+* `-f`, `--folder <FOLDER>` — Mailboxes to read from. i.e folders. Takes a regular expression matching the folder names. The default is a "*" which means all folders
 
-  Default value: `INBOX`
+  Default value: `*`
 * `-s`, `--status <STATUS>` — Status of the messages to be ingested
 
   Default value: `unread`
 
-  Possible values: `unread`, `read`, `starred`
+  Possible values: `all`, `unread`, `read`, `starred`
 
-* `-m`, `--max-no-messages <MAX_NO_MESSAGES>` — Maximum number of messages to be ingested
+* `-b`, `--batch-size <BATCH_SIZE>` — Maximum number of messages to be ingested
 
-  Default value: `100`
+  Default value: `1000`
 * `-e`, `--extract-attachments` — Extract Attachments
 
   Default value: `true`

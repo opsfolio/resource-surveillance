@@ -125,7 +125,7 @@ const PFRE_READ_NATURE_FROM_REGEX_CAPTURE: &str = "nature";
 
 const DEFAULT_IGNORE_PATHS_REGEX_PATTERNS: [&str; 1] = [r"/(\.git|node_modules)/"];
 const DEFAULT_ACQUIRE_CONTENT_EXTNS_REGEX_PATTERNS: [&str; 1] =
-    [r"\.(?P<nature>md|mdx|html|json|jsonc|puml|txt|toml|yml|xml)$"];
+    [r"\.(?P<nature>md|mdx|html|json|jsonc|puml|txt|toml|yml|xml|tap)$"];
 const DEFAULT_CAPTURE_EXEC_REGEX_PATTERNS: [&str; 1] = [r"surveilr\[(?P<nature>[^\]]*)\]"];
 const DEFAULT_CAPTURE_SQL_EXEC_REGEX_PATTERNS: [&str; 1] = [r"surveilr-SQL"];
 
