@@ -9,3 +9,5 @@ resource-surveillance*.sqlite.db*
 # rust-specific
 /target
 sqlpage/
+
+regression*.sqlite.db

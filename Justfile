@@ -47,6 +47,16 @@ test-e2e:
 # Run end-to-end tests only in support/test-fixtures
 test-e2e-fixtures: 
     rm -f ./e2e-test-state.sqlite.db && just sqla-sync && just run --debug ingest files -d ./e2e-test-state.sqlite.db -r ./support/test-fixtures --stats
+    cat ./support/regression.sql | sqlite3 ./e2e-test-state.sqlite.db | grep "not ok"
+
+# Run the whole regression test suite.
+test-regression:
+    just test-regression-ingest && just test-regression-imap
+
+# Run the regression tests for files ingestion
+test-regression-ingest:
+    rm -f ./regression-ingest-files.sqlite.db && just run --debug ingest files -d ./regression-ingest-files.sqlite.db -r ./support/test-fixtures --stats
+    cat ./support/regression-ingest-files.sql | sqlite3 ./regression-ingest-files.sqlite.db
 
 # Lint all the code
 lint:
