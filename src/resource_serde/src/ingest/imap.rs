@@ -106,6 +106,7 @@ fn process_emails(
     config: &ImapConfig,
 ) -> Result<()> {
     for (folder, emails) in email_resources {
+        println!("{folder} has {} number of messages", emails.len());
         // insert folder into
         let acct_folder_id: String = ingest_stmts
             .ur_ingest_session_imap_acct_folder_stmt
