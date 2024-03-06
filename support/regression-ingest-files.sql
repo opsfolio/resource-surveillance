@@ -6,7 +6,11 @@ WITH expected_counts AS (
     UNION ALL
     SELECT 'ur_ingest_session', 1
     UNION ALL
+    SELECT 'ur_ingest_session_fs_path', 1
+    UNION ALL
     SELECT 'ur_ingest_session_fs_path_entry', 18
+    UNION ALL
+    SELECT 'uniform_resource_transform', 1
 ),
 actual_counts AS (
     SELECT 'device' AS table_name, COUNT(*) AS actual_count FROM device
@@ -15,7 +19,11 @@ actual_counts AS (
     UNION ALL
     SELECT 'ur_ingest_session', COUNT(*) FROM ur_ingest_session
     UNION ALL
+    SELECT 'ur_ingest_session_fs_path', COUNT(*) FROM ur_ingest_session_fs_path
+    UNION ALL
     SELECT 'ur_ingest_session_fs_path_entry', COUNT(*) FROM ur_ingest_session_fs_path_entry
+    UNION ALL
+    SELECT 'uniform_resource_transform', COUNT(*) FROM uniform_resource_transform
 ),
 results AS (
     SELECT
@@ -32,7 +40,6 @@ results AS (
 tap_plan AS (
     SELECT '1..' || COUNT(*) || ' - TAP tests for database tables' AS tap_output FROM results
 )
--- Generate TAP output, including test plan line at the beginning.
 SELECT tap_output FROM tap_plan
 UNION ALL
 SELECT tap_output FROM results;
