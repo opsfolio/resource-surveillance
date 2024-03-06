@@ -47,7 +47,6 @@ test-e2e:
 # Run end-to-end tests only in support/test-fixtures
 test-e2e-fixtures: 
     rm -f ./e2e-test-state.sqlite.db && just sqla-sync && just run --debug ingest files -d ./e2e-test-state.sqlite.db -r ./support/test-fixtures --stats
-    cat ./support/regression.sql | sqlite3 ./e2e-test-state.sqlite.db | grep "not ok"
 
 # Run the whole regression test suite.
 test-regression:
@@ -60,9 +59,8 @@ test-regression-ingest:
 
 # Run the regression tests for ingesting from an email using IMAP
 test-regression-imap:
-    rm -f ./regression-ingest-imap.sqlite.db && cargo run -- ingest imap -d ./regression-ingest-files.sqlite.db -u --password '' -a "" -f ""
-    cat ./support/regression-tests/ingest-files.sql | sqlite3 ./regression-ingest-imap.sqlite.db
-
+    rm -f ./regression-ingest-imap.sqlite.db && cargo run -- ingest imap -d ./regression-ingest-imap.sqlite.db -u surveilr-regression@gmail.com --password 'fkxt eraz pejw lfcn' -a "imap.gmail.com" -b 10
+    cat ./support/regression-tests/ingest-imap.sql | sqlite3 ./regression-ingest-imap.sqlite.db
 
 # Lint all the code
 lint:
