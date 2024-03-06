@@ -56,7 +56,13 @@ test-regression:
 # Run the regression tests for files ingestion
 test-regression-ingest:
     rm -f ./regression-ingest-files.sqlite.db && just run --debug ingest files -d ./regression-ingest-files.sqlite.db -r ./support/test-fixtures --stats
-    cat ./support/regression-ingest-files.sql | sqlite3 ./regression-ingest-files.sqlite.db
+    cat ./support/regression-tests/ingest-files.sql | sqlite3 ./regression-ingest-files.sqlite.db
+
+# Run the regression tests for ingesting from an email using IMAP
+test-regression-imap:
+    rm -f ./regression-ingest-imap.sqlite.db && cargo run -- ingest imap -d ./regression-ingest-files.sqlite.db -u --password '' -a "" -f ""
+    cat ./support/regression-tests/ingest-files.sql | sqlite3 ./regression-ingest-imap.sqlite.db
+
 
 # Lint all the code
 lint:
