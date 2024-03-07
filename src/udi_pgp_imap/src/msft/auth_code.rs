@@ -32,13 +32,13 @@ async fn set_and_req_access_code(
 
         // Option<&JsonWebToken>
         let jwt = access_token.jwt();
-        println!("JWT==={jwt:#?}");
+        debug!("JWT==={jwt:#?}");
 
         // Store in OAuth to make requests for refresh tokens.
         oauth.access_token(access_token.clone());
 
         // If all went well here we can print out the OAuth config with the Access Token.
-        println!("ACCESS_TOKEN{:#?}", &oauth);
+        debug!("ACCESS_TOKEN{:#?}", &oauth);
         Ok(access_token)
     } else {
         // See if Microsoft Graph returned an error in the Response body

@@ -129,11 +129,14 @@ pub async fn fetch_emails_from_graph_api(
         .mail_folders
         .clone()
         .into_iter()
-        .map(|f| f.display_name.to_lowercase())
+        // deleted items has a totally different schema
+        .filter(|m| m.total_item_count > 0 && m.display_name != "Deleted Items")
+        .map(|f| f.id)
         .collect();
 
     let mut emails = HashMap::new();
     for folder in &config.mailboxes {
+
         let res = client
             .me()
             .mail_folder(folder)
@@ -143,9 +146,12 @@ pub async fn fetch_emails_from_graph_api(
             .send().await
             .with_context(|| format!("[ingest_imap]: microsoft_365. Failed to get {:#?} number of emails in the {} folder", config.batch_size, folder))?;
 
+
         let messages_list: MessageList = res.json().await.with_context(|| {
             "[ingest_imap]: microsoft_365. Deserializing email messages list failed"
         })?;
+
+        // let values = messages_list["value"].as_array().unwrap();
 
         let messages = messages_list
             .value
