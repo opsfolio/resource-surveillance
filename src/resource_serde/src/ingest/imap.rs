@@ -261,14 +261,16 @@ fn process_emails(
             // 4. take out the text/html, insert it into uniform_resource, transform it to json and then put it in uniform_resource_transform.
             for html in &email.text_html {
                 let html = clean_html(html);
-                println!("{html}");
-                let parsed_html = match Dom::parse(html) {
+                let html = ammonia::clean(html);
+                println!("Before parsing HTML");
+                let parsed_html = match Dom::parse(&html) {
                     Ok(h) => h,
                     Err(err) => {
                         eprintln!("Failed to parse this HTML to json. Error: {err:#?} Skipping");
                         continue;
                     }
                 };
+                println!("{html}");
                 let html_json = parsed_html.to_json_pretty()?;
 
                 let size = html.as_bytes().len();
@@ -343,7 +345,10 @@ fn clean_html(html: &str) -> &str {
     // Find the end of the </html> tag, adding the length of "</html>" to include it, ignoring case
     // Note: We search in the substring starting from `start_index` to avoid finding a closing </html>
     // tag before the <!DOCTYPE if for any reason such a structure exists.
-    let end_index = html[start_index..].to_lowercase().rfind("</html>").map_or(html.len(), |i| i + "</html>".len() + start_index);
+    let end_index = html[start_index..]
+        .to_lowercase()
+        .rfind("</html>")
+        .map_or(html.len(), |i| i + "</html>".len() + start_index);
 
     // Return the slice from start_index to end_index
     // This effectively removes content before <!DOCTYPE and after </html>
