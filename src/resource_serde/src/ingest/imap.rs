@@ -286,12 +286,14 @@ fn process_emails(
 
                 let html = clean_html(html);
 
-                let html = Dom::parse(html)
-                    .map_err(|err| {
-                        anyhow!("Failed to parse this html string: {html}.\nError:{err:#?}")
-                    })
-                    .with_context(|| "html to json")?;
-                
+                let html = match Dom::parse(html) {
+                    Ok(h) => h,
+                    Err(err) => {
+                        eprintln!("Failed to parse this HTML to json. Error: {err:#?} Skipping");
+                        continue;
+                    }
+                };
+
                 let html_json = html.to_json_pretty()?;
 
                 let html_json_size = html_json.as_bytes().len();
