@@ -42,6 +42,7 @@ pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
             |row| row.get(0),
         )?;
 
+        let start = Instant::now();
         process_emails(
             &mut ingest_stmts,
             &ingest_session_id,
@@ -50,6 +51,11 @@ pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
             &email_resources,
             &config,
         )?;
+        println!(
+            "\n\n Whole email processing for {} folders took: {:.2?}",
+            email_resources.len(),
+            start.elapsed()
+        );
     }
 
     finalize_transaction(tx)
