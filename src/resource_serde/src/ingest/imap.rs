@@ -337,13 +337,15 @@ fn finalize_transaction(tx: rusqlite::Transaction) -> Result<()> {
 // I found that some of the html strings don't start with <!DOCTYPE> which breaks
 // html to json parsing
 fn clean_html(html: &str) -> &str {
-    if let Some(index) = html.to_lowercase().find("<!doctype") {
-        if index > 0 {
-            &html[index..]
-        } else {
-            html
-        }
-    } else {
-        html
-    }
+    // Find the start of the <!DOCTYPE tag, ignoring case
+    let start_index = html.to_lowercase().find("<!doctype").unwrap_or(0);
+
+    // Find the end of the </html> tag, adding the length of "</html>" to include it, ignoring case
+    // Note: We search in the substring starting from `start_index` to avoid finding a closing </html>
+    // tag before the <!DOCTYPE if for any reason such a structure exists.
+    let end_index = html[start_index..].to_lowercase().rfind("</html>").map_or(html.len(), |i| i + "</html>".len() + start_index);
+
+    // Return the slice from start_index to end_index
+    // This effectively removes content before <!DOCTYPE and after </html>
+    &html[start_index..end_index]
 }
