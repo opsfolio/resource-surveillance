@@ -260,9 +260,8 @@ fn process_emails(
             let start = Instant::now();
             // 4. take out the text/html, insert it into uniform_resource, transform it to json and then put it in uniform_resource_transform.
             for html in &email.text_html {
-                let html = clean_html(html);
+                // let html = clean_html(html);
                 let html = ammonia::clean(html);
-                println!("Before parsing HTML");
                 let parsed_html = match Dom::parse(&html) {
                     Ok(h) => h,
                     Err(err) => {
@@ -270,7 +269,6 @@ fn process_emails(
                         continue;
                     }
                 };
-                println!("{html}");
                 let html_json = parsed_html.to_json_pretty()?;
 
                 let size = html.as_bytes().len();
@@ -338,19 +336,19 @@ fn finalize_transaction(tx: rusqlite::Transaction) -> Result<()> {
 
 // I found that some of the html strings don't start with <!DOCTYPE> which breaks
 // html to json parsing
-fn clean_html(html: &str) -> &str {
-    // Find the start of the <!DOCTYPE tag, ignoring case
-    let start_index = html.to_lowercase().find("<!doctype").unwrap_or(0);
+// fn clean_html(html: &str) -> &str {
+//     // Find the start of the <!DOCTYPE tag, ignoring case
+//     let start_index = html.to_lowercase().find("<!doctype").unwrap_or(0);
 
-    // Find the end of the </html> tag, adding the length of "</html>" to include it, ignoring case
-    // Note: We search in the substring starting from `start_index` to avoid finding a closing </html>
-    // tag before the <!DOCTYPE if for any reason such a structure exists.
-    let end_index = html[start_index..]
-        .to_lowercase()
-        .rfind("</html>")
-        .map_or(html.len(), |i| i + "</html>".len() + start_index);
+//     // Find the end of the </html> tag, adding the length of "</html>" to include it, ignoring case
+//     // Note: We search in the substring starting from `start_index` to avoid finding a closing </html>
+//     // tag before the <!DOCTYPE if for any reason such a structure exists.
+//     let end_index = html[start_index..]
+//         .to_lowercase()
+//         .rfind("</html>")
+//         .map_or(html.len(), |i| i + "</html>".len() + start_index);
 
-    // Return the slice from start_index to end_index
-    // This effectively removes content before <!DOCTYPE and after </html>
-    &html[start_index..end_index]
-}
+//     // Return the slice from start_index to end_index
+//     // This effectively removes content before <!DOCTYPE and after </html>
+//     &html[start_index..end_index]
+// }
