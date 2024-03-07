@@ -27,7 +27,9 @@ pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
     debug!("Imap Session: {ingest_session_id}");
 
     let mut config: ImapConfig = args.clone().into();
+    println!("Fetching emails from server...");
     let email_resources = fetch_email_resources(&mut config).await?;
+    println!("Emails retrieved successfully");
 
     {
         let mut ingest_stmts = IngestContext::from_conn(&tx, db_fs_path)
@@ -111,9 +113,10 @@ fn process_emails(
     email_resources: &HashMap<String, Vec<EmailResource>>,
     config: &ImapConfig,
 ) -> Result<()> {
+    println!("Converting and writing email to database...");
     for (folder, emails) in email_resources {
         let folder_process_start = Instant::now();
-        println!("========= {folder} has {} number of messages", emails.len());
+        debug!("========= {folder} has {} number of messages", emails.len());
         // insert folder into
 
         let acct_folder_id: String = {
@@ -123,7 +126,7 @@ fn process_emails(
                 .query_row(params![ingest_session_id, acct_id, folder], |row| {
                     row.get(0)
                 })?;
-            println!("Account folder ID query time: {:.2?}", start.elapsed()); // Print elapsed time
+            debug!("Account folder ID query time: {:.2?}", start.elapsed()); // Print elapsed time
             result
         };
 
@@ -165,7 +168,7 @@ fn process_emails(
                     ],
                     |row| row.get(0),
                 )?;
-                println!("Uniform Resource insert time: {:.2?}", start.elapsed()); // Print elapsed time
+                debug!("Uniform Resource insert time: {:.2?}", start.elapsed()); // Print elapsed time
                 result
             };
 
@@ -189,7 +192,7 @@ fn process_emails(
                         ],
                         |row| row.get(0),
                     )?;
-                println!("IMAP Acct Message insert time: {:.2?}", start.elapsed()); // Print elapsed time
+                debug!("IMAP Acct Message insert time: {:.2?}", start.elapsed()); // Print elapsed time
                 result
             };
 
@@ -220,7 +223,7 @@ fn process_emails(
                     ],
                     |row| row.get(0),
                 )?;
-                println!("Full email JSON insert time: {:.2?}", start.elapsed());
+                debug!("Full email JSON insert time: {:.2?}", start.elapsed());
             }
 
             // 3. take out all the text/plain, insert it into ur as a row, nature text
@@ -251,7 +254,7 @@ fn process_emails(
                     |row| row.get(0),
                 )?;
             }
-            println!(
+            debug!(
                 "It took {:.2?} to insert {} plain texts in Uniform Resource",
                 start.elapsed(),
                 email.text_plain.len()
@@ -314,14 +317,14 @@ fn process_emails(
                     |row| row.get(0),
                 )?;
             }
-            println!(
+            debug!(
                 "It took {:.2?} to insert {} htmls in Uniform Resource and UR Transform",
                 start.elapsed(),
                 email.text_html.len()
             );
         }
 
-        println!(
+        debug!(
             "=========Processing all the emails for the {folder} folder took {:.2?}=========",
             folder_process_start.elapsed()
         );

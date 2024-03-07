@@ -97,11 +97,11 @@ pub async fn process_imap(
 
     let mut res = HashMap::new();
     for folder in &config.mailboxes {
-        println!("Processing messages in {} folder", folder);
+        debug!("Processing messages in {} folder", folder);
         match imap_session.select(folder) {
             Ok(mailbox) => {
                 let messages_total = mailbox.exists;
-                println!("Number of messages in folder: {messages_total}");
+                debug!("Number of messages in folder: {messages_total}");
                 if messages_total == 0 {
                     error!("No messages in {} folder", folder);
                     continue;
@@ -109,7 +109,7 @@ pub async fn process_imap(
                 let start =
                     messages_total.saturating_sub(config.batch_size.saturating_sub(1).try_into()?);
                 let fetch_range = format!("{}:*", std::cmp::max(start, 1));
-                println!("Fetching the latest: {fetch_range}");
+                debug!("Fetching the latest: {fetch_range}");
 
                 let messages = imap_session.fetch(fetch_range, "RFC822")?;
                 let mut emails = Vec::new();
