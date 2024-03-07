@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Instant};
 
 use anyhow::{Context, Result};
 use rusqlite::params;
@@ -106,22 +106,23 @@ fn process_emails(
     config: &ImapConfig,
 ) -> Result<()> {
     for (folder, emails) in email_resources {
-        println!("{folder} has {} number of messages", emails.len());
+        let folder_process_start = Instant::now();
+        println!("========= {folder} has {} number of messages", emails.len());
         // insert folder into
-        let acct_folder_id: String = ingest_stmts
-            .ur_ingest_session_imap_acct_folder_stmt
-            .query_row(params![ingest_session_id, acct_id, folder], |row| {
-                row.get(0)
-            })?;
+
+        let acct_folder_id: String = {
+            let start = Instant::now(); // Start timing
+            let result = ingest_stmts
+                .ur_ingest_session_imap_acct_folder_stmt
+                .query_row(params![ingest_session_id, acct_id, folder], |row| {
+                    row.get(0)
+                })?;
+            println!("Account folder ID query time: {:.2?}", start.elapsed()); // Print elapsed time
+            result
+        };
 
         for email in emails.iter() {
             let text = &email.raw_text;
-            let size = text.as_bytes().len();
-            let hash = {
-                let mut hasher = Sha1::new();
-                hasher.update(text.as_bytes());
-                format!("{:x}", hasher.finalize())
-            };
             let uri = format!(
                 "smtp://{}/{}",
                 config.username.clone().unwrap_or_default(),
@@ -131,41 +132,60 @@ fn process_emails(
             // 4. get all the attachments and do the same
 
             // 1. insert the raw text into ur, nature is text
-            let ur_id: String = ingest_stmts.ins_ur_stmt.query_row(
-                params![
-                    device_id,
-                    ingest_session_id,
-                    &None::<String>,
-                    uri,
-                    "text".to_string(),
-                    email.raw_text,
-                    hash,
-                    size,
-                    email.date,
-                    &None::<String>, // content_fm_body_attrs
-                    &None::<String>, // frontmatter
-                    acct_folder_id,
-                ],
-                |row| row.get(0),
-            )?;
-
-            let _ur_sess_message_id: String = ingest_stmts
-                .ur_ingest_session_imap_acct_folder_message_stmt
-                .query_row(
+            let ur_id: String = {
+                let start = Instant::now(); // Start timing
+                let result = ingest_stmts.ins_ur_stmt.query_row(
                     params![
+                        device_id,
                         ingest_session_id,
+                        &None::<String>,
+                        format!(
+                            "smtp://{}/{}",
+                            config.username.clone().unwrap_or_default(),
+                            email.message_id
+                        ),
+                        "text".to_string(),
+                        email.raw_text,
+                        {
+                            let mut hasher = Sha1::new();
+                            hasher.update(email.raw_text.as_bytes());
+                            format!("{:x}", hasher.finalize())
+                        },
+                        email.raw_text.as_bytes().len(),
+                        email.date,
+                        &None::<String>, // content_fm_body_attrs
+                        &None::<String>, // frontmatter
                         acct_folder_id,
-                        ur_id,
-                        text,
-                        email.message_id,
-                        email.subject,
-                        email.from,
-                        serde_json::to_string_pretty(&email.cc).unwrap_or("[]".to_string()),
-                        serde_json::to_string_pretty(&email.bcc).unwrap_or("[]".to_string()),
-                        serde_json::to_string_pretty(&email.references).unwrap_or("[".to_string()),
                     ],
                     |row| row.get(0),
                 )?;
+                println!("Uniform Resource insert time: {:.2?}", start.elapsed()); // Print elapsed time
+                result
+            };
+
+            let _ur_sess_message_id: String = {
+                let start = Instant::now();
+                let result = ingest_stmts
+                    .ur_ingest_session_imap_acct_folder_message_stmt
+                    .query_row(
+                        params![
+                            ingest_session_id,
+                            acct_folder_id,
+                            ur_id,
+                            text,
+                            email.message_id,
+                            email.subject,
+                            email.from,
+                            serde_json::to_string_pretty(&email.cc).unwrap_or("[]".to_string()),
+                            serde_json::to_string_pretty(&email.bcc).unwrap_or("[]".to_string()),
+                            serde_json::to_string_pretty(&email.references)
+                                .unwrap_or("[".to_string()),
+                        ],
+                        |row| row.get(0),
+                    )?;
+                println!("IMAP Acct Message insert time: {:.2?}", start.elapsed()); // Print elapsed time
+                result
+            };
 
             {
                 let json = &email.raw_json;
@@ -175,7 +195,7 @@ fn process_emails(
                     hasher.update(json.as_bytes());
                     format!("{:x}", hasher.finalize())
                 };
-
+                let start = Instant::now();
                 // 2. insert the whole json into ur, nature is json
                 let _: String = ingest_stmts.ins_ur_stmt.query_row(
                     params![
@@ -194,9 +214,11 @@ fn process_emails(
                     ],
                     |row| row.get(0),
                 )?;
+                println!("Full email JSON insert time: {:.2?}", start.elapsed());
             }
 
             // 3. take out all the text/plain, insert it into ur as a row, nature text
+            let start = Instant::now();
             for plain_text in &email.text_plain {
                 let size = plain_text.as_bytes().len();
                 let hash = {
@@ -223,7 +245,13 @@ fn process_emails(
                     |row| row.get(0),
                 )?;
             }
+            println!(
+                "It took {:.2?} to insert {} plain texts in Uniform Resource",
+                start.elapsed(),
+                email.text_plain.len()
+            );
 
+            let start = Instant::now();
             // 4. take out the text/html, insert it into uniform_resource, transform it to json and then put it in uniform_resource_transform.
             for html in &email.text_html {
                 let size = html.as_bytes().len();
@@ -273,7 +301,17 @@ fn process_emails(
                     |row| row.get(0),
                 )?;
             }
+            println!(
+                "It took {:.2?} to insert {} htmls in Uniform Resource and UR Transform",
+                start.elapsed(),
+                email.text_html.len()
+            );
         }
+
+        println!(
+            "=========Processing all the emails for the {folder} folder took {:.2?}=========",
+            folder_process_start.elapsed()
+        );
     }
     Ok(())
 }
