@@ -22,7 +22,7 @@ pub struct Microsoft365ServiceArgs {
     #[arg(short = 'm', long)]
     pub mode: Microsoft365AuthMethod,
     /// Address to start the authentication server on, when using the `auth_code` mode for token generation.
-    #[arg(short = 'a', long, default_value = "http://127.0.0.1:8000")]
+    #[arg(short = 'a', long, default_value = "http://127.0.0.1:8000", env = "MICROSOFT_365_CLIENT_REDIRECT_URI")]
     pub addr: Option<String>,
     /// Redirect URL. Base redirect URL path. It gets concatenated with the server address to form the full redirect url,
     /// when using the `auth_code` mode for token generation.
