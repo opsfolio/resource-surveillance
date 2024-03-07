@@ -1,6 +1,6 @@
 use std::{collections::HashMap, time::Instant};
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use rusqlite::params;
 use sha1::{Digest, Sha1};
 use tracing::debug;
@@ -286,7 +286,13 @@ fn process_emails(
 
                 let html = clean_html(html);
 
-                let html_json = Dom::parse(html)?.to_json_pretty()?;
+                let html = Dom::parse(html)
+                    .map_err(|err| {
+                        anyhow!("Failed to parse this html string: {html}.\nError:{err:#?}")
+                    })
+                    .with_context(|| "html to json")?;
+                
+                let html_json = html.to_json_pretty()?;
 
                 let html_json_size = html_json.as_bytes().len();
                 let html_json_hash = {
