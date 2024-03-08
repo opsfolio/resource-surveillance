@@ -39,6 +39,6 @@ indoc = "2.0.4"
 common.workspace = true
 resource.workspace= true
 clap.workspace = true
-udi_pgp_imap.workspace = true
+resource_imap.workspace = true
 html_parser = "0.6.3"
 ammonia = "3.3.0"

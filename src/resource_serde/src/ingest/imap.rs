@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use rusqlite::params;
 use sha1::{Digest, Sha1};
 use tracing::debug;
-use udi_pgp_imap::{process_imap, EmailResource, ImapConfig};
+use resource_imap::{process_imap, EmailResource, ImapConfig};
 
 use crate::{
     cmd::imap::IngestImapArgs,

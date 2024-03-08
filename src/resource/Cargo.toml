@@ -38,4 +38,4 @@ serde_yaml.workspace = true
 indoc = "2.0.4"
 common.workspace = true
 xmltojson = "0.1.3"
-udi_pgp_imap.workspace = true
+resource_imap.workspace = true

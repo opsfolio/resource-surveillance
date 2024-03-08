@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use sha1::{Digest, Sha1};
 use tracing::error;
-use udi_pgp_imap::EmailResource;
+use resource_imap::EmailResource;
 
 use crate::frontmatter::frontmatter;
 use crate::shell::*;

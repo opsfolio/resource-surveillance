@@ -4979,6 +4979,7 @@ dependencies = [
  "opentelemetry",
  "pretty_assertions",
  "regex",
+ "resource_imap",
  "rusqlite",
  "serde",
  "serde_json",
@@ -4990,11 +4991,29 @@ dependencies = [
  "tokio",
  "toml 0.8.8",
  "tracing",
- "udi_pgp_imap",
  "ulid",
  "vfs",
  "walkdir",
  "xmltojson",
+]
+
+[[package]]
+name = "resource_imap"
+version = "0.5.8"
+dependencies = [
+ "anyhow",
+ "futures-util",
+ "graph-rs-sdk",
+ "imap",
+ "mail-parser",
+ "reqwest",
+ "rustls 0.22.2",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "warp",
+ "webpki-roots 0.26.1",
 ]
 
 [[package]]
@@ -5023,6 +5042,7 @@ dependencies = [
  "pretty_assertions",
  "regex",
  "resource",
+ "resource_imap",
  "rusqlite",
  "serde",
  "serde_json",
@@ -5034,7 +5054,6 @@ dependencies = [
  "tokio",
  "toml 0.8.8",
  "tracing",
- "udi_pgp_imap",
  "ulid",
  "vfs",
  "walkdir",
@@ -6852,25 +6871,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
-]
-
-[[package]]
-name = "udi_pgp_imap"
-version = "0.5.8"
-dependencies = [
- "anyhow",
- "futures-util",
- "graph-rs-sdk",
- "imap",
- "mail-parser",
- "reqwest",
- "rustls 0.22.2",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "warp",
- "webpki-roots 0.26.1",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 use clap::{Args, Subcommand, ValueEnum};
 use serde::Serialize;
-use udi_pgp_imap::{ImapConfig, Microsoft365AuthServerConfig, Microsoft365Config};
+use resource_imap::{ImapConfig, Microsoft365AuthServerConfig, Microsoft365Config};
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 
 #[derive(Debug, Serialize, Clone, ValueEnum, Default)]
@@ -135,10 +135,10 @@ impl From<IngestImapArgs> for ImapConfig {
                                 mode: {
                                     match config.mode {
                                         Microsoft365AuthMethod::AuthCode => {
-                                            udi_pgp_imap::TokenGenerationMethod::AuthCode
+                                            resource_imap::TokenGenerationMethod::AuthCode
                                         }
                                         Microsoft365AuthMethod::DeviceCode => {
-                                            udi_pgp_imap::TokenGenerationMethod::DeviceCode
+                                            resource_imap::TokenGenerationMethod::DeviceCode
                                         }
                                     }
                                 },
