@@ -2,17 +2,17 @@ WITH expected_counts AS (
     SELECT
         'device' AS table_name, 1 AS expected_count
     UNION ALL
-    SELECT 'uniform_resource', 148
+    SELECT 'uniform_resource', 24
     UNION ALL
     SELECT 'ur_ingest_session', 1
     UNION ALL
     SELECT 'ur_ingest_session_imap_account', 1
     UNION ALL
-    SELECT 'ur_ingest_session_imap_acct_folder', 6
+    SELECT 'ur_ingest_session_imap_acct_folder', 3
     UNION ALL
-    SELECT 'ur_ingest_session_imap_acct_folder_message', 37
+    SELECT 'ur_ingest_session_imap_acct_folder_message', 6
     UNION ALL
-    SELECT 'uniform_resource_transform', 37
+    SELECT 'uniform_resource_transform', 17
 ),
 actual_counts AS (
     SELECT 'device' AS table_name, COUNT(*) AS actual_count FROM device

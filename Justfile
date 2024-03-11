@@ -59,7 +59,8 @@ test-regression-ingest:
 
 # Run the regression tests for ingesting from an email using IMAP
 test-regression-imap:
-    rm -f ./regression-ingest-imap.sqlite.db && cargo run -- ingest imap -d ./regression-ingest-imap.sqlite.db -u surveilr-regression@gmail.com --password 'fkxt eraz pejw lfcn' -a "imap.gmail.com" -b 10
+    rm -f ./regression-ingest-imap.sqlite.db
+    cargo run -- ingest imap -d ./regression-ingest-imap.sqlite.db -u surveilrregression@gmail.com --password 'ingq hidi atao zrka' -a "imap.gmail.com" -b 10 --css-select "all-png-images:img[src$='.png']" --css-select "mailchimp-urls:a[href*='mailchimp.com']"
     cat ./support/regression-tests/ingest-imap.sql | sqlite3 ./regression-ingest-imap.sqlite.db
 
 # Lint all the code
