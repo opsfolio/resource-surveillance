@@ -4,6 +4,7 @@ use anyhow::{anyhow, Context, Result};
 use resource_imap::{process_imap, EmailResource, ImapConfig};
 use rusqlite::params;
 use scraper::{Html, Selector};
+use serde_json::json;
 use sha1::{Digest, Sha1};
 use tracing::debug;
 
@@ -310,7 +311,8 @@ fn process_emails(
                         "json",
                         html_json_hash,
                         html_json,
-                        html_json_size
+                        html_json_size,
+                        None::<&String>,
                     ],
                     |row| row.get(0),
                 )?;
@@ -334,9 +336,12 @@ fn process_emails(
                     let json_size = elements_json.as_bytes().len();
                     let hash = compute_hash(&elements_json);
                     let uri = format!("css-select:{}", css_selector);
+                    let elaboration = json!({
+                        "selector": css_selector
+                    }).to_string();
 
                     let _ur_transform_id: String = ingest_stmts.ins_ur_transform_stmt.query_row(
-                        params![ur_id, uri, "json", hash, elements_json, json_size],
+                        params![ur_id, uri, "json", hash, elements_json, json_size, elaboration],
                         |row| row.get(0),
                     )?;
                 };

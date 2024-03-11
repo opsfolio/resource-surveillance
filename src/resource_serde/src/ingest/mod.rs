@@ -42,8 +42,8 @@ const INS_UR_SQL: &str = indoc! {"
                            RETURNING uniform_resource_id"};
 
 const INS_UR_TRANSFORM_SQL: &str = indoc! {"
-        INSERT INTO uniform_resource_transform (uniform_resource_transform_id, uniform_resource_id, uri, nature, content_digest, content, size_bytes)
-                                        VALUES (ulid(), ?, ?, ?, ?, ?, ?) 
+        INSERT INTO uniform_resource_transform (uniform_resource_transform_id, uniform_resource_id, uri, nature, content_digest, content, size_bytes, elaboration)
+                                        VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?) 
                                    ON CONFLICT (uniform_resource_id, content_digest, nature, size_bytes) 
                                  DO UPDATE SET size_bytes = EXCLUDED.size_bytes
                                      RETURNING uniform_resource_transform_id"};
@@ -727,7 +727,8 @@ impl UniformResourceWriter<ContentResource> for XmlResource<ContentResource> {
                     "json".to_string(),
                     hash,
                     json,
-                    json.as_bytes().len()
+                    json.as_bytes().len(),
+                    None::<&String>,
                 ],
                 |row| row.get::<_, String>(0),
             ) {
