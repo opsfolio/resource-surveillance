@@ -1,10 +1,11 @@
 use std::{collections::HashMap, time::Instant};
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
+use resource_imap::{process_imap, EmailResource, ImapConfig};
 use rusqlite::params;
+use scraper::{Html, Selector};
 use sha1::{Digest, Sha1};
 use tracing::debug;
-use resource_imap::{process_imap, EmailResource, ImapConfig};
 
 use crate::{
     cmd::imap::IngestImapArgs,
@@ -263,16 +264,13 @@ fn process_emails(
             let start = Instant::now();
             // 4. take out the text/html, insert it into uniform_resource, transform it to json and then put it in uniform_resource_transform.
             for html in &email.text_html {
-                // let html = clean_html(html);
-                let html = ammonia::clean(html);
-                let parsed_html = match Dom::parse(&html) {
+                let html_json = match convert_html_to_json(html) {
                     Ok(h) => h,
                     Err(err) => {
                         eprintln!("Failed to parse this HTML to json. Error: {err:#?} Skipping");
                         continue;
                     }
                 };
-                let html_json = parsed_html.to_json_pretty()?;
 
                 let size = html.as_bytes().len();
                 let hash = {
@@ -316,6 +314,32 @@ fn process_emails(
                     ],
                     |row| row.get(0),
                 )?;
+
+                // handle any css selectors if any
+                {
+                    let fragment = Html::parse_fragment(html);
+                    let css_selector = "a";
+                    let selector = Selector::parse(css_selector)
+                        .map_err(|err| anyhow!("Failed to parse CSS selector.\nError: {err:#?}"))?;
+
+                    let elements = fragment
+                        .select(&selector)
+                        .map(|el| {
+                            let element_html = el.html();
+                            convert_html_to_json(&element_html)
+                        })
+                        .collect::<Result<Vec<_>>>()?;
+
+                    let elements_json = serde_json::to_string(&elements)?;
+                    let json_size = elements_json.as_bytes().len();
+                    let hash = compute_hash(&elements_json);
+                    let uri = format!("css-select:{}", css_selector);
+
+                    let _ur_transform_id: String = ingest_stmts.ins_ur_transform_stmt.query_row(
+                        params![ur_id, uri, "json", hash, elements_json, json_size],
+                        |row| row.get(0),
+                    )?;
+                };
             }
             debug!(
                 "It took {:.2?} to insert {} htmls in Uniform Resource and UR Transform",
@@ -337,21 +361,15 @@ fn finalize_transaction(tx: rusqlite::Transaction) -> Result<()> {
         .with_context(|| "[ingest_imap] Failed to commit the transaction")
 }
 
-// I found that some of the html strings don't start with <!DOCTYPE> which breaks
-// html to json parsing
-// fn clean_html(html: &str) -> &str {
-//     // Find the start of the <!DOCTYPE tag, ignoring case
-//     let start_index = html.to_lowercase().find("<!doctype").unwrap_or(0);
+fn convert_html_to_json(html: &str) -> Result<String> {
+    let html = ammonia::clean(html);
+    let parsed_html = Dom::parse(&html)
+        .map_err(|err| anyhow!("Failed to parse html element.\nError: {err:#?}"))?;
+    Ok(parsed_html.to_json_pretty()?)
+}
 
-//     // Find the end of the </html> tag, adding the length of "</html>" to include it, ignoring case
-//     // Note: We search in the substring starting from `start_index` to avoid finding a closing </html>
-//     // tag before the <!DOCTYPE if for any reason such a structure exists.
-//     let end_index = html[start_index..]
-//         .to_lowercase()
-//         .rfind("</html>")
-//         .map_or(html.len(), |i| i + "</html>".len() + start_index);
-
-//     // Return the slice from start_index to end_index
-//     // This effectively removes content before <!DOCTYPE and after </html>
-//     &html[start_index..end_index]
-// }
+fn compute_hash(s: &str) -> String {
+    let mut hasher = Sha1::new();
+    hasher.update(s.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
