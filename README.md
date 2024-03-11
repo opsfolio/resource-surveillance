@@ -384,12 +384,21 @@ The `surveilr ingest imap` command faclitates the ingestion of emails from a sin
 - **Supported Email Services**: Currently, the command supports Gmail and personal Outlook accounts only.
 - **App Passwords**: The password must be an App Password for authentication instead of the account's primary password. App Passwords provide a secure way of accessing your account through third-party applications. For guidance on creating an App Password, please refer [here]() to learn how to create app passwords.
 
-Support for attachements will be in the next release
+Support for attachements is in the works.
 ### Examples
 ```bash
-$ surveilr ingest imap -u user@outlook.com -p 'apppassword' -a "outlook.office365.com" -f="inb*" ## -f is a regeulare expression with the dafult being "*" to match all folders.mailboxes
+$ surveilr ingest imap -u user@outlook.com -p 'apppassword' -a "outlook.office365.com" -f="inb*" ## -f is a regeular expression with the dafult being "*" to match all folders.mailboxes
 $ surveilr ingest imap -u user@gmail.com -p 'apppassword' -a "imap.gmail.com" --batch-size=10000
 ```
+
+## CSS Selection Capability
+The `surveilr` IMAP ingestion feature introduces the ability to directly query your emails. This functionality is versatile and particularly beneficial when dealing with emails containing HTML content, such as embedded HTML documents. For instance, if you aim to filter all anchor tags within your emails that contain ".com" in their URLs, you can utilize the CSS selector `a[href*=".com"]`. `surveilr` efficiently parses the HTML content during ingestion, extracts information based on the specified CSS selector, and saves the extracted data in the `uniform_resource_transform` table for subsequent queries.
+
+```bash
+$ surveilr ingest imap -u user@gmail.com -p 'apppassword' -a "imap.gmail.com" --batch-size=10000 -css-select="select-all-com-anchor-tags:a[href*='.com']"
+```
+
+**Important**: The `css-select` argument requires a name for the query and the corresponding CSS selector, separated by a ":". Additionally, you can specify multiple queries by passing several `css-select` arguments.
 
 ## Microsoft 365
 For enterprise Microsoft accounts, app passwords have been disabled and emails can only be accessed through an oauth method. `surveilr` now supports signing in to an enterprise account through two main methods.
