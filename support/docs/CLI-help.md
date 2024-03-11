@@ -51,7 +51,7 @@ This document contains the help content for the `surveilr` command-line program.
 
 * `--device-name <DEVICE_NAME>` — How to identify this device
 
-  Default value: `Lilit`
+  Default value: `mf-elitemini-hx90-01`
 * `-d`, `--debug` — Turn debugging information on (repeat for higher levels)
 * `--log-mode <LOG_MODE>` — Output logs in json format
 
@@ -381,6 +381,7 @@ Ingest content from email boxes
 
   Possible values: `all`, `unread`, `read`, `starred`
 
+* `-c`, `--css-select <CSS_SELECT>` — List of CSS selectors with names and values. e.g. -css-select="name_of_select_query:div > p" i.e, select all p tags in a div tag
 * `-b`, `--batch-size <BATCH_SIZE>` — Maximum number of messages to be ingested
 
   Default value: `1000`

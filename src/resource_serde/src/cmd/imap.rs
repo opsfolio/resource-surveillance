@@ -87,6 +87,12 @@ pub struct IngestImapArgs {
     #[arg(short, long, default_value = "unread")]
     pub status: Vec<ImapMessageStatus>,
 
+    /// List of CSS selectors with names and values.
+    /// e.g. -css-select="name_of_select_query:div > p"
+    /// i.e, select all p tags in a div tag
+    #[arg(short, long)]
+    pub css_select: Vec<String>,
+
     /// Maximum number of messages to be ingested.
     #[arg(short, long, default_value = "1000")]
     pub batch_size: u64,
@@ -111,6 +117,15 @@ impl From<IngestImapArgs> for ImapConfig {
             mailboxes: vec![],
             batch_size: value.batch_size,
             extract_attachments: value.extract_attachments,
+            css_selectors: value.css_select.iter().filter_map(|s| {
+                let parts: Vec<&str> = s.splitn(2, ':').collect();
+                if parts.len() == 2 {
+                    Some((parts[0].to_string(), parts[1].to_string()))
+                } else {
+                    eprintln!("Warning: Invalid css_select format '{}'. Expected format 'name:selector'.", s);
+                    None
+                }
+            }).collect(),
             microsoft365: {
                 if let Some(service_cmds) = value.command {
                     match service_cmds {

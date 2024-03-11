@@ -319,31 +319,43 @@ fn process_emails(
 
                 // handle any css selectors if any
                 {
-                    let fragment = Html::parse_fragment(html);
-                    let css_selector = "a";
-                    let selector = Selector::parse(css_selector)
-                        .map_err(|err| anyhow!("Failed to parse CSS selector.\nError: {err:#?}"))?;
+                    for (select_query_name, css_selector) in &config.css_selectors {
+                        let fragment = Html::parse_fragment(html);
+                        let selector = Selector::parse(css_selector).map_err(|err| {
+                            anyhow!("Failed to parse CSS selector.\nError: {err:#?}")
+                        })?;
 
-                    let elements = fragment
-                        .select(&selector)
-                        .map(|el| {
-                            let element_html = el.html();
-                            convert_html_to_json(&element_html)
+                        let elements = fragment
+                            .select(&selector)
+                            .map(|el| {
+                                let element_html = el.html();
+                                convert_html_to_json(&element_html)
+                            })
+                            .collect::<Result<Vec<_>>>()?;
+
+                        let elements_json = serde_json::to_string(&elements)?;
+                        let json_size = elements_json.as_bytes().len();
+                        let hash = compute_hash(&elements_json);
+                        let uri = format!("css-select:{}", select_query_name);
+                        let elaboration = json!({
+                            "selector": css_selector
                         })
-                        .collect::<Result<Vec<_>>>()?;
+                        .to_string();
 
-                    let elements_json = serde_json::to_string(&elements)?;
-                    let json_size = elements_json.as_bytes().len();
-                    let hash = compute_hash(&elements_json);
-                    let uri = format!("css-select:{}", css_selector);
-                    let elaboration = json!({
-                        "selector": css_selector
-                    }).to_string();
-
-                    let _ur_transform_id: String = ingest_stmts.ins_ur_transform_stmt.query_row(
-                        params![ur_id, uri, "json", hash, elements_json, json_size, elaboration],
-                        |row| row.get(0),
-                    )?;
+                        let _ur_transform_id: String =
+                            ingest_stmts.ins_ur_transform_stmt.query_row(
+                                params![
+                                    ur_id,
+                                    uri,
+                                    "json",
+                                    hash,
+                                    elements_json,
+                                    json_size,
+                                    elaboration
+                                ],
+                                |row| row.get(0),
+                            )?;
+                    }
                 };
             }
             debug!(
