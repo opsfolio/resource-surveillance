@@ -4,7 +4,7 @@ use anyhow::{anyhow, Context, Result};
 use resource_imap::{process_imap, EmailResource, ImapConfig};
 use rusqlite::params;
 use scraper::{Html, Selector};
-use serde_json::json;
+use serde_json::{json, Value};
 use sha1::{Digest, Sha1};
 use tracing::debug;
 
@@ -325,15 +325,15 @@ fn process_emails(
                             anyhow!("Failed to parse CSS selector.\nError: {err:#?}")
                         })?;
 
-                        let elements = fragment
+                        let elements_json_values = fragment
                             .select(&selector)
                             .map(|el| {
                                 let element_html = el.html();
-                                convert_html_to_json(&element_html)
+                                convert_html_to_value(&element_html)
                             })
-                            .collect::<Result<Vec<_>>>()?;
+                            .collect::<Result<Vec<serde_json::Value>>>()?;
 
-                        let elements_json = serde_json::to_string(&elements)?;
+                        let elements_json = serde_json::to_string_pretty(&elements_json_values)?;
                         let json_size = elements_json.as_bytes().len();
                         let hash = compute_hash(&elements_json);
                         let uri = format!("css-select:{}", select_query_name);
@@ -383,6 +383,18 @@ fn convert_html_to_json(html: &str) -> Result<String> {
     let parsed_html = Dom::parse(&html)
         .map_err(|err| anyhow!("Failed to parse html element.\nError: {err:#?}"))?;
     Ok(parsed_html.to_json_pretty()?)
+}
+
+fn convert_html_to_value(html: &str) -> Result<serde_json::Value> {
+    let html = ammonia::clean(html);
+    let parsed_html = Dom::parse(&html)
+        .map_err(|err| anyhow!("Failed to parse html element.\nError: {err:#?}"))?;
+    let json_string = parsed_html.to_json_pretty()?;
+
+    let json_value: Value = serde_json::from_str(&json_string)
+        .map_err(|err| anyhow!("Failed to parse JSON string.\nError: {err:#?}"))?;
+
+    Ok(json_value)
 }
 
 fn compute_hash(s: &str) -> String {
