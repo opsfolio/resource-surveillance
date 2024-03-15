@@ -100,7 +100,7 @@ SET udi_pgp_serve_ncl_supplier = '
     ssh-targets = [
       {
         id = "one",
-        host = "157.245.40.97",
+        host = "157.",
         port = 22,
         user = "oshuporu"
       },

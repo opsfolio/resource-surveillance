@@ -11,3 +11,4 @@ resource-surveillance*.sqlite.db*
 sqlpage/
 
 regression*.sqlite.db
+.test-e2e.sql

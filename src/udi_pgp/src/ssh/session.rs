@@ -180,6 +180,7 @@ mod unix_impl {
             .control_directory(std::env::temp_dir())
             // Wait 15 seconds before timing out ssh connection attempt
             .connect_timeout(Duration::from_secs(15))
+            .port(remote_addr.port())
             .connect(connection_str)
             .await?;
 
