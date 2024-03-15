@@ -6,12 +6,12 @@ members = [
   "src/resource",
   "src/udi_pgp",
   "src/udi_pgp_osquery",
-  "src/resource_imap"
+  "src/resource_imap",
 ]
 resolver = "2"
 
 [workspace.package]
-version = "0.5.9"
+version = "0.5.10"
 edition = "2021"
 license = "GPL-3.0"
 
@@ -35,7 +35,11 @@ lazy_static = "1.4.0"
 os_pipe = { version = "1.1.4" }
 pretty_assertions = "1.4.0"
 regex = { version = "1.10.2", features = ["std"], default-features = false }
-rusqlite = { version = "0.31.0", features = ["bundled", "functions", "column_decltype"] }
+rusqlite = { version = "0.31.0", features = [
+  "bundled",
+  "functions",
+  "column_decltype",
+] }
 serde = { version = "1.0.190", features = ["derive"] }
 serde_json = "1.0.107"
 serde_rusqlite = "0.35.0"
@@ -49,11 +53,29 @@ ulid = { version = "1.1.0", features = ["rand", "std", "serde", "uuid"] }
 walkdir = "2.4.0"
 tracing = "0.1.40"
 tracing-log = "0.2.0"
-opentelemetry_sdk = { version = "0.21.2", features = ["opentelemetry-http", "trace", "metrics" , "logs", "rt-tokio"] }
+opentelemetry_sdk = { version = "0.21.2", features = [
+  "opentelemetry-http",
+  "trace",
+  "metrics",
+  "logs",
+  "rt-tokio",
+] }
 opentelemetry = { version = "0.21.0", features = ["trace"] }
-autometrics = { version = "1.0.0", features = ["otel-push-exporter-http", "otel-push-exporter-grpc", "otel-push-exporter-tokio-current-thread", "opentelemetry-prometheus", "metrics-exporter-prometheus", "prometheus-exporter"] }
+autometrics = { version = "1.0.0", features = [
+  "otel-push-exporter-http",
+  "otel-push-exporter-grpc",
+  "otel-push-exporter-tokio-current-thread",
+  "opentelemetry-prometheus",
+  "metrics-exporter-prometheus",
+  "prometheus-exporter",
+] }
 assert_cmd = "2.0.13"
-tracing-subscriber = {version = "0.3.18", features = ["std", "fmt", "json", "env-filter"] }
+tracing-subscriber = { version = "0.3.18", features = [
+  "std",
+  "fmt",
+  "json",
+  "env-filter",
+] }
 uuid = { version = "1.7.0", features = ["v4", "fast-rng", "macro-diagnostics"] }
 
 ## workspaces members
