@@ -108,8 +108,6 @@ pub async fn fetch_emails_from_graph_api(
 ) -> anyhow::Result<HashMap<String, Vec<EmailResource>>> {
     let client = Graph::new(token.bearer_token());
 
-    // FIXME: handle selecting the specified folder name
-    // check the graph API
     let res = client
         .me()
         .mail_folders()
@@ -141,31 +139,50 @@ pub async fn fetch_emails_from_graph_api(
         .map(|f| f.display_name)
         .collect();
 
-
     let mut emails = HashMap::new();
     for folder in &config.mailboxes {
         let folder = folder.replace(' ', "");
-        let res = client
-            .me()
-            .mail_folder(&folder)
-            .messages()
-            .list_messages()
-            .top(config.batch_size.to_string())
-            .send().await
-            .with_context(|| format!("[ingest_imap]: microsoft_365. Failed to get {:#?} number of emails in the {} folder", config.batch_size, folder))?;
+        let mut all_messages = Vec::new();
+        let mut skip_count = 0;
 
-        let messages_list: MessageList = res.json().await.with_context(|| {
-            "[ingest_imap]: microsoft_365. Deserializing email messages list failed"
-        })?;
+        loop {
+            let batch_size = std::cmp::min(config.batch_size, 1000);
+            let res = client
+                .me()
+                .mail_folder(&folder)
+                .messages()
+                .list_messages()
+                .top(batch_size.to_string()) // limit the no of emails to 1000
+                .skip(skip_count.to_string()) // offset
+                .send()
+                .await
+                .with_context(|| {
+                    format!(
+                        "[ingest_imap]: microsoft_365. Failed to get emails in the {} folder",
+                        folder
+                    )
+                })?;
 
-        // let values = messages_list["value"].as_array().unwrap();
+            let messages_list: MessageList = res.json().await.with_context(|| {
+                "[ingest_imap]: microsoft_365. Deserializing email messages list failed"
+            })?;
 
-        let messages = messages_list
-            .value
-            .into_iter()
-            .map(EmailResource::try_from)
-            .collect::<anyhow::Result<Vec<EmailResource>>>()?;
-        emails.insert(folder.to_string(), messages);
+            if messages_list.value.is_empty() {
+                break;
+            }
+
+            let messages: Vec<EmailResource> = messages_list
+                .value
+                .into_iter()
+                .map(EmailResource::try_from)
+                .collect::<anyhow::Result<Vec<EmailResource>>>()?;
+
+            all_messages.extend(messages);
+
+            // Update skip_count for the next batch
+            skip_count += batch_size;
+        }
+        emails.insert(folder.to_string(), all_messages);
     }
 
     Ok(emails)
