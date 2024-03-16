@@ -1,6 +1,7 @@
 use std::{collections::HashMap, net::TcpStream, sync::Arc, vec};
 
 use anyhow::{anyhow, Context};
+use imap::types::Fetch;
 use rustls::RootCertStore;
 use serde::{Deserialize, Serialize};
 
@@ -108,69 +109,39 @@ pub async fn process_imap(
                     error!("No messages in {} folder", folder);
                     continue;
                 }
-                let start =
-                    messages_total.saturating_sub(config.batch_size.saturating_sub(1).try_into()?);
-                let fetch_range = format!("{}:*", std::cmp::max(start, 1));
-                debug!("Fetching the latest: {fetch_range}");
 
-                let messages = imap_session.fetch(fetch_range, "RFC822")?;
+                // get no of batches and the size of each batch
+                let mut remaining_emails =
+                    std::cmp::min(config.batch_size as usize, messages_total as usize);
+                let mut start = messages_total as usize;
+                // Max number of emails to fetch per batch because of IMAP limitations
+                let batch_size = 1000; 
                 let mut emails = Vec::new();
 
-                for message in messages.iter() {
-                    let body = message
-                        .body()
-                        .ok_or_else(|| anyhow!("Message did not have a body"))?;
+                while remaining_emails > 0 {
+                    let fetch_size = std::cmp::min(remaining_emails, batch_size);
+                    let end = start;
+                    start = start.saturating_sub(fetch_size);
 
-                    let message = MessageParser::default()
-                        .parse(body)
-                        .ok_or_else(|| anyhow!("Failed to parse email message"))?;
-
-                    let email = EmailResource {
-                        subject: message.subject().unwrap_or_default().to_string(),
-                        from: message
-                            .from()
-                            .map(|addresses| {
-                                addresses
-                                    .first()
-                                    .unwrap()
-                                    .address
-                                    .clone()
-                                    .unwrap_or_default()
-                            })
-                            .unwrap_or_default()
-                            .to_string(),
-                        cc: parse_addresses(message.cc()),
-                        bcc: parse_addresses(message.bcc()),
-                        references: vec![],
-                        in_reply_to: None,
-                        message_id: message.message_id().unwrap_or_default().to_string(),
-                        to: parse_addresses(message.to()),
-                        date: message.date().map(|d| d.to_rfc3339()).unwrap_or_default(),
-                        text_plain: message
-                            .text_bodies()
-                            .map(|s| match &s.body {
-                                PartType::Text(txt) => txt.to_string(),
-                                _ => "".to_string(),
-                            })
-                            .collect(),
-                        text_html: message
-                            .html_bodies()
-                            .map(|s| match &s.body {
-                                PartType::Html(html) => html.to_string(),
-                                _ => "".to_string(),
-                            })
-                            .collect(),
-                        raw_text: String::from_utf8_lossy(message.raw_message()).into_owned(),
-                        raw_json: serde_json::to_string(&message)?,
-                        attachments: if config.extract_attachments {
-                            Some(extract_attachments(&message))
-                        } else {
-                            None
-                        },
+                    let fetch_range = if start > 0 {
+                        format!("{}:{}", start, end)
+                    } else {
+                        format!("1:{}", end)
                     };
+                    debug!("Fetching emails in range: {fetch_range}");
 
-                    emails.push(email);
+                    let fetched_messages = imap_session.fetch(fetch_range, "RFC822")?;
+                    for message in fetched_messages.iter() {
+                        let email = convert_to_email_resource(message, config)?;
+                        emails.push(email);
+                    }
+
+                    remaining_emails = remaining_emails.saturating_sub(fetch_size);
+                    if start == 0 {
+                        break;
+                    }
                 }
+
                 res.insert(folder.clone(), emails);
             }
             Err(err) => {
@@ -184,6 +155,65 @@ pub async fn process_imap(
     }
 
     Ok(res)
+}
+
+fn convert_to_email_resource(
+    message: &Fetch,
+    config: &ImapConfig,
+) -> anyhow::Result<EmailResource> {
+    let body = message
+        .body()
+        .ok_or_else(|| anyhow!("Message did not have a body"))?;
+
+    let message = MessageParser::default()
+        .parse(body)
+        .ok_or_else(|| anyhow!("Failed to parse email message"))?;
+
+    let email = EmailResource {
+        subject: message.subject().unwrap_or_default().to_string(),
+        from: message
+            .from()
+            .map(|addresses| {
+                addresses
+                    .first()
+                    .unwrap()
+                    .address
+                    .clone()
+                    .unwrap_or_default()
+            })
+            .unwrap_or_default()
+            .to_string(),
+        cc: parse_addresses(message.cc()),
+        bcc: parse_addresses(message.bcc()),
+        references: vec![],
+        in_reply_to: None,
+        message_id: message.message_id().unwrap_or_default().to_string(),
+        to: parse_addresses(message.to()),
+        date: message.date().map(|d| d.to_rfc3339()).unwrap_or_default(),
+        text_plain: message
+            .text_bodies()
+            .map(|s| match &s.body {
+                PartType::Text(txt) => txt.to_string(),
+                _ => "".to_string(),
+            })
+            .collect(),
+        text_html: message
+            .html_bodies()
+            .map(|s| match &s.body {
+                PartType::Html(html) => html.to_string(),
+                _ => "".to_string(),
+            })
+            .collect(),
+        raw_text: String::from_utf8_lossy(message.raw_message()).into_owned(),
+        raw_json: serde_json::to_string(&message)?,
+        attachments: if config.extract_attachments {
+            Some(extract_attachments(&message))
+        } else {
+            None
+        },
+    };
+
+    Ok(email)
 }
 
 fn parse_addresses(addr: Option<&mail_parser::Address>) -> Vec<String> {
