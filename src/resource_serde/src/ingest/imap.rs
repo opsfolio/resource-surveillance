@@ -118,7 +118,7 @@ fn process_emails(
     println!("Converting and writing email to database...");
     for (folder, emails) in email_resources {
         let folder_process_start = Instant::now();
-        debug!("========= {folder} has {} number of messages", emails.len());
+        println!("========= {folder} has {} number of messages", emails.len());
         // insert folder into
 
         let acct_folder_id: String = {
@@ -365,7 +365,7 @@ fn process_emails(
             );
         }
 
-        debug!(
+        println!(
             "=========Processing all the emails for the {folder} folder took {:.2?}=========",
             folder_process_start.elapsed()
         );
