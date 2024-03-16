@@ -391,8 +391,19 @@ fn convert_html_to_value(html: &str) -> Result<serde_json::Value> {
         .map_err(|err| anyhow!("Failed to parse html element.\nError: {err:#?}"))?;
     let json_string = parsed_html.to_json_pretty()?;
 
-    let json_value: Value = serde_json::from_str(&json_string)
+    let mut json_value: Value = serde_json::from_str(&json_string)
         .map_err(|err| anyhow!("Failed to parse JSON string.\nError: {err:#?}"))?;
+
+    // Transform the JSON structure
+    if let Some(array) = json_value.as_array_mut() {
+        if !array.is_empty() {
+            if let Some(first_element) = array.first() {
+                if let Some(children) = first_element.get("children") {
+                    json_value = children.clone();
+                }
+            }
+        }
+    }
 
     Ok(json_value)
 }
