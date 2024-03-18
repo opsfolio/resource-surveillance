@@ -23,7 +23,17 @@ async function CLI() {
       {
         default: path.relative(
           Deno.cwd(),
-          path.fromFileUrl(import.meta.resolve("../../src")),
+          path.fromFileUrl(import.meta.resolve("../../src/resource_serde/src")),
+        ),
+      },
+    )
+    .option(
+      "--admin-home <path:string>",
+      "Store the generated SQL for UDI-PGP administrative tasks in the provided directory",
+      {
+        default: path.relative(
+          Deno.cwd(),
+          path.fromFileUrl(import.meta.resolve("../../src/udi_pgp/src")),
         ),
       },
     )
@@ -47,7 +57,7 @@ async function CLI() {
         ),
       },
     )
-    .action(async ({ sqlHome, tblsConfHome, docsHome }) => {
+    .action(async ({ sqlHome, adminHome, tblsConfHome, docsHome }) => {
       const sqlPageNB = nbooks.SQLPageNotebook.create(sno.nbh);
       const initSQL = nbh.SQL`
         ${sno.bootstrapNB.bootstrapDDL()}
@@ -64,6 +74,14 @@ async function CLI() {
       await Deno.writeTextFile(
         path.join(sqlHome, "bootstrap.sql"),
         initSQL.SQL(sno.nbh.emitCtx),
+      );
+
+      await Deno.writeTextFile(
+        path.join(adminHome, "admin.sql"),
+        nbh.SQL`  
+          ${nbh.adminModels.informationSchema.tables}
+          ${nbh.adminModels.informationSchema.tableIndexes}
+        `.SQL(nbh.emitCtx),
       );
 
       for (const psc of await sno.polygenSrcCode()) {

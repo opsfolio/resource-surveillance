@@ -444,12 +444,84 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     },
   });
 
+  const urIngestSessionImapAccount = gm.textPkTable(
+    "ur_ingest_session_imap_account",
+    {
+      ur_ingest_session_imap_account_id: gm.keys.varCharPrimaryKey(),
+      ingest_session_id: urIngestSession.belongsTo
+        .ur_ingest_session_id(),
+      email: gd.textNullable(),
+      password: gd.textNullable(),
+      host: gd.textNullable(),
+      elaboration: gd.jsonTextNullable(),
+      ...gm.housekeeping.columns,
+    },
+    {
+      isIdempotent: true,
+      constraints: (props, tableName) => {
+        const c = SQLa.tableConstraints(tableName, props);
+        return [
+          c.unique("ingest_session_id", "email"),
+        ];
+      },
+      indexes: (props, tableName) => {
+        const tif = SQLa.tableIndexesFactory(tableName, props);
+        return [
+          tif.index({ isIdempotent: true }, "ingest_session_id", "email"),
+        ];
+      },
+      populateQS: (t, _c, cols, _tableName) => {
+        t.description = markdown`
+        Immutable ingest session folder system represents an email address to be ingested. Each
+        session includes an email, then ${cols.email.identity} is the
+        folder that was scanned.`;
+      },
+    },
+  );
+
+  const urIngestSessionImapAcctFolder = gm.textPkTable(
+    "ur_ingest_session_imap_acct_folder",
+    {
+      ur_ingest_session_imap_acct_folder_id: gm.keys.varCharPrimaryKey(),
+      ingest_session_id: urIngestSession.belongsTo
+        .ur_ingest_session_id(),
+      ingest_account_id: urIngestSessionImapAccount.belongsTo
+        .ur_ingest_session_imap_account_id(),
+      folder_name: gd.text(),
+      elaboration: gd.jsonTextNullable(),
+      ...gm.housekeeping.columns,
+    },
+    {
+      isIdempotent: true,
+      constraints: (props, tableName) => {
+        const c = SQLa.tableConstraints(tableName, props);
+        return [
+          c.unique("ingest_account_id", "folder_name"),
+        ];
+      },
+      indexes: (props, tableName) => {
+        const tif = SQLa.tableIndexesFactory(tableName, props);
+        return [
+          tif.index({ isIdempotent: true }, "ingest_session_id", "folder_name"),
+        ];
+      },
+      populateQS: (t, _c, cols, _tableName) => {
+        t.description = markdown`
+        Immutable ingest session folder system represents a folder or mailbox in an email account, e.g. "INBOX" or "SENT". Each
+        session includes a folder scan, then ${cols.folder_name.identity} is the
+        folder that was scanned.`;
+      },
+    },
+  );
+
   const uniformResource = gm.textPkTable(UNIFORM_RESOURCE, {
     uniform_resource_id: gm.keys.varCharPrimaryKey(),
     device_id: device.belongsTo.device_id(),
     ingest_session_id: urIngestSession.belongsTo.ur_ingest_session_id(),
     ingest_fs_path_id: urIngestSessionFsPath.references
       .ur_ingest_session_fs_path_id().optional(),
+    ingest_imap_acct_folder_id: urIngestSessionImapAcctFolder
+      .references.ur_ingest_session_imap_acct_folder_id().optional(),
     uri: gd.text(),
     content_digest: gd.text(),
     content: gd.blobTextNullable(),
@@ -653,6 +725,56 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     },
   );
 
+  const urIngestSessionImapAcctFolderMessage = gm.textPkTable(
+    "ur_ingest_session_imap_acct_folder_message",
+    {
+      ur_ingest_session_imap_acct_folder_message_id: gm.keys
+        .varCharPrimaryKey(),
+      ingest_session_id: urIngestSession.belongsTo
+        .ur_ingest_session_id(),
+      ingest_imap_acct_folder_id: urIngestSessionImapAcctFolder.belongsTo
+        .ur_ingest_session_imap_acct_folder_id(),
+      uniform_resource_id: uniformResource.references.uniform_resource_id()
+        .optional(), // if a uniform_resource was prepared for this or already existed
+      message: gd.text(),
+      message_id: gd.text(),
+      subject: gd.text(),
+      from: gd.text(),
+      cc: gd.jsonText(),
+      bcc: gd.jsonText(),
+      email_references: gd.jsonText(),
+      ...gm.housekeeping.columns,
+    },
+    {
+      isIdempotent: true,
+      constraints: (props, tableName) => {
+        const c = SQLa.tableConstraints(tableName, props);
+        return [
+          c.unique("message", "message_id"),
+        ];
+      },
+      indexes: (props, tableName) => {
+        const tif = SQLa.tableIndexesFactory(tableName, props);
+        return [
+          tif.index(
+            { isIdempotent: true },
+            "ingest_session_id",
+          ),
+        ];
+      },
+      populateQS: (t, _c, _cols, tableName) => {
+        t.description = markdown`
+          Contains messages related in a folder that was ingested. On multiple executions,
+          unlike ${uniformResource.tableName}, ${tableName} rows are always inserted and
+          references the ${uniformResource.tableName} primary key of its related content.
+          This method allows for a more efficient query of message version differences across
+          sessions. With SQL queries, you can detect which sessions have a messaged added or modified,
+          which sessions have a message deleted, and what the differences are in message contents
+          if they were modified across sessions.`;
+      },
+    },
+  );
+
   const informationSchema = {
     tables: [
       device,
@@ -665,6 +787,9 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       uniformResourceTransform,
       urIngestSessionFsPathEntry,
       urIngestSessionTaskEntry,
+      urIngestSessionImapAccount,
+      urIngestSessionImapAcctFolder,
+      urIngestSessionImapAcctFolderMessage,
     ],
     tableIndexes: [
       ...device.indexes,
@@ -677,6 +802,9 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
       ...uniformResourceTransform.indexes,
       ...urIngestSessionFsPathEntry.indexes,
       ...urIngestSessionTaskEntry.indexes,
+      ...urIngestSessionImapAcctFolder.indexes,
+      ...urIngestSessionImapAcctFolderMessage.indexes,
+      ...urIngestSessionImapAccount.indexes,
     ],
   };
 
@@ -692,6 +820,191 @@ export function serviceModels<EmitContext extends SQLa.SqlEmitContext>() {
     uniformResourceTransform,
     urIngestSessionFsPathEntry,
     urIngestSessionTaskEntry,
+    informationSchema,
+    urIngestSessionImapAccount,
+    urIngestSessionImapAcctFolder,
+    urIngestSessionImapAcctFolderMessage,
+  };
+}
+
+export function adminModels<
+  EmitContext extends SQLa.SqlEmitContext,
+>() {
+  const modelsGovn = modelsGovernance<EmitContext>();
+  const { keys: gk, domains: gd, model: gm } = modelsGovn;
+
+  const udiPgpSet = gm.textPkTable("udi_pgp_set", {
+    udi_pgp_set_id: gk.varCharPrimaryKey(),
+    query_text: gd.text(),
+    generated_ncl: gd.text(),
+    status: gd.integer(), //zero or
+    status_text: gd.textNullable(),
+    elaboration: gd.jsonTextNullable(),
+    diagnostics_file: gd.textNullable(),
+    diagnostics_file_content: gd.jsonTextNullable(),
+    ...gm.housekeeping.columns,
+  }, {
+    isIdempotent: true,
+    populateQS: (t, c, _, tableName) => {
+      t.description = markdown`
+      Specific table for all SET queries. That is, all configuration queries.
+        `;
+      c.udi_pgp_set_id.description =
+        `${tableName} primary key and it corresponds to the "udi_pgp_observe_query_exec_id" in "udi_pgp_observe_query_exec".`;
+      c.query_text.description =
+        `The original query passed to UDI-PGP through the SET command`;
+      c.generated_ncl.description = `The NCL file generated from the schema`;
+      c.status.description =
+        `The status of the query. Corresponds to "exec_status" on the "udi_pgp_observe_query_exec" table.`;
+      c.status_text.description = `The reason the query failed`;
+      c.elaboration.description =
+        `A general object containing details like all the events that transpired during the execution of a query`;
+      c.diagnostics_file.description =
+        `Location the config query was written to.`;
+      c.diagnostics_file_content.description =
+        `Content of the diagnostics file.`;
+    },
+
+    qualitySystem: {
+      description: markdown`
+        A Supplier is any source that can provide data to be retrieved, such as osquery, git.
+        Each supplier is stored in this table along with its metadata`,
+    },
+  });
+
+  const udiPgpSupplier = gm.textPkTable("udi_pgp_supplier", {
+    udi_pgp_supplier_id: gk.varCharPrimaryKey(),
+    type: gd.text(),
+    mode: gd.text(),
+    ssh_targets: gd.jsonTextNullable(),
+    auth: gd.jsonTextNullable(),
+    atc_file_path: gd.textNullable(),
+    governance: gd.jsonTextNullable(),
+    ...gm.housekeeping.columns,
+  }, {
+    isIdempotent: true,
+    populateQS: (t, c, _, tableName) => {
+      t.description = markdown`
+        A Supplier is any source that can provide data to be retrieved, such as osquery, git.
+        Each supplier is stored in this table along with its metadata.`;
+      c.udi_pgp_supplier_id.description =
+        `${tableName} primary key and it corresponds to the name of the supplier passed in during creation of the supplier`;
+      c.mode.description =
+        `Specifies the mode of operation or interaction with the supplier. The modes define whether the supplier is accessed remotely or locally.`;
+      c.type.description =
+        `Identifies the type of supplier. UDI-PGP currently supports three types of suppliers: osquery, git`;
+      c.ssh_targets.description =
+        ` Lists the SSH targets for the supplier if the query is to be executed remotely. This field is optional and is relevant only for suppliers that have type of remote.`;
+      c.atc_file_path.description =
+        `Specifies the file path to an ATC (Auto Table Construction) file associated with a supplier of type "osquery".`;
+      c.auth.description =
+        `Defines authentication mechanisms or credentials required to interact with the supplier. This field is a vector, allowing for multiple authentication methods`;
+      c.governance.description =
+        `JSON schema-specific governance data (description, documentation, usage, etc. in JSON)`;
+    },
+
+    qualitySystem: {
+      description:
+        markdown`Get detailed information about the lifecycle of a configuration query.`,
+    },
+  });
+
+  const udiPgpConfig = gm.textPkTable("udi_pgp_config", {
+    udi_pgp_config_id: gk.varCharPrimaryKey(),
+    addr: gd.text(),
+    health: gd.textNullable(),
+    metrics: gd.textNullable(),
+    config_ncl: gd.textNullable(),
+    admin_db_path: gd.textNullable(),
+    surveilr_version: gd.textNullable(),
+    governance: gd.jsonTextNullable(),
+    ...gm.housekeeping.columns, // activity_log should store previous versions in JSON format (for history tracking)
+  }, {
+    isIdempotent: true,
+    populateQS: (t, c, _, tableName) => {
+      t.description = markdown` 
+      This table contains the all the data/information about UDI-PGP excluding the suppliers.
+     `;
+      c.udi_pgp_config_id.description =
+        `${tableName} primary key and internal label (not a ULID)`;
+      c.addr.description = `the address the proxy server is bound to.`;
+      c.metrics.description = `The address the health server started on.`;
+      c.metrics.description = `The address the metrics server started on.`;
+      c.config_ncl.description =
+        `The most recent full NCL that was built and used for configuring the system.`;
+      c.admin_db_path.description =
+        `The full path to admin state database for udi-pgp configuration and query logs.`;
+      c.surveilr_version.description =
+        `The current version of surveilr that's being executed.`;
+      c.governance.description = `kernel-specific governance data`;
+    },
+
+    qualitySystem: {
+      description: markdown`
+            This table contains the all the data/information about UDI-PGP excluding the suppliers.
+        `,
+    },
+  });
+
+  const udiQueryObservabilty = gm.textPkTable("udi_pgp_observe_query_exec", {
+    udi_pgp_observe_query_exec_id: gk.uuidPrimaryKey(),
+    query_text: gd.text(),
+    exec_start_at: gd.dateTime(),
+    exec_finish_at: gd.dateTimeNullable(),
+    elaboration: gd.jsonTextNullable(),
+    exec_msg: gd.textArray,
+    exec_status: gd.integer(),
+    governance: gd.jsonTextNullable(),
+    ...gm.housekeeping.columns, // activity_log should store previous versions in JSON format (for history tracking)
+  }, {
+    isIdempotent: true,
+    populateQS: (t, c, _, tableName) => {
+      t.description = markdown` 
+      Get detailed information about the lifecycle of a query.
+     `;
+      c.udi_pgp_observe_query_exec_id.description =
+        `${tableName} primary key and internal label (not a ULID)`;
+      c.query_text.description = `Actual query string with comments included`;
+      c.exec_start_at.description =
+        `Timestamp for when the query execution began`;
+      c.exec_finish_at.description =
+        `Timestamp for when the query execution ended`;
+      c.elaboration.description =
+        `A general object containing details like all the events that transpired during the execution of a query`;
+      c.exec_msg.description =
+        `All errors encountered during the execution of a query`;
+      c.exec_status.description =
+        `An interger code denoting the execution statis of a query. A non zero code denotes that an error ocurred and thereby the "exec_msg" field should be populated`;
+      c.governance.description = `kernel-specific governance data`;
+    },
+
+    qualitySystem: {
+      description: markdown`
+      Get detailed information about the lifecycle of a query.
+        `,
+    },
+  });
+
+  const informationSchema = {
+    tables: [
+      udiPgpSupplier,
+      udiPgpConfig,
+      udiQueryObservabilty,
+      udiPgpSet,
+    ],
+    tableIndexes: [
+      ...udiPgpSupplier.indexes,
+      ...udiPgpConfig.indexes,
+      ...udiQueryObservabilty.indexes,
+      ...udiPgpSet.indexes,
+    ],
+  };
+
+  return {
+    modelsGovn,
+    udiPgpSupplier,
+    udiPgpConfig,
+    udiQueryObservabilty,
     informationSchema,
   };
 }

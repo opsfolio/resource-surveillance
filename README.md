@@ -376,6 +376,72 @@ $ surveilr notebooks cat --cell infoSchemaOsQueryATCs | sqlite3 resource-surveil
 $ sqlite3 resource-surveillance.sqlite.db "select interpretable_code from stored_notebook_cell where cell_name = 'infoSchemaOsQueryATCs'" | sqlite3 device-content.sqlite.db
 ```
 
+## Email Ingestion
+
+The `surveilr ingest imap` command faclitates the ingestion of emails from a single email address into a queryable SQL format. It enables conversion of emails from specified folders in the mailbox into structured data, enhancing the ability to analyze and query email content directly within the already provided RSSD.
+
+- **Data Transformation**: The command converts the original text of the email stored in the `ur_ingest_session_imap_acct_folder` table. For emails having a  text/html section, it transforms them into a valid, queryable JSON format, making it easier to perform SQL queries on email content.
+- **Supported Email Services**: Currently, the command supports Gmail and personal Outlook accounts only.
+- **App Passwords**: The password must be an App Password for authentication instead of the account's primary password. App Passwords provide a secure way of accessing your account through third-party applications. For guidance on creating an App Password, please refer [here]() to learn how to create app passwords.
+
+Support for attachements is in the works.
+### Examples
+```bash
+$ surveilr ingest imap -u user@outlook.com -p 'apppassword' -a "outlook.office365.com" -f="inb*" ## -f is a regeular expression with the dafult being "*" to match all folders.mailboxes
+$ surveilr ingest imap -u user@gmail.com -p 'apppassword' -a "imap.gmail.com" --batch-size=10000
+```
+
+## CSS Selection Capability
+The `surveilr` IMAP ingestion feature introduces the ability to directly query your emails. This functionality is versatile and particularly beneficial when dealing with emails containing HTML content, such as embedded HTML documents. For instance, if you aim to filter all anchor tags within your emails that contain ".com" in their URLs, you can utilize the CSS selector `a[href*=".com"]`. `surveilr` efficiently parses the HTML content during ingestion, extracts information based on the specified CSS selector, and saves the extracted data in the `uniform_resource_transform` table for subsequent queries.
+
+```bash
+$ surveilr ingest imap -u user@gmail.com -p 'apppassword' -a "imap.gmail.com" --batch-size=10000 -css-select="select-all-com-anchor-tags:a[href*='.com']"
+```
+
+**Important**: The `css-select` argument requires a name for the query and the corresponding CSS selector, separated by a ":". Additionally, you can specify multiple queries by passing several `css-select` arguments.
+
+## Microsoft 365
+For enterprise Microsoft accounts, app passwords have been disabled and emails can only be accessed through an oauth method. `surveilr` now supports signing in to an enterprise account through two main methods.
+
+**Note**: Before utilizing the new authentication methods, you'll need to register an application in the Azure App Directory. This process involves generating a `client_id` and `client_secret`, which are essential for authenticating with Microsoft 365.
+  - Navigate to your Azure console and access the Azure App Directory.
+  - Create a new application registration.
+  - If you intend to use the Device Code method on headless devices, ensure the application is configured to support them.
+
+### Authentication Methods
+Surveilr supports two primary methods for signing into your enterprise account:
+
+1. **Authentication Code**: Ideal for scenarios where `surveilr` is running on a device with browser access. This method involves Surveilr initiating an authentication process in a browser, facilitating the secure login and subsequent email fetching from the Microsoft 365 inbox.
+
+- When setting up the redirect_uri in Azure, it must match the one used in Surveilr and adhere to HTTPS protocols.
+- For local or demonstration purposes, tools like ngrok or nginx can be used to proxy requests to the designated port.
+
+```bash
+surveilr ingest imap microsoft-365 -i="<client_id>" -s="<client_secret>" -m auth-code -a "https://641c92d93b6f.ngrok.app"
+```
+In the event that you don't want to pass your credentials in the terminal, `surveilr` provides a utility command to emit the credentials and then you can source them into your current shell.
+```bash
+$ surveilr admin credentials microsoft-365 -i="<client_id>" -s"<client_secret>" -r="https://641c92d93b6f.ngrok.app" --env ## Prints the credentials to stdout
+```
+
+```bash
+$ surveilr admin credentials microsoft-365 -i="<client_id>" -s"<client_secret>" -r="https://641c92d93b6f.ngrok.app" --export | source  ## adds the credentials as env variables to the current shell execution
+```
+then
+```bash
+surveilr ingest imap microsoft-365 -m auth-code
+```
+
+2. **Device Code**: Provides a user-friendly way to authenticate without direct browser access on the host machine. This method displays a code and URL, prompting the user to manually complete the authentication process.
+
+```bash
+surveilr ingest imap microsoft-365 -i="<client_id>" -m device-code
+```
+If you've added the credntials to the current shell:
+```bash
+surveilr ingest imap microsoft-365 -m device-code
+```
+
 ## Database Documentation
 
 - [SQLite State Schema Documentation](support/docs/surveilr-state-schema/README.md)
@@ -423,6 +489,10 @@ Navigate to <http://localhost:5556>.
 To update or add new content to SQLPage, you need to modify the SQL statements in the content column of the `sqlpage_files` database table. SQLPage is designed to reflect changes made to these SQL statements in real-time on the web interface.
 
 However, it's important to note that SQLPage relies on timestamp updates to recognize changes. Therefore, every time you modify or add SQL content, you must also update the timestamp associated with these entries. This is a critical step as SQLPage only reloads and displays files that have a registered change in their timestamp.
+
+## UDI-PGP
+
+Check out the documentation [here](./src/udi_pgp/README.md)
 
 ## Contributing
 

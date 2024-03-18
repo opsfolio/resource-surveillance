@@ -6,7 +6,7 @@
   "deno.unstable": true,
   "todo-tree.regex.regex": "(//|#|<!--|;|/\\*|^|^[ \\t]*(-|\\d+.))\\s*($TAGS)|todo!",
   "rust-analyzer.check.command": "clippy",
-  "terminal.integrated.fontFamily": "CascadianCode NF",
+  "terminal.integrated.fontFamily": "monospace",
   "rust-analyzer.linkedProjects": ["./Cargo.toml"],
   "hediet.vscode-drawio.theme": "atlas"
 }

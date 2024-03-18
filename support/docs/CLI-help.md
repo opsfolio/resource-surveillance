@@ -11,6 +11,8 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr admin cli-help-md`↴](#surveilr-admin-cli-help-md)
 * [`surveilr admin test`↴](#surveilr-admin-test)
 * [`surveilr admin test classifiers`↴](#surveilr-admin-test-classifiers)
+* [`surveilr admin credentials`↴](#surveilr-admin-credentials)
+* [`surveilr admin credentials microsoft-365`↴](#surveilr-admin-credentials-microsoft-365)
 * [`surveilr capturable-exec`↴](#surveilr-capturable-exec)
 * [`surveilr capturable-exec ls`↴](#surveilr-capturable-exec-ls)
 * [`surveilr capturable-exec test`↴](#surveilr-capturable-exec-test)
@@ -19,10 +21,18 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr ingest`↴](#surveilr-ingest)
 * [`surveilr ingest files`↴](#surveilr-ingest-files)
 * [`surveilr ingest tasks`↴](#surveilr-ingest-tasks)
+* [`surveilr ingest imap`↴](#surveilr-ingest-imap)
+* [`surveilr ingest imap microsoft-365`↴](#surveilr-ingest-imap-microsoft-365)
 * [`surveilr notebooks`↴](#surveilr-notebooks)
 * [`surveilr notebooks cat`↴](#surveilr-notebooks-cat)
 * [`surveilr notebooks ls`↴](#surveilr-notebooks-ls)
 * [`surveilr sqlpage`↴](#surveilr-sqlpage)
+* [`surveilr udi`↴](#surveilr-udi)
+* [`surveilr udi pgp`↴](#surveilr-udi-pgp)
+* [`surveilr udi pgp osquery`↴](#surveilr-udi-pgp-osquery)
+* [`surveilr udi pgp osquery local`↴](#surveilr-udi-pgp-osquery-local)
+* [`surveilr udi pgp osquery remote`↴](#surveilr-udi-pgp-osquery-remote)
+* [`surveilr udi admin`↴](#surveilr-udi-admin)
 
 ## `surveilr`
 
@@ -35,12 +45,13 @@ This document contains the help content for the `surveilr` command-line program.
 * `ingest` — Ingest content from device file system and other sources
 * `notebooks` — Notebooks maintenance utilities
 * `sqlpage` — Configuration to start the SQLPage webserver
+* `udi` — Universal Data Infrastructure
 
 ###### **Options:**
 
 * `--device-name <DEVICE_NAME>` — How to identify this device
 
-  Default value: `Lilit`
+  Default value: `mf-elitemini-hx90-01`
 * `-d`, `--debug` — Turn debugging information on (repeat for higher levels)
 * `--log-mode <LOG_MODE>` — Output logs in json format
 
@@ -62,6 +73,7 @@ Admin / maintenance utilities
 * `merge` — merge multiple surveillance state databases into a single one
 * `cli-help-md` — generate CLI help markdown
 * `test` — generate CLI help markdown
+* `credentials` — emit credentials
 
 
 
@@ -154,6 +166,40 @@ test capturable executables files
 
 
 
+## `surveilr admin credentials`
+
+emit credentials
+
+**Usage:** `surveilr admin credentials <COMMAND>`
+
+###### **Subcommands:**
+
+* `microsoft-365` — microsoft 365 credentials
+
+
+
+## `surveilr admin credentials microsoft-365`
+
+microsoft 365 credentials
+
+**Usage:** `surveilr admin credentials microsoft-365 [OPTIONS] --client-id <CLIENT_ID> --client-secret <CLIENT_SECRET>`
+
+###### **Options:**
+
+* `-i`, `--client-id <CLIENT_ID>` — Client ID of the application from MSFT Azure App Directory
+* `-s`, `--client-secret <CLIENT_SECRET>` — Client Secret of the application from MSFT Azure App Directory
+* `-r`, `--redirect-uri <REDIRECT_URI>` — Redirect URL. Base redirect URL path. It gets concatenated with the server address to form the full redirect url, when using the `auth_code` mode for token generation
+* `--env` — Emit values to stdout
+
+  Possible values: `true`, `false`
+
+* `--export` — Emit values to stdout with the "export" syntax right in front to enable direct sourcing
+
+  Possible values: `true`, `false`
+
+
+
+
 ## `surveilr capturable-exec`
 
 Capturable Executables (CE) maintenance tools
@@ -237,6 +283,7 @@ Ingest content from device file system and other sources
 
 * `files` — Ingest content from device file system and other sources
 * `tasks` — Notebooks maintenance utilities
+* `imap` — Ingest content from email boxes
 
 
 
@@ -300,6 +347,76 @@ Notebooks maintenance utilities
 
   Possible values: `true`, `false`
 
+
+
+
+## `surveilr ingest imap`
+
+Ingest content from email boxes
+
+**Usage:** `surveilr ingest imap [OPTIONS] [COMMAND]`
+
+###### **Subcommands:**
+
+* `microsoft-365` — Microsoft 365 Credentials
+
+###### **Options:**
+
+* `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
+
+  Default value: `resource-surveillance.sqlite.db`
+* `-I`, `--state-db-init-sql <STATE_DB_INIT_SQL>` — one or more globs to match as SQL files and batch execute them in alpha order
+* `-u`, `--username <USERNAME>` — email address
+* `-p`, `--password <PASSWORD>` — password to the email. mainly an app password. See the documentation on how to create an app password
+* `-a`, `--server-addr <SERVER_ADDR>` — IMAP server address. e.g imap.gmail.com or outlook.office365.com
+* `--port <PORT>` — IMAP server port
+
+  Default value: `993`
+* `-f`, `--folder <FOLDER>` — Mailboxes to read from. i.e folders. Takes a regular expression matching the folder names. The default is a "*" which means all folders
+
+  Default value: `*`
+* `-s`, `--status <STATUS>` — Status of the messages to be ingested
+
+  Default value: `unread`
+
+  Possible values: `all`, `unread`, `read`, `starred`
+
+* `-c`, `--css-select <CSS_SELECT>` — List of CSS selectors with names and values. e.g. -css-select="name_of_select_query:div > p" i.e, select all p tags in a div tag
+* `-b`, `--batch-size <BATCH_SIZE>` — Maximum number of messages to be ingested
+
+  Default value: `1000`
+* `-e`, `--extract-attachments` — Extract Attachments
+
+  Default value: `true`
+
+  Possible values: `true`, `false`
+
+
+
+
+## `surveilr ingest imap microsoft-365`
+
+Microsoft 365 Credentials
+
+**Usage:** `surveilr ingest imap microsoft-365 [OPTIONS] --client-id <CLIENT_ID> --client-secret <CLIENT_SECRET> --mode <MODE>`
+
+###### **Options:**
+
+* `-i`, `--client-id <CLIENT_ID>` — Client ID of the application from MSFT Azure App Directory
+* `-s`, `--client-secret <CLIENT_SECRET>` — Client Secret of the application from MSFT Azure App Directory
+* `-m`, `--mode <MODE>` — The mode to generate an access_token. Default is 'DeviceCode'
+
+  Possible values: `auth-code`, `device-code`
+
+* `-a`, `--addr <ADDR>` — Address to start the authentication server on, when using the `auth_code` mode for token generation
+
+  Default value: `http://127.0.0.1:8000`
+* `-r`, `--redirect-uri <REDIRECT_URI>` — Redirect URL. Base redirect URL path. It gets concatenated with the server address to form the full redirect url, when using the `auth_code` mode for token generation
+
+  Default value: `/redirect`
+* `-p`, `--port <PORT>` — Port to bind the server to
+
+  Default value: `8000`
 
 
 
@@ -372,6 +489,87 @@ Configuration to start the SQLPage webserver
 * `-p`, `--port <PORT>` — Port to bind sqplage webserver to
 * `-o`, `--otel <OTEL>` — Port that any OTEL compatible service is running on
 * `-m`, `--metrics <METRICS>` — Metrics port. Used for scraping metrics with tools like OpenObserve or Prometheus
+
+
+
+## `surveilr udi`
+
+Universal Data Infrastructure
+
+**Usage:** `surveilr udi <COMMAND>`
+
+###### **Subcommands:**
+
+* `pgp` — UDI PostgreSQL Proxy for remote SQL starts up a server which pretends to be PostgreSQL but proxies its SQL to other CLI services with SQL-like interface (called SQL Suppliers)
+* `admin` — 
+
+
+
+## `surveilr udi pgp`
+
+UDI PostgreSQL Proxy for remote SQL starts up a server which pretends to be PostgreSQL but proxies its SQL to other CLI services with SQL-like interface (called SQL Suppliers)
+
+**Usage:** `surveilr udi pgp [OPTIONS] [COMMAND]`
+
+###### **Subcommands:**
+
+* `osquery` — query a machine
+
+###### **Options:**
+
+* `-a`, `--addr <ADDR>` — IP address to bind udi-pgp to
+
+  Default value: `127.0.0.1:5432`
+* `-u`, `--username <USERNAME>` — Username for authentication
+* `-p`, `--password <PASSWORD>` — Password for authentication
+* `-i`, `--supplier-id <SUPPLIER_ID>` — Identification for the supplier which will be passed to the client. e.g surveilr udi pgp -u john -p doe -i test-supplier osquery local The psql comand will be: psql -h 127.0.0.1 -p 5432 -d "test-supplier" -c "select * from system_info"
+* `-c`, `--config <CONFIG>` — Config file for UDI-PGP. Either a .ncl file or JSON file
+* `-d`, `--admin-state-fs-path <ADMIN_STATE_FS_PATH>` — Admin SQLite Database path for state management
+
+  Default value: `resource-surveillance-admin.sqlite.db`
+
+
+
+## `surveilr udi pgp osquery`
+
+query a machine
+
+**Usage:** `surveilr udi pgp osquery <COMMAND>`
+
+###### **Subcommands:**
+
+* `local` — execute osquery on the local machine
+* `remote` — execute osquery on remote hosts
+
+
+
+## `surveilr udi pgp osquery local`
+
+execute osquery on the local machine
+
+**Usage:** `surveilr udi pgp osquery local [OPTIONS]`
+
+###### **Options:**
+
+* `-a`, `--atc-file-path <ATC_FILE_PATH>` — ATC Configuration File path
+
+
+
+## `surveilr udi pgp osquery remote`
+
+execute osquery on remote hosts
+
+**Usage:** `surveilr udi pgp osquery remote [OPTIONS]`
+
+###### **Options:**
+
+* `-s`, `--ssh-targets <SSH_TARGETS>` — SSH details of hosts to execute osquery on including and identifier. e,g. "user@127.0.0.1:22,john"/"user@host.com:1234,doe"
+
+
+
+## `surveilr udi admin`
+
+**Usage:** `surveilr udi admin`
 
 
 

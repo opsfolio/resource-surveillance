@@ -17,6 +17,9 @@ include:
   - uniform_resource_transform
   - ur_ingest_session_fs_path_entry
   - ur_ingest_session_task
+  - ur_ingest_session_imap_account
+  - ur_ingest_session_imap_acct_folder
+  - ur_ingest_session_imap_acct_folder_message
 name: Resource Surveillance State Schema
 comments:
   - table: device
@@ -124,6 +127,7 @@ comments:
       device_id: which device row introduced this resource
       ingest_session_id: which ur_ingest_session row introduced this resource
       ingest_fs_path_id: which ur_ingest_session_fs_path row introduced this resource
+      ingest_imap_acct_folder_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
       uri: >-
         the resource's URI (dependent on how it was acquired and on which
         device)
@@ -216,5 +220,61 @@ comments:
 
       which sessions have a file deleted, and what the differences are in file
       contents
+
+      if they were modified across sessions.
+  - table: ur_ingest_session_imap_account
+    columnComments:
+      ur_ingest_session_imap_account_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
+    tableComment: >-
+      Immutable ingest session folder system represents an email address to be
+      ingested. Each
+
+      session includes an email, then email is the
+
+      folder that was scanned.
+  - table: ur_ingest_session_imap_acct_folder
+    columnComments:
+      ur_ingest_session_imap_acct_folder_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      ingest_account_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      elaboration: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
+    tableComment: >-
+      Immutable ingest session folder system represents a folder or mailbox in
+      an email account, e.g. "INBOX" or "SENT". Each
+
+      session includes a folder scan, then folder_name is the
+
+      folder that was scanned.
+  - table: ur_ingest_session_imap_acct_folder_message
+    columnComments:
+      ur_ingest_session_imap_acct_folder_message_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      ingest_session_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      ingest_imap_acct_folder_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      uniform_resource_id: '{"isSqlDomainZodDescrMeta":true,"isVarChar":true}'
+      cc: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      bcc: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      email_references: '{"isSqlDomainZodDescrMeta":true,"isJsonText":true}'
+      activity_log: '{"isSqlDomainZodDescrMeta":true,"isJsonSqlDomain":true}'
+    tableComment: >-
+      Contains messages related in a folder that was ingested. On multiple
+      executions,
+
+      unlike uniform_resource, ur_ingest_session_imap_acct_folder_message rows
+      are always inserted and
+
+      references the uniform_resource primary key of its related content.
+
+      This method allows for a more efficient query of message version
+      differences across
+
+      sessions. With SQL queries, you can detect which sessions have a messaged
+      added or modified,
+
+      which sessions have a message deleted, and what the differences are in
+      message contents
 
       if they were modified across sessions.

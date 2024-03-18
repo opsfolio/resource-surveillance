@@ -1,0 +1,38 @@
+[package]
+name = "udi_pgp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+tokio.workspace = true
+tracing.workspace = true
+serde.workspace = true
+pgwire = "0.19.1"
+async-trait = "0.1.77"
+derive-new = "0.6.0"
+futures = "0.3.30"
+resource_serde.workspace = true
+anyhow.workspace = true
+sqlparser = "0.41.0"
+clap.workspace = true
+thiserror = "1.0.56"
+include_dir = "0.7.3"
+serde_json.workspace = true
+ssh-key = { version = "0.6.4", features = ["ed25519", "alloc"] }
+rand = "0.8.5"
+tempfile = "3.9.0"
+config = { version = "0.13.4", features = ["json"] }
+nickel-lang-core = "0.5.0"
+regex.workspace = true
+axum = { version = "0.7.4", features = ["json"] }
+autometrics.workspace = true
+tracing-subscriber.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+rusqlite.workspace = true
+common.workspace = true
+
+# SSH tunnels
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
+openssh = "0.10.3"

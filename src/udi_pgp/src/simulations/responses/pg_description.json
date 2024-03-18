@@ -1,0 +1,30 @@
+[
+	{
+		"oid": 13360,
+		"nspname": "information_schema",
+		"nspowner": 10,
+		"nspacl": "{postgres=UC\/postgres,=U\/postgres}",
+		"description": "NULL"
+	},
+	{
+		"oid": 11,
+		"nspname": "pg_catalog",
+		"nspowner": 10,
+		"nspacl": "{postgres=UC\/postgres,=U\/postgres}",
+		"description": "system catalog schema"
+	},
+	{
+		"oid": 99,
+		"nspname": "pg_toast",
+		"nspowner": 10,
+		"nspacl": "NULL",
+		"description": "reserved schema for TOAST tables"
+	},
+	{
+		"oid": 2200,
+		"nspname": "public",
+		"nspowner": 10,
+		"nspacl": "{postgres=UC\/postgres,=UC\/postgres}",
+		"description": "standard public schema"
+	}
+]

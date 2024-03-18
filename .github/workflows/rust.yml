@@ -18,7 +18,7 @@ jobs:
       - name: Build
         run: cargo build --verbose
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --lib --bins -- --test-threads=1
       - name: Lint (try cargo clippy --fix on your own workstation)
         run: cargo clippy --verbose -- -D warnings
       - name: Security audit
