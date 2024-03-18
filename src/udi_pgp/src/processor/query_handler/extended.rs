@@ -3,10 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use pgwire::{
     api::{
-        portal::Portal,
-        query::{ExtendedQueryHandler, StatementOrPortal},
-        results::{DescribeResponse, Response},
-        ClientInfo,
+        portal::Portal, query::ExtendedQueryHandler, results::{DescribePortalResponse, DescribeStatementResponse, Response}, stmt::StoredStatement, ClientInfo
     },
     error::PgWireResult,
 };
@@ -37,14 +34,25 @@ impl ExtendedQueryHandler for UdiPgpProcessor {
         Ok(Response::EmptyQuery)
     }
 
-    async fn do_describe<C>(
+    async fn do_describe_statement<C>(
         &self,
         _client: &mut C,
-        _target: StatementOrPortal<'_, Self::Statement>,
-    ) -> PgWireResult<DescribeResponse>
+        _target: &StoredStatement<Self::Statement>,
+    ) -> PgWireResult<DescribeStatementResponse>
     where
         C: ClientInfo + Unpin + Send + Sync,
     {
-        Ok(DescribeResponse::new(None, vec![]))
+        Ok(DescribeStatementResponse::new(vec![], vec![]))
+    }
+
+    async fn do_describe_portal<C>(
+        &self,
+        _client: &mut C,
+        _portal: &Portal<Self::Statement>,
+    ) -> PgWireResult<DescribePortalResponse>
+    where
+        C: ClientInfo + Unpin + Send + Sync,
+    {
+        todo!()
     }
 }
