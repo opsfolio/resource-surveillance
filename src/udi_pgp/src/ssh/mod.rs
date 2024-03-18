@@ -204,7 +204,7 @@ mod tests {
         // Valid
         let test_cases = vec![
             (
-                "ssh://user@host.com",
+                "user@host.com,prod",
                 UdiPgpSshTarget {
                     host: "host.com".to_string(),
                     port: None,
@@ -215,7 +215,7 @@ mod tests {
                 },
             ),
             (
-                "ssh://user@host.com:1234",
+                "user@host.com:1234,prod",
                 UdiPgpSshTarget {
                     host: "host.com".to_string(),
                     port: Some(1234),
@@ -226,7 +226,7 @@ mod tests {
                 },
             ),
             (
-                "ssh://user@127.0.0.1:1234",
+                "user@127.0.0.1:1234,prod",
                 UdiPgpSshTarget {
                     host: "127.0.0.1".to_string(),
                     port: Some(1234),
