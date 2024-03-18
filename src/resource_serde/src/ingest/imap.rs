@@ -6,11 +6,11 @@ use rusqlite::params;
 use scraper::{Html, Selector};
 use serde_json::{json, Value};
 use sha1::{Digest, Sha1};
-use tracing::debug;
+use tracing::{debug, error};
 
 use crate::{
     cmd::imap::IngestImapArgs,
-    ingest::{IngestContext, INS_UR_INGEST_SESSION_SQL},
+    ingest::{IngestContext, INS_UR_INGEST_SESSION_FINISH_SQL, INS_UR_INGEST_SESSION_SQL},
 };
 
 use html_parser::Dom;
@@ -60,6 +60,16 @@ pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
             email_resources.len(),
             start.elapsed()
         );
+    }
+
+    match tx.execute(INS_UR_INGEST_SESSION_FINISH_SQL, params![ingest_session_id]) {
+        Ok(_) => {}
+        Err(err) => {
+            error!(
+                "[ingest_files] unable to execute SQL {} in {}: {}",
+                INS_UR_INGEST_SESSION_FINISH_SQL, db_fs_path, err
+            )
+        }
     }
 
     finalize_transaction(tx)
@@ -384,7 +394,6 @@ fn convert_html_to_json(html: &str) -> Result<String> {
         .map_err(|err| anyhow!("Failed to parse html element.\nError: {err:#?}"))?;
     Ok(parsed_html.to_json_pretty()?)
 }
-
 
 fn convert_html_to_value(html: &str) -> Result<serde_json::Value> {
     let html = ammonia::clean(html);
