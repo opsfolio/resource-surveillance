@@ -1,7 +1,7 @@
 use std::{collections::HashMap, time::Instant};
 
 use anyhow::{anyhow, Context, Result};
-use resource_imap::{process_imap, EmailResource, ImapConfig};
+use resource_imap::{process_imap, Folder, ImapConfig};
 use rusqlite::params;
 use scraper::{Html, Selector};
 use serde_json::{json, Value};
@@ -79,7 +79,10 @@ pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
 
     match tx.execute(
         INS_UR_INGEST_SESSION_FINISH_SQL,
-        params![ingest_session_id, serde_json::to_string_pretty(&elaboration)?],
+        params![
+            ingest_session_id,
+            serde_json::to_string_pretty(&elaboration)?
+        ],
     ) {
         Ok(_) => {}
         Err(err) => {
@@ -126,9 +129,7 @@ fn create_ingest_session(tx: &rusqlite::Transaction, device_id: &String) -> Resu
 }
 
 /// Fetches email resources using the IMAP protocol.
-async fn fetch_email_resources(
-    config: &mut ImapConfig,
-) -> Result<HashMap<String, Vec<EmailResource>>> {
+async fn fetch_email_resources(config: &mut ImapConfig) -> Result<Vec<Folder>> {
     process_imap(config)
         .await
         .with_context(|| "[ingest_imap] Failed to fetch email resources")
@@ -140,26 +141,37 @@ fn process_emails(
     ingest_session_id: &str,
     device_id: &str,
     acct_id: &str,
-    email_resources: &HashMap<String, Vec<EmailResource>>,
+    folders: &Vec<Folder>,
     config: &ImapConfig,
 ) -> Result<HashMap<String, FolderElaboration>> {
     println!("Converting and writing email to database...");
     let mut folder_elaborations = HashMap::new();
 
-    for (folder, emails) in email_resources {
+    for folder in folders {
         let folder_process_start = Instant::now();
-        println!("========= {folder} has {} number of messages", emails.len());
+        let Folder {
+            name,
+            messages,
+            metadata,
+        } = folder;
+        println!("========= {name} has {} number of messages", messages.len());
         // insert folder into
 
-        let mut elaboration = FolderElaboration::new(folder, emails.len());
+        let mut elaboration = FolderElaboration::new(name, messages.len());
 
         let acct_folder_id: String = {
             let start = Instant::now();
             let result = ingest_stmts
                 .ur_ingest_session_imap_acct_folder_stmt
-                .query_row(params![ingest_session_id, acct_id, folder], |row| {
-                    row.get(0)
-                })?;
+                .query_row(
+                    params![
+                        ingest_session_id,
+                        acct_id,
+                        name,
+                        serde_json::to_string_pretty(metadata)?
+                    ],
+                    |row| row.get(0),
+                )?;
             debug!("Account folder ID query time: {:.2?}", start.elapsed());
             result
         };
@@ -167,7 +179,7 @@ fn process_emails(
         let mut text_plain_count = 0;
         let mut html_content_count = 0;
 
-        for email in emails.iter() {
+        for email in messages.iter() {
             let text = &email.raw_text;
             let uri = format!(
                 "smtp://{}/{}",
@@ -403,13 +415,13 @@ fn process_emails(
         }
 
         println!(
-            "=========Processing all the emails for the {folder} folder took {:.2?}=========",
+            "=========Processing all the emails for the {name} folder took {:.2?}=========",
             folder_process_start.elapsed()
         );
 
         elaboration.html_content_count = html_content_count;
         elaboration.text_plain_count = text_plain_count;
-        folder_elaborations.insert(folder.to_string(), elaboration);
+        folder_elaborations.insert(name.to_string(), elaboration);
     }
     Ok(folder_elaborations)
 }

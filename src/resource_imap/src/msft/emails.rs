@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use crate::{EmailResource, ImapConfig};
+use crate::{EmailResource, Folder, ImapConfig};
 use anyhow::Context;
 use graph_rs_sdk::{oauth::AccessToken, Graph, ODataQuery};
 use serde::{Deserialize, Serialize};
@@ -105,7 +103,7 @@ impl TryFrom<Message> for EmailResource {
 pub async fn fetch_emails_from_graph_api(
     token: &AccessToken,
     config: &mut ImapConfig,
-) -> anyhow::Result<HashMap<String, Vec<EmailResource>>> {
+) -> anyhow::Result<Vec<Folder>> {
     let client = Graph::new(token.bearer_token());
 
     let res = client
@@ -123,7 +121,7 @@ pub async fn fetch_emails_from_graph_api(
         .await
         .with_context(|| "[ingest_imap]: microsoft_365. Deserializing mail folders failed")?;
 
-    config.mailboxes = mail_folders_res
+    let folders = mail_folders_res
         .mail_folders
         .clone()
         .into_iter()
@@ -136,12 +134,13 @@ pub async fn fetch_emails_from_graph_api(
                         .to_lowercase()
                         .contains(&config.folder.to_lowercase()))
         })
-        .map(|f| f.display_name)
-        .collect();
+        .collect::<Vec<_>>();
 
-    let mut emails = HashMap::new();
-    for folder in &config.mailboxes {
-        let folder = folder.replace(' ', "");
+    let mut emails = Vec::new();
+    for folder in &folders {
+        config.mailboxes.push(folder.display_name.to_string());
+
+        let folder_name = folder.display_name.replace(' ', "");
         let mut all_messages = Vec::new();
         let mut skip_count = 0;
 
@@ -149,7 +148,7 @@ pub async fn fetch_emails_from_graph_api(
             let batch_size = std::cmp::min(config.batch_size, 1000);
             let res = client
                 .me()
-                .mail_folder(&folder)
+                .mail_folder(&folder_name)
                 .messages()
                 .list_messages()
                 .top(batch_size.to_string()) // limit the no of emails to 1000
@@ -159,7 +158,7 @@ pub async fn fetch_emails_from_graph_api(
                 .with_context(|| {
                     format!(
                         "[ingest_imap]: microsoft_365. Failed to get emails in the {} folder",
-                        folder
+                        folder_name
                     )
                 })?;
 
@@ -182,7 +181,11 @@ pub async fn fetch_emails_from_graph_api(
             // Update skip_count for the next batch
             skip_count += batch_size;
         }
-        emails.insert(folder.to_string(), all_messages);
+        emails.push(Folder {
+            name: folder_name.to_string(),
+            metadata: serde_json::to_value(folder)?,
+            messages: all_messages,
+        });
     }
 
     Ok(emails)

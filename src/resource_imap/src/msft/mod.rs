@@ -1,11 +1,11 @@
 use anyhow::{anyhow, Context};
 use graph_rs_sdk::oauth::{AccessToken, OAuth};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Display};
+use std::{fmt::Display};
 use tokio::sync::mpsc;
 use tracing::warn;
 
-use crate::{EmailResource, ImapConfig};
+use crate::{Folder, ImapConfig};
 
 mod auth_code;
 mod device_code;
@@ -91,7 +91,7 @@ fn oauth_client(creds: &Microsoft365Config) -> OAuth {
 pub async fn retrieve_emails(
     msft_365_config: &Microsoft365Config,
     imap_config: &mut ImapConfig,
-) -> anyhow::Result<HashMap<String, Vec<EmailResource>>> {
+) -> anyhow::Result<Vec<Folder>> {
     let access_token = match &msft_365_config.mode {
         TokenGenerationMethod::AuthCode => {
             let (tx, mut rx) = mpsc::channel::<AccessToken>(32);

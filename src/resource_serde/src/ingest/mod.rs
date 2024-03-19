@@ -66,7 +66,7 @@ DO UPDATE SET password = EXCLUDED.password, host = EXCLUDED.host
 RETURNING ur_ingest_session_imap_account_id;"};
 
 const INS_UR_INGEST_SESSION_IMAP_ACCT_FOLDER: &str = indoc! {"INSERT INTO ur_ingest_session_imap_acct_folder (ur_ingest_session_imap_acct_folder_id, ingest_session_id, ingest_account_id, folder_name, elaboration, created_at, created_by)
-VALUES (ulid(), ?, ?, ?, '{}', CURRENT_TIMESTAMP, 'system') 
+VALUES (ulid(), ?, ?, ?, ?, CURRENT_TIMESTAMP, 'system') 
 ON CONFLICT (ingest_account_id, folder_name) 
 DO UPDATE SET created_at = EXCLUDED.created_at RETURNING ur_ingest_session_imap_acct_folder_id;"};
 

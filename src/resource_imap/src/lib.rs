@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::TcpStream, sync::Arc, vec};
+use std::{net::TcpStream, sync::Arc, vec};
 
 use anyhow::{anyhow, Context};
 use imap::types::Fetch;
@@ -55,13 +55,18 @@ pub struct ImapConfig {
     pub microsoft365: Option<Microsoft365Config>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Folder {
+    pub name: String,
+    pub metadata: serde_json::Value,
+    pub messages: Vec<EmailResource>,
+}
+
 /// Traverses through each mailbox/folder, processes the email and extracts details.
 /// Returns a hashmap containing each folder processed whuich points to all the emails in that folder.
 extern crate imap;
 
-pub async fn process_imap(
-    config: &mut ImapConfig,
-) -> anyhow::Result<HashMap<String, Vec<EmailResource>>> {
+pub async fn process_imap(config: &mut ImapConfig) -> anyhow::Result<Vec<Folder>> {
     debug!("{config:#?}");
 
     if let Some(msft_config) = config.microsoft365.clone() {
@@ -98,11 +103,12 @@ pub async fn process_imap(
         .map(|m| m.name().to_string())
         .collect();
 
-    let mut res = HashMap::new();
+    let mut res = Vec::new();
     for folder in &config.mailboxes {
         debug!("Processing messages in {} folder", folder);
         match imap_session.select(folder) {
             Ok(mailbox) => {
+                let folder_metadata = serde_json::to_value(mailbox.to_string())?;
                 let messages_total = mailbox.exists;
                 debug!("Number of messages in folder: {messages_total}");
                 if messages_total == 0 {
@@ -115,7 +121,7 @@ pub async fn process_imap(
                     std::cmp::min(config.batch_size as usize, messages_total as usize);
                 let mut start = messages_total as usize;
                 // Max number of emails to fetch per batch because of IMAP limitations
-                let batch_size = 1000; 
+                let batch_size = 1000;
                 let mut emails = Vec::new();
 
                 while remaining_emails > 0 {
@@ -142,7 +148,11 @@ pub async fn process_imap(
                     }
                 }
 
-                res.insert(folder.clone(), emails);
+                res.push(Folder {
+                    name: folder.to_string(),
+                    metadata: folder_metadata,
+                    messages: emails,
+                })
             }
             Err(err) => {
                 error!(
