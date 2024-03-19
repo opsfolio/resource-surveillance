@@ -8,5 +8,6 @@
   "rust-analyzer.check.command": "clippy",
   "terminal.integrated.fontFamily": "monospace",
   "rust-analyzer.linkedProjects": ["./Cargo.toml"],
-  "hediet.vscode-drawio.theme": "atlas"
+  "hediet.vscode-drawio.theme": "atlas",
+  "rust-analyzer.showUnlinkedFileNotification": false
 }

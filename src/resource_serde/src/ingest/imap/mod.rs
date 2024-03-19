@@ -10,10 +10,14 @@ use tracing::{debug, error};
 
 use crate::{
     cmd::imap::IngestImapArgs,
-    ingest::{IngestContext, INS_UR_INGEST_SESSION_FINISH_SQL, INS_UR_INGEST_SESSION_SQL},
+    ingest::{
+        imap::elaboration::{FolderElaboration, ImapElaboration},
+        IngestContext, INS_UR_INGEST_SESSION_FINISH_SQL, INS_UR_INGEST_SESSION_SQL,
+    },
 };
 
 use html_parser::Dom;
+mod elaboration;
 
 use super::{upserted_device, DbConn};
 
@@ -29,9 +33,16 @@ pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
     debug!("Imap Session: {ingest_session_id}");
 
     let mut config: ImapConfig = args.clone().into();
+
+    let email_fetch_start = Instant::now();
     println!("Fetching emails from server...");
     let email_resources = fetch_email_resources(&mut config).await?;
     println!("Emails retrieved successfully");
+    let email_fetch_duration = email_fetch_start.elapsed();
+
+    let mut elaboration = ImapElaboration::new(&config);
+    elaboration.discovered_folder_count = email_resources.len();
+    elaboration.email_fetch_duration = Some(format!("{:.2?}", email_fetch_duration));
 
     {
         let mut ingest_stmts = IngestContext::from_conn(&tx, db_fs_path)
@@ -47,7 +58,7 @@ pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
         )?;
 
         let start = Instant::now();
-        process_emails(
+        let folder_elaborations = process_emails(
             &mut ingest_stmts,
             &ingest_session_id,
             &device_id,
@@ -55,14 +66,21 @@ pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
             &email_resources,
             &config,
         )?;
+        let email_ingest_duration = format!("{:.2?}", start.elapsed());
+
         println!(
-            "\n\n Whole email processing for {} folders took: {:.2?}",
-            email_resources.len(),
-            start.elapsed()
+            "\n\n Whole email processing for {} folders took: {email_ingest_duration}",
+            email_resources.len()
         );
+
+        elaboration.folders = folder_elaborations;
+        elaboration.email_ingest_duration = Some(email_ingest_duration);
     }
 
-    match tx.execute(INS_UR_INGEST_SESSION_FINISH_SQL, params![ingest_session_id]) {
+    match tx.execute(
+        INS_UR_INGEST_SESSION_FINISH_SQL,
+        params![ingest_session_id, serde_json::to_string_pretty(&elaboration)?],
+    ) {
         Ok(_) => {}
         Err(err) => {
             error!(
@@ -124,23 +142,30 @@ fn process_emails(
     acct_id: &str,
     email_resources: &HashMap<String, Vec<EmailResource>>,
     config: &ImapConfig,
-) -> Result<()> {
+) -> Result<HashMap<String, FolderElaboration>> {
     println!("Converting and writing email to database...");
+    let mut folder_elaborations = HashMap::new();
+
     for (folder, emails) in email_resources {
         let folder_process_start = Instant::now();
         println!("========= {folder} has {} number of messages", emails.len());
         // insert folder into
 
+        let mut elaboration = FolderElaboration::new(folder, emails.len());
+
         let acct_folder_id: String = {
-            let start = Instant::now(); // Start timing
+            let start = Instant::now();
             let result = ingest_stmts
                 .ur_ingest_session_imap_acct_folder_stmt
                 .query_row(params![ingest_session_id, acct_id, folder], |row| {
                     row.get(0)
                 })?;
-            debug!("Account folder ID query time: {:.2?}", start.elapsed()); // Print elapsed time
+            debug!("Account folder ID query time: {:.2?}", start.elapsed());
             result
         };
+
+        let mut text_plain_count = 0;
+        let mut html_content_count = 0;
 
         for email in emails.iter() {
             let text = &email.raw_text;
@@ -271,6 +296,7 @@ fn process_emails(
                 start.elapsed(),
                 email.text_plain.len()
             );
+            text_plain_count += email.text_plain.len();
 
             let start = Instant::now();
             // 4. take out the text/html, insert it into uniform_resource, transform it to json and then put it in uniform_resource_transform.
@@ -373,14 +399,19 @@ fn process_emails(
                 start.elapsed(),
                 email.text_html.len()
             );
+            html_content_count += email.text_html.len();
         }
 
         println!(
             "=========Processing all the emails for the {folder} folder took {:.2?}=========",
             folder_process_start.elapsed()
         );
+
+        elaboration.html_content_count = html_content_count;
+        elaboration.text_plain_count = text_plain_count;
+        folder_elaborations.insert(folder.to_string(), elaboration);
     }
-    Ok(())
+    Ok(folder_elaborations)
 }
 
 fn finalize_transaction(tx: rusqlite::Transaction) -> Result<()> {

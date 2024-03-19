@@ -40,7 +40,7 @@ pub struct EmailResource {
     attachments: Option<Vec<Attachment>>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImapConfig {
     pub username: Option<String>,
     pub password: Option<String>,

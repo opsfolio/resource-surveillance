@@ -25,9 +25,11 @@ const INS_UR_INGEST_SESSION_SQL: &str = indoc! {"
                              VALUES (ulid(), ?, ?, ?, CURRENT_TIMESTAMP) RETURNING ur_ingest_session_id"};
 
 const INS_UR_INGEST_SESSION_FINISH_SQL: &str = indoc! {"
-        UPDATE ur_ingest_session 
-           SET ingest_finished_at = CURRENT_TIMESTAMP 
-         WHERE ur_ingest_session_id = ?"};
+UPDATE ur_ingest_session
+SET ingest_finished_at = CURRENT_TIMESTAMP,
+    elaboration = COALESCE(?2, NULL)
+WHERE ur_ingest_session_id = ?1;
+"};
 
 const INS_UR_ISFSP_SQL: &str = indoc! {"
         INSERT INTO ur_ingest_session_fs_path (ur_ingest_session_fs_path_id, ingest_session_id, root_path) 
