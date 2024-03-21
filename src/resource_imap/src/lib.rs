@@ -52,8 +52,6 @@ pub struct ImapConfig {
     pub mailboxes: Vec<String>,
     pub batch_size: u64,
     pub extract_attachments: bool,
-    /// The select query name is first, followed by the selector itself
-    pub css_selectors: Vec<(String, String)>,
     pub microsoft365: Option<Microsoft365Config>,
 }
 

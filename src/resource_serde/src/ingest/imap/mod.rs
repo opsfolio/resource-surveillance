@@ -6,8 +6,7 @@ use resource_imap::{
     process_imap, Folder, ImapConfig,
 };
 use rusqlite::params;
-use scraper::{Html, Selector};
-use serde_json::{json, Value};
+use serde_json::json;
 use sha1::{Digest, Sha1};
 use tracing::{debug, error};
 
@@ -367,47 +366,6 @@ fn process_emails(
                     ],
                     |row| row.get(0),
                 )?;
-
-                // handle any css selectors if any
-                {
-                    for (select_query_name, css_selector) in &config.css_selectors {
-                        let fragment = Html::parse_fragment(html);
-                        let selector = Selector::parse(css_selector).map_err(|err| {
-                            anyhow!("Failed to parse CSS selector.\nError: {err:#?}")
-                        })?;
-
-                        let elements_json_values = fragment
-                            .select(&selector)
-                            .map(|el| {
-                                let element_html = el.html();
-                                convert_html_to_value(&element_html)
-                            })
-                            .collect::<Result<Vec<serde_json::Value>>>()?;
-
-                        let elements_json = serde_json::to_string_pretty(&elements_json_values)?;
-                        let json_size = elements_json.as_bytes().len();
-                        let hash = compute_hash(&elements_json);
-                        let uri = format!("css-select:{}", select_query_name);
-                        let elaboration = json!({
-                            "selector": css_selector
-                        })
-                        .to_string();
-
-                        let _ur_transform_id: String =
-                            ingest_stmts.ins_ur_transform_stmt.query_row(
-                                params![
-                                    ur_id,
-                                    uri,
-                                    "json",
-                                    hash,
-                                    elements_json,
-                                    json_size,
-                                    elaboration
-                                ],
-                                |row| row.get(0),
-                            )?;
-                    }
-                };
             }
             debug!(
                 "It took {:.2?} to insert {} htmls in Uniform Resource and UR Transform",
@@ -439,34 +397,4 @@ fn convert_html_to_json(html: &str) -> Result<String> {
     let parsed_html = Dom::parse(&html)
         .map_err(|err| anyhow!("Failed to parse html element.\nError: {err:#?}"))?;
     Ok(parsed_html.to_json_pretty()?)
-}
-
-fn convert_html_to_value(html: &str) -> Result<serde_json::Value> {
-    let html = ammonia::clean(html);
-    let parsed_html = Dom::parse(&html)
-        .map_err(|err| anyhow!("Failed to parse HTML element.\nError: {err:#?}"))?;
-    let json_string = parsed_html.to_json_pretty()?;
-
-    let mut json_value: Value = serde_json::from_str(&json_string)
-        .map_err(|err| anyhow!("Failed to parse JSON string.\nError: {err:#?}"))?;
-
-    if let Some(children) = json_value["children"].take().as_array_mut() {
-        if !children.is_empty() {
-            // Take the first element from the array
-            let first_child = children.remove(0);
-            Ok(first_child)
-        } else {
-            Err(anyhow!("No children found in the parsed HTML JSON."))
-        }
-    } else {
-        Err(anyhow!(
-            "Expected a 'children' array in the parsed HTML JSON."
-        ))
-    }
-}
-
-fn compute_hash(s: &str) -> String {
-    let mut hasher = Sha1::new();
-    hasher.update(s.as_bytes());
-    format!("{:x}", hasher.finalize())
 }
