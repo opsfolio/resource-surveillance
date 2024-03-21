@@ -33,6 +33,9 @@ This document contains the help content for the `surveilr` command-line program.
 * [`surveilr udi pgp osquery local`↴](#surveilr-udi-pgp-osquery-local)
 * [`surveilr udi pgp osquery remote`↴](#surveilr-udi-pgp-osquery-remote)
 * [`surveilr udi admin`↴](#surveilr-udi-admin)
+* [`surveilr transform`↴](#surveilr-transform)
+* [`surveilr transform html`↴](#surveilr-transform-html)
+* [`surveilr transform markdown`↴](#surveilr-transform-markdown)
 
 ## `surveilr`
 
@@ -46,6 +49,7 @@ This document contains the help content for the `surveilr` command-line program.
 * `notebooks` — Notebooks maintenance utilities
 * `sqlpage` — Configuration to start the SQLPage webserver
 * `udi` — Universal Data Infrastructure
+* `transform` — Resource transformation utilities for data stored in the RSSD
 
 ###### **Options:**
 
@@ -381,7 +385,6 @@ Ingest content from email boxes
 
   Possible values: `all`, `unread`, `read`, `starred`
 
-* `-c`, `--css-select <CSS_SELECT>` — List of CSS selectors with names and values. e.g. -css-select="name_of_select_query:div > p" i.e, select all p tags in a div tag
 * `-b`, `--batch-size <BATCH_SIZE>` — Maximum number of messages to be ingested
 
   Default value: `1000`
@@ -570,6 +573,51 @@ execute osquery on remote hosts
 ## `surveilr udi admin`
 
 **Usage:** `surveilr udi admin`
+
+
+
+## `surveilr transform`
+
+Resource transformation utilities for data stored in the RSSD
+
+**Usage:** `surveilr transform [OPTIONS] <COMMAND>`
+
+###### **Subcommands:**
+
+* `html` — Transform HTML content
+* `markdown` — Transform markdown content
+
+###### **Options:**
+
+* `-d`, `--state-db-fs-path <STATE_DB_FS_PATH>` — target SQLite database
+
+  Default value: `resource-surveillance.sqlite.db`
+* `-r`, `--reset-transforms` — Indicates if all current transforms should be deleted before running the transform
+
+  Default value: `false`
+
+  Possible values: `true`, `false`
+
+
+
+
+## `surveilr transform html`
+
+Transform HTML content
+
+**Usage:** `surveilr transform html [OPTIONS]`
+
+###### **Options:**
+
+* `-c`, `--css-select <CSS_SELECT>` — List of CSS selectors with names and values. e.g. -css-select="name_of_select_query:div > p" i.e, select all p tags in a div tag
+
+
+
+## `surveilr transform markdown`
+
+Transform markdown content
+
+**Usage:** `surveilr transform markdown`
 
 
 

@@ -391,11 +391,16 @@ $ surveilr ingest imap -u user@outlook.com -p 'apppassword' -a "outlook.office36
 $ surveilr ingest imap -u user@gmail.com -p 'apppassword' -a "imap.gmail.com" --batch-size=10000
 ```
 
-## CSS Selection Capability
-The `surveilr` IMAP ingestion feature introduces the ability to directly query your emails. This functionality is versatile and particularly beneficial when dealing with emails containing HTML content, such as embedded HTML documents. For instance, if you aim to filter all anchor tags within your emails that contain ".com" in their URLs, you can utilize the CSS selector `a[href*=".com"]`. `surveilr` efficiently parses the HTML content during ingestion, extracts information based on the specified CSS selector, and saves the extracted data in the `uniform_resource_transform` table for subsequent queries.
+## TRansformations
+The `surveilr transform` adds the ability to directly query your emails by performing actions against the saved emails un the RSSD. This functionality is versatile and particularly beneficial when dealing with emails containing HTML content, such as embedded HTML documents. For instance, if you aim to filter all anchor tags within your emails in the RSSD that contain ".com" in their URLs, you can utilize the CSS selector `a[href*=".com"]`. `surveilr` efficiently parses the HTML content during ingestion, extracts information based on the specified CSS selector, and saves the extracted data in the `uniform_resource_transform` table for subsequent queries.
 
 ```bash
-$ surveilr ingest imap -u user@gmail.com -p 'apppassword' -a "imap.gmail.com" --batch-size=10000 -css-select="select-all-com-anchor-tags:a[href*='.com']"
+$ surveilr ingest imap -u user@gmail.com -p 'apppassword' -a "imap.gmail.com" --batch-size=10000 ## load the emails into the RSSD
+$ surveilr transform html -css-select="select-all-com-anchor-tags:a[href*='.com']
+```
+**Note**: You can also delete transformations previoulsy carried out by specifying a `--reset-transforms` argument:
+```bash
+$ surveilr transform --reset-transform -css-select="select-all-img-tags:div img
 ```
 
 **Important**: The `css-select` argument requires a name for the query and the corresponding CSS selector, separated by a ":". Additionally, you can specify multiple queries by passing several `css-select` arguments.
