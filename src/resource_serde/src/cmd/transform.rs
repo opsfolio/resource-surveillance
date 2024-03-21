@@ -13,6 +13,10 @@ pub struct TransformArgs {
     #[arg(short='d', long, default_value = DEFAULT_STATEDB_FS_PATH, default_missing_value = "always", env="SURVEILR_STATEDB_FS_PATH")]
     state_db_fs_path: String,
 
+    /// Indicates if all current transforms should be deleted before running the transform.
+    #[arg(short, long, default_value = "false")]
+    reset_transforms: bool,
+
     #[command(subcommand)]
     pub command: TransformCommands,
 }
@@ -41,7 +45,7 @@ impl TransformArgs {
 
             _ => return Err(anyhow!("Unsupported")),
         };
-        transformer.insert()?;
+        transformer.insert(self.reset_transforms)?;
         Ok(())
     }
 }

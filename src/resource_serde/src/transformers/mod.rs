@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anyhow::{anyhow, Context};
 use common::query_sql_rows;
 use html_parser::Dom;
@@ -58,7 +60,7 @@ pub trait Transformer {
     /// Implement specific resource transformation
     fn transform(&self) -> anyhow::Result<Vec<TransformedContent>>;
     /// Inserts the transformed resource into `uniform_resource_transform`
-    fn insert(&self) -> anyhow::Result<()> {
+    fn insert(&self, reset: bool) -> anyhow::Result<()> {
         let db_path = self.db_path();
         let mut dbc = DbConn::new(&db_path, 0)
             .with_context(|| format!("[ingest_imap] SQLite transaction in {}", db_path))?;
@@ -69,6 +71,28 @@ pub trait Transformer {
             let mut stmt = tx.prepare(INS_UR_TRANSFORM_SQL)?;
 
             let transformed_resources = &self.transform()?;
+
+            if reset {
+                let mut delete_transforms_stmt = tx.prepare(
+                    "DELETE FROM uniform_resource_transform
+                    WHERE uniform_resource_id IN (
+                        SELECT urt.uniform_resource_id
+                        FROM uniform_resource_transform urt
+                        JOIN uniform_resource ur ON urt.uniform_resource_id = ur.uniform_resource_id
+                        WHERE ur.nature = ?1 AND urt.uniform_resource_id = ?2
+                    );
+                    ",
+                )?;
+                let hash_set: HashSet<_> = transformed_resources
+                    .iter()
+                    .map(|t| t.ur_id.clone())
+                    .collect();
+                println!("{hash_set:#?}");
+                for id in hash_set {
+                    delete_transforms_stmt.execute([self.nature(), &id])?;
+                }
+            }
+
             for tc in transformed_resources {
                 let content = serde_json::to_string_pretty(&tc.content)?;
                 let size = content.as_bytes().len();
