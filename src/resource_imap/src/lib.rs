@@ -1,12 +1,14 @@
 use std::{net::TcpStream, sync::Arc, vec};
 
 use anyhow::{anyhow, Context};
+use elaboration::ImapElaboration;
 use imap::types::Fetch;
 use rustls::RootCertStore;
 use serde::{Deserialize, Serialize};
 
 use mail_parser::{Message, MessageParser, MimeHeaders, PartType};
 
+pub mod elaboration;
 mod msft;
 
 pub use msft::{Microsoft365AuthServerConfig, Microsoft365Config, TokenGenerationMethod};
@@ -66,11 +68,14 @@ pub struct Folder {
 /// Returns a hashmap containing each folder processed whuich points to all the emails in that folder.
 extern crate imap;
 
-pub async fn process_imap(config: &mut ImapConfig) -> anyhow::Result<Vec<Folder>> {
+pub async fn process_imap(
+    config: &mut ImapConfig,
+    elaboration: &mut ImapElaboration,
+) -> anyhow::Result<Vec<Folder>> {
     debug!("{config:#?}");
 
     if let Some(msft_config) = config.microsoft365.clone() {
-        return retrieve_emails(&msft_config, config)
+        return retrieve_emails(&msft_config, config, elaboration)
             .await
             .with_context(|| "[ingest_imap]: microsoft_365. Failed to retrieve emails");
     }
@@ -97,8 +102,19 @@ pub async fn process_imap(config: &mut ImapConfig) -> anyhow::Result<Vec<Folder>
         )
         .map_err(|e| e.0)?;
 
+    let folders_available = imap_session.list(None, Some("*"))?;
+    elaboration.folders_available = folders_available
+        .into_iter()
+        .map(|m| m.name().to_string())
+        .collect();
+
     let mailboxes = imap_session.list(None, Some(&config.folder))?;
     config.mailboxes = mailboxes
+        .into_iter()
+        .map(|m| m.name().to_string())
+        .collect();
+
+    elaboration.folders_ingested = mailboxes
         .into_iter()
         .map(|m| m.name().to_string())
         .collect();

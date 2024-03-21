@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
-use resource_imap::ImapConfig;
 use serde::{Deserialize, Serialize};
+
+use crate::ImapConfig;
 
 #[derive(Debug, Serialize, Deserialize)]
 /// Elaboration on the events and happenings while fetching emails from the server and ingesting
@@ -16,6 +17,10 @@ pub struct ImapElaboration {
     pub discovered_folder_count: usize,
     /// Folder elaborations
     pub folders: HashMap<String, FolderElaboration>,
+    /// All the folders that were found in the email
+    pub folders_available: Vec<String>,
+    /// All the folders ingested
+    pub folders_ingested: Vec<String>,
 }
 
 impl ImapElaboration {
@@ -26,6 +31,8 @@ impl ImapElaboration {
             email_ingest_duration: None,
             discovered_folder_count: 0,
             folders: HashMap::new(),
+            folders_available: vec![],
+            folders_ingested: vec![],
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::{EmailResource, Folder, ImapConfig};
+use crate::{elaboration::ImapElaboration, EmailResource, Folder, ImapConfig};
 use anyhow::Context;
 use graph_rs_sdk::{oauth::AccessToken, Graph, ODataQuery};
 use serde::{Deserialize, Serialize};
@@ -103,6 +103,7 @@ impl TryFrom<Message> for EmailResource {
 pub async fn fetch_emails_from_graph_api(
     token: &AccessToken,
     config: &mut ImapConfig,
+    elaboration: &mut ImapElaboration,
 ) -> anyhow::Result<Vec<Folder>> {
     let client = Graph::new(token.bearer_token());
 
@@ -120,6 +121,13 @@ pub async fn fetch_emails_from_graph_api(
         .json()
         .await
         .with_context(|| "[ingest_imap]: microsoft_365. Deserializing mail folders failed")?;
+
+    elaboration.folders_available = mail_folders_res
+        .mail_folders
+        .clone()
+        .into_iter()
+        .map(|f| f.display_name.to_string())
+        .collect();
 
     let folders = mail_folders_res
         .mail_folders
@@ -139,6 +147,9 @@ pub async fn fetch_emails_from_graph_api(
     let mut emails = Vec::new();
     for folder in &folders {
         config.mailboxes.push(folder.display_name.to_string());
+        elaboration
+            .folders_ingested
+            .push(folder.display_name.to_string());
 
         let folder_name = folder.display_name.replace(' ', "");
         let mut all_messages = Vec::new();

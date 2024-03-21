@@ -1,7 +1,10 @@
 use std::{collections::HashMap, time::Instant};
 
 use anyhow::{anyhow, Context, Result};
-use resource_imap::{process_imap, Folder, ImapConfig};
+use resource_imap::{
+    elaboration::{FolderElaboration, ImapElaboration},
+    process_imap, Folder, ImapConfig,
+};
 use rusqlite::params;
 use scraper::{Html, Selector};
 use serde_json::{json, Value};
@@ -10,14 +13,10 @@ use tracing::{debug, error};
 
 use crate::{
     cmd::imap::IngestImapArgs,
-    ingest::{
-        imap::elaboration::{FolderElaboration, ImapElaboration},
-        IngestContext, INS_UR_INGEST_SESSION_FINISH_SQL, INS_UR_INGEST_SESSION_SQL,
-    },
+    ingest::{IngestContext, INS_UR_INGEST_SESSION_FINISH_SQL, INS_UR_INGEST_SESSION_SQL},
 };
 
 use html_parser::Dom;
-mod elaboration;
 
 use super::{upserted_device, DbConn};
 
@@ -33,14 +32,14 @@ pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
     debug!("Imap Session: {ingest_session_id}");
 
     let mut config: ImapConfig = args.clone().into();
+    let mut elaboration = ImapElaboration::new(&config);
 
     let email_fetch_start = Instant::now();
     println!("Fetching emails from server...");
-    let email_resources = fetch_email_resources(&mut config).await?;
+    let email_resources = fetch_email_resources(&mut config, &mut elaboration).await?;
     println!("Emails retrieved successfully");
     let email_fetch_duration = email_fetch_start.elapsed();
 
-    let mut elaboration = ImapElaboration::new(&config);
     elaboration.discovered_folder_count = email_resources.len();
     elaboration.email_fetch_duration = Some(format!("{:.2?}", email_fetch_duration));
 
@@ -129,8 +128,11 @@ fn create_ingest_session(tx: &rusqlite::Transaction, device_id: &String) -> Resu
 }
 
 /// Fetches email resources using the IMAP protocol.
-async fn fetch_email_resources(config: &mut ImapConfig) -> Result<Vec<Folder>> {
-    process_imap(config)
+async fn fetch_email_resources(
+    config: &mut ImapConfig,
+    elaboration: &mut ImapElaboration,
+) -> Result<Vec<Folder>> {
+    process_imap(config, elaboration)
         .await
         .with_context(|| "[ingest_imap] Failed to fetch email resources")
 }
@@ -158,6 +160,7 @@ fn process_emails(
         // insert folder into
 
         let mut elaboration = FolderElaboration::new(name, messages.len());
+        let account_elaboration = json!({ "metadata": serde_json::to_string_pretty(metadata)? });
 
         let acct_folder_id: String = {
             let start = Instant::now();
@@ -168,7 +171,7 @@ fn process_emails(
                         ingest_session_id,
                         acct_id,
                         name,
-                        serde_json::to_string_pretty(metadata)?
+                        account_elaboration.to_string(),
                     ],
                     |row| row.get(0),
                 )?;

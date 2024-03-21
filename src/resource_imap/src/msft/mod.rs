@@ -1,11 +1,11 @@
 use anyhow::{anyhow, Context};
 use graph_rs_sdk::oauth::{AccessToken, OAuth};
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display};
+use std::fmt::Display;
 use tokio::sync::mpsc;
 use tracing::warn;
 
-use crate::{Folder, ImapConfig};
+use crate::{elaboration::ImapElaboration, Folder, ImapConfig};
 
 mod auth_code;
 mod device_code;
@@ -91,6 +91,7 @@ fn oauth_client(creds: &Microsoft365Config) -> OAuth {
 pub async fn retrieve_emails(
     msft_365_config: &Microsoft365Config,
     imap_config: &mut ImapConfig,
+    elaboration: &mut ImapElaboration
 ) -> anyhow::Result<Vec<Folder>> {
     let access_token = match &msft_365_config.mode {
         TokenGenerationMethod::AuthCode => {
@@ -109,7 +110,7 @@ pub async fn retrieve_emails(
             .await
             .map_err(|err| anyhow!("{err}"))?,
     };
-    emails::fetch_emails_from_graph_api(&access_token, imap_config)
+    emails::fetch_emails_from_graph_api(&access_token, imap_config, elaboration)
         .await
         .with_context(|| "[ingest_imap]: microsoft_365. Failed to fetch emails from graph api")
 }
