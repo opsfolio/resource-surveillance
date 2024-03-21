@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use clap::{Args, Subcommand};
+use clap::{Args, Subcommand, ValueEnum};
 use serde::Serialize;
 
 use crate::transformers::{HtmlTransformer, Transformer};
@@ -21,6 +21,13 @@ pub struct TransformArgs {
     pub command: TransformCommands,
 }
 
+#[derive(Debug, Serialize, Clone, ValueEnum, Default)]
+/// Format the content should be transformed into
+pub enum Format {
+    #[default]
+    Json,
+}
+
 #[derive(Debug, Serialize, Subcommand, Clone)]
 pub enum TransformCommands {
     /// Transform HTML content
@@ -30,6 +37,10 @@ pub enum TransformCommands {
         /// i.e, select all p tags in a div tag
         #[arg(short, long)]
         css_select: Vec<String>,
+
+        /// Format the content should be transformed into
+        #[arg(short, long, default_value = "json")]
+        format: Format,
     },
     /// Transform markdown content
     Markdown {},
@@ -38,7 +49,7 @@ pub enum TransformCommands {
 impl TransformArgs {
     pub fn transform(&self) -> anyhow::Result<()> {
         let transformer: Box<dyn Transformer> = match &self.command {
-            TransformCommands::Html { css_select } => Box::new(HtmlTransformer::new(
+            TransformCommands::Html { css_select, .. } => Box::new(HtmlTransformer::new(
                 css_select.to_vec(),
                 self.state_db_fs_path.clone(),
             )),

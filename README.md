@@ -396,7 +396,7 @@ The `surveilr transform` adds the ability to directly query your emails by perfo
 
 ```bash
 $ surveilr ingest imap -u user@gmail.com -p 'apppassword' -a "imap.gmail.com" --batch-size=10000 ## load the emails into the RSSD
-$ surveilr transform html -css-select="select-all-com-anchor-tags:a[href*='.com']
+$ surveilr transform html -f json -css-select="select-all-com-anchor-tags:a[href*='.com']
 ```
 **Note**: You can also delete transformations previoulsy carried out by specifying a `--reset-transforms` argument:
 ```bash

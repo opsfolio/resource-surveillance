@@ -11,9 +11,9 @@ use crate::{ingest::INS_UR_TRANSFORM_SQL, persist::DbConn};
 
 query_sql_rows!(
     get_content_by_nature,
-    "SELECT content, uniform_resource_id FROM uniform_resource WHERE nature = ?",
+    "SELECT content, uniform_resource_id, uri FROM uniform_resource WHERE nature = ?",
     nature: &str;
-    content: String, uniform_resource_id: String
+    content: String, uniform_resource_id: String, uri: String
 );
 
 #[derive(Debug)]
@@ -25,6 +25,12 @@ pub struct TransformedContent {
     pub content: Vec<serde_json::Value>,
 }
 
+#[derive(Debug)]
+/// The extension to convert the transformed content to
+pub enum TransformExt {
+    Json,
+}
+
 /// A transformer trait that should be implemented by all transformers
 pub trait Transformer {
     /// The file extension for the group of resources to be transformed
@@ -32,9 +38,9 @@ pub trait Transformer {
     /// Returns a handle to the underlying DbConn
     fn db_path(&self) -> String;
     /// Fetches all the resources matching the specified extension from the RSSD.
-    /// Returns the `uniform_resource_id` and the content.
+    /// Returns the `uniform_resource_id`, content and uri.
     /// TODO: change the return type to a standard struct
-    fn resources(&self) -> anyhow::Result<Vec<(String, String)>> {
+    fn resources(&self) -> anyhow::Result<Vec<(String, String, String)>> {
         let conn = Connection::open(self.db_path()).with_context(|| {
             format!(
                 "[Transformer Resources]: Failed to open SQLite database {}",
@@ -42,15 +48,13 @@ pub trait Transformer {
             )
         })?;
 
-        let mut results: Vec<(String, String)> = Vec::new();
+        let mut results = Vec::new();
 
         let nature = self.nature();
         get_content_by_nature(
             &conn,
-            |_row_index, content, uniform_resource_id| {
-                // let content_string = String::from_utf8(content)
-                //     .map_err(|err| rusqlite::Error::UserFunctionError(Box::new(err)))?;
-                results.push((uniform_resource_id, content));
+            |_row_index, content, uniform_resource_id, uri| {
+                results.push((uniform_resource_id, content, uri));
                 Ok(())
             },
             nature,
@@ -195,26 +199,35 @@ impl Transformer for HtmlTransformer {
     fn transform(&self) -> anyhow::Result<std::vec::Vec<TransformedContent>> {
         let resources = self.resources()?;
         let mut tcs = Vec::new();
-        for (ur_id, html) in resources {
-            for (select_query_name, css_selector) in &self.css_selectors {
-                let fragment = Html::parse_fragment(&html);
-                let selector = Selector::parse(css_selector)
-                    .map_err(|err| anyhow!("Failed to parse CSS selector.\nError: {err:#?}"))?;
-
-                let elements_json_values = fragment
-                    .select(&selector)
-                    .map(|el| {
-                        let element_html = el.html();
-                        self.convert_html_to_value(&element_html)
-                    })
-                    .collect::<anyhow::Result<Vec<serde_json::Value>>>()?;
-
-                let uri = format!("css-select:{}", select_query_name);
+        for (ur_id, html, uri) in resources {
+            if self.css_selectors.is_empty() {
+                let content = self.convert_html_to_value(&html)?;
                 tcs.push(TransformedContent {
                     ur_id: ur_id.clone(),
-                    uri,
-                    content: elements_json_values,
+                    uri: format!("{uri}/json"),
+                    content: vec![content],
                 });
+            } else {
+                for (select_query_name, css_selector) in &self.css_selectors {
+                    let fragment = Html::parse_fragment(&html);
+                    let selector = Selector::parse(css_selector)
+                        .map_err(|err| anyhow!("Failed to parse CSS selector.\nError: {err:#?}"))?;
+
+                    let elements_json_values = fragment
+                        .select(&selector)
+                        .map(|el| {
+                            let element_html = el.html();
+                            self.convert_html_to_value(&element_html)
+                        })
+                        .collect::<anyhow::Result<Vec<serde_json::Value>>>()?;
+
+                    let uri = format!("css-select:{}", select_query_name);
+                    tcs.push(TransformedContent {
+                        ur_id: ur_id.clone(),
+                        uri,
+                        content: elements_json_values,
+                    });
+                }
             }
         }
 

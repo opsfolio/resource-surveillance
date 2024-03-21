@@ -1,6 +1,6 @@
 use std::{collections::HashMap, time::Instant};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use resource_imap::{
     elaboration::{FolderElaboration, ImapElaboration},
     process_imap, Folder, ImapConfig,
@@ -14,8 +14,6 @@ use crate::{
     cmd::imap::IngestImapArgs,
     ingest::{IngestContext, INS_UR_INGEST_SESSION_FINISH_SQL, INS_UR_INGEST_SESSION_SQL},
 };
-
-use html_parser::Dom;
 
 use super::{upserted_device, DbConn};
 
@@ -315,21 +313,13 @@ fn process_emails(
             let start = Instant::now();
             // 4. take out the text/html, insert it into uniform_resource, transform it to json and then put it in uniform_resource_transform.
             for html in &email.text_html {
-                let html_json = match convert_html_to_json(html) {
-                    Ok(h) => h,
-                    Err(err) => {
-                        eprintln!("Failed to parse this HTML to json. Error: {err:#?} Skipping");
-                        continue;
-                    }
-                };
-
                 let size = html.as_bytes().len();
                 let hash = {
                     let mut hasher = Sha1::new();
                     hasher.update(html.as_bytes());
                     format!("{:x}", hasher.finalize())
                 };
-                let ur_id: String = ingest_stmts.ins_ur_stmt.query_row(
+                let _ur_id: String = ingest_stmts.ins_ur_stmt.query_row(
                     params![
                         device_id,
                         ingest_session_id,
@@ -346,29 +336,9 @@ fn process_emails(
                     ],
                     |row| row.get(0),
                 )?;
-
-                let html_json_size = html_json.as_bytes().len();
-                let html_json_hash = {
-                    let mut hasher = Sha1::new();
-                    hasher.update(html_json.as_bytes());
-                    format!("{:x}", hasher.finalize())
-                };
-
-                let _ur_transform_id: String = ingest_stmts.ins_ur_transform_stmt.query_row(
-                    params![
-                        ur_id,
-                        format!("{uri}/json"),
-                        "json",
-                        html_json_hash,
-                        html_json,
-                        html_json_size,
-                        None::<&String>,
-                    ],
-                    |row| row.get(0),
-                )?;
             }
             debug!(
-                "It took {:.2?} to insert {} htmls in Uniform Resource and UR Transform",
+                "It took {:.2?} to insert {} htmls in Uniform Resource",
                 start.elapsed(),
                 email.text_html.len()
             );
@@ -390,11 +360,4 @@ fn process_emails(
 fn finalize_transaction(tx: rusqlite::Transaction) -> Result<()> {
     tx.commit()
         .with_context(|| "[ingest_imap] Failed to commit the transaction")
-}
-
-fn convert_html_to_json(html: &str) -> Result<String> {
-    let html = ammonia::clean(html);
-    let parsed_html = Dom::parse(&html)
-        .map_err(|err| anyhow!("Failed to parse html element.\nError: {err:#?}"))?;
-    Ok(parsed_html.to_json_pretty()?)
 }
