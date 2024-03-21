@@ -2,7 +2,9 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use common::DEVICE;
-use resource_serde::cmd::{AdminArgs, CapturableExecArgs, IngestArgs, NotebooksArgs, SQLPageArgs};
+use resource_serde::cmd::{
+    transform::TransformArgs, AdminArgs, CapturableExecArgs, IngestArgs, NotebooksArgs, SQLPageArgs,
+};
 use serde::Serialize;
 use udi::UdiArgs;
 
@@ -56,6 +58,7 @@ pub enum CliCommands {
     SQLPage(SQLPageArgs),
     #[clap(name = "udi")]
     Udi(UdiArgs),
+    Transform(TransformArgs),
 }
 
 pub async fn execute(cli: &Cli) -> anyhow::Result<()> {
@@ -66,5 +69,6 @@ pub async fn execute(cli: &Cli) -> anyhow::Result<()> {
         CliCommands::Notebooks(args) => notebooks::Notebooks::default().execute(cli, args),
         CliCommands::SQLPage(args) => sql_page::SqlPage::default().execute(args).await,
         CliCommands::Udi(args) => args.execute().await,
+        CliCommands::Transform(args) => args.transform(),
     }
 }

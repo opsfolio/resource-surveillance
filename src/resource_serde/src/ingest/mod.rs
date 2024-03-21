@@ -43,7 +43,7 @@ const INS_UR_SQL: &str = indoc! {"
                            DO UPDATE SET size_bytes = EXCLUDED.size_bytes
                            RETURNING uniform_resource_id"};
 
-const INS_UR_TRANSFORM_SQL: &str = indoc! {"
+pub const INS_UR_TRANSFORM_SQL: &str = indoc! {"
         INSERT INTO uniform_resource_transform (uniform_resource_transform_id, uniform_resource_id, uri, nature, content_digest, content, size_bytes, elaboration)
                                         VALUES (ulid(), ?, ?, ?, ?, ?, ?, ?) 
                                    ON CONFLICT (uniform_resource_id, content_digest, nature, size_bytes) 

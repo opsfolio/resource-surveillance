@@ -7,6 +7,7 @@ const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 const DEFAULT_MERGED_STATEDB_FS_PATH: &str = "resource-surveillance-aggregated.sqlite.db";
 
 pub mod imap;
+pub mod transform;
 
 /// Admin / maintenance utilities
 #[derive(Debug, Serialize, Args, Clone)]
@@ -15,8 +16,8 @@ pub struct AdminArgs {
     pub command: AdminCommands,
 }
 
-#[derive(Debug, Serialize, Subcommand, Clone)]
-pub enum AdminCommands {
+    #[derive(Debug, Serialize, Subcommand, Clone)]
+    pub enum AdminCommands {
     /// initialize an empty database with bootstrap.sql
     Init {
         /// target SQLite database
