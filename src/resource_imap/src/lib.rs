@@ -54,6 +54,7 @@ pub struct ImapConfig {
     pub batch_size: u64,
     pub extract_attachments: bool,
     pub microsoft365: Option<Microsoft365Config>,
+    pub progress: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -132,14 +133,15 @@ pub async fn process_imap(
                     continue;
                 }
 
-                // Initialize the progress spinner
                 let spinner = ProgressBar::new_spinner();
-                spinner.set_message(format!("Downloading messages from folder: {}", folder));
-                spinner.set_style(
-                    ProgressStyle::default_spinner()
-                        .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
-                        .template("{spinner:.blue} {msg}")?,
-                );
+                if config.progress {
+                    spinner.set_message(format!("Downloading messages from folder: {}", folder));
+                    spinner.set_style(
+                        ProgressStyle::default_spinner()
+                            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+                            .template("{spinner:.blue} {msg}")?,
+                    );
+                }
 
                 // get no of batches and the size of each batch
                 let mut remaining_emails =
@@ -161,7 +163,10 @@ pub async fn process_imap(
                     };
                     debug!("Fetching emails in range: {fetch_range}");
 
-                    spinner.set_message(format!("Fetching {} messages from {folder}", fetch_size));
+                    if config.progress {
+                        spinner
+                            .set_message(format!("Fetching {} messages from {folder}", fetch_size));
+                    }
                     let fetched_messages = imap_session.fetch(fetch_range, "RFC822")?;
                     for message in fetched_messages.iter() {
                         let email = convert_to_email_resource(message, config)?;
@@ -173,12 +178,16 @@ pub async fn process_imap(
                         break;
                     }
 
-                    spinner.inc(1);
+                    if config.progress {
+                        spinner.inc(1);
+                    }
                 }
 
-                spinner.finish_with_message(format!(
-                    "Messages from {folder} downloaded successfully."
-                ));
+                if config.progress {
+                    spinner.finish_with_message(format!(
+                        "Messages from {folder} downloaded successfully."
+                    ));
+                }
 
                 res.push(Folder {
                     name: folder.to_string(),
@@ -195,7 +204,7 @@ pub async fn process_imap(
             }
         }
     }
-    
+
     Ok(res)
 }
 

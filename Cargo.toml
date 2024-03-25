@@ -11,7 +11,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 license = "GPL-3.0"
 
@@ -87,3 +87,8 @@ resource = { path = "src/resource" }
 udi_pgp = { path = "src/udi_pgp" }
 udi_pgp_osquery = { path = "src/udi_pgp_osquery" }
 resource_imap = { path = "src/resource_imap" }
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = 'abort'

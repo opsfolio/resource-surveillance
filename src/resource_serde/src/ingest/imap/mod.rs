@@ -148,14 +148,15 @@ fn process_emails(
     let mut folder_elaborations = HashMap::new();
 
     let pb = ProgressBar::new(folders.len() as u64);
-    pb.set_style(
+    if config.progress {
+        pb.set_style(
         ProgressStyle::default_bar()
             .template(
                 "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos:>7}/{len:7} {msg}",
             )?
             .progress_chars("##-"),
     );
-
+    }
     for folder in folders {
         pb.set_message(format!("Processing folder: {}", folder.name));
 
@@ -360,13 +361,15 @@ fn process_emails(
         //     folder.name,
         //     folder_process_start.elapsed()
         // );
-        pb.inc(1);
+        if config.progress {
+            pb.inc(1);
+        }
 
         elaboration.html_content_count = html_content_count;
         elaboration.text_plain_count = text_plain_count;
         folder_elaborations.insert(name.to_string(), elaboration);
     }
-    
+
     pb.finish_with_message("All folders processed.");
     Ok(folder_elaborations)
 }

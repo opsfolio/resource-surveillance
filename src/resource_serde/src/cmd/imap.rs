@@ -1,6 +1,6 @@
 use clap::{Args, Subcommand, ValueEnum};
-use serde::Serialize;
 use resource_imap::{ImapConfig, Microsoft365AuthServerConfig, Microsoft365Config};
+use serde::Serialize;
 const DEFAULT_STATEDB_FS_PATH: &str = "resource-surveillance.sqlite.db";
 
 #[derive(Debug, Serialize, Clone, ValueEnum, Default)]
@@ -22,7 +22,12 @@ pub struct Microsoft365ServiceArgs {
     #[arg(short = 'm', long)]
     pub mode: Microsoft365AuthMethod,
     /// Address to start the authentication server on, when using the `auth_code` mode for token generation.
-    #[arg(short = 'a', long, default_value = "http://127.0.0.1:8000", env = "MICROSOFT_365_CLIENT_REDIRECT_URI")]
+    #[arg(
+        short = 'a',
+        long,
+        default_value = "http://127.0.0.1:8000",
+        env = "MICROSOFT_365_CLIENT_REDIRECT_URI"
+    )]
     pub addr: Option<String>,
     /// Redirect URL. Base redirect URL path. It gets concatenated with the server address to form the full redirect url,
     /// when using the `auth_code` mode for token generation.
@@ -95,6 +100,10 @@ pub struct IngestImapArgs {
     #[arg(short, long, default_value = "true")]
     pub extract_attachments: bool,
 
+    /// Display progress animation for emails downloading and processing
+    #[arg(long, default_value = "false")]
+    pub progress: bool,
+
     /// Command line configuration for services that need extra authenctication to access emails.
     #[command(subcommand)]
     pub command: Option<ServiceCommands>,
@@ -111,6 +120,7 @@ impl From<IngestImapArgs> for ImapConfig {
             mailboxes: vec![],
             batch_size: value.batch_size,
             extract_attachments: value.extract_attachments,
+            progress: value.progress,
             microsoft365: {
                 if let Some(service_cmds) = value.command {
                     match service_cmds {
