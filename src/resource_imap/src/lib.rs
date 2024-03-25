@@ -3,6 +3,7 @@ use std::{net::TcpStream, sync::Arc, vec};
 use anyhow::{anyhow, Context};
 use elaboration::ImapElaboration;
 use imap::types::Fetch;
+use indicatif::{ProgressBar, ProgressStyle};
 use rustls::RootCertStore;
 use serde::{Deserialize, Serialize};
 
@@ -118,6 +119,7 @@ pub async fn process_imap(
         .collect();
 
     let mut res = Vec::new();
+
     for folder in &config.mailboxes {
         debug!("Processing messages in {} folder", folder);
         match imap_session.select(folder) {
@@ -129,6 +131,15 @@ pub async fn process_imap(
                     error!("No messages in {} folder", folder);
                     continue;
                 }
+
+                // Initialize the progress spinner
+                let spinner = ProgressBar::new_spinner();
+                spinner.set_message(format!("Downloading messages from folder: {}", folder));
+                spinner.set_style(
+                    ProgressStyle::default_spinner()
+                        .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+                        .template("{spinner:.blue} {msg}")?,
+                );
 
                 // get no of batches and the size of each batch
                 let mut remaining_emails =
@@ -150,6 +161,7 @@ pub async fn process_imap(
                     };
                     debug!("Fetching emails in range: {fetch_range}");
 
+                    spinner.set_message(format!("Fetching {} messages from {folder}", fetch_size));
                     let fetched_messages = imap_session.fetch(fetch_range, "RFC822")?;
                     for message in fetched_messages.iter() {
                         let email = convert_to_email_resource(message, config)?;
@@ -160,7 +172,13 @@ pub async fn process_imap(
                     if start == 0 {
                         break;
                     }
+
+                    spinner.inc(1);
                 }
+
+                spinner.finish_with_message(format!(
+                    "Messages from {folder} downloaded successfully."
+                ));
 
                 res.push(Folder {
                     name: folder.to_string(),
@@ -177,7 +195,7 @@ pub async fn process_imap(
             }
         }
     }
-
+    
     Ok(res)
 }
 

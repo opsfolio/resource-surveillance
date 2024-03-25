@@ -1,6 +1,7 @@
 use std::{collections::HashMap, time::Instant};
 
 use anyhow::{Context, Result};
+use indicatif::{ProgressBar, ProgressStyle};
 use resource_imap::{
     elaboration::{FolderElaboration, ImapElaboration},
     process_imap, Folder, ImapConfig,
@@ -32,9 +33,9 @@ pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
     let mut elaboration = ImapElaboration::new(&config);
 
     let email_fetch_start = Instant::now();
-    println!("Fetching emails from server...");
+    // info!("Fetching emails from server...");
     let email_resources = fetch_email_resources(&mut config, &mut elaboration).await?;
-    println!("Emails retrieved successfully");
+    // println!("Emails retrieved successfully");
     let email_fetch_duration = email_fetch_start.elapsed();
 
     elaboration.discovered_folder_count = email_resources.len();
@@ -64,10 +65,10 @@ pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
         )?;
         let email_ingest_duration = format!("{:.2?}", start.elapsed());
 
-        println!(
-            "\n\n Whole email processing for {} folders took: {email_ingest_duration}",
-            email_resources.len()
-        );
+        // println!(
+        //     "\n\n Whole email processing for {} folders took: {email_ingest_duration}",
+        //     email_resources.len()
+        // );
 
         elaboration.folders = folder_elaborations;
         elaboration.email_ingest_duration = Some(email_ingest_duration);
@@ -146,14 +147,23 @@ fn process_emails(
     println!("Converting and writing email to database...");
     let mut folder_elaborations = HashMap::new();
 
+    let pb = ProgressBar::new(folders.len() as u64);
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template(
+                "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos:>7}/{len:7} {msg}",
+            )?
+            .progress_chars("##-"),
+    );
+
     for folder in folders {
-        let folder_process_start = Instant::now();
+        pb.set_message(format!("Processing folder: {}", folder.name));
+
         let Folder {
             name,
             messages,
             metadata,
         } = folder;
-        println!("========= {name} has {} number of messages", messages.len());
         // insert folder into
 
         let mut elaboration = FolderElaboration::new(name, messages.len());
@@ -345,15 +355,19 @@ fn process_emails(
             html_content_count += email.text_html.len();
         }
 
-        println!(
-            "=========Processing all the emails for the {name} folder took {:.2?}=========",
-            folder_process_start.elapsed()
-        );
+        // println!(
+        //     "Processing all the emails for the {} folder took {:.2?}",
+        //     folder.name,
+        //     folder_process_start.elapsed()
+        // );
+        pb.inc(1);
 
         elaboration.html_content_count = html_content_count;
         elaboration.text_plain_count = text_plain_count;
         folder_elaborations.insert(name.to_string(), elaboration);
     }
+    
+    pb.finish_with_message("All folders processed.");
     Ok(folder_elaborations)
 }
 
