@@ -108,6 +108,20 @@ impl DefaultImapService {
         self.session.as_mut().expect("Session is not initialized")
     }
 
+    fn update_progress(&mut self, message: String, style: bool) -> anyhow::Result<()> {
+        if let Some(spinner) = &self.progress {
+            spinner.set_message(message);
+            if style {
+                spinner.set_style(
+                    ProgressStyle::default_spinner()
+                        .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+                        .template("{spinner:.blue} {msg}")?,
+                );
+            }
+        }
+        Ok(())
+    }
+
     fn parse_addresses(addr: Option<&mail_parser::Address>) -> Vec<String> {
         match addr {
             None => vec![],
@@ -262,26 +276,22 @@ impl ImapResource for DefaultImapService {
     fn process_messages_in_folder(&mut self, folder: &mut crate::Folder) -> anyhow::Result<()> {
         let batch_size = self.batch_size;
         let extract_attachments = self.extract_attachments;
-        let mut progress_temp = self.progress.take();
 
-        if let Some(spinner) = progress_temp.as_mut() {
-            spinner.set_message(format!("Downloading messages from folder: {}", folder.name));
-            spinner.set_style(
-                ProgressStyle::default_spinner()
-                    .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
-                    .template("{spinner:.blue} {msg}")?,
-            );
-        }
+        self.update_progress(
+            format!("Downloading messages from folder: {}", folder.name),
+            true,
+        )?;
 
-        let sess = self.session_mut();
-        let mailbox = sess
-            .select_folder(&folder.name)
-            .with_context(|| format!("Failed to select {} folder", folder.name))?;
-
+        let mailbox = {
+            let sess = self.session_mut();
+            sess.select_folder(&folder.name)
+                .with_context(|| format!("Failed to select {} folder", folder.name))?
+        };
         let folder_metadata = serde_json::to_value(mailbox.to_string())?;
         folder.metadata(folder_metadata);
 
         let messages_total = mailbox.exists;
+
         debug!("Number of messages in folder: {messages_total}");
         if messages_total == 0 {
             eprintln!("No messages in {} folder", folder.name);
@@ -308,16 +318,18 @@ impl ImapResource for DefaultImapService {
             };
             debug!("Fetching emails in range: {fetch_range}");
 
-            if let Some(spinner) = progress_temp.as_mut() {
-                spinner.set_message(format!(
-                    "Fetching {} messages from {}",
-                    fetch_size, folder.name
-                ));
-            }
-            let fetched_messages = sess.fetch_messages_from_folder(&fetch_range)?;
-            for message in fetched_messages.iter() {
-                let email = Self::convert_to_email_resource(message, extract_attachments)?;
-                emails.push(email);
+            self.update_progress(
+                format!("Fetching {} messages from {}", fetch_size, folder.name),
+                false,
+            )?;
+
+            {
+                let sess = self.session_mut();
+                let fetched_messages = sess.fetch_messages_from_folder(&fetch_range)?;
+                for message in fetched_messages.iter() {
+                    let email = Self::convert_to_email_resource(message, extract_attachments)?;
+                    emails.push(email);
+                }
             }
 
             remaining_emails = remaining_emails.saturating_sub(fetch_size);
@@ -325,11 +337,21 @@ impl ImapResource for DefaultImapService {
                 break;
             }
 
-            if let Some(spinner) = progress_temp.take() {
+            if self.progress() {
+                let spinner = &self.progress.as_ref().unwrap();
                 spinner.inc(1);
             }
         }
-        self.progress = progress_temp;
+
+        if self.progress() {
+            let spinner = &self.progress.as_ref().unwrap();
+            spinner.finish_with_message(format!(
+                "Fetched {} from {} folder successfully",
+                emails.len(),
+                folder.name
+            ));
+        }
+        folder.messages(emails);
 
         Ok(())
     }

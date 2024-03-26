@@ -131,22 +131,9 @@ fn process_folders(
     folders: &mut [Folder],
     resource: &mut Box<dyn ImapResource>,
 ) -> Result<HashMap<String, FolderElaboration>> {
-    println!("Converting and writing email to database...");
     let mut folder_elaborations = HashMap::new();
 
-    let pb = ProgressBar::new(folders.len() as u64);
-    if resource.progress() {
-        pb.set_style(
-        ProgressStyle::default_bar()
-            .template(
-                "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos:>7}/{len:7} {msg}",
-            )?
-            .progress_chars("##-"),
-    );
-    }
     for folder in folders.iter_mut() {
-        pb.set_message(format!("Processing folder: {}", folder.name));
-
         match resource.process_messages_in_folder(folder) {
             Ok(_) => {}
             Err(err) => {
@@ -160,7 +147,15 @@ fn process_folders(
             messages,
             metadata,
         } = folder;
-        // insert folder into
+
+        let pb = ProgressBar::new(messages.len() as u64);
+        if resource.progress() {
+            let pb = ProgressBar::new(messages.len() as u64);
+            pb.set_style(ProgressStyle::default_bar()
+                .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos:>7}/{len:7} {msg}")?
+                .progress_chars("##-"));
+            pb.set_message(format!("Processing Messages in folder: {}", name));
+        }
 
         let mut elaboration = FolderElaboration::new(name, messages.len());
         let account_elaboration = json!({ "metadata": serde_json::to_string_pretty(metadata)? });
@@ -341,23 +336,25 @@ fn process_folders(
                 email.text_html.len()
             );
             html_content_count += email.text_html.len();
+
+            if resource.progress() {
+                pb.inc(1);
+            }
         }
+
+        pb.finish_with_message(format!("Finished processing folder: {}", name));
 
         // println!(
         //     "Processing all the emails for the {} folder took {:.2?}",
         //     folder.name,
         //     folder_process_start.elapsed()
         // );
-        if resource.progress() {
-            pb.inc(1);
-        }
 
         elaboration.html_content_count = html_content_count;
         elaboration.text_plain_count = text_plain_count;
         folder_elaborations.insert(name.to_string(), elaboration);
     }
 
-    pb.finish_with_message("All folders processed.");
     Ok(folder_elaborations)
 }
 
