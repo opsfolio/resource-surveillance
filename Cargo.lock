@@ -5136,6 +5136,7 @@ dependencies = [
  "tokio",
  "tracing",
  "warp",
+ "webpki",
  "webpki-roots 0.26.1",
 ]
 

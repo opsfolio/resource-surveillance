@@ -5,12 +5,41 @@ use std::fmt::Display;
 use tokio::sync::mpsc;
 use tracing::warn;
 
-use crate::{elaboration::ImapElaboration, Folder, ImapConfig};
+use crate::{elaboration::ImapElaboration, Folder, ImapConfig, ImapResource};
 
 mod auth_code;
 mod client_credential;
 mod device_code;
 mod emails;
+
+/// Using the Graph API
+pub struct MicrosoftImapResource {}
+
+impl ImapResource for MicrosoftImapResource {
+    fn init(&mut self) -> anyhow::Result<()> {
+        todo!()
+    }
+
+    fn username(&mut self) -> String {
+        todo!()
+    }
+
+    fn folders(&mut self) -> anyhow::Result<Vec<String>> {
+        todo!()
+    }
+
+    fn specified_folders(&mut self, folder_pattern: &str) -> anyhow::Result<Vec<Folder>> {
+        todo!()
+    }
+
+    fn process_messages_in_folder(&mut self, folder: &mut Folder) -> anyhow::Result<()> {
+        todo!()
+    }
+
+    fn progress(&mut self) -> bool {
+        todo!()
+    }
+}
 
 /// The method for retrieving the access token.
 #[derive(Debug, Clone, Serialize, Deserialize)]

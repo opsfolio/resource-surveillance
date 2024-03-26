@@ -1,4 +1,4 @@
-use std::{net::TcpStream, sync::Arc, vec};
+use std::{net::TcpStream, str::FromStr, sync::Arc, vec};
 
 use anyhow::{anyhow, Context};
 use elaboration::ImapElaboration;
@@ -9,13 +9,32 @@ use serde::{Deserialize, Serialize};
 
 use mail_parser::{Message, MessageParser, MimeHeaders, PartType};
 
+mod default_imap_service;
 pub mod elaboration;
 mod msft;
 
 pub use msft::{Microsoft365AuthServerConfig, Microsoft365Config, TokenGenerationMethod};
 use tracing::{debug, error};
 
-use crate::msft::retrieve_emails;
+use crate::{
+    default_imap_service::DefaultImapService,
+    msft::{retrieve_emails, MicrosoftImapResource},
+};
+
+pub trait ImapResource {
+    // Checks if progress is enabled
+    fn progress(&mut self) -> bool;
+    /// Initiate the IMAP Client, perform necessary login
+    fn init(&mut self) -> anyhow::Result<()>;
+    /// List all available folders in the mailbox
+    fn folders(&mut self) -> anyhow::Result<Vec<String>>;
+    /// Get all folders as described by the user, i.e. the `--f` argument
+    fn specified_folders(&mut self, folder_pattern: &str) -> anyhow::Result<Vec<Folder>>;
+    /// Get messages in that folder
+    fn process_messages_in_folder(&mut self, folder: &mut Folder) -> anyhow::Result<()>;
+    /// Username of the IMAP server
+    fn username(&mut self) -> String;
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Attachment {
@@ -64,148 +83,168 @@ pub struct Folder {
     pub messages: Vec<EmailResource>,
 }
 
-/// Traverses through each mailbox/folder, processes the email and extracts details.
-/// Returns a hashmap containing each folder processed whuich points to all the emails in that folder.
-extern crate imap;
-
-pub async fn process_imap(
-    config: &mut ImapConfig,
-    elaboration: &mut ImapElaboration,
-) -> anyhow::Result<Vec<Folder>> {
-    debug!("{config:#?}");
-
-    if let Some(msft_config) = config.microsoft365.clone() {
-        return retrieve_emails(&msft_config, config, elaboration)
-            .await
-            .with_context(|| "[ingest_imap]: microsoft_365. Failed to retrieve emails");
-    }
-
-    let mut root_store = RootCertStore::empty();
-    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-
-    let mut client_config = rustls::ClientConfig::builder()
-        .with_root_certificates(root_store)
-        .with_no_client_auth();
-    client_config.key_log = Arc::new(rustls::KeyLogFile::new());
-
-    let server_name = config.addr.clone().unwrap().clone().try_into()?;
-    let mut conn = rustls::ClientConnection::new(Arc::new(client_config), server_name)?;
-    let mut sock = TcpStream::connect(format!("{}:{}", config.addr.clone().unwrap(), config.port))?;
-    let tls = rustls::Stream::new(&mut conn, &mut sock);
-
-    let client = imap::Client::new(tls);
-
-    let mut imap_session = client
-        .login(
-            &config.username.clone().unwrap(),
-            &config.password.clone().unwrap(),
-        )
-        .map_err(|e| e.0)?;
-
-    let folders_available = imap_session.list(None, Some("*"))?;
-    elaboration.folders_available = folders_available
-        .into_iter()
-        .map(|m| m.name().to_string())
-        .collect();
-
-    let mailboxes = imap_session.list(None, Some(&config.folder))?;
-    config.mailboxes = mailboxes
-        .into_iter()
-        .map(|m| m.name().to_string())
-        .collect();
-
-    elaboration.folders_ingested = mailboxes
-        .into_iter()
-        .map(|m| m.name().to_string())
-        .collect();
-
-    let mut res = Vec::new();
-
-    for folder in &config.mailboxes {
-        debug!("Processing messages in {} folder", folder);
-        match imap_session.select(folder) {
-            Ok(mailbox) => {
-                let folder_metadata = serde_json::to_value(mailbox.to_string())?;
-                let messages_total = mailbox.exists;
-                debug!("Number of messages in folder: {messages_total}");
-                if messages_total == 0 {
-                    error!("No messages in {} folder", folder);
-                    continue;
-                }
-
-                let spinner = ProgressBar::new_spinner();
-                if config.progress {
-                    spinner.set_message(format!("Downloading messages from folder: {}", folder));
-                    spinner.set_style(
-                        ProgressStyle::default_spinner()
-                            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
-                            .template("{spinner:.blue} {msg}")?,
-                    );
-                }
-
-                // get no of batches and the size of each batch
-                let mut remaining_emails =
-                    std::cmp::min(config.batch_size as usize, messages_total as usize);
-                let mut start = messages_total as usize;
-                // Max number of emails to fetch per batch because of IMAP limitations
-                let batch_size = 1000;
-                let mut emails = Vec::new();
-
-                while remaining_emails > 0 {
-                    let fetch_size = std::cmp::min(remaining_emails, batch_size);
-                    let end = start;
-                    start = start.saturating_sub(fetch_size);
-
-                    let fetch_range = if start > 0 {
-                        format!("{}:{}", start, end)
-                    } else {
-                        format!("1:{}", end)
-                    };
-                    debug!("Fetching emails in range: {fetch_range}");
-
-                    if config.progress {
-                        spinner
-                            .set_message(format!("Fetching {} messages from {folder}", fetch_size));
-                    }
-                    let fetched_messages = imap_session.fetch(fetch_range, "RFC822")?;
-                    for message in fetched_messages.iter() {
-                        let email = convert_to_email_resource(message, config)?;
-                        emails.push(email);
-                    }
-
-                    remaining_emails = remaining_emails.saturating_sub(fetch_size);
-                    if start == 0 {
-                        break;
-                    }
-
-                    if config.progress {
-                        spinner.inc(1);
-                    }
-                }
-
-                if config.progress {
-                    spinner.finish_with_message(format!(
-                        "Messages from {folder} downloaded successfully."
-                    ));
-                }
-
-                res.push(Folder {
-                    name: folder.to_string(),
-                    metadata: folder_metadata,
-                    messages: emails,
-                })
-            }
-            Err(err) => {
-                error!(
-                    "Error selecting folder '{}': {}. Skipping this folder.",
-                    folder, err
-                );
-                continue;
-            }
+impl From<String> for Folder {
+    fn from(value: String) -> Self {
+        Folder {
+            name: value,
+            metadata: serde_json::Value::Null,
+            messages: vec![],
         }
     }
+}
 
-    Ok(res)
+impl Folder {
+    pub fn metadata(&mut self, value: serde_json::Value) {
+        self.metadata = value
+    }
+
+    pub fn messages(&mut self, msgs: Vec<EmailResource>) {
+        self.messages = msgs
+    }
+}
+
+extern crate imap;
+
+pub async fn imap(config: &ImapConfig) -> anyhow::Result<Box<dyn ImapResource>> {
+    debug!("{config:#?}");
+
+    Ok(match config.microsoft365 {
+        Some(_) => Box::new(MicrosoftImapResource {}),
+        None => Box::new(DefaultImapService::new(config.clone())),
+    })
+
+    // if let Some(msft_config) = config.microsoft365.clone() {
+    //     return retrieve_emails(&msft_config, config, elaboration)
+    //         .await
+    //         .with_context(|| "[ingest_imap]: microsoft_365. Failed to retrieve emails");
+    // }
+
+    // let mut root_store = RootCertStore::empty();
+    // root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+
+    // let mut client_config = rustls::ClientConfig::builder()
+    //     .with_root_certificates(root_store)
+    //     .with_no_client_auth();
+    // client_config.key_log = Arc::new(rustls::KeyLogFile::new());
+
+    // let server_name = config.addr.clone().unwrap().clone().try_into()?;
+    // let mut conn = rustls::ClientConnection::new(Arc::new(client_config), server_name)?;
+    // let mut sock = TcpStream::connect(format!("{}:{}", config.addr.clone().unwrap(), config.port))?;
+    // let tls = rustls::Stream::new(&mut conn, &mut sock);
+
+    // let client = imap::Client::new(tls);
+
+    // let mut imap_session = client
+    //     .login(
+    //         &config.username.clone().unwrap(),
+    //         &config.password.clone().unwrap(),
+    //     )
+    //     .map_err(|e| e.0)?;
+
+    // let folders_available = imap_session.list(None, Some("*"))?;
+    // elaboration.folders_available = folders_available
+    //     .into_iter()
+    //     .map(|m| m.name().to_string())
+    //     .collect();
+
+    // let mailboxes = imap_session.list(None, Some(&config.folder))?;
+    // config.mailboxes = mailboxes
+    //     .into_iter()
+    //     .map(|m| m.name().to_string())
+    //     .collect();
+
+    // elaboration.folders_ingested = mailboxes
+    //     .into_iter()
+    //     .map(|m| m.name().to_string())
+    //     .collect();
+
+    // let mut res = Vec::new();
+
+    // for folder in &config.mailboxes {
+    //     debug!("Processing messages in {} folder", folder);
+    //     match imap_session.select(folder) {
+    //         Ok(mailbox) => {
+    //             let folder_metadata = serde_json::to_value(mailbox.to_string())?;
+    //             let messages_total = mailbox.exists;
+    //             debug!("Number of messages in folder: {messages_total}");
+    //             if messages_total == 0 {
+    //                 error!("No messages in {} folder", folder);
+    //                 continue;
+    //             }
+
+    //             let spinner = ProgressBar::new_spinner();
+    //             if config.progress {
+    //                 spinner.set_message(format!("Downloading messages from folder: {}", folder));
+    //                 spinner.set_style(
+    //                     ProgressStyle::default_spinner()
+    //                         .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+    //                         .template("{spinner:.blue} {msg}")?,
+    //                 );
+    //             }
+
+    //             // get no of batches and the size of each batch
+    //             let mut remaining_emails =
+    //                 std::cmp::min(config.batch_size as usize, messages_total as usize);
+    //             let mut start = messages_total as usize;
+    //             // Max number of emails to fetch per batch because of IMAP limitations
+    //             let batch_size = 1000;
+    //             let mut emails = Vec::new();
+
+    //             while remaining_emails > 0 {
+    //                 let fetch_size = std::cmp::min(remaining_emails, batch_size);
+    //                 let end = start;
+    //                 start = start.saturating_sub(fetch_size);
+
+    //                 let fetch_range = if start > 0 {
+    //                     format!("{}:{}", start, end)
+    //                 } else {
+    //                     format!("1:{}", end)
+    //                 };
+    //                 debug!("Fetching emails in range: {fetch_range}");
+
+    //                 if config.progress {
+    //                     spinner
+    //                         .set_message(format!("Fetching {} messages from {folder}", fetch_size));
+    //                 }
+    //                 let fetched_messages = imap_session.fetch(fetch_range, "RFC822")?;
+    //                 for message in fetched_messages.iter() {
+    //                     let email = convert_to_email_resource(message, config)?;
+    //                     emails.push(email);
+    //                 }
+
+    //                 remaining_emails = remaining_emails.saturating_sub(fetch_size);
+    //                 if start == 0 {
+    //                     break;
+    //                 }
+
+    //                 if config.progress {
+    //                     spinner.inc(1);
+    //                 }
+    //             }
+
+    //             if config.progress {
+    //                 spinner.finish_with_message(format!(
+    //                     "Messages from {folder} downloaded successfully."
+    //                 ));
+    //             }
+
+    //             res.push(Folder {
+    //                 name: folder.to_string(),
+    //                 metadata: folder_metadata,
+    //                 messages: emails,
+    //             })
+    //         }
+    //         Err(err) => {
+    //             error!(
+    //                 "Error selecting folder '{}': {}. Skipping this folder.",
+    //                 folder, err
+    //             );
+    //             continue;
+    //         }
+    //     }
+    // }
+
+    // Ok(res)
 }
 
 fn convert_to_email_resource(

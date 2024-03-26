@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use resource_imap::{
     elaboration::{FolderElaboration, ImapElaboration},
-    process_imap, Folder, ImapConfig,
+    imap, Folder, ImapConfig, ImapResource,
 };
 use rusqlite::params;
 use serde_json::json;
@@ -29,17 +29,15 @@ pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
 
     debug!("Imap Session: {ingest_session_id}");
 
-    let mut config: ImapConfig = args.clone().into();
+    let config: ImapConfig = args.clone().into();
     let mut elaboration = ImapElaboration::new(&config);
 
-    let email_fetch_start = Instant::now();
-    // info!("Fetching emails from server...");
-    let email_resources = fetch_email_resources(&mut config, &mut elaboration).await?;
-    // println!("Emails retrieved successfully");
-    let email_fetch_duration = email_fetch_start.elapsed();
+    let mut imap_resource = imap(&config).await?;
+    imap_resource.init()?;
+    let available_folders = imap_resource.folders()?;
+    let mut folders_to_be_ingested = imap_resource.specified_folders(&config.folder)?;
 
-    elaboration.discovered_folder_count = email_resources.len();
-    elaboration.email_fetch_duration = Some(format!("{:.2?}", email_fetch_duration));
+    elaboration.discovered_folder_count = available_folders.len();
 
     {
         let mut ingest_stmts = IngestContext::from_conn(&tx, db_fs_path)
@@ -55,13 +53,13 @@ pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
         )?;
 
         let start = Instant::now();
-        let folder_elaborations = process_emails(
+        let folder_elaborations = process_folders(
             &mut ingest_stmts,
             &ingest_session_id,
             &device_id,
             &acct_id,
-            &email_resources,
-            &config,
+            &mut folders_to_be_ingested,
+            &mut imap_resource,
         )?;
         let email_ingest_duration = format!("{:.2?}", start.elapsed());
 
@@ -125,30 +123,19 @@ fn create_ingest_session(tx: &rusqlite::Transaction, device_id: &String) -> Resu
     .with_context(|| "[ingest_imap] Failed to create an ingest session")
 }
 
-/// Fetches email resources using the IMAP protocol.
-async fn fetch_email_resources(
-    config: &mut ImapConfig,
-    elaboration: &mut ImapElaboration,
-) -> Result<Vec<Folder>> {
-    process_imap(config, elaboration)
-        .await
-        .with_context(|| "[ingest_imap] Failed to fetch email resources")
-}
-
-/// Processes emails fetched from the IMAP server.
-fn process_emails(
+fn process_folders(
     ingest_stmts: &mut IngestContext,
     ingest_session_id: &str,
     device_id: &str,
     acct_id: &str,
-    folders: &Vec<Folder>,
-    config: &ImapConfig,
+    folders: &mut [Folder],
+    resource: &mut Box<dyn ImapResource>,
 ) -> Result<HashMap<String, FolderElaboration>> {
     println!("Converting and writing email to database...");
     let mut folder_elaborations = HashMap::new();
 
     let pb = ProgressBar::new(folders.len() as u64);
-    if config.progress {
+    if resource.progress() {
         pb.set_style(
         ProgressStyle::default_bar()
             .template(
@@ -157,8 +144,16 @@ fn process_emails(
             .progress_chars("##-"),
     );
     }
-    for folder in folders {
+    for folder in folders.iter_mut() {
         pb.set_message(format!("Processing folder: {}", folder.name));
+
+        match resource.process_messages_in_folder(folder) {
+            Ok(_) => {}
+            Err(err) => {
+                error!("{err}");
+                continue;
+            }
+        };
 
         let Folder {
             name,
@@ -178,7 +173,7 @@ fn process_emails(
                     params![
                         ingest_session_id,
                         acct_id,
-                        name,
+                        name.to_string(),
                         account_elaboration.to_string(),
                     ],
                     |row| row.get(0),
@@ -192,11 +187,7 @@ fn process_emails(
 
         for email in messages.iter() {
             let text = &email.raw_text;
-            let uri = format!(
-                "smtp://{}/{}",
-                config.username.clone().unwrap_or_default(),
-                email.message_id
-            );
+            let uri = format!("smtp://{}/{}", resource.username(), email.message_id);
 
             // 4. get all the attachments and do the same
 
@@ -208,11 +199,7 @@ fn process_emails(
                         device_id,
                         ingest_session_id,
                         &None::<String>,
-                        format!(
-                            "smtp://{}/{}",
-                            config.username.clone().unwrap_or_default(),
-                            email.message_id
-                        ),
+                        format!("smtp://{}/{}", resource.username(), email.message_id),
                         "text".to_string(),
                         email.raw_text,
                         {
@@ -361,7 +348,7 @@ fn process_emails(
         //     folder.name,
         //     folder_process_start.elapsed()
         // );
-        if config.progress {
+        if resource.progress() {
             pb.inc(1);
         }
 

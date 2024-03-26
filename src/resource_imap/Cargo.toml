@@ -17,6 +17,7 @@ tracing.workspace = true
 tokio.workspace = true
 futures-util = "0.3.30"
 indicatif.workspace = true
+webpki = "0.22.4"
 
 [dependencies.imap]
 version = "2.4.1"
