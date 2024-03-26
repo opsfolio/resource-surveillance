@@ -8,6 +8,7 @@ pub enum Microsoft365AuthMethod {
     AuthCode,
     #[default]
     DeviceCode,
+    ClientCredential,
 }
 
 #[derive(Debug, Serialize, Args, Clone)]
@@ -149,6 +150,9 @@ impl From<IngestImapArgs> for ImapConfig {
                                         }
                                         Microsoft365AuthMethod::DeviceCode => {
                                             resource_imap::TokenGenerationMethod::DeviceCode
+                                        }
+                                        Microsoft365AuthMethod::ClientCredential => {
+                                            resource_imap::TokenGenerationMethod::ClientCredential
                                         }
                                     }
                                 },
