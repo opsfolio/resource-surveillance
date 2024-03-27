@@ -63,10 +63,6 @@ pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
         )?;
         let email_ingest_duration = format!("{:.2?}", start.elapsed());
 
-        // println!(
-        //     "\n\n Whole email processing for {} folders took: {email_ingest_duration}",
-        //     email_resources.len()
-        // );
 
         elaboration.folders = folder_elaborations;
         elaboration.email_ingest_duration = Some(email_ingest_duration);

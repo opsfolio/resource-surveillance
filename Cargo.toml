@@ -78,6 +78,7 @@ tracing-subscriber = { version = "0.3.18", features = [
 ] }
 uuid = { version = "1.7.0", features = ["v4", "fast-rng", "macro-diagnostics"] }
 indicatif = "0.17.8"
+async-trait = "0.1.77"
 
 ## workspaces members
 surveilr_ux_cli = { path = "src/surveilr_ux_cli" }

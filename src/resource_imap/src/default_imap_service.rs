@@ -1,29 +1,37 @@
-use std::{fmt::Debug, net::TcpStream, sync::Arc};
-
 use anyhow::{anyhow, Context};
-use imap::{
-    types::{Fetch, Mailbox, ZeroCopy},
+use async_imap::{
+    types::{Fetch, Mailbox},
     Session,
 };
+use async_trait::async_trait;
+use futures_util::TryStreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use mail_parser::{Message, MessageParser, MimeHeaders, PartType};
-use rustls::{ClientConnection, RootCertStore, StreamOwned};
+use std::{fmt::Debug, sync::Arc};
+use tokio::net::TcpStream;
+use tokio_rustls::TlsConnector;
+use tokio_rustls::{
+    client::TlsStream,
+    rustls::{ClientConfig, RootCertStore},
+};
+
 use tracing::debug;
 
 use crate::{Attachment, EmailResource, Folder, ImapConfig, ImapResource};
 
-trait SessionAbstraction: Debug {
-    fn list_folders(
+#[async_trait]
+trait SessionAbstraction: Debug + Send + Sync {
+    async fn list_folders(
         &mut self,
         ref_name: Option<&str>,
         folder_pattern: Option<&str>,
     ) -> anyhow::Result<Vec<String>>;
-    fn select_folder(&mut self, folder_name: &str) -> anyhow::Result<Mailbox>;
-    fn fetch_messages_from_folder(
+    async fn select_folder(&mut self, folder_name: &str) -> anyhow::Result<Mailbox>;
+    async fn fetch_messages_from_folder(
         &mut self,
         sequence_set: &str,
-    ) -> anyhow::Result<ZeroCopy<Vec<Fetch>>>;
-    fn specified_folders(
+    ) -> anyhow::Result<Vec<Fetch>>;
+    async fn specified_folders(
         &mut self,
         ref_name: Option<&str>,
         folder_pattern: Option<&str>,
@@ -32,44 +40,45 @@ trait SessionAbstraction: Debug {
 
 #[derive(Debug)]
 struct SessionHolder {
-    session: Session<StreamOwned<ClientConnection, TcpStream>>,
+    session: Session<TlsStream<TcpStream>>,
 }
 
+#[async_trait]
 impl SessionAbstraction for SessionHolder {
-    fn list_folders(
+    async fn list_folders(
         &mut self,
         ref_name: Option<&str>,
         folder_pattern: Option<&str>,
     ) -> anyhow::Result<Vec<String>> {
-        let mailboxes = self.session.list(ref_name, folder_pattern)?;
-        Ok(mailboxes
-            .into_iter()
-            .map(|m| m.name().to_string())
-            .collect())
+        let mailboxes = self.session.list(ref_name, folder_pattern).await?;
+        let mailboxes: Vec<_> = mailboxes.try_collect().await?;
+        Ok(mailboxes.iter().map(|m| m.name().to_string()).collect())
     }
 
-    fn specified_folders(
+    async fn specified_folders(
         &mut self,
         ref_name: Option<&str>,
         folder_pattern: Option<&str>,
     ) -> anyhow::Result<Vec<Folder>> {
-        let mailboxes = self.session.list(ref_name, folder_pattern)?;
+        let mailboxes = self.session.list(ref_name, folder_pattern).await?;
+        let mailboxes: Vec<_> = mailboxes.try_collect().await?;
         Ok(mailboxes
             .into_iter()
             .map(|m| Folder::from(m.name().to_string()))
             .collect())
     }
 
-    fn select_folder(&mut self, folder_name: &str) -> anyhow::Result<Mailbox> {
-        Ok(self.session.select(folder_name)?)
+    async fn select_folder(&mut self, folder_name: &str) -> anyhow::Result<Mailbox> {
+        Ok(self.session.select(folder_name).await?)
     }
 
     // TODO: add error message on how to select the errors
-    fn fetch_messages_from_folder(
+    async fn fetch_messages_from_folder(
         &mut self,
         sequence_set: &str,
-    ) -> anyhow::Result<ZeroCopy<Vec<Fetch>>> {
-        Ok(self.session.fetch(sequence_set, "RFC822")?)
+    ) -> anyhow::Result<Vec<Fetch>> {
+        let messsages_stream = self.session.fetch(sequence_set, "RFC822").await?;
+        Ok(messsages_stream.try_collect().await?)
     }
 }
 
@@ -83,6 +92,7 @@ pub struct DefaultImapService {
     batch_size: u64,
     extract_attachments: bool,
     session: Option<Box<dyn SessionAbstraction>>,
+    // session: Option<Session<TlsStream<TcpStream>>>,
     progress: Option<ProgressBar>,
 }
 
@@ -229,25 +239,27 @@ impl DefaultImapService {
     }
 }
 
+#[async_trait]
 impl ImapResource for DefaultImapService {
-    fn init(&mut self) -> anyhow::Result<()> {
+    async fn init(&mut self) -> anyhow::Result<()> {
         let mut root_store = RootCertStore::empty();
         root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 
-        let client_config = rustls::ClientConfig::builder()
+        let client_config = ClientConfig::builder()
             .with_root_certificates(root_store)
             .with_no_client_auth();
         let config_ref = Arc::new(client_config);
         let server_name = self.addr.clone().try_into()?;
 
-        let conn = ClientConnection::new(config_ref.clone(), server_name)?;
-        let sock = TcpStream::connect(format!("{}:{}", self.addr, self.port))?;
-        let tls = StreamOwned::new(conn, sock);
+        let conn = TlsConnector::from(config_ref.clone());
+        let stream = TcpStream::connect(format!("{}:{}", self.addr, self.port)).await?;
+        let mut tls = conn.connect(server_name, stream).await?;
 
-        let client = imap::Client::new(tls);
+        let client = async_imap::Client::new(tls);
 
         let session = client
             .login(&self.username, &self.password)
+            .await
             .map_err(|e| e.0)?;
 
         self.session = Some(Box::new(SessionHolder { session }));
@@ -263,17 +275,23 @@ impl ImapResource for DefaultImapService {
         self.username.to_string()
     }
 
-    fn folders(&mut self) -> anyhow::Result<Vec<String>> {
+    async fn folders(&mut self) -> anyhow::Result<Vec<String>> {
         let sess = self.session_mut();
-        sess.list_folders(None, Some("*"))
+        sess.list_folders(None, Some("*")).await
     }
 
-    fn specified_folders(&mut self, folder_pattern: &str) -> anyhow::Result<Vec<crate::Folder>> {
+    async fn specified_folders(
+        &mut self,
+        folder_pattern: &str,
+    ) -> anyhow::Result<Vec<crate::Folder>> {
         let sess = self.session_mut();
-        sess.specified_folders(None, Some(folder_pattern))
+        sess.specified_folders(None, Some(folder_pattern)).await
     }
 
-    fn process_messages_in_folder(&mut self, folder: &mut crate::Folder) -> anyhow::Result<()> {
+    async fn process_messages_in_folder(
+        &mut self,
+        folder: &mut crate::Folder,
+    ) -> anyhow::Result<()> {
         let batch_size = self.batch_size;
         let extract_attachments = self.extract_attachments;
 
@@ -285,6 +303,7 @@ impl ImapResource for DefaultImapService {
         let mailbox = {
             let sess = self.session_mut();
             sess.select_folder(&folder.name)
+                .await
                 .with_context(|| format!("Failed to select {} folder", folder.name))?
         };
         let folder_metadata = serde_json::to_value(mailbox.to_string())?;
@@ -325,7 +344,7 @@ impl ImapResource for DefaultImapService {
 
             {
                 let sess = self.session_mut();
-                let fetched_messages = sess.fetch_messages_from_folder(&fetch_range)?;
+                let fetched_messages = sess.fetch_messages_from_folder(&fetch_range).await?;
                 for message in fetched_messages.iter() {
                     let email = Self::convert_to_email_resource(message, extract_attachments)?;
                     emails.push(email);
