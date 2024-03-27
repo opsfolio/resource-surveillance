@@ -33,9 +33,9 @@ pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
     let mut elaboration = ImapElaboration::new(&config);
 
     let mut imap_resource = imap(&config).await?;
-    imap_resource.init()?;
-    let available_folders = imap_resource.folders()?;
-    let mut folders_to_be_ingested = imap_resource.specified_folders(&config.folder)?;
+    imap_resource.init().await?;
+    let available_folders = imap_resource.folders().await?;
+    let mut folders_to_be_ingested = imap_resource.specified_folders(&config.folder).await?;
 
     elaboration.discovered_folder_count = available_folders.len();
 
@@ -60,7 +60,7 @@ pub async fn ingest_imap(args: &IngestImapArgs) -> Result<()> {
             &acct_id,
             &mut folders_to_be_ingested,
             &mut imap_resource,
-        )?;
+        ).await?;
         let email_ingest_duration = format!("{:.2?}", start.elapsed());
 
 
@@ -119,8 +119,8 @@ fn create_ingest_session(tx: &rusqlite::Transaction, device_id: &String) -> Resu
     .with_context(|| "[ingest_imap] Failed to create an ingest session")
 }
 
-fn process_folders(
-    ingest_stmts: &mut IngestContext,
+async fn process_folders(
+    ingest_stmts: &mut IngestContext<'_>,
     ingest_session_id: &str,
     device_id: &str,
     acct_id: &str,
@@ -130,7 +130,7 @@ fn process_folders(
     let mut folder_elaborations = HashMap::new();
 
     for folder in folders.iter_mut() {
-        match resource.process_messages_in_folder(folder) {
+        match resource.process_messages_in_folder(folder).await {
             Ok(_) => {}
             Err(err) => {
                 error!("{err}");

@@ -253,8 +253,8 @@ impl ImapResource for DefaultImapService {
 
         let conn = TlsConnector::from(config_ref.clone());
         let stream = TcpStream::connect(format!("{}:{}", self.addr, self.port)).await?;
-        let mut tls = conn.connect(server_name, stream).await?;
-
+        let tls = conn.connect(server_name, stream).await?;
+        
         let client = async_imap::Client::new(tls);
 
         let session = client

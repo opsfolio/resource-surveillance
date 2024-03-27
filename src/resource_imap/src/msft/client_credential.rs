@@ -32,8 +32,6 @@ use warp::Filter;
 
 use crate::Microsoft365Config;
 
-use super::oauth_client;
-
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct ClientCredentialsResponse {
     admin_consent: bool,

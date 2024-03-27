@@ -5241,7 +5241,6 @@ dependencies = [
  "indicatif",
  "mail-parser",
  "reqwest",
- "rustls 0.22.2",
  "serde",
  "serde_json",
  "tokio",

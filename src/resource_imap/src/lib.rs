@@ -5,10 +5,10 @@ mod default_imap_service;
 pub mod elaboration;
 mod msft;
 
-// pub use msft::{Microsoft365AuthServerConfig, Microsoft365Config, TokenGenerationMethod};
+pub use msft::{Microsoft365AuthServerConfig, TokenGenerationMethod, Microsoft365Config};
 use tracing::debug;
 
-use crate::default_imap_service::DefaultImapService;
+use crate::{default_imap_service::DefaultImapService, msft::MicrosoftImapResource};
 
 #[async_trait]
 pub trait ImapResource {
@@ -96,9 +96,19 @@ impl Folder {
 pub async fn imap(config: &ImapConfig) -> anyhow::Result<Box<dyn ImapResource>> {
     debug!("{config:#?}");
 
-    // Ok(match config.microsoft365 {
-    //     Some(_) => Box::new(MicrosoftImapResource {}),
-    //     None => Box::new(DefaultImapService::new(config.clone())),
-    // })
-    Ok(Box::new(DefaultImapService::new(config.clone())))
+    Ok(match &config.microsoft365 {
+        Some(microsoft) => {
+            let mut msft_resource = MicrosoftImapResource::new(
+                &microsoft.client_id,
+                &microsoft.client_secret,
+                microsoft.mode.clone(),
+                config,
+            );
+            msft_resource.server(microsoft.auth_server.clone());
+            msft_resource.redirect_uri(microsoft.redirect_uri.clone());
+
+            Box::new(msft_resource)
+        }
+        None => Box::new(DefaultImapService::new(config.clone())),
+    })
 }

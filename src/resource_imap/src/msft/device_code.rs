@@ -1,19 +1,17 @@
-use graph_rs_sdk::oauth::AccessToken;
+use graph_rs_sdk::oauth::{AccessToken, OAuth};
 use graph_rs_sdk::{GraphFailure, GraphResult};
 use std::process::exit;
+use std::sync::Arc;
 use std::time::Duration;
-
-use crate::msft::oauth_client;
-
-use super::Microsoft365Config;
+use tokio::sync::Mutex;
 
 async fn poll_for_access_token(
     device_code: &str,
     interval: u64,
     message: &str,
-    config: &Microsoft365Config,
+    client: Arc<Mutex<OAuth>>,
 ) -> GraphResult<serde_json::Value> {
-    let mut oauth = oauth_client(config);
+    let mut oauth = client.lock().await;
     oauth.device_code(device_code);
 
     let mut request = oauth.build_async().device_code();
@@ -62,9 +60,8 @@ async fn poll_for_access_token(
     Ok(body)
 }
 
-pub async fn init(config: &Microsoft365Config) -> GraphResult<AccessToken> {
-    let mut oauth = oauth_client(config);
-
+pub async fn init(oauth_client: Arc<Mutex<OAuth>>) -> GraphResult<AccessToken> {
+    let mut oauth = oauth_client.lock().await;
     let mut handler = oauth.build_async().device_code();
     let response = handler.authorization().send().await?;
 
@@ -100,7 +97,8 @@ pub async fn init(config: &Microsoft365Config) -> GraphResult<AccessToken> {
 
     // Poll for the response to the token endpoint. This will go through once
     // the user has entered the code and signed in.
-    let access_token_json = poll_for_access_token(device_code, interval, message, config).await?;
+    let access_token_json =
+        poll_for_access_token(device_code, interval, message, oauth_client.clone()).await?;
     let access_token: AccessToken = serde_json::from_value(access_token_json)?;
 
     // Get a refresh token. First pass the access token to the oauth instance.

@@ -1,4 +1,4 @@
-use crate::{elaboration::ImapElaboration, EmailResource, Folder, ImapConfig};
+use crate::{EmailResource, Folder};
 use anyhow::Context;
 use graph_rs_sdk::{oauth::AccessToken, Graph, ODataQuery};
 use serde::{Deserialize, Serialize};
@@ -100,104 +100,202 @@ impl TryFrom<Message> for EmailResource {
     }
 }
 
-pub async fn fetch_emails_from_graph_api(
-    token: &AccessToken,
-    config: &mut ImapConfig,
-    elaboration: &mut ImapElaboration,
-) -> anyhow::Result<Vec<Folder>> {
-    let client = Graph::new(token.bearer_token());
+#[derive(Debug, Clone)]
+pub struct MsftGraphApiEmail {
+    graph_client: Graph,
+}
 
-    let res = client
-        .me()
-        .mail_folders()
-        .list_mail_folders()
-        .send()
-        .await
-        .with_context(|| {
-            "[ingest_imap]: microsoft_365. Failed to send request to fetch mail folders"
-        })?;
-
-    let mail_folders_res: MailFoldersResponse = res
-        .json()
-        .await
-        .with_context(|| "[ingest_imap]: microsoft_365. Deserializing mail folders failed")?;
-
-    elaboration.folders_available = mail_folders_res
-        .mail_folders
-        .clone()
-        .into_iter()
-        .map(|f| f.display_name.to_string())
-        .collect();
-
-    let folders = mail_folders_res
-        .mail_folders
-        .clone()
-        .into_iter()
-        // deleted items has a totally different schema
-        .filter(|m| {
-            m.total_item_count > 0
-                && m.display_name != "Deleted Items"
-                && (config.folder == "*"
-                    || m.display_name
-                        .to_lowercase()
-                        .contains(&config.folder.to_lowercase()))
-        })
-        .collect::<Vec<_>>();
-
-    let mut emails = Vec::new();
-    for folder in &folders {
-        config.mailboxes.push(folder.display_name.to_string());
-        elaboration
-            .folders_ingested
-            .push(folder.display_name.to_string());
-
-        let folder_name = folder.display_name.replace(' ', "");
-        let mut all_messages = Vec::new();
-        let mut skip_count = 0;
-
-        loop {
-            let batch_size = std::cmp::min(config.batch_size, 1000);
-            let res = client
-                .me()
-                .mail_folder(&folder_name)
-                .messages()
-                .list_messages()
-                .top(batch_size.to_string()) // limit the no of emails to 1000
-                .skip(skip_count.to_string()) // offset
-                .send()
-                .await
-                .with_context(|| {
-                    format!(
-                        "[ingest_imap]: microsoft_365. Failed to get emails in the {} folder",
-                        folder_name
-                    )
-                })?;
-
-            let messages_list: MessageList = res.json().await.with_context(|| {
-                "[ingest_imap]: microsoft_365. Deserializing email messages list failed"
-            })?;
-
-            if messages_list.value.is_empty() {
-                break;
-            }
-
-            let messages: Vec<EmailResource> = messages_list
-                .value
-                .into_iter()
-                .map(EmailResource::try_from)
-                .collect::<anyhow::Result<Vec<EmailResource>>>()?;
-
-            all_messages.extend(messages);
-
-            // Update skip_count for the next batch
-            skip_count += batch_size;
+impl MsftGraphApiEmail {
+    pub fn new(token: &AccessToken) -> Self {
+        MsftGraphApiEmail {
+            graph_client: Graph::new(token.bearer_token()),
         }
-        emails.push(Folder {
-            name: folder_name.to_string(),
-            metadata: serde_json::to_value(folder)?,
-            messages: all_messages,
-        });
     }
 
-    Ok(emails)
+    async fn list_folders(&self) -> anyhow::Result<Vec<MailFolder>> {
+        let res = self
+            .graph_client
+            .me()
+            .mail_folders()
+            .list_mail_folders()
+            .send()
+            .await
+            .with_context(|| {
+                "[ingest_imap]: microsoft_365. Failed to send request to fetch mail folders"
+            })?;
+
+        let folders: MailFoldersResponse = res
+            .json()
+            .await
+            .with_context(|| "[ingest_imap]: microsoft_365. Deserializing mail folders failed")?;
+        Ok(folders.mail_folders)
+    }
+
+    pub async fn folders(&self) -> anyhow::Result<Vec<String>> {
+        let folders = self.list_folders().await?;
+        Ok(folders
+            .into_iter()
+            .map(|f| f.display_name.to_string())
+            .collect())
+    }
+
+    pub async fn specified_folders(&self, pattern: &str) -> anyhow::Result<Vec<Folder>> {
+        let folders = self.list_folders().await?;
+        let folders = folders
+            .into_iter()
+            // deleted items has a totally different schema
+            .filter_map(|m| {
+                if m.total_item_count > 0
+                    && m.display_name != "Deleted Items"
+                    && (pattern == "*"
+                        || m.display_name
+                            .to_lowercase()
+                            .contains(&pattern.to_lowercase()))
+                {
+                    let mut folder = Folder::from(m.display_name.to_string());
+                    folder.metadata(serde_json::to_value(&m).unwrap());
+                    Some(folder)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        Ok(folders)
+    }
+
+    pub async fn messages(
+        &self,
+        folder: &str,
+        batch_size: usize,
+        skip: usize,
+    ) -> anyhow::Result<Vec<EmailResource>> {
+        let res = self
+            .graph_client
+            .me()
+            .mail_folder(folder)
+            .messages()
+            .list_messages()
+            .top(batch_size.to_string()) // limit the no of emails to 1000
+            .skip(skip.to_string()) // offset
+            .send()
+            .await
+            .with_context(|| {
+                format!(
+                    "[ingest_imap]: microsoft_365. Failed to get emails in the {} folder",
+                    folder
+                )
+            })?;
+
+        let messages_list: MessageList = res.json().await.with_context(|| {
+            "[ingest_imap]: microsoft_365. Deserializing email messages list failed"
+        })?;
+
+        messages_list
+            .value
+            .into_iter()
+            .map(EmailResource::try_from)
+            .collect()
+    }
 }
+
+// pub async fn fetch_emails_from_graph_api(
+//     token: &AccessToken,
+//     config: &mut ImapConfig,
+//     elaboration: &mut ImapElaboration,
+// ) -> anyhow::Result<Vec<Folder>> {
+//     let client = Graph::new(token.bearer_token());
+
+//     let res = client
+//         .me()
+//         .mail_folders()
+//         .list_mail_folders()
+//         .send()
+//         .await
+//         .with_context(|| {
+//             "[ingest_imap]: microsoft_365. Failed to send request to fetch mail folders"
+//         })?;
+
+//     let mail_folders_res: MailFoldersResponse = res
+//         .json()
+//         .await
+//         .with_context(|| "[ingest_imap]: microsoft_365. Deserializing mail folders failed")?;
+
+//     elaboration.folders_available = mail_folders_res
+//         .mail_folders
+//         .clone()
+//         .into_iter()
+//         .map(|f| f.display_name.to_string())
+//         .collect();
+
+//     let folders = mail_folders_res
+//         .mail_folders
+//         .clone()
+//         .into_iter()
+//         // deleted items has a totally different schema
+//         .filter(|m| {
+//             m.total_item_count > 0
+//                 && m.display_name != "Deleted Items"
+//                 && (config.folder == "*"
+//                     || m.display_name
+//                         .to_lowercase()
+//                         .contains(&config.folder.to_lowercase()))
+//         })
+//         .collect::<Vec<_>>();
+
+//     let mut emails = Vec::new();
+//     for folder in &folders {
+//         config.mailboxes.push(folder.display_name.to_string());
+//         elaboration
+//             .folders_ingested
+//             .push(folder.display_name.to_string());
+
+//         let folder_name = folder.display_name.replace(' ', "");
+//         let mut all_messages = Vec::new();
+//         let mut skip_count = 0;
+
+//         loop {
+//             let batch_size = std::cmp::min(config.batch_size, 1000);
+//             let res = client
+//                 .me()
+//                 .mail_folder(&folder_name)
+//                 .messages()
+//                 .list_messages()
+//                 .top(batch_size.to_string()) // limit the no of emails to 1000
+//                 .skip(skip_count.to_string()) // offset
+//                 .send()
+//                 .await
+//                 .with_context(|| {
+//                     format!(
+//                         "[ingest_imap]: microsoft_365. Failed to get emails in the {} folder",
+//                         folder_name
+//                     )
+//                 })?;
+
+//             let messages_list: MessageList = res.json().await.with_context(|| {
+//                 "[ingest_imap]: microsoft_365. Deserializing email messages list failed"
+//             })?;
+
+//             if messages_list.value.is_empty() {
+//                 break;
+//             }
+
+//             let messages: Vec<EmailResource> = messages_list
+//                 .value
+//                 .into_iter()
+//                 .map(EmailResource::try_from)
+//                 .collect::<anyhow::Result<Vec<EmailResource>>>()?;
+
+//             all_messages.extend(messages);
+
+//             // Update skip_count for the next batch
+//             skip_count += batch_size;
+//         }
+//         emails.push(Folder {
+//             name: folder_name.to_string(),
+//             metadata: serde_json::to_value(folder)?,
+//             messages: all_messages,
+//         });
+//     }
+
+//     Ok(emails)
+// }

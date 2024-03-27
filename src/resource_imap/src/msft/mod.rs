@@ -1,14 +1,18 @@
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
 use async_trait::async_trait;
 use graph_rs_sdk::oauth::{AccessToken, OAuth};
+use indicatif::ProgressBar;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, sync::mpsc};
+use std::{fmt::Display, sync::Arc};
+use tokio::sync::{mpsc, Mutex};
 use tracing::warn;
 
-use crate::{elaboration::ImapElaboration, Folder, ImapConfig, ImapResource};
+use crate::{Folder, ImapConfig, ImapResource};
+
+use self::emails::MsftGraphApiEmail;
 
 mod auth_code;
-mod client_credential;
+// mod client_credential;
 mod device_code;
 mod emails;
 
@@ -20,8 +24,7 @@ pub enum TokenGenerationMethod {
     DeviceCode,
     /// Utilize a redirect url to get the access token
     AuthCode,
-    /// Non Interactive Authentication
-    ClientCredential,
+    // ClientCredential,
 }
 
 impl Display for TokenGenerationMethod {
@@ -29,7 +32,7 @@ impl Display for TokenGenerationMethod {
         match self {
             TokenGenerationMethod::AuthCode => f.write_str("auth code grant"),
             TokenGenerationMethod::DeviceCode => f.write_str("device code"),
-            TokenGenerationMethod::ClientCredential => f.write_str("client credentials"),
+            // TokenGenerationMethod::ClientCredential => f.write_str("client credentials"),
         }
     }
 }
@@ -58,11 +61,15 @@ pub struct MicrosoftImapResource {
     /// Address to start the authentication server on. Used by the redirect_uri
     auth_server: Option<Microsoft365AuthServerConfig>,
     /// Access Token
-    access_token: Option<AccessToken>
+    access_token: Option<AccessToken>,
+    /// MAIL API Client
+    mail_api_client: Option<MsftGraphApiEmail>,
+    batch_size: usize,
+    progress: Option<ProgressBar>,
 }
 
 impl MicrosoftImapResource {
-    pub fn new(id: &str, secret: &str, mode: TokenGenerationMethod) -> Self {
+    pub fn new(id: &str, secret: &str, mode: TokenGenerationMethod, config: &ImapConfig) -> Self {
         MicrosoftImapResource {
             client_id: id.to_string(),
             client_secret: secret.to_string(),
@@ -70,6 +77,13 @@ impl MicrosoftImapResource {
             mode,
             auth_server: None,
             access_token: None,
+            mail_api_client: None,
+            batch_size: config.batch_size as usize,
+            progress: if config.progress {
+                Some(ProgressBar::new_spinner())
+            } else {
+                None
+            },
         }
     }
 
@@ -84,10 +98,6 @@ impl MicrosoftImapResource {
     ) -> &mut MicrosoftImapResource {
         self.auth_server = config;
         self
-    }
-
-    fn access_token(&mut self, token: AccessToken) {
-        self.access_token = Some(token);
     }
 
     fn oauth_client(&self) -> OAuth {
@@ -121,71 +131,114 @@ impl MicrosoftImapResource {
                 oauth.authorize_url(
                     "https://login.microsoftonline.com/common/oauth2/v2.0/devicecode",
                 );
-            }
-            TokenGenerationMethod::ClientCredential => {
-                let server_config = self.auth_server.as_ref().unwrap();
-                println!("{server_config:#?}");
-                oauth
-                    .add_scope("https://graph.microsoft.com/.default")
-                    .redirect_uri(&format!("{}{}", server_config.addr, server_config.base_url))
-                    .authorize_url("https://login.microsoftonline.com/common/adminconsent");
-            }
+            } // TokenGenerationMethod::ClientCredential => {
+              //     let server_config = self.auth_server.as_ref().unwrap();
+              //     println!("{server_config:#?}");
+              //     oauth
+              //         .add_scope("https://graph.microsoft.com/.default")
+              //         .redirect_uri(&format!("{}{}", server_config.addr, server_config.base_url))
+              //         .authorize_url("https://login.microsoftonline.com/common/adminconsent");
+              // }
         };
         oauth
     }
 }
 
+#[async_trait]
 impl ImapResource for MicrosoftImapResource {
-    fn init(&mut self) -> anyhow::Result<()> {
+    async fn init(&mut self) -> anyhow::Result<()> {
         let access_token = match self.mode {
             TokenGenerationMethod::AuthCode => {
-                let (tx, mut rx) = mpsc::channel::<AccessToken>();
-    
-                let config_clone = msft_365_config.clone();
-                tokio::spawn(async move {
-                    auth_code::init_server(config_clone, tx).await;
-                });
-    
-                rx.recv()
-                    .ok_or_else(|| anyhow!("Failed to receive access token"))?
+                if let Some(auth_server) = &self.auth_server {
+                    let (tx, mut rx) = mpsc::channel::<AccessToken>(32);
+                    let client = self.oauth_client();
+                    let auth_server = auth_server.clone();
+
+                    tokio::spawn(async move {
+                        auth_code::init_server(client, tx, auth_server.port).await;
+                    });
+
+                    rx.recv()
+                        .await
+                        .ok_or_else(|| anyhow!("Failed to receive access token"))?
+                } else {
+                    return Err(anyhow!("Server config absent"));
+                }
             }
-            TokenGenerationMethod::ClientCredential => {
-                let (tx, mut rx) = mpsc::channel::<AccessToken>();
-    
-                let config_clone = msft_365_config.clone();
-                tokio::spawn(async move {
-                    client_credential::init_server(config_clone, tx).await;
-                });
-    
-                rx.recv()
+            // TokenGenerationMethod::ClientCredential => {
+            //     let (tx, mut rx) = mpsc::channel::<AccessToken>(32);
+
+            //     let config_clone = msft_365_config.clone();
+            //     tokio::spawn(async move {
+            //         client_credential::init_server(config_clone, tx).await;
+            //     });
+
+            //     rx.recv()
+            //         .await
+            //         .ok_or_else(|| anyhow!("Failed to receive access token"))?
+            // }
+            TokenGenerationMethod::DeviceCode => {
+                device_code::init(Arc::new(Mutex::new(self.oauth_client())))
                     .await
-                    .ok_or_else(|| anyhow!("Failed to receive access token"))?
+                    .map_err(|err| anyhow!("{err}"))?
             }
-            TokenGenerationMethod::DeviceCode => device_code::init(msft_365_config)
-                .await
-                .map_err(|err| anyhow!("{err}"))?,
         };
+
+        self.mail_api_client = Some(MsftGraphApiEmail::new(&access_token));
+        self.access_token = Some(access_token);
+
         Ok(())
     }
 
     fn username(&mut self) -> String {
-        todo!()
+        self.client_id.to_string()
     }
 
-    fn folders(&mut self) -> anyhow::Result<Vec<String>> {
-        todo!()
+    async fn folders(&mut self) -> anyhow::Result<Vec<String>> {
+        let client = self
+            .mail_api_client
+            .as_ref()
+            .expect("Msft API client should be present");
+        client.folders().await
     }
 
-    fn specified_folders(&mut self, folder_pattern: &str) -> anyhow::Result<Vec<Folder>> {
-        todo!()
+    async fn specified_folders(&mut self, folder_pattern: &str) -> anyhow::Result<Vec<Folder>> {
+        let client = self
+            .mail_api_client
+            .as_ref()
+            .expect("Msft API client should be present");
+        client.specified_folders(folder_pattern).await
     }
 
-    fn process_messages_in_folder(&mut self, folder: &mut Folder) -> anyhow::Result<()> {
-        todo!()
+    async fn process_messages_in_folder(&mut self, folder: &mut Folder) -> anyhow::Result<()> {
+        let client = self
+            .mail_api_client
+            .as_ref()
+            .expect("Email client should be present");
+        let folder_name = folder.name.replace(' ', "");
+        let mut all_messages = Vec::new();
+        let mut skip_count = 0;
+
+        loop {
+            let batch_size = std::cmp::min(self.batch_size, 1000);
+            let messages = client
+                .messages(&folder_name, batch_size, skip_count)
+                .await?;
+            if messages.is_empty() {
+                break;
+            }
+            all_messages.extend(messages);
+
+            // Update skip_count for the next batch
+            skip_count += batch_size;
+        }
+        folder.messages(all_messages);
+
+        Ok(())
     }
 
     fn progress(&mut self) -> bool {
-        todo!()
+        self.progress.is_some()
     }
 }
 
@@ -205,13 +258,12 @@ pub struct Microsoft365Config {
     pub auth_server: Option<Microsoft365AuthServerConfig>,
 }
 
-pub async fn retrieve_emails(
-    msft_365_config: &Microsoft365Config,
-    imap_config: &mut ImapConfig,
-    elaboration: &mut ImapElaboration,
-) -> anyhow::Result<Vec<Folder>> {
-    
-    emails::fetch_emails_from_graph_api(&access_token, imap_config, elaboration)
-        .await
-        .with_context(|| "[ingest_imap]: microsoft_365. Failed to fetch emails from graph api")
-}
+// pub async fn retrieve_emails(
+//     msft_365_config: &Microsoft365Config,
+//     imap_config: &mut ImapConfig,
+//     elaboration: &mut ImapElaboration,
+// ) -> anyhow::Result<Vec<Folder>> {
+//     emails::fetch_emails_from_graph_api(&access_token, imap_config, elaboration)
+//         .await
+//         .with_context(|| "[ingest_imap]: microsoft_365. Failed to fetch emails from graph api")
+// }
